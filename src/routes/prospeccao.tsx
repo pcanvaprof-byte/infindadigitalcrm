@@ -577,7 +577,46 @@ function ProspeccaoPage() {
 
 
   const clearFilters = () => {
-    setStatusFilter("all"); setSegmentFilter("all"); setStateFilter("all"); setPotentialFilter("all"); setSearch("");
+    setStatusFilter("all"); setSegmentFilter("all"); setStateFilter("all"); setPotentialFilter("all"); setSearch(""); setOnlyWithContact(false);
+  };
+
+  const bulkEnrich = async () => {
+    const ids = Array.from(selected);
+    const targets = prospects.filter((p) => ids.includes(p.id) && p.cnpj && p.cnpj.replace(/\D/g, "").length === 14);
+    if (!targets.length) {
+      toast.error("Selecione empresas com CNPJ válido (14 dígitos).");
+      return;
+    }
+    setBulkEnriching(true);
+    let ok = 0, fail = 0, contatosNovos = 0;
+    const tid = toast.loading(`Enriquecendo 0/${targets.length}…`);
+    for (let i = 0; i < targets.length; i++) {
+      const p = targets[i];
+      try {
+        const r = await runEnrichment(p.cnpj!, { prospectId: p.id });
+        const patch: Partial<Prospect> = {};
+        const tel = r.profile.telefone_1 ?? r.profile.telefone_2;
+        if (!p.whatsapp && tel) patch.whatsapp = tel;
+        if (!p.phone && r.profile.telefone_2 && r.profile.telefone_2 !== patch.whatsapp) patch.phone = r.profile.telefone_2;
+        if (!p.email && r.profile.email) patch.email = r.profile.email;
+        if (Object.keys(patch).length) {
+          await updateProspect(p.id, patch);
+          contatosNovos++;
+          setProspects((prev) => prev.map((x) => (x.id === p.id ? { ...x, ...patch } : x)));
+        }
+        ok++;
+      } catch {
+        fail++;
+      }
+      toast.loading(`Enriquecendo ${i + 1}/${targets.length}…`, { id: tid });
+      // pequena pausa para respeitar limites das APIs públicas (BrasilAPI / Nominatim)
+      await new Promise((res) => setTimeout(res, 800));
+    }
+    toast.success(
+      `Enriquecimento concluído: ${ok} ok, ${fail} falhas, ${contatosNovos} contato(s) preenchido(s).`,
+      { id: tid, duration: 8000 },
+    );
+    setBulkEnriching(false);
   };
 
   const selCount = selected.size;
