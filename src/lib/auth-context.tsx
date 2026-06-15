@@ -15,9 +15,13 @@ interface AuthCtx {
 
 const Ctx = createContext<AuthCtx | null>(null);
 
-function fromSupabaseUser(user: { email?: string | null; user_metadata?: Record<string, unknown> }): MockUser {
+function fromSupabaseUser(user: {
+  email?: string | null;
+  user_metadata?: Record<string, unknown>;
+}): MockUser {
   const email = user.email ?? "";
-  const rawName = user.user_metadata?.name ?? user.user_metadata?.full_name ?? email.split("@")[0] ?? "Usuário";
+  const rawName =
+    user.user_metadata?.name ?? user.user_metadata?.full_name ?? email.split("@")[0] ?? "Usuário";
   const rawRole = user.user_metadata?.role;
   return {
     name: String(rawName || "Usuário"),
@@ -45,10 +49,17 @@ async function ensureSupabaseSession(
 
   const msg = signInError?.message ?? "Falha desconhecida";
   if (/rate limit/i.test(msg)) {
-    return { ok: false, error: "Muitas tentativas em pouco tempo. Aguarde ~1 min e tente novamente." };
+    return {
+      ok: false,
+      error: "Muitas tentativas em pouco tempo. Aguarde ~1 min e tente novamente.",
+    };
   }
   if (/email not confirmed/i.test(msg)) {
-    return { ok: false, error: "Conta sem e-mail confirmado no Supabase. Confirme o e-mail do usuário no painel Authentication." };
+    return {
+      ok: false,
+      error:
+        "Conta sem e-mail confirmado no Supabase. Confirme o e-mail do usuário no painel Authentication.",
+    };
   }
   return { ok: false, error: `Falha no Supabase: ${msg}` };
 }
@@ -81,8 +92,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase.auth.signInWithPassword({ email: e, password });
     if (error || !data.user) {
       const msg = error?.message ?? "Falha desconhecida";
-      if (/rate limit/i.test(msg)) return { ok: false, error: "Muitas tentativas em pouco tempo. Aguarde ~1 min e tente novamente." };
-      if (/email not confirmed/i.test(msg)) return { ok: false, error: "Conta sem e-mail confirmado no Supabase. Confirme o e-mail do usuário no painel Authentication." };
+      if (/rate limit/i.test(msg)) {
+        return {
+          ok: false,
+          error: "Muitas tentativas em pouco tempo. Aguarde ~1 min e tente novamente.",
+        };
+      }
+      if (/email not confirmed/i.test(msg)) {
+        return {
+          ok: false,
+          error:
+            "Conta sem e-mail confirmado no Supabase. Confirme o e-mail do usuário no painel Authentication.",
+        };
+      }
       return { ok: false, error: `Falha no Supabase: ${msg}` };
     }
     setUser(fromSupabaseUser(data.user));
