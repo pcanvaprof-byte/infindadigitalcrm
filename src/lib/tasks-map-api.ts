@@ -22,15 +22,17 @@ export interface MapPoint {
 }
 
 type ProfileRow = {
+  id: string;
   cnpj: string;
   razao_social: string | null;
   nome_fantasia: string | null;
-  company_addresses: {
-    logradouro: string | null; numero: string | null; bairro: string | null;
-    cidade: string | null; uf: string | null; cep: string | null;
-  }[] | null;
-  company_locations: { lat: number | null; lon: number | null }[] | null;
 };
+type AddrRow = {
+  profile_id: string;
+  logradouro: string | null; numero: string | null; bairro: string | null;
+  cidade: string | null; uf: string | null; cep: string | null;
+};
+type LocRow = { profile_id: string; lat: number | null; lon: number | null };
 
 type ProspectRow = {
   cnpj: string | null; company: string; whatsapp: string | null;
@@ -44,18 +46,23 @@ export async function loadMapPoints(): Promise<MapPoint[]> {
   if (!uid) return [];
 
   const [profilesRes, prospectsRes] = await Promise.all([
-    db
-      .from("company_profiles")
-      .select("cnpj,razao_social,nome_fantasia,company_addresses(logradouro,numero,bairro,cidade,uf,cep),company_locations(lat,lon)")
-      .eq("user_id", uid),
-    db
-      .from("prospects")
-      .select("cnpj,company,whatsapp,phone,email,status,potential,city,state")
-      .eq("user_id", uid),
+    db.from("company_profiles").select("id,cnpj,razao_social,nome_fantasia").eq("user_id", uid),
+    db.from("prospects").select("cnpj,company,whatsapp,phone,email,status,potential,city,state").eq("user_id", uid),
   ]);
-
-  const profiles = (profilesRes.data ?? []) as unknown as ProfileRow[];
+  const profiles = (profilesRes.data ?? []) as ProfileRow[];
   const prospects = (prospectsRes.data ?? []) as unknown as ProspectRow[];
+  const profileIds = profiles.map((p) => p.id);
+
+  const [addrRes, locRes] = profileIds.length
+    ? await Promise.all([
+        db.from("company_addresses").select("profile_id,logradouro,numero,bairro,cidade,uf,cep").in("profile_id", profileIds),
+        db.from("company_locations").select("profile_id,lat,lon").in("profile_id", profileIds),
+      ])
+    : [{ data: [] }, { data: [] }];
+  const addrByProf = new Map<string, AddrRow>();
+  for (const a of (addrRes.data ?? []) as AddrRow[]) addrByProf.set(a.profile_id, a);
+  const locByProf = new Map<string, LocRow>();
+  for (const l of (locRes.data ?? []) as LocRow[]) locByProf.set(l.profile_id, l);
 
   const profByCnpj = new Map<string, ProfileRow>();
   for (const p of profiles) if (p.cnpj) profByCnpj.set(p.cnpj.replace(/\D/g, ""), p);
@@ -65,8 +72,8 @@ export async function loadMapPoints(): Promise<MapPoint[]> {
     .map((p): MapPoint => {
       const clean = p.cnpj!.replace(/\D/g, "");
       const prof = profByCnpj.get(clean);
-      const addr = prof?.company_addresses?.[0];
-      const loc = prof?.company_locations?.[0];
+      const addr = prof ? addrByProf.get(prof.id) : undefined;
+      const loc = prof ? locByProf.get(prof.id) : undefined;
       return {
         cnpj: clean,
         company: prof?.nome_fantasia || prof?.razao_social || p.company,
