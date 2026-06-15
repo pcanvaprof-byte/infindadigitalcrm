@@ -1,15 +1,14 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { Navigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { SEED_ACCOUNTS, type AccountSeed, type MockUser, type Role } from "@/lib/mvp-accounts";
+import type { MockUser, Role } from "@/lib/mvp-accounts";
 
-export { SEED_ACCOUNTS, type AccountSeed, type MockUser, type Role };
+export type { MockUser, Role };
 
 interface AuthCtx {
   user: MockUser | null;
   isReady: boolean;
   login: (email: string, password: string) => Promise<{ ok: true } | { ok: false; error: string }>;
-  loginAs: (user: MockUser) => Promise<{ ok: true } | { ok: false; error: string }>;
   logout: () => Promise<void>;
 }
 
@@ -28,40 +27,6 @@ function fromSupabaseUser(user: {
     email,
     role: rawRole === "admin" || rawRole === "consultor" ? rawRole : "consultor",
   };
-}
-
-/**
- * Garante uma sessão no Supabase existente para que as RLS policies (auth.uid()) funcionem.
- */
-async function ensureSupabaseSession(
-  seed: AccountSeed,
-): Promise<{ ok: true; user: MockUser } | { ok: false; error: string }> {
-  const { data: existing } = await supabase.auth.getSession();
-  if (existing.session?.user.email?.toLowerCase() === seed.email.toLowerCase()) {
-    return { ok: true, user: fromSupabaseUser(existing.session.user) };
-  }
-
-  const { data: signIn, error: signInError } = await supabase.auth.signInWithPassword({
-    email: seed.email,
-    password: seed.password,
-  });
-  if (signIn?.session?.user) return { ok: true, user: fromSupabaseUser(signIn.session.user) };
-
-  const msg = signInError?.message ?? "Falha desconhecida";
-  if (/rate limit/i.test(msg)) {
-    return {
-      ok: false,
-      error: "Muitas tentativas em pouco tempo. Aguarde ~1 min e tente novamente.",
-    };
-  }
-  if (/email not confirmed/i.test(msg)) {
-    return {
-      ok: false,
-      error:
-        "Conta sem e-mail confirmado no Supabase. Confirme o e-mail do usuário no painel Authentication.",
-    };
-  }
-  return { ok: false, error: `Falha no Supabase: ${msg}` };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -112,23 +77,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { ok: true };
   };
 
-  const loginAs: AuthCtx["loginAs"] = async (u) => {
-    const seed = SEED_ACCOUNTS.find((a) => a.email.toLowerCase() === u.email.toLowerCase());
-    if (!seed) return { ok: false, error: "Conta de acesso rápido inválida." };
-    const session = await ensureSupabaseSession(seed);
-    if (!session.ok) return { ok: false, error: session.error };
-    setUser(session.user);
-    setIsReady(true);
-    return { ok: true };
-  };
-
   const logout = async () => {
     setUser(null);
     setIsReady(true);
     await supabase.auth.signOut();
   };
 
-  return <Ctx.Provider value={{ user, isReady, login, loginAs, logout }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, isReady, login, logout }}>{children}</Ctx.Provider>;
 }
 
 export function AuthLoadingScreen() {

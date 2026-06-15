@@ -1,12 +1,12 @@
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { AuthLoadingScreen, useAuth, SEED_ACCOUNTS } from "@/lib/auth-context";
+import { AuthLoadingScreen, useAuth } from "@/lib/auth-context";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Sparkles, ShieldCheck, BarChart3, ShieldUser, UserRound } from "lucide-react";
+import { Sparkles, ShieldCheck, BarChart3 } from "lucide-react";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -19,31 +19,27 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const { user, isReady, login, loginAs } = useAuth();
+  const { user, isReady, login } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await login(email, password);
-    if (!res.ok) {
-      toast.error(res.error);
-      return;
+    if (submitting) return;
+    setSubmitting(true);
+    try {
+      const res = await login(email, password);
+      if (!res.ok) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success("Bem-vindo de volta!");
+      navigate({ to: "/dashboard", replace: true });
+    } finally {
+      setSubmitting(false);
     }
-    toast.success("Bem-vindo de volta!");
-    navigate({ to: "/dashboard", replace: true });
-  };
-
-  const quickLogin = async (idx: number) => {
-    const a = SEED_ACCOUNTS[idx];
-    const res = await loginAs({ name: a.name, email: a.email, role: a.role });
-    if (!res.ok) {
-      toast.error(res.error);
-      return;
-    }
-    toast.success(`Entrando como ${a.name}…`);
-    navigate({ to: "/dashboard", replace: true });
   };
 
   if (!isReady) return <AuthLoadingScreen />;
@@ -119,53 +115,10 @@ function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
-            <Button type="submit" className="btn-gradient h-11 w-full text-sm font-semibold">
-              Entrar na plataforma
+            <Button type="submit" disabled={submitting} className="btn-gradient h-11 w-full text-sm font-semibold">
+              {submitting ? "Entrando…" : "Entrar na plataforma"}
             </Button>
           </form>
-
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-border" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-background px-2 text-[10px] uppercase tracking-wider text-muted-foreground">
-                Acesso rápido (MVP)
-              </span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 justify-start gap-3 text-sm"
-              onClick={() => quickLogin(0)}
-            >
-              <ShieldUser className="h-4 w-4 text-primary-glow" />
-              <div className="flex flex-col items-start leading-tight">
-                <span className="font-semibold">Danielly</span>
-                <span className="text-[11px] text-muted-foreground">Administradora</span>
-              </div>
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-11 justify-start gap-3 text-sm"
-              onClick={() => quickLogin(1)}
-            >
-              <UserRound className="h-4 w-4 text-primary-glow" />
-              <div className="flex flex-col items-start leading-tight">
-                <span className="font-semibold">Valdinei</span>
-                <span className="text-[11px] text-muted-foreground">Consultor Comercial</span>
-              </div>
-            </Button>
-          </div>
-
-          <p className="mt-6 text-center text-[11px] text-muted-foreground">
-            Credenciais: <span className="font-mono">danielly@infinda.com / danielly123</span> ·{" "}
-            <span className="font-mono">valdinei@infinda.com / valdinei123</span>
-          </p>
         </div>
       </div>
     </div>
