@@ -1,7 +1,7 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { useAuth } from "@/lib/auth-context";
+import { RequireAuth, useRequiredUser } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { INITIAL_DEALS, STAGES, type Deal, type PipelineStage } from "@/lib/mock-crm";
@@ -23,7 +23,11 @@ export const Route = createFileRoute("/crm")({
   head: () => ({
     meta: [{ title: "CRM Comercial — INFINDA" }],
   }),
-  component: CrmPage,
+  component: () => (
+    <RequireAuth>
+      <CrmPage />
+    </RequireAuth>
+  ),
 });
 
 const brl = (n: number) =>
@@ -119,7 +123,7 @@ function StageColumn({
 }
 
 function CrmPage() {
-  const { user } = useAuth();
+  const user = useRequiredUser();
   const [deals, setDeals] = useState<Deal[]>(INITIAL_DEALS);
   const [query, setQuery] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -143,8 +147,6 @@ function CrmPage() {
     filtered.forEach((d) => map.get(d.stage)?.push(d));
     return map;
   }, [filtered]);
-
-  if (!user) return <Navigate to="/login" replace />;
 
   const handleDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id));
   const handleDragEnd = (e: DragEndEvent) => {

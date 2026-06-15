@@ -1,6 +1,6 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { useAuth } from "@/lib/auth-context";
+import { RequireAuth, useRequiredUser } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -21,7 +21,11 @@ export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [{ title: "Dashboard — INFINDA" }],
   }),
-  component: DashboardPage,
+  component: () => (
+    <RequireAuth>
+      <DashboardPage />
+    </RequireAuth>
+  ),
 });
 
 // Metas (targets) preservadas — valores reais zerados até integração real
@@ -97,8 +101,7 @@ function EmptyPanel({
 }
 
 function DashboardPage() {
-  const { user } = useAuth();
-  if (!user) return <Navigate to="/login" replace />;
+  const user = useRequiredUser();
 
   const isAdmin = user.role === "admin";
   const subtitle = isAdmin

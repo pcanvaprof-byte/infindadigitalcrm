@@ -1,7 +1,7 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { useAuth } from "@/lib/auth-context";
+import { RequireAuth, useRequiredUser } from "@/lib/auth-context";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -34,7 +34,11 @@ import {
 
 export const Route = createFileRoute("/metas")({
   head: () => ({ meta: [{ title: "Metas — INFINDA" }] }),
-  component: MetasPage,
+  component: () => (
+    <RequireAuth>
+      <MetasPage />
+    </RequireAuth>
+  ),
 });
 
 type Metric = {
@@ -247,11 +251,9 @@ function RankingTable({ rows, kind }: { rows: Ranked[]; kind: "sdr" | "consultor
 }
 
 function MetasPage() {
-  const { user } = useAuth();
+  const user = useRequiredUser();
   const [scope, setScope] = useState<"me" | "team">("me");
   const [period, setPeriod] = useState<"daily" | "weekly">("daily");
-
-  if (!user) return <Navigate to="/login" replace />;
 
   const isAdmin = user.role === "admin";
   const metrics = scope === "me" ? MY_METRICS : TEAM_METRICS;

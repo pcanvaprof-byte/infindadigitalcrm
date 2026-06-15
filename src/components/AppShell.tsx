@@ -187,9 +187,9 @@ export function AppShell({ children, title, subtitle, actions }: {
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onClick={() => {
-                    logout();
-                    navigate({ to: "/login" });
+                  onClick={async () => {
+                    await logout();
+                    navigate({ to: "/login", replace: true });
                   }}
                 >
                   <LogOut className="mr-2 h-4 w-4" /> Sair
