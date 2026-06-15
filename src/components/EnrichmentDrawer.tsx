@@ -4,10 +4,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Sparkles, MapPin, Building2, Activity, Flame, CheckCircle2, AlertCircle, Loader2, Circle } from "lucide-react";
+import { Sparkles, MapPin, Building2, Activity, Flame, CheckCircle2, AlertCircle, Loader2, Circle, Phone, Mail, Footprints, Copy, ExternalLink } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { runEnrichment, loadExistingEnrichment, STEPS, type StepEvent } from "@/lib/enrichment/api";
-import type { EnrichmentResult } from "@/lib/enrichment/types";
+import { runEnrichment, loadExistingEnrichment, addVisit, listVisits, STEPS, type StepEvent } from "@/lib/enrichment/api";
+import type { EnrichmentResult, CompanyVisit } from "@/lib/enrichment/types";
 import { CLASS_TONE } from "@/lib/enrichment/score";
 
 interface Props {
@@ -103,15 +106,20 @@ export function EnrichmentDrawer({ open, onOpenChange, cnpj, prospectId, company
           </div>
         ) : (
           <Tabs defaultValue="perfil" className="mt-5">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-6">
               <TabsTrigger value="perfil"><Building2 className="mr-1 h-3.5 w-3.5" />Perfil</TabsTrigger>
+              <TabsTrigger value="contato"><Phone className="mr-1 h-3.5 w-3.5" />Contato</TabsTrigger>
               <TabsTrigger value="local"><MapPin className="mr-1 h-3.5 w-3.5" />Local</TabsTrigger>
               <TabsTrigger value="ind"><Activity className="mr-1 h-3.5 w-3.5" />Indicadores</TabsTrigger>
               <TabsTrigger value="score"><Flame className="mr-1 h-3.5 w-3.5" />Score</TabsTrigger>
+              <TabsTrigger value="pap"><Footprints className="mr-1 h-3.5 w-3.5" />Visitas</TabsTrigger>
             </TabsList>
 
             <TabsContent value="perfil" className="mt-4">
               <PerfilTab r={result} />
+            </TabsContent>
+            <TabsContent value="contato" className="mt-4">
+              <ContatoTab r={result} />
             </TabsContent>
             <TabsContent value="local" className="mt-4">
               <LocalTab r={result} />
@@ -121,6 +129,9 @@ export function EnrichmentDrawer({ open, onOpenChange, cnpj, prospectId, company
             </TabsContent>
             <TabsContent value="score" className="mt-4">
               <ScoreTab r={result} />
+            </TabsContent>
+            <TabsContent value="pap" className="mt-4">
+              <VisitasTab r={result} prospectId={prospectId} onChange={(visits) => setResult((cur) => cur ? { ...cur, visits } : cur)} />
             </TabsContent>
           </Tabs>
         )}
