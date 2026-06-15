@@ -124,10 +124,24 @@ function formatBrPhone(raw: string): string {
 function isMobile(raw: string): boolean {
   const d = onlyDigits(raw);
   const n = d.length >= 12 && d.startsWith("55") ? d.slice(2) : d;
-  return n.length === 11 && n[2] === "9";
+  // 11 dígitos novo padrão (DDD + 9XXXXXXXX) ou 10 dígitos legado (DDD + 9XXXXXXX)
+  return (n.length === 11 && n[2] === "9") || (n.length === 10 && n[2] === "9");
 }
 function toTitleCase(s: string): string {
   return s.toLowerCase().replace(/(^|\s|[\/\-])([a-zà-ú])/g, (_, p, c) => p + c.toUpperCase());
+}
+
+// "DENISE NUNES ***918940**; Sócio-Administrador" -> "Denise Nunes"
+// Também trata múltiplos sócios separados por ";" pegando apenas o primeiro.
+function cleanQuadroSocietario(raw: string): string {
+  if (!raw) return "";
+  const first = raw.split(/(?<=\*\*)\s*;|\n/)[0] || raw;
+  const name = first
+    .replace(/\*{2,}\d+\*{2,}/g, "")  // máscara de CPF ***918940**
+    .replace(/;.*$/, "")               // remove cargo após ;
+    .replace(/\s{2,}/g, " ")
+    .trim();
+  return name ? toTitleCase(name) : "";
 }
 
 const UF_NAME_TO_CODE: Record<string, string> = {
