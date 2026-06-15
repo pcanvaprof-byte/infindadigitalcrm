@@ -1,8 +1,8 @@
-import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AppShell } from "@/components/AppShell";
-import { useAuth } from "@/lib/auth-context";
+import { RequireAuth, useRequiredUser } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -91,7 +91,11 @@ import { History, FileSpreadsheet } from "lucide-react";
 
 export const Route = createFileRoute("/prospeccao")({
   head: () => ({ meta: [{ title: "Prospecção — INFINDA" }] }),
-  component: ProspeccaoPage,
+  component: () => (
+    <RequireAuth>
+      <ProspeccaoPage />
+    </RequireAuth>
+  ),
 });
 
 const STATUSES: ProspectStatus[] = [
@@ -219,7 +223,7 @@ const EMPTY_FORM: Omit<Prospect, "id" | "createdAt"> = {
 const newId = (prefix = "p") => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
 function ProspeccaoPage() {
-  const { user } = useAuth();
+  const user = useRequiredUser();
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -235,7 +239,7 @@ function ProspeccaoPage() {
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ ...EMPTY_FORM, owner: user?.name ?? "" });
+  const [form, setForm] = useState({ ...EMPTY_FORM, owner: user.name });
   const [detailId, setDetailId] = useState<string | null>(null);
 
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -252,9 +256,6 @@ function ProspeccaoPage() {
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [user]);
-
-  if (!user) return <Navigate to="/login" replace />;
-
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
