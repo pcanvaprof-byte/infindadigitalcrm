@@ -52,6 +52,33 @@ export async function fetchCnpj(
   const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${clean}`);
   if (!res.ok) throw new Error(`BrasilAPI ${res.status}`);
   const data = (await res.json()) as BrasilApiResponse;
+
+  // Fallback: BrasilAPI frequentemente retorna telefone/email vazios.
+  // publica.cnpj.ws (espelho da base da Receita) costuma trazer esses dados.
+  let tel1 = formatPhone(data.ddd_telefone_1);
+  let tel2 = formatPhone(data.ddd_telefone_2);
+  let email = data.email?.toLowerCase();
+  if (!tel1 || !email) {
+    try {
+      const r2 = await fetch(`https://publica.cnpj.ws/cnpj/${clean}`);
+      if (r2.ok) {
+        const d2 = (await r2.json()) as {
+          estabelecimento?: {
+            ddd1?: string; telefone1?: string;
+            ddd2?: string; telefone2?: string;
+            email?: string;
+          };
+        };
+        const est = d2.estabelecimento ?? {};
+        if (!tel1 && est.ddd1 && est.telefone1) tel1 = formatPhone(est.ddd1 + est.telefone1);
+        if (!tel2 && est.ddd2 && est.telefone2) tel2 = formatPhone(est.ddd2 + est.telefone2);
+        if (!email && est.email) email = est.email.toLowerCase();
+      }
+    } catch {
+      /* mantém os dados da BrasilAPI */
+    }
+  }
+
   return {
     profile: {
       cnpj: clean,
@@ -72,9 +99,9 @@ export async function fetchCnpj(
         nome: s.nome_socio,
         qualificacao: s.qualificacao_socio,
       })),
-      telefone_1: formatPhone(data.ddd_telefone_1),
-      telefone_2: formatPhone(data.ddd_telefone_2),
-      email: data.email?.toLowerCase(),
+      telefone_1: tel1,
+      telefone_2: tel2,
+      email,
       raw: data,
     },
     address: {
