@@ -70,7 +70,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ? fromSupabaseUser(session.user) : null);
       setIsReady(true);
     });
-    return () => { alive = false; };
     return () => {
       alive = false;
       listener.subscription.unsubscribe();
