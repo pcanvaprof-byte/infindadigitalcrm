@@ -65,6 +65,9 @@ function fromRow(r: Row, ixs: IxRow[] = []): Prospect {
 }
 
 export async function loadAllProspects(): Promise<Prospect[]> {
+  const uid = await currentUserId();
+  if (!uid) return loadLocalProspects();
+
   const { data: rows, error } = await supabase
     .from("prospects")
     .select("*")
@@ -84,13 +87,67 @@ export async function loadAllProspects(): Promise<Prospect[]> {
 }
 
 async function currentUserId(): Promise<string | null> {
-  const { data } = await supabase.auth.getUser();
-  return data.user?.id ?? null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    return data.user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+const LOCAL_PROSPECTS_KEY = "infinda.prospects.local";
+const LOCAL_IMPORTS_KEY = "infinda.prospect-imports.local";
+
+function canUseLocalStorage() {
+  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+}
+
+function loadLocalProspects(): Prospect[] {
+  if (!canUseLocalStorage()) return [];
+  try {
+    const raw = window.localStorage.getItem(LOCAL_PROSPECTS_KEY);
+    return raw ? (JSON.parse(raw) as Prospect[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalProspects(rows: Prospect[]) {
+  if (!canUseLocalStorage()) return;
+  window.localStorage.setItem(LOCAL_PROSPECTS_KEY, JSON.stringify(rows));
+}
+
+function loadLocalImports(): ImportLog[] {
+  if (!canUseLocalStorage()) return [];
+  try {
+    const raw = window.localStorage.getItem(LOCAL_IMPORTS_KEY);
+    return raw ? (JSON.parse(raw) as ImportLog[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalImports(rows: ImportLog[]) {
+  if (!canUseLocalStorage()) return;
+  window.localStorage.setItem(LOCAL_IMPORTS_KEY, JSON.stringify(rows));
+}
+
+function localId(prefix = "p") {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export async function insertProspect(p: Omit<Prospect, "id" | "createdAt" | "interactions">) {
   const uid = await currentUserId();
-  if (!uid) throw new Error("Sessão expirou — entre novamente.");
+  if (!uid) {
+    const saved: Prospect = {
+      ...p,
+      id: localId(),
+      createdAt: new Date().toLocaleString("pt-BR"),
+      interactions: [],
+    };
+    saveLocalProspects([saved, ...loadLocalProspects()]);
+    return saved;
+  }
   const { data, error } = await supabase
     .from("prospects")
     .insert({
@@ -116,6 +173,11 @@ export async function insertProspect(p: Omit<Prospect, "id" | "createdAt" | "int
 }
 
 export async function updateProspect(id: string, patch: Partial<Prospect>) {
+  const uid = await currentUserId();
+  if (!uid) {
+    saveLocalProspects(loadLocalProspects().map((p) => (p.id === id ? { ...p, ...patch } : p)));
+    return;
+  }
   const map: Record<string, unknown> = {};
   if (patch.company !== undefined) map.company = patch.company;
   if (patch.cnpj !== undefined) map.cnpj = patch.cnpj || null;
@@ -136,6 +198,11 @@ export async function updateProspect(id: string, patch: Partial<Prospect>) {
 
 export async function deleteProspects(ids: string[]) {
   if (!ids.length) return;
+  const uid = await currentUserId();
+  if (!uid) {
+    saveLocalProspects(loadLocalProspects().filter((p) => !ids.includes(p.id)));
+    return;
+  }
   const { error } = await supabase.from("prospects").delete().in("id", ids);
   if (error) throw error;
 }
@@ -147,7 +214,21 @@ export async function addInteractionRemote(
   byName: string,
 ): Promise<Interaction | null> {
   const uid = await currentUserId();
-  if (!uid) return null;
+  if (!uid) {
+    const ix: Interaction = {
+      id: localId("ix"),
+      kind,
+      text,
+      by: byName,
+      at: new Date().toLocaleString("pt-BR"),
+    };
+    saveLocalProspects(
+      loadLocalProspects().map((p) =>
+        p.id === prospectId ? { ...p, interactions: [ix, ...(p.interactions ?? [])] } : p,
+      ),
+    );
+    return ix;
+  }
   const { data, error } = await supabase
     .from("prospect_interactions")
     .insert({ prospect_id: prospectId, user_id: uid, kind, text, by_name: byName })
@@ -191,9 +272,55 @@ export async function applyImport(
   existing: Prospect[],
 ): Promise<ImportResult> {
   const uid = await currentUserId();
-  if (!uid) throw new Error("Sessão expirou — entre novamente.");
-
   const result: ImportResult = { inserted: 0, updated: 0, skipped: 0, errors: [] };
+
+  if (!uid) {
+    const current = loadLocalProspects();
+    const byCnpjLocal = new Map<string, Prospect>();
+    for (const e of current) if (e.cnpj) byCnpjLocal.set(e.cnpj, e);
+    const next = [...current];
+    for (const r of rows) {
+      if (r.errors.length) {
+        result.errors.push({ row: r.rowIndex, message: r.errors.join(" | ") });
+        result.skipped++;
+        continue;
+      }
+      const cnpj = r.data.cnpj || "";
+      const match = cnpj ? byCnpjLocal.get(cnpj) : undefined;
+      if (match) {
+        const fields: (keyof Prospect)[] = [
+          "company", "segment", "owner", "whatsapp", "phone",
+          "email", "instagram", "city", "state", "source",
+        ];
+        const patch: Partial<Prospect> = {};
+        for (const f of fields) {
+          const existingVal = (match[f] ?? "") as string;
+          const newVal = (r.data[f as keyof typeof r.data] ?? "") as string;
+          if (!existingVal && newVal) (patch as Record<string, unknown>)[f] = newVal;
+        }
+        if (Object.keys(patch).length) {
+          const idx = next.findIndex((p) => p.id === match.id);
+          if (idx >= 0) next[idx] = { ...next[idx], ...patch };
+          result.updated++;
+        } else {
+          result.skipped++;
+        }
+      } else {
+        const saved: Prospect = {
+          ...r.data,
+          id: localId(),
+          createdAt: new Date().toLocaleString("pt-BR"),
+          interactions: [],
+        };
+        next.unshift(saved);
+        if (cnpj) byCnpjLocal.set(cnpj, saved);
+        result.inserted++;
+      }
+    }
+    saveLocalProspects(next);
+    return result;
+  }
+
   const byCnpj = new Map<string, Prospect>();
   for (const e of existing) if (e.cnpj) byCnpj.set(e.cnpj, e);
 
@@ -292,7 +419,22 @@ export async function logImport(meta: {
   result: ImportResult;
 }): Promise<void> {
   const uid = await currentUserId();
-  if (!uid) return;
+  if (!uid) {
+    const log: ImportLog = {
+      id: localId("imp"),
+      fileName: meta.fileName,
+      performedBy: meta.performedBy,
+      totalRows: meta.totalRows,
+      inserted: meta.result.inserted,
+      updated: meta.result.updated,
+      skipped: meta.result.skipped,
+      errorCount: meta.result.errors.length,
+      errors: meta.result.errors,
+      createdAt: new Date().toLocaleString("pt-BR"),
+    };
+    saveLocalImports([log, ...loadLocalImports()].slice(0, 50));
+    return;
+  }
   await supabase.from("prospect_imports").insert({
     user_id: uid,
     performed_by: meta.performedBy,
@@ -307,6 +449,8 @@ export async function logImport(meta: {
 }
 
 export async function listImports(): Promise<ImportLog[]> {
+  const uid = await currentUserId();
+  if (!uid) return loadLocalImports();
   const { data, error } = await supabase
     .from("prospect_imports")
     .select("*")
