@@ -12,6 +12,7 @@ import type {
   EnrichedLocation,
   MarketData,
   ScoreResult,
+  CompanyVisit,
 } from "./types";
 
 type StepStatus = "pending" | "running" | "done" | "error" | "skipped";
@@ -98,6 +99,9 @@ export async function loadExistingEnrichment(
       cnae_principal_desc: profile.cnae_principal_desc,
       cnaes_secundarios: profile.cnaes_secundarios ?? [],
       socios: profile.socios ?? [],
+      telefone_1: profile.telefone_1 ?? undefined,
+      telefone_2: profile.telefone_2 ?? undefined,
+      email: profile.email ?? undefined,
     },
     address: addr ? {
       cep: addr.cep, logradouro: addr.logradouro, numero: addr.numero,
@@ -118,7 +122,64 @@ export async function loadExistingEnrichment(
       classificacao: score.classificacao, breakdown: score.breakdown,
     } : computeScore({ cnpj: profile.cnpj }, null, null),
   };
+  result.visits = await listVisits(profile.id);
   return result;
+}
+
+export async function listVisits(profileId: string): Promise<CompanyVisit[]> {
+  const uid = await currentUserId();
+  if (!uid) return [];
+  const { data } = await db
+    .from("company_visits")
+    .select("*")
+    .eq("user_id", uid)
+    .eq("profile_id", profileId)
+    .order("visited_at", { ascending: false });
+  return (data ?? []) as CompanyVisit[];
+}
+
+export async function addVisit(input: {
+  cnpj: string;
+  prospectId?: string;
+  status: CompanyVisit["status"];
+  visited_at?: string;
+  endereco_snapshot?: string;
+  contato_nome?: string;
+  resultado?: string;
+  observacoes?: string;
+  lat?: number;
+  lon?: number;
+}): Promise<CompanyVisit | null> {
+  const uid = await currentUserId();
+  if (!uid) throw new Error("Sessão necessária para registrar visita.");
+  const clean = sanitizeCnpj(input.cnpj);
+  const { data: profile } = await db
+    .from("company_profiles")
+    .select("id")
+    .eq("user_id", uid)
+    .eq("cnpj", clean)
+    .maybeSingle();
+  const row = {
+    user_id: uid,
+    profile_id: profile?.id ?? null,
+    prospect_id: input.prospectId ?? null,
+    cnpj: clean,
+    status: input.status,
+    visited_at: input.visited_at ?? new Date().toISOString(),
+    endereco_snapshot: input.endereco_snapshot ?? null,
+    contato_nome: input.contato_nome ?? null,
+    resultado: input.resultado ?? null,
+    observacoes: input.observacoes ?? null,
+    lat: input.lat ?? null,
+    lon: input.lon ?? null,
+  };
+  const { data, error } = await db
+    .from("company_visits")
+    .insert(row)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as CompanyVisit;
 }
 
 export interface RunOptions {
@@ -203,6 +264,9 @@ export async function runEnrichment(
         cnae_principal_desc: profile.cnae_principal_desc ?? null,
         cnaes_secundarios: profile.cnaes_secundarios ?? [],
         socios: profile.socios ?? [],
+        telefone_1: profile.telefone_1 ?? null,
+        telefone_2: profile.telefone_2 ?? null,
+        email: profile.email ?? null,
         raw: profile.raw ?? null,
         updated_at: new Date().toISOString(),
       };
@@ -238,6 +302,8 @@ export async function runEnrichment(
       });
       await log(uid, profileId, profile.cnpj, "persist", "done");
       emit(opts, "persist", "done");
+      const visits = await listVisits(profileId);
+      return { profile, address, location, market, score, visits };
     } catch (e) {
       await log(uid, null, profile.cnpj, "persist", "error", (e as Error).message);
       emit(opts, "persist", "error", (e as Error).message);
