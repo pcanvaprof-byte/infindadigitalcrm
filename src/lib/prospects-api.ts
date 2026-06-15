@@ -305,23 +305,7 @@ export async function logImport(meta: {
   totalRows: number;
   result: ImportResult;
 }): Promise<void> {
-  const uid = await currentUserId();
-  if (!uid) {
-    const log: ImportLog = {
-      id: localId("imp"),
-      fileName: meta.fileName,
-      performedBy: meta.performedBy,
-      totalRows: meta.totalRows,
-      inserted: meta.result.inserted,
-      updated: meta.result.updated,
-      skipped: meta.result.skipped,
-      errorCount: meta.result.errors.length,
-      errors: meta.result.errors,
-      createdAt: new Date().toLocaleString("pt-BR"),
-    };
-    saveLocalImports([log, ...loadLocalImports()].slice(0, 50));
-    return;
-  }
+  const uid = await requireUserId();
   await supabase.from("prospect_imports").insert({
     user_id: uid,
     performed_by: meta.performedBy,
@@ -336,8 +320,7 @@ export async function logImport(meta: {
 }
 
 export async function listImports(): Promise<ImportLog[]> {
-  const uid = await currentUserId();
-  if (!uid) return loadLocalImports();
+  await requireUserId();
   const { data, error } = await supabase
     .from("prospect_imports")
     .select("*")
