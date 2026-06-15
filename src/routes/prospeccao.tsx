@@ -676,7 +676,7 @@ function ProspeccaoPage() {
             </Tabs>
             <Button variant="outline" className="h-10 text-xs" onClick={() => setShowFilters((s) => !s)}>
               <Filter className="mr-1.5 h-4 w-4" /> Filtros
-              {(statusFilter !== "all" || segmentFilter !== "all" || stateFilter !== "all" || potentialFilter !== "all") && (
+              {(statusFilter !== "all" || segmentFilter !== "all" || stateFilter !== "all" || potentialFilter !== "all" || onlyWithContact) && (
                 <span className="ml-2 rounded-full bg-primary/20 px-1.5 text-[10px] text-primary-glow">ativos</span>
               )}
             </Button>
@@ -716,6 +716,13 @@ function ProspeccaoPage() {
             <Button variant="ghost" onClick={clearFilters} className="h-10 text-xs">
               <X className="mr-1.5 h-4 w-4" /> Limpar filtros
             </Button>
+            <label className="col-span-full flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
+              <Checkbox
+                checked={onlyWithContact}
+                onCheckedChange={(v) => setOnlyWithContact(Boolean(v))}
+              />
+              Mostrar somente empresas com contato disponível (WhatsApp, telefone ou e-mail)
+            </label>
           </div>
         )}
       </section>
