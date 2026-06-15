@@ -1,40 +1,16 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { Navigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
+import { ensureMvpCloudUser } from "@/lib/auth.functions";
+import { SEED_ACCOUNTS, type AccountSeed, type MockUser, type Role } from "@/lib/mvp-accounts";
 
-export type Role = "admin" | "consultor";
-
-export interface MockUser {
-  name: string;
-  email: string;
-  role: Role;
-}
-
-export interface AccountSeed extends MockUser {
-  password: string;
-}
-
-// MVP: contas pré-cadastradas diretamente na ferramenta
-export const SEED_ACCOUNTS: AccountSeed[] = [
-  {
-    name: "Danielly",
-    email: "danielly@infinda.com",
-    password: "danielly123",
-    role: "admin",
-  },
-  {
-    name: "Valdinei",
-    email: "valdinei@infinda.com",
-    password: "valdinei123",
-    role: "consultor",
-  },
-];
+export { SEED_ACCOUNTS, type AccountSeed, type MockUser, type Role };
 
 interface AuthCtx {
   user: MockUser | null;
   isReady: boolean;
   login: (email: string, password: string) => Promise<{ ok: true } | { ok: false; error: string }>;
-  loginAs: (user: MockUser) => Promise<void>;
+  loginAs: (user: MockUser) => Promise<{ ok: true } | { ok: false; error: string }>;
   logout: () => Promise<void>;
 }
 
@@ -57,26 +33,17 @@ function readStoredUser(): MockUser | null {
  * Necessário para que as RLS policies (auth.uid()) funcionem.
  */
 async function ensureSupabaseSession(seed: AccountSeed) {
-  const { data: signIn, error: signInErr } = await supabase.auth.signInWithPassword({
+  const provision = await ensureMvpCloudUser({
+    data: { email: seed.email, password: seed.password },
+  });
+  if (!provision.ok) throw new Error(provision.error);
+
+  const { data: signIn, error } = await supabase.auth.signInWithPassword({
     email: seed.email,
     password: seed.password,
   });
   if (signIn?.session) return;
-
-  if (signInErr) {
-    const { error: signUpErr } = await supabase.auth.signUp({
-      email: seed.email,
-      password: seed.password,
-      options: {
-        data: { name: seed.name, role: seed.role },
-        emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
-      },
-    });
-    if (signUpErr && !/already|registered/i.test(signUpErr.message)) {
-      console.warn("[auth] supabase signUp falhou:", signUpErr.message);
-    }
-    await supabase.auth.signInWithPassword({ email: seed.email, password: seed.password });
-  }
+  throw new Error(error?.message ?? "Não foi possível iniciar a sessão.");
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -100,20 +67,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       (a) => a.email.toLowerCase() === e && a.password === password,
     );
     if (!found) return { ok: false, error: "Email ou senha inválidos." };
+    try {
+      await ensureSupabaseSession(found);
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : "Falha ao iniciar sessão." };
+    }
     const u: MockUser = { name: found.name, email: found.email, role: found.role };
     window.localStorage.setItem(KEY, JSON.stringify(u));
     setUser(u);
     setIsReady(true);
-    await ensureSupabaseSession(found);
     return { ok: true };
   };
 
   const loginAs: AuthCtx["loginAs"] = async (u) => {
+    const seed = SEED_ACCOUNTS.find((a) => a.email.toLowerCase() === u.email.toLowerCase());
+    if (!seed) return { ok: false, error: "Conta de acesso rápido inválida." };
+    try {
+      await ensureSupabaseSession(seed);
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : "Falha ao iniciar sessão." };
+    }
     window.localStorage.setItem(KEY, JSON.stringify(u));
     setUser(u);
     setIsReady(true);
-    const seed = SEED_ACCOUNTS.find((a) => a.email.toLowerCase() === u.email.toLowerCase());
-    if (seed) await ensureSupabaseSession(seed);
+    return { ok: true };
   };
 
   const logout = async () => {
