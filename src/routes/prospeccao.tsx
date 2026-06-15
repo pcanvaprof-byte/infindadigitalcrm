@@ -88,6 +88,8 @@ import {
 } from "@/lib/prospects-api";
 import { History, FileSpreadsheet } from "lucide-react";
 import { EnrichmentDrawer } from "@/components/EnrichmentDrawer";
+import { runEnrichment } from "@/lib/enrichment/api";
+import { Loader2 } from "lucide-react";
 
 
 export const Route = createFileRoute("/prospeccao")({
@@ -249,6 +251,8 @@ function ProspeccaoPage() {
   const [segmentFilter, setSegmentFilter] = useState<string>("all");
   const [stateFilter, setStateFilter] = useState<string>("all");
   const [potentialFilter, setPotentialFilter] = useState<ProspectPotential | "all">("all");
+  const [onlyWithContact, setOnlyWithContact] = useState(false);
+  const [bulkEnriching, setBulkEnriching] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [view, setView] = useState<"table" | "kanban">("table");
 
@@ -280,11 +284,19 @@ function ProspeccaoPage() {
       if (segmentFilter !== "all" && p.segment !== segmentFilter) return false;
       if (stateFilter !== "all" && p.state !== stateFilter) return false;
       if (potentialFilter !== "all" && p.potential !== potentialFilter) return false;
+      if (onlyWithContact) {
+        const hasContact = Boolean(
+          (p.whatsapp && p.whatsapp.trim()) ||
+          (p.phone && p.phone.trim()) ||
+          (p.email && p.email.trim()),
+        );
+        if (!hasContact) return false;
+      }
       if (!q) return true;
       return [p.company, p.segment, p.owner, p.email, p.whatsapp, p.phone, p.instagram, p.city, p.state, p.source]
         .join(" ").toLowerCase().includes(q);
     });
-  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter]);
+  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact]);
 
   const stats = useMemo(() => {
     const t = prospects.length;
@@ -565,7 +577,46 @@ function ProspeccaoPage() {
 
 
   const clearFilters = () => {
-    setStatusFilter("all"); setSegmentFilter("all"); setStateFilter("all"); setPotentialFilter("all"); setSearch("");
+    setStatusFilter("all"); setSegmentFilter("all"); setStateFilter("all"); setPotentialFilter("all"); setSearch(""); setOnlyWithContact(false);
+  };
+
+  const bulkEnrich = async () => {
+    const ids = Array.from(selected);
+    const targets = prospects.filter((p) => ids.includes(p.id) && p.cnpj && p.cnpj.replace(/\D/g, "").length === 14);
+    if (!targets.length) {
+      toast.error("Selecione empresas com CNPJ válido (14 dígitos).");
+      return;
+    }
+    setBulkEnriching(true);
+    let ok = 0, fail = 0, contatosNovos = 0;
+    const tid = toast.loading(`Enriquecendo 0/${targets.length}…`);
+    for (let i = 0; i < targets.length; i++) {
+      const p = targets[i];
+      try {
+        const r = await runEnrichment(p.cnpj!, { prospectId: p.id });
+        const patch: Partial<Prospect> = {};
+        const tel = r.profile.telefone_1 ?? r.profile.telefone_2;
+        if (!p.whatsapp && tel) patch.whatsapp = tel;
+        if (!p.phone && r.profile.telefone_2 && r.profile.telefone_2 !== patch.whatsapp) patch.phone = r.profile.telefone_2;
+        if (!p.email && r.profile.email) patch.email = r.profile.email;
+        if (Object.keys(patch).length) {
+          await updateProspect(p.id, patch);
+          contatosNovos++;
+          setProspects((prev) => prev.map((x) => (x.id === p.id ? { ...x, ...patch } : x)));
+        }
+        ok++;
+      } catch {
+        fail++;
+      }
+      toast.loading(`Enriquecendo ${i + 1}/${targets.length}…`, { id: tid });
+      // pequena pausa para respeitar limites das APIs públicas (BrasilAPI / Nominatim)
+      await new Promise((res) => setTimeout(res, 800));
+    }
+    toast.success(
+      `Enriquecimento concluído: ${ok} ok, ${fail} falhas, ${contatosNovos} contato(s) preenchido(s).`,
+      { id: tid, duration: 8000 },
+    );
+    setBulkEnriching(false);
   };
 
   const selCount = selected.size;
@@ -625,7 +676,7 @@ function ProspeccaoPage() {
             </Tabs>
             <Button variant="outline" className="h-10 text-xs" onClick={() => setShowFilters((s) => !s)}>
               <Filter className="mr-1.5 h-4 w-4" /> Filtros
-              {(statusFilter !== "all" || segmentFilter !== "all" || stateFilter !== "all" || potentialFilter !== "all") && (
+              {(statusFilter !== "all" || segmentFilter !== "all" || stateFilter !== "all" || potentialFilter !== "all" || onlyWithContact) && (
                 <span className="ml-2 rounded-full bg-primary/20 px-1.5 text-[10px] text-primary-glow">ativos</span>
               )}
             </Button>
@@ -665,6 +716,13 @@ function ProspeccaoPage() {
             <Button variant="ghost" onClick={clearFilters} className="h-10 text-xs">
               <X className="mr-1.5 h-4 w-4" /> Limpar filtros
             </Button>
+            <label className="col-span-full flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
+              <Checkbox
+                checked={onlyWithContact}
+                onCheckedChange={(v) => setOnlyWithContact(Boolean(v))}
+              />
+              Mostrar somente empresas com contato disponível (WhatsApp, telefone ou e-mail)
+            </label>
           </div>
         )}
       </section>
@@ -710,6 +768,14 @@ function ProspeccaoPage() {
             <Button variant="outline" size="sm" className="h-8 text-xs"
               onClick={() => exportCsv(prospects.filter((p) => selected.has(p.id)))}>
               <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs border-primary/30 text-primary-glow hover:bg-primary/10"
+              disabled={bulkEnriching}
+              onClick={bulkEnrich}>
+              {bulkEnriching
+                ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
+              Enriquecer em massa
             </Button>
             <Button variant="outline" size="sm"
               className="h-8 text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
