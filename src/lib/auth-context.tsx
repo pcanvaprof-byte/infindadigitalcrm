@@ -92,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.localStorage.setItem(KEY, JSON.stringify(u));
     setUser(u);
     setIsReady(true);
-    void ensureSupabaseSession(found);
+    await ensureSupabaseSession(found);
     return { ok: true };
   };
 
@@ -102,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.localStorage.setItem(KEY, JSON.stringify(u));
     setUser(u);
     setIsReady(true);
-    void ensureSupabaseSession(seed);
+    await ensureSupabaseSession(seed);
     return { ok: true };
   };
 
