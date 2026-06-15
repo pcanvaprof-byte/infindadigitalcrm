@@ -1,8 +1,10 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { AuthLoadingScreen, useAuth } from "@/lib/auth-context";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Sparkles, ShieldCheck, BarChart3 } from "lucide-react";
 
@@ -20,19 +22,25 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const { user, isReady, loginWithGoogle } = useAuth();
+  const { user, isReady, login } = useAuth();
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const handleGoogle = async () => {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (submitting) return;
     setSubmitting(true);
     try {
-      const res = await loginWithGoogle();
+      const res = await login(email, password);
       if (!res.ok) {
         toast.error(res.error);
-        setSubmitting(false);
+        return;
       }
-    } catch {
+      toast.success("Bem-vindo de volta!");
+      navigate({ to: "/dashboard", replace: true });
+    } finally {
       setSubmitting(false);
     }
   };
@@ -90,23 +98,38 @@ function LoginPage() {
 
           <h1 className="text-2xl font-bold">Acesse sua conta</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Entre com sua conta Google para continuar.
+            Entre com seu email e senha para continuar.
           </p>
 
-          <div className="mt-6 space-y-4">
+          <form onSubmit={handleLogin} className="mt-6 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="voce@infinda.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="password">Senha</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
             <Button
-              type="button"
-              onClick={handleGoogle}
+              type="submit"
               disabled={submitting}
-              variant="outline"
-              className="h-11 w-full text-sm font-semibold"
+              className="btn-gradient h-11 w-full text-sm font-semibold"
             >
-              <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" aria-hidden>
-                <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.4-1.7 4.1-5.5 4.1-3.3 0-6-2.7-6-6.1S8.7 6 12 6c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.5 14.6 2.5 12 2.5 6.8 2.5 2.6 6.7 2.6 12s4.2 9.5 9.4 9.5c5.4 0 9-3.8 9-9.2 0-.6-.1-1.1-.2-1.6H12z"/>
-              </svg>
-              {submitting ? "Redirecionando…" : "Entrar com Google"}
+              {submitting ? "Entrando…" : "Entrar na plataforma"}
             </Button>
-          </div>
+          </form>
         </div>
       </div>
     </div>

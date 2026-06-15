@@ -8,7 +8,7 @@ export type { MockUser, Role };
 interface AuthCtx {
   user: MockUser | null;
   isReady: boolean;
-  loginWithGoogle: () => Promise<{ ok: true } | { ok: false; error: string }>;
+  login: (email: string, password: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   logout: () => Promise<void>;
 }
 
@@ -52,16 +52,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const loginWithGoogle: AuthCtx["loginWithGoogle"] = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/dashboard`,
-      },
-    });
-    if (error) {
-      return { ok: false, error: `Falha no Google: ${error.message}` };
+  const login: AuthCtx["login"] = async (email, password) => {
+    const e = email.trim().toLowerCase();
+    const { data, error } = await supabase.auth.signInWithPassword({ email: e, password });
+    if (error || !data.user) {
+      const msg = error?.message ?? "Falha desconhecida";
+      if (/rate limit/i.test(msg)) {
+        return {
+          ok: false,
+          error: "Muitas tentativas em pouco tempo. Aguarde ~1 min e tente novamente.",
+        };
+      }
+      if (/email not confirmed/i.test(msg)) {
+        return {
+          ok: false,
+          error:
+            "Conta sem e-mail confirmado no Supabase. Confirme o e-mail do usuário no painel Authentication.",
+        };
+      }
+      return { ok: false, error: `Falha no Supabase: ${msg}` };
     }
+    setUser(fromSupabaseUser(data.user));
+    setIsReady(true);
     return { ok: true };
   };
 
@@ -71,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
-  return <Ctx.Provider value={{ user, isReady, loginWithGoogle, logout }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, isReady, login, logout }}>{children}</Ctx.Provider>;
 }
 
 export function AuthLoadingScreen() {
