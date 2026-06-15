@@ -29,6 +29,26 @@ function fromSupabaseUser(user: {
   };
 }
 
+function getLoginErrorMessage(message: string) {
+  const msg = message.toLowerCase();
+  if (/missing email|email or phone|validation_failed/.test(msg)) {
+    return "Informe email e senha para entrar.";
+  }
+  if (/invalid login credentials|invalid credentials|invalid_grant/.test(msg)) {
+    return "Email ou senha incorretos para o Supabase conectado.";
+  }
+  if (/email not confirmed|not confirmed/.test(msg)) {
+    return "Conta sem e-mail confirmado no Supabase. Confirme o usuário em Authentication → Users.";
+  }
+  if (/rate limit|too many requests/.test(msg)) {
+    return "Muitas tentativas em pouco tempo. Aguarde ~1 min e tente novamente.";
+  }
+  if (/failed to fetch|network|cors|fetch/.test(msg)) {
+    return "Não foi possível conectar ao Supabase configurado. Verifique URL, chave anon e domínios permitidos.";
+  }
+  return `Falha no Supabase: ${message}`;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<MockUser | null>(null);
   const [isReady, setIsReady] = useState(false);
@@ -36,10 +56,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let alive = true;
     async function restore() {
-      const { data } = await supabase.auth.getUser();
-      if (!alive) return;
-      setUser(data.user ? fromSupabaseUser(data.user) : null);
-      setIsReady(true);
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (!alive) return;
+        if (error) {
+          setUser(null);
+          void supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+          return;
+        }
+        setUser(data.user ? fromSupabaseUser(data.user) : null);
+      } catch {
+        if (alive) setUser(null);
+      } finally {
+        if (alive) setIsReady(true);
+      }
     }
     void restore();
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -54,23 +84,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login: AuthCtx["login"] = async (email, password) => {
     const e = email.trim().toLowerCase();
+    if (!e || !password) {
+      return { ok: false, error: "Informe email e senha para entrar." };
+    }
     const { data, error } = await supabase.auth.signInWithPassword({ email: e, password });
-    if (error || !data.user) {
+    if (error || !data.user || !data.session) {
       const msg = error?.message ?? "Falha desconhecida";
-      if (/rate limit/i.test(msg)) {
-        return {
-          ok: false,
-          error: "Muitas tentativas em pouco tempo. Aguarde ~1 min e tente novamente.",
-        };
-      }
-      if (/email not confirmed/i.test(msg)) {
-        return {
-          ok: false,
-          error:
-            "Conta sem e-mail confirmado no Supabase. Confirme o e-mail do usuário no painel Authentication.",
-        };
-      }
-      return { ok: false, error: `Falha no Supabase: ${msg}` };
+      return { ok: false, error: getLoginErrorMessage(msg) };
     }
     setUser(fromSupabaseUser(data.user));
     setIsReady(true);
