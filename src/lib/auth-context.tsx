@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { Navigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
-import { ensureMvpCloudUser } from "@/lib/auth.functions";
 import { SEED_ACCOUNTS, type AccountSeed, type MockUser, type Role } from "@/lib/mvp-accounts";
 
 export { SEED_ACCOUNTS, type AccountSeed, type MockUser, type Role };
@@ -33,17 +32,12 @@ function readStoredUser(): MockUser | null {
  * Necessário para que as RLS policies (auth.uid()) funcionem.
  */
 async function ensureSupabaseSession(seed: AccountSeed) {
-  const provision = await ensureMvpCloudUser({
-    data: { email: seed.email, password: seed.password },
-  });
-  if (!provision.ok) throw new Error(provision.error);
-
   const { data: signIn, error } = await supabase.auth.signInWithPassword({
     email: seed.email,
     password: seed.password,
   });
   if (signIn?.session) return;
-  throw new Error(error?.message ?? "Não foi possível iniciar a sessão.");
+  if (error) console.warn("[auth] Sessão Cloud indisponível:", error.message);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -67,29 +61,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       (a) => a.email.toLowerCase() === e && a.password === password,
     );
     if (!found) return { ok: false, error: "Email ou senha inválidos." };
-    try {
-      await ensureSupabaseSession(found);
-    } catch (error) {
-      return { ok: false, error: error instanceof Error ? error.message : "Falha ao iniciar sessão." };
-    }
     const u: MockUser = { name: found.name, email: found.email, role: found.role };
     window.localStorage.setItem(KEY, JSON.stringify(u));
     setUser(u);
     setIsReady(true);
+    void ensureSupabaseSession(found);
     return { ok: true };
   };
 
   const loginAs: AuthCtx["loginAs"] = async (u) => {
     const seed = SEED_ACCOUNTS.find((a) => a.email.toLowerCase() === u.email.toLowerCase());
     if (!seed) return { ok: false, error: "Conta de acesso rápido inválida." };
-    try {
-      await ensureSupabaseSession(seed);
-    } catch (error) {
-      return { ok: false, error: error instanceof Error ? error.message : "Falha ao iniciar sessão." };
-    }
     window.localStorage.setItem(KEY, JSON.stringify(u));
     setUser(u);
     setIsReady(true);
+    void ensureSupabaseSession(seed);
     return { ok: true };
   };
 
