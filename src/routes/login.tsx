@@ -37,7 +37,11 @@ function LoginPage() {
 
   const quickLogin = async (idx: number) => {
     const a = SEED_ACCOUNTS[idx];
-    await loginAs({ name: a.name, email: a.email, role: a.role });
+    const res = await loginAs({ name: a.name, email: a.email, role: a.role });
+    if (!res.ok) {
+      toast.error(res.error);
+      return;
+    }
     toast.success(`Entrando como ${a.name}…`);
     navigate({ to: "/dashboard", replace: true });
   };
