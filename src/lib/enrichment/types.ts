@@ -11,6 +11,9 @@ export interface EnrichedProfile {
   cnae_principal_desc?: string;
   cnaes_secundarios?: { codigo: string; descricao: string }[];
   socios?: { nome: string; qualificacao?: string }[];
+  telefone_1?: string;
+  telefone_2?: string;
+  email?: string;
   raw?: unknown;
 }
 
@@ -71,4 +74,17 @@ export interface EnrichmentResult {
   location?: EnrichedLocation;
   market?: MarketData;
   score: ScoreResult;
+  visits?: CompanyVisit[];
+}
+
+export interface CompanyVisit {
+  id?: string;
+  status: "Planejada" | "Visitado" | "Sem sucesso" | "Fechado" | "Reagendar";
+  visited_at: string;
+  lat?: number;
+  lon?: number;
+  endereco_snapshot?: string;
+  contato_nome?: string;
+  resultado?: string;
+  observacoes?: string;
 }

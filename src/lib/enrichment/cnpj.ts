@@ -28,6 +28,20 @@ interface BrasilApiResponse {
   bairro?: string;
   municipio?: string;
   uf?: string;
+  ddd_telefone_1?: string;
+  ddd_telefone_2?: string;
+  email?: string;
+}
+
+function formatPhone(raw?: string): string | undefined {
+  if (!raw) return undefined;
+  const d = raw.replace(/\D/g, "");
+  if (d.length < 10) return raw;
+  const ddd = d.slice(0, 2);
+  const rest = d.slice(2);
+  if (rest.length === 9) return `(${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
+  if (rest.length === 8) return `(${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
+  return raw;
 }
 
 export async function fetchCnpj(
@@ -58,6 +72,9 @@ export async function fetchCnpj(
         nome: s.nome_socio,
         qualificacao: s.qualificacao_socio,
       })),
+      telefone_1: formatPhone(data.ddd_telefone_1),
+      telefone_2: formatPhone(data.ddd_telefone_2),
+      email: data.email?.toLowerCase(),
       raw: data,
     },
     address: {
