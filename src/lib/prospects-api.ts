@@ -213,6 +213,8 @@ export async function applyImport(
   const toInsert: Record<string, unknown>[] = [];
   const updates: { id: string; patch: Record<string, unknown> }[] = [];
 
+  // dedupe within file by cnpj (keep first occurrence to avoid unique-index violation)
+  const seenCnpjInFile = new Set<string>();
   for (const r of rows) {
     if (r.errors.length) {
       result.errors.push({ row: r.rowIndex, message: r.errors.join(" | ") });
@@ -220,6 +222,11 @@ export async function applyImport(
       continue;
     }
     const cnpj = r.data.cnpj || "";
+    if (cnpj && seenCnpjInFile.has(cnpj)) {
+      result.skipped++;
+      continue;
+    }
+    if (cnpj) seenCnpjInFile.add(cnpj);
     const match = cnpj ? byCnpj.get(cnpj) : undefined;
     if (match) {
       // fill-empty-only
@@ -263,15 +270,32 @@ export async function applyImport(
     }
   }
 
-  if (toInsert.length) {
+  // Batch inserts (Supabase limits + avoid single failure killing whole import).
+  // On batch error, retry row-by-row so partial successes are saved and errors localized.
+  const BATCH = 500;
+  for (let i = 0; i < toInsert.length; i += BATCH) {
+    const slice = toInsert.slice(i, i + BATCH);
     const { data: ins, error } = await supabase
       .from("prospects")
-      .insert(toInsert as never)
+      .insert(slice as never)
       .select("id");
-    if (error) {
-      result.errors.push({ row: 0, message: `Inserção: ${error.message}` });
-    } else {
-      result.inserted = ins?.length ?? 0;
+    if (!error) {
+      result.inserted += ins?.length ?? 0;
+      continue;
+    }
+    // fallback: per-row inserts to isolate offending rows
+    for (const row of slice) {
+      const { error: rowErr } = await supabase
+        .from("prospects")
+        .insert(row as never)
+        .select("id")
+        .single();
+      if (rowErr) {
+        result.errors.push({ row: 0, message: `Inserção (${(row as { company?: string }).company ?? "?"}): ${rowErr.message}` });
+        result.skipped++;
+      } else {
+        result.inserted++;
+      }
     }
   }
 
