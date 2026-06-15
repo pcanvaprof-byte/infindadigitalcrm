@@ -251,6 +251,8 @@ function ProspeccaoPage() {
   const [segmentFilter, setSegmentFilter] = useState<string>("all");
   const [stateFilter, setStateFilter] = useState<string>("all");
   const [potentialFilter, setPotentialFilter] = useState<ProspectPotential | "all">("all");
+  const [onlyWithContact, setOnlyWithContact] = useState(false);
+  const [bulkEnriching, setBulkEnriching] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [view, setView] = useState<"table" | "kanban">("table");
 
@@ -282,11 +284,19 @@ function ProspeccaoPage() {
       if (segmentFilter !== "all" && p.segment !== segmentFilter) return false;
       if (stateFilter !== "all" && p.state !== stateFilter) return false;
       if (potentialFilter !== "all" && p.potential !== potentialFilter) return false;
+      if (onlyWithContact) {
+        const hasContact = Boolean(
+          (p.whatsapp && p.whatsapp.trim()) ||
+          (p.phone && p.phone.trim()) ||
+          (p.email && p.email.trim()),
+        );
+        if (!hasContact) return false;
+      }
       if (!q) return true;
       return [p.company, p.segment, p.owner, p.email, p.whatsapp, p.phone, p.instagram, p.city, p.state, p.source]
         .join(" ").toLowerCase().includes(q);
     });
-  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter]);
+  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact]);
 
   const stats = useMemo(() => {
     const t = prospects.length;
