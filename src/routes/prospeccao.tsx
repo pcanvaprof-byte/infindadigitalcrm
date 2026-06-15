@@ -951,7 +951,7 @@ function KanbanView({
 }
 
 function DetailDialog({
-  p, onWhats, onCall, onStatus, onConvert, onAddNote,
+  p, onWhats, onCall, onStatus, onConvert, onAddNote, onEnrich,
 }: {
   p: Prospect;
   onWhats: () => void;
@@ -959,6 +959,7 @@ function DetailDialog({
   onStatus: (s: ProspectStatus) => void;
   onConvert: () => void;
   onAddNote: (text: string) => void;
+  onEnrich: () => void;
 }) {
   const [note, setNote] = useState("");
   const timeline = p.interactions ?? [];
@@ -977,6 +978,9 @@ function DetailDialog({
               <StatusBadge status={p.status} />
             </DialogDescription>
           </div>
+          <Button size="sm" className="btn-gradient h-8 text-xs" onClick={onEnrich}>
+            <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Enriquecer Lead
+          </Button>
         </div>
       </DialogHeader>
 
