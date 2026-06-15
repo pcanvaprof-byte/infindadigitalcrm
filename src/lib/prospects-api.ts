@@ -192,7 +192,7 @@ export interface ImportResult {
   updated: number;
   skipped: number;
   errors: { row: number; message: string }[];
-  storage: "cloud" | "local";
+  storage: "cloud";
 }
 
 /**
@@ -202,58 +202,10 @@ export async function applyImport(
   rows: PreviewRow[],
   existing: Prospect[],
 ): Promise<ImportResult> {
-  const uid = await currentUserId();
+  const uid = await requireUserId();
   const result: ImportResult = {
-    inserted: 0, updated: 0, skipped: 0, errors: [],
-    storage: uid ? "cloud" : "local",
+    inserted: 0, updated: 0, skipped: 0, errors: [], storage: "cloud",
   };
-
-  if (!uid) {
-    const current = loadLocalProspects();
-    const byCnpjLocal = new Map<string, Prospect>();
-    for (const e of current) if (e.cnpj) byCnpjLocal.set(e.cnpj, e);
-    const next = [...current];
-    for (const r of rows) {
-      if (r.errors.length) {
-        result.errors.push({ row: r.rowIndex, message: r.errors.join(" | ") });
-        result.skipped++;
-        continue;
-      }
-      const cnpj = r.data.cnpj || "";
-      const match = cnpj ? byCnpjLocal.get(cnpj) : undefined;
-      if (match) {
-        const fields: (keyof Prospect)[] = [
-          "company", "segment", "owner", "whatsapp", "phone",
-          "email", "instagram", "city", "state", "source",
-        ];
-        const patch: Partial<Prospect> = {};
-        for (const f of fields) {
-          const existingVal = (match[f] ?? "") as string;
-          const newVal = (r.data[f as keyof typeof r.data] ?? "") as string;
-          if (!existingVal && newVal) (patch as Record<string, unknown>)[f] = newVal;
-        }
-        if (Object.keys(patch).length) {
-          const idx = next.findIndex((p) => p.id === match.id);
-          if (idx >= 0) next[idx] = { ...next[idx], ...patch };
-          result.updated++;
-        } else {
-          result.skipped++;
-        }
-      } else {
-        const saved: Prospect = {
-          ...r.data,
-          id: localId(),
-          createdAt: new Date().toLocaleString("pt-BR"),
-          interactions: [],
-        };
-        next.unshift(saved);
-        if (cnpj) byCnpjLocal.set(cnpj, saved);
-        result.inserted++;
-      }
-    }
-    saveLocalProspects(next);
-    return result;
-  }
 
   const byCnpj = new Map<string, Prospect>();
   for (const e of existing) if (e.cnpj) byCnpj.set(e.cnpj, e);
