@@ -14,45 +14,54 @@ interface AuthCtx {
 }
 
 const Ctx = createContext<AuthCtx | null>(null);
-const KEY = "infinda.user";
 
-function readStoredUser(): MockUser | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(KEY);
-    return raw ? (JSON.parse(raw) as MockUser) : null;
-  } catch {
-    return null;
-  }
+function fromSupabaseUser(user: {
+  email?: string | null;
+  user_metadata?: Record<string, unknown>;
+}): MockUser {
+  const email = user.email ?? "";
+  const rawName =
+    user.user_metadata?.name ?? user.user_metadata?.full_name ?? email.split("@")[0] ?? "Usuário";
+  const rawRole = user.user_metadata?.role;
+  return {
+    name: String(rawName || "Usuário"),
+    email,
+    role: rawRole === "admin" || rawRole === "consultor" ? rawRole : "consultor",
+  };
 }
 
 /**
- * Garante uma sessão Supabase para o usuário do MVP.
- * Tenta sign-in; se a conta não existir, faz sign-up e sign-in.
- * Necessário para que as RLS policies (auth.uid()) funcionem.
+ * Garante uma sessão no Supabase existente para que as RLS policies (auth.uid()) funcionem.
  */
 async function ensureSupabaseSession(
   seed: AccountSeed,
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; user: MockUser } | { ok: false; error: string }> {
   const { data: existing } = await supabase.auth.getSession();
   if (existing.session?.user.email?.toLowerCase() === seed.email.toLowerCase()) {
-    return { ok: true };
+    return { ok: true, user: fromSupabaseUser(existing.session.user) };
   }
 
   const { data: signIn, error: signInError } = await supabase.auth.signInWithPassword({
     email: seed.email,
     password: seed.password,
   });
-  if (signIn?.session) return { ok: true };
+  if (signIn?.session?.user) return { ok: true, user: fromSupabaseUser(signIn.session.user) };
 
   const msg = signInError?.message ?? "Falha desconhecida";
   if (/rate limit/i.test(msg)) {
-    return { ok: false, error: "Muitas tentativas em pouco tempo. Aguarde ~1 min e tente novamente." };
+    return {
+      ok: false,
+      error: "Muitas tentativas em pouco tempo. Aguarde ~1 min e tente novamente.",
+    };
   }
   if (/email not confirmed/i.test(msg)) {
-    return { ok: false, error: "Conta sem e-mail confirmado. Desative confirmação em Cloud → Users → Auth Settings." };
+    return {
+      ok: false,
+      error:
+        "Conta sem e-mail confirmado no Supabase. Confirme o e-mail do usuário no painel Authentication.",
+    };
   }
-  return { ok: false, error: `Falha no Cloud: ${msg}` };
+  return { ok: false, error: `Falha no Supabase: ${msg}` };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -62,37 +71,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let alive = true;
     async function restore() {
-      const stored = readStoredUser();
-      if (!stored) {
-        if (alive) setIsReady(true);
-        return;
-      }
-      const seed = SEED_ACCOUNTS.find((a) => a.email.toLowerCase() === stored.email.toLowerCase());
-      const result = seed ? await ensureSupabaseSession(seed) : { ok: false as const };
+      const { data } = await supabase.auth.getUser();
       if (!alive) return;
-      if (result.ok) {
-        setUser(stored);
-      } else {
-        window.localStorage.removeItem(KEY);
-        setUser(null);
-      }
+      setUser(data.user ? fromSupabaseUser(data.user) : null);
       setIsReady(true);
     }
     void restore();
-    return () => { alive = false; };
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ? fromSupabaseUser(session.user) : null);
+      setIsReady(true);
+    });
+    return () => {
+      alive = false;
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
   const login: AuthCtx["login"] = async (email, password) => {
     const e = email.trim().toLowerCase();
-    const found = SEED_ACCOUNTS.find(
-      (a) => a.email.toLowerCase() === e && a.password === password,
-    );
-    if (!found) return { ok: false, error: "Email ou senha inválidos." };
-    const u: MockUser = { name: found.name, email: found.email, role: found.role };
-    const session = await ensureSupabaseSession(found);
-    if (!session.ok) return { ok: false, error: session.error };
-    window.localStorage.setItem(KEY, JSON.stringify(u));
-    setUser(u);
+    const { data, error } = await supabase.auth.signInWithPassword({ email: e, password });
+    if (error || !data.user) {
+      const msg = error?.message ?? "Falha desconhecida";
+      if (/rate limit/i.test(msg)) {
+        return {
+          ok: false,
+          error: "Muitas tentativas em pouco tempo. Aguarde ~1 min e tente novamente.",
+        };
+      }
+      if (/email not confirmed/i.test(msg)) {
+        return {
+          ok: false,
+          error:
+            "Conta sem e-mail confirmado no Supabase. Confirme o e-mail do usuário no painel Authentication.",
+        };
+      }
+      return { ok: false, error: `Falha no Supabase: ${msg}` };
+    }
+    setUser(fromSupabaseUser(data.user));
     setIsReady(true);
     return { ok: true };
   };
@@ -102,14 +117,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!seed) return { ok: false, error: "Conta de acesso rápido inválida." };
     const session = await ensureSupabaseSession(seed);
     if (!session.ok) return { ok: false, error: session.error };
-    window.localStorage.setItem(KEY, JSON.stringify(u));
-    setUser(u);
+    setUser(session.user);
     setIsReady(true);
     return { ok: true };
   };
 
   const logout = async () => {
-    window.localStorage.removeItem(KEY);
     setUser(null);
     setIsReady(true);
     await supabase.auth.signOut();
