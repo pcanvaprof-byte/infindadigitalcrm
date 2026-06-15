@@ -302,6 +302,8 @@ export async function runEnrichment(
       });
       await log(uid, profileId, profile.cnpj, "persist", "done");
       emit(opts, "persist", "done");
+      const visits = await listVisits(profileId);
+      return { profile, address, location, market, score, visits };
     } catch (e) {
       await log(uid, null, profile.cnpj, "persist", "error", (e as Error).message);
       emit(opts, "persist", "error", (e as Error).message);
