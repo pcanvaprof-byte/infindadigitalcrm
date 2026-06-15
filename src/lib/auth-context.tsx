@@ -31,6 +31,7 @@ export const SEED_ACCOUNTS: AccountSeed[] = [
 
 interface AuthCtx {
   user: MockUser | null;
+  isReady: boolean;
   login: (email: string, password: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   loginAs: (user: MockUser) => Promise<void>;
   logout: () => Promise<void>;
@@ -38,6 +39,16 @@ interface AuthCtx {
 
 const Ctx = createContext<AuthCtx | null>(null);
 const KEY = "infinda.user";
+
+function readStoredUser(): MockUser | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(KEY);
+    return raw ? (JSON.parse(raw) as MockUser) : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Garante uma sessão Supabase para o usuário do MVP.
@@ -68,22 +79,19 @@ async function ensureSupabaseSession(seed: AccountSeed) {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<MockUser | null>(() => {
-    if (typeof window === "undefined") return null;
-    try {
-      const raw = window.localStorage.getItem(KEY);
-      return raw ? (JSON.parse(raw) as MockUser) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [user, setUser] = useState<MockUser | null>(null);
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    setUser(readStoredUser());
+    setIsReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isReady || !user) return;
     const seed = SEED_ACCOUNTS.find((a) => a.email.toLowerCase() === user.email.toLowerCase());
     if (seed) void ensureSupabaseSession(seed);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isReady, user]);
 
   const login: AuthCtx["login"] = async (email, password) => {
     const e = email.trim().toLowerCase();
@@ -92,26 +100,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
     if (!found) return { ok: false, error: "Email ou senha inválidos." };
     const u: MockUser = { name: found.name, email: found.email, role: found.role };
-    localStorage.setItem(KEY, JSON.stringify(u));
+    window.localStorage.setItem(KEY, JSON.stringify(u));
     setUser(u);
+    setIsReady(true);
     await ensureSupabaseSession(found);
     return { ok: true };
   };
 
   const loginAs: AuthCtx["loginAs"] = async (u) => {
-    localStorage.setItem(KEY, JSON.stringify(u));
+    window.localStorage.setItem(KEY, JSON.stringify(u));
     setUser(u);
+    setIsReady(true);
     const seed = SEED_ACCOUNTS.find((a) => a.email.toLowerCase() === u.email.toLowerCase());
     if (seed) await ensureSupabaseSession(seed);
   };
 
   const logout = async () => {
-    localStorage.removeItem(KEY);
+    window.localStorage.removeItem(KEY);
     setUser(null);
+    setIsReady(true);
     await supabase.auth.signOut();
   };
 
-  return <Ctx.Provider value={{ user, login, loginAs, logout }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, isReady, login, loginAs, logout }}>{children}</Ctx.Provider>;
+}
+
+export function AuthLoadingScreen() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background px-6 text-center">
+      <div>
+        <div className="mx-auto h-10 w-10 animate-spin rounded-full border-2 border-border border-t-primary" />
+        <p className="mt-4 text-sm text-muted-foreground">Carregando sessão…</p>
+      </div>
+    </div>
+  );
 }
 
 export function useAuth() {
