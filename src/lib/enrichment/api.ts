@@ -126,6 +126,62 @@ export async function loadExistingEnrichment(
   return result;
 }
 
+export async function listVisits(profileId: string): Promise<CompanyVisit[]> {
+  const uid = await currentUserId();
+  if (!uid) return [];
+  const { data } = await db
+    .from("company_visits")
+    .select("*")
+    .eq("user_id", uid)
+    .eq("profile_id", profileId)
+    .order("visited_at", { ascending: false });
+  return (data ?? []) as CompanyVisit[];
+}
+
+export async function addVisit(input: {
+  cnpj: string;
+  prospectId?: string;
+  status: CompanyVisit["status"];
+  visited_at?: string;
+  endereco_snapshot?: string;
+  contato_nome?: string;
+  resultado?: string;
+  observacoes?: string;
+  lat?: number;
+  lon?: number;
+}): Promise<CompanyVisit | null> {
+  const uid = await currentUserId();
+  if (!uid) throw new Error("Sessão necessária para registrar visita.");
+  const clean = sanitizeCnpj(input.cnpj);
+  const { data: profile } = await db
+    .from("company_profiles")
+    .select("id")
+    .eq("user_id", uid)
+    .eq("cnpj", clean)
+    .maybeSingle();
+  const row = {
+    user_id: uid,
+    profile_id: profile?.id ?? null,
+    prospect_id: input.prospectId ?? null,
+    cnpj: clean,
+    status: input.status,
+    visited_at: input.visited_at ?? new Date().toISOString(),
+    endereco_snapshot: input.endereco_snapshot ?? null,
+    contato_nome: input.contato_nome ?? null,
+    resultado: input.resultado ?? null,
+    observacoes: input.observacoes ?? null,
+    lat: input.lat ?? null,
+    lon: input.lon ?? null,
+  };
+  const { data, error } = await db
+    .from("company_visits")
+    .insert(row)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as CompanyVisit;
+}
+
 export interface RunOptions {
   prospectId?: string;
   onStep?: (e: StepEvent) => void;
