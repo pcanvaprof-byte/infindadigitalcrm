@@ -769,6 +769,14 @@ function ProspeccaoPage() {
               onClick={() => exportCsv(prospects.filter((p) => selected.has(p.id)))}>
               <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar
             </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs border-primary/30 text-primary-glow hover:bg-primary/10"
+              disabled={bulkEnriching}
+              onClick={bulkEnrich}>
+              {bulkEnriching
+                ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
+              Enriquecer em massa
+            </Button>
             <Button variant="outline" size="sm"
               className="h-8 text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
               onClick={() => removeProspect(Array.from(selected))}>
