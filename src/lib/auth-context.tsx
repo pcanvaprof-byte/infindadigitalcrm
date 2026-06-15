@@ -45,32 +45,12 @@ async function ensureSupabaseSession(
   });
   if (signIn?.session) return { ok: true };
 
-  // Conta pode não existir → cria e tenta de novo.
-  const { error: signUpError } = await supabase.auth.signUp({
-    email: seed.email,
-    password: seed.password,
-    options: {
-      emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
-      data: { name: seed.name, role: seed.role },
-    },
-  });
-  if (signUpError && !/registered|exists/i.test(signUpError.message)) {
-    return { ok: false, error: signUpError.message };
+  const msg = signInError?.message ?? "Falha desconhecida";
+  if (/rate limit/i.test(msg)) {
+    return { ok: false, error: "Muitas tentativas em pouco tempo. Aguarde ~1 min e tente novamente." };
   }
-
-  const { data: retry, error: retryError } = await supabase.auth.signInWithPassword({
-    email: seed.email,
-    password: seed.password,
-  });
-  if (retry?.session) return { ok: true };
-
-  const msg = retryError?.message ?? signInError?.message ?? "Falha desconhecida";
   if (/email not confirmed/i.test(msg)) {
-    return {
-      ok: false,
-      error:
-        "Confirmação de e-mail está ativa no Cloud. Desative em Cloud → Users → Auth Settings → 'Confirm email' e tente novamente.",
-    };
+    return { ok: false, error: "Conta sem e-mail confirmado. Desative confirmação em Cloud → Users → Auth Settings." };
   }
   return { ok: false, error: `Falha no Cloud: ${msg}` };
 }
