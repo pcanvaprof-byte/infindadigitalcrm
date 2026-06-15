@@ -262,6 +262,7 @@ export interface ImportResult {
   updated: number;
   skipped: number;
   errors: { row: number; message: string }[];
+  storage: "cloud" | "local";
 }
 
 /**
@@ -272,7 +273,10 @@ export async function applyImport(
   existing: Prospect[],
 ): Promise<ImportResult> {
   const uid = await currentUserId();
-  const result: ImportResult = { inserted: 0, updated: 0, skipped: 0, errors: [] };
+  const result: ImportResult = {
+    inserted: 0, updated: 0, skipped: 0, errors: [],
+    storage: uid ? "cloud" : "local",
+  };
 
   if (!uid) {
     const current = loadLocalProspects();
@@ -378,13 +382,14 @@ export async function applyImport(
   }
 
   if (toInsert.length) {
-    const { error, count } = await supabase
+    const { data: ins, error } = await supabase
       .from("prospects")
-      .insert(toInsert as never, { count: "exact" });
+      .insert(toInsert as never)
+      .select("id");
     if (error) {
       result.errors.push({ row: 0, message: `Inserção: ${error.message}` });
     } else {
-      result.inserted = count ?? toInsert.length;
+      result.inserted = ins?.length ?? 0;
     }
   }
 
