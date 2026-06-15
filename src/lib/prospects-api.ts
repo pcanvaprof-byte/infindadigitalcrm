@@ -65,9 +65,7 @@ function fromRow(r: Row, ixs: IxRow[] = []): Prospect {
 }
 
 export async function loadAllProspects(): Promise<Prospect[]> {
-  const uid = await currentUserId();
-  if (!uid) return loadLocalProspects();
-
+  await requireUserId();
   const { data: rows, error } = await supabase
     .from("prospects")
     .select("*")
@@ -102,17 +100,7 @@ async function requireUserId(): Promise<string> {
 }
 
 export async function insertProspect(p: Omit<Prospect, "id" | "createdAt" | "interactions">) {
-  const uid = await currentUserId();
-  if (!uid) {
-    const saved: Prospect = {
-      ...p,
-      id: localId(),
-      createdAt: new Date().toLocaleString("pt-BR"),
-      interactions: [],
-    };
-    saveLocalProspects([saved, ...loadLocalProspects()]);
-    return saved;
-  }
+  const uid = await requireUserId();
   const { data, error } = await supabase
     .from("prospects")
     .insert({
@@ -138,11 +126,7 @@ export async function insertProspect(p: Omit<Prospect, "id" | "createdAt" | "int
 }
 
 export async function updateProspect(id: string, patch: Partial<Prospect>) {
-  const uid = await currentUserId();
-  if (!uid) {
-    saveLocalProspects(loadLocalProspects().map((p) => (p.id === id ? { ...p, ...patch } : p)));
-    return;
-  }
+  await requireUserId();
   const map: Record<string, unknown> = {};
   if (patch.company !== undefined) map.company = patch.company;
   if (patch.cnpj !== undefined) map.cnpj = patch.cnpj || null;
@@ -163,11 +147,7 @@ export async function updateProspect(id: string, patch: Partial<Prospect>) {
 
 export async function deleteProspects(ids: string[]) {
   if (!ids.length) return;
-  const uid = await currentUserId();
-  if (!uid) {
-    saveLocalProspects(loadLocalProspects().filter((p) => !ids.includes(p.id)));
-    return;
-  }
+  await requireUserId();
   const { error } = await supabase.from("prospects").delete().in("id", ids);
   if (error) throw error;
 }
@@ -178,22 +158,7 @@ export async function addInteractionRemote(
   text: string,
   byName: string,
 ): Promise<Interaction | null> {
-  const uid = await currentUserId();
-  if (!uid) {
-    const ix: Interaction = {
-      id: localId("ix"),
-      kind,
-      text,
-      by: byName,
-      at: new Date().toLocaleString("pt-BR"),
-    };
-    saveLocalProspects(
-      loadLocalProspects().map((p) =>
-        p.id === prospectId ? { ...p, interactions: [ix, ...(p.interactions ?? [])] } : p,
-      ),
-    );
-    return ix;
-  }
+  const uid = await requireUserId();
   const { data, error } = await supabase
     .from("prospect_interactions")
     .insert({ prospect_id: prospectId, user_id: uid, kind, text, by_name: byName })
