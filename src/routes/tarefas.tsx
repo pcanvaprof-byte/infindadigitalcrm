@@ -5,7 +5,7 @@ import { RequireAuth } from "@/lib/auth-context";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Loader2, Sparkles, Search } from "lucide-react";
+import { MapPin, Loader2, Sparkles, Search, Phone, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { loadMapPoints, bairroColor, type MapPoint } from "@/lib/tasks-map-api";
 import { runEnrichment } from "@/lib/enrichment/api";
@@ -63,6 +63,14 @@ function TarefasPage() {
   const withoutCoords = filtered.length - withCoords;
   const withoutBairro = points.filter((p) => !p.bairro).length;
 
+  // Fila de tarefas: primeiros 150 com telefone/whatsapp cadastrado.
+  const taskQueue = useMemo(() => {
+    const onlyDigits = (s?: string | null) => (s || "").replace(/\D/g, "");
+    return filtered
+      .filter((p) => onlyDigits(p.whatsapp).length >= 10 || onlyDigits(p.phone).length >= 10)
+      .slice(0, 150);
+  }, [filtered]);
+
   const enrichMissing = async () => {
     const missing = points.filter((p) => !p.lat || !p.lon).slice(0, 50);
     if (!missing.length) return toast.info("Todos os leads já têm coordenadas.");
@@ -97,7 +105,7 @@ function TarefasPage() {
 
   return (
     <AppShell title="Tarefas" subtitle="Mapa de leads cadastrados por bairro">
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[320px_1fr]">
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-[280px_1fr_320px] lg:grid-cols-[280px_1fr]">
         {/* Sidebar */}
         <aside className="surface-card flex flex-col gap-3 p-3">
           <div className="relative">
@@ -210,6 +218,71 @@ function TarefasPage() {
             </Suspense>
           )}
         </section>
+
+        {/* Fila de tarefas */}
+        <aside className="surface-card flex flex-col gap-2 p-3 xl:col-auto lg:col-span-2 xl:col-span-1">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Fila de contatos
+            </h3>
+            <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+              {taskQueue.length}/150
+            </Badge>
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Primeiros 150 leads com telefone cadastrado.
+          </p>
+          <ol className="-mx-1 flex-1 space-y-1 overflow-y-auto px-1" style={{ maxHeight: "calc(100vh - 260px)" }}>
+            {taskQueue.map((p, i) => {
+              const phone = (p.whatsapp || p.phone || "").replace(/\D/g, "");
+              const wa = phone.length >= 10 ? `https://wa.me/55${phone}` : null;
+              const tel = phone.length >= 10 ? `tel:+55${phone}` : null;
+              return (
+                <li
+                  key={p.cnpj + i}
+                  className="rounded-md border border-border/60 p-2 text-xs hover:bg-accent/40"
+                >
+                  <div className="flex items-start gap-2">
+                    <span className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+                      {i + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium">{p.company}</div>
+                      <div className="truncate text-[10px] text-muted-foreground">
+                        {p.bairro || p.cidade || "—"}
+                      </div>
+                      <div className="mt-1 flex items-center gap-2">
+                        {wa && (
+                          <a
+                            href={wa}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-600 hover:bg-emerald-500/20"
+                          >
+                            <MessageCircle className="h-3 w-3" /> WhatsApp
+                          </a>
+                        )}
+                        {tel && (
+                          <a
+                            href={tel}
+                            className="inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary hover:bg-primary/20"
+                          >
+                            <Phone className="h-3 w-3" /> Ligar
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+            {taskQueue.length === 0 && (
+              <li className="px-2 py-6 text-center text-[11px] text-muted-foreground">
+                Nenhum lead com telefone cadastrado.
+              </li>
+            )}
+          </ol>
+        </aside>
       </div>
     </AppShell>
   );
