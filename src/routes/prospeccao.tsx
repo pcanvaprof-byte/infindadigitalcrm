@@ -552,14 +552,10 @@ function ProspeccaoPage() {
       setProspects(fresh);
       setPreviewOpen(false);
       setPreviewRows([]);
-      const where = result.storage === "cloud" ? "na nuvem (Supabase)" : "apenas neste navegador (sessão expirada — faça login)";
       toast.success(
-        `Importação ${where}: ${result.inserted} novas, ${result.updated} atualizadas, ${result.skipped} ignoradas`,
+        `Importação salva no banco: ${result.inserted} novas, ${result.updated} atualizadas, ${result.skipped} ignoradas`,
         { duration: 8000 },
       );
-      if (result.storage === "local") {
-        toast.warning("Sem sessão Cloud ativa — os dados ficaram só no navegador. Faça login e reimporte para salvar no banco.", { duration: 10000 });
-      }
       if (result.errors.length) toast.error(`${result.errors.length} erro(s) registrados`);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
