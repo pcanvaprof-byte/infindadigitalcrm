@@ -95,45 +95,10 @@ async function currentUserId(): Promise<string | null> {
   }
 }
 
-const LOCAL_PROSPECTS_KEY = "infinda.prospects.local";
-const LOCAL_IMPORTS_KEY = "infinda.prospect-imports.local";
-
-function canUseLocalStorage() {
-  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
-}
-
-function loadLocalProspects(): Prospect[] {
-  if (!canUseLocalStorage()) return [];
-  try {
-    const raw = window.localStorage.getItem(LOCAL_PROSPECTS_KEY);
-    return raw ? (JSON.parse(raw) as Prospect[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveLocalProspects(rows: Prospect[]) {
-  if (!canUseLocalStorage()) return;
-  window.localStorage.setItem(LOCAL_PROSPECTS_KEY, JSON.stringify(rows));
-}
-
-function loadLocalImports(): ImportLog[] {
-  if (!canUseLocalStorage()) return [];
-  try {
-    const raw = window.localStorage.getItem(LOCAL_IMPORTS_KEY);
-    return raw ? (JSON.parse(raw) as ImportLog[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveLocalImports(rows: ImportLog[]) {
-  if (!canUseLocalStorage()) return;
-  window.localStorage.setItem(LOCAL_IMPORTS_KEY, JSON.stringify(rows));
-}
-
-function localId(prefix = "p") {
-  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+async function requireUserId(): Promise<string> {
+  const uid = await currentUserId();
+  if (!uid) throw new Error("Sessão expirada — entre novamente para salvar no banco.");
+  return uid;
 }
 
 export async function insertProspect(p: Omit<Prospect, "id" | "createdAt" | "interactions">) {
