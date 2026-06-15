@@ -68,21 +68,21 @@ async function ensureSupabaseSession(seed: AccountSeed) {
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<MockUser | null>(null);
+  const [user, setUser] = useState<MockUser | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = window.localStorage.getItem(KEY);
+      return raw ? (JSON.parse(raw) as MockUser) : null;
+    } catch {
+      return null;
+    }
+  });
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(KEY);
-      if (raw) {
-        const u = JSON.parse(raw) as MockUser;
-        setUser(u);
-        // re-hidrata sessão Supabase em background
-        const seed = SEED_ACCOUNTS.find((a) => a.email.toLowerCase() === u.email.toLowerCase());
-        if (seed) void ensureSupabaseSession(seed);
-      }
-    } catch {
-      /* noop */
-    }
+    if (!user) return;
+    const seed = SEED_ACCOUNTS.find((a) => a.email.toLowerCase() === user.email.toLowerCase());
+    if (seed) void ensureSupabaseSession(seed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const login: AuthCtx["login"] = async (email, password) => {
