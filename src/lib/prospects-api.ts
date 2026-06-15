@@ -65,6 +65,9 @@ function fromRow(r: Row, ixs: IxRow[] = []): Prospect {
 }
 
 export async function loadAllProspects(): Promise<Prospect[]> {
+  const uid = await currentUserId();
+  if (!uid) return loadLocalProspects();
+
   const { data: rows, error } = await supabase
     .from("prospects")
     .select("*")
@@ -84,13 +87,67 @@ export async function loadAllProspects(): Promise<Prospect[]> {
 }
 
 async function currentUserId(): Promise<string | null> {
-  const { data } = await supabase.auth.getUser();
-  return data.user?.id ?? null;
+  try {
+    const { data } = await supabase.auth.getUser();
+    return data.user?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+const LOCAL_PROSPECTS_KEY = "infinda.prospects.local";
+const LOCAL_IMPORTS_KEY = "infinda.prospect-imports.local";
+
+function canUseLocalStorage() {
+  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+}
+
+function loadLocalProspects(): Prospect[] {
+  if (!canUseLocalStorage()) return [];
+  try {
+    const raw = window.localStorage.getItem(LOCAL_PROSPECTS_KEY);
+    return raw ? (JSON.parse(raw) as Prospect[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalProspects(rows: Prospect[]) {
+  if (!canUseLocalStorage()) return;
+  window.localStorage.setItem(LOCAL_PROSPECTS_KEY, JSON.stringify(rows));
+}
+
+function loadLocalImports(): ImportLog[] {
+  if (!canUseLocalStorage()) return [];
+  try {
+    const raw = window.localStorage.getItem(LOCAL_IMPORTS_KEY);
+    return raw ? (JSON.parse(raw) as ImportLog[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalImports(rows: ImportLog[]) {
+  if (!canUseLocalStorage()) return;
+  window.localStorage.setItem(LOCAL_IMPORTS_KEY, JSON.stringify(rows));
+}
+
+function localId(prefix = "p") {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export async function insertProspect(p: Omit<Prospect, "id" | "createdAt" | "interactions">) {
   const uid = await currentUserId();
-  if (!uid) throw new Error("Sessão expirou — entre novamente.");
+  if (!uid) {
+    const saved: Prospect = {
+      ...p,
+      id: localId(),
+      createdAt: new Date().toLocaleString("pt-BR"),
+      interactions: [],
+    };
+    saveLocalProspects([saved, ...loadLocalProspects()]);
+    return saved;
+  }
   const { data, error } = await supabase
     .from("prospects")
     .insert({
@@ -116,6 +173,11 @@ export async function insertProspect(p: Omit<Prospect, "id" | "createdAt" | "int
 }
 
 export async function updateProspect(id: string, patch: Partial<Prospect>) {
+  const uid = await currentUserId();
+  if (!uid) {
+    saveLocalProspects(loadLocalProspects().map((p) => (p.id === id ? { ...p, ...patch } : p)));
+    return;
+  }
   const map: Record<string, unknown> = {};
   if (patch.company !== undefined) map.company = patch.company;
   if (patch.cnpj !== undefined) map.cnpj = patch.cnpj || null;
@@ -136,6 +198,11 @@ export async function updateProspect(id: string, patch: Partial<Prospect>) {
 
 export async function deleteProspects(ids: string[]) {
   if (!ids.length) return;
+  const uid = await currentUserId();
+  if (!uid) {
+    saveLocalProspects(loadLocalProspects().filter((p) => !ids.includes(p.id)));
+    return;
+  }
   const { error } = await supabase.from("prospects").delete().in("id", ids);
   if (error) throw error;
 }
@@ -147,7 +214,21 @@ export async function addInteractionRemote(
   byName: string,
 ): Promise<Interaction | null> {
   const uid = await currentUserId();
-  if (!uid) return null;
+  if (!uid) {
+    const ix: Interaction = {
+      id: localId("ix"),
+      kind,
+      text,
+      by: byName,
+      at: new Date().toLocaleString("pt-BR"),
+    };
+    saveLocalProspects(
+      loadLocalProspects().map((p) =>
+        p.id === prospectId ? { ...p, interactions: [ix, ...(p.interactions ?? [])] } : p,
+      ),
+    );
+    return ix;
+  }
   const { data, error } = await supabase
     .from("prospect_interactions")
     .insert({ prospect_id: prospectId, user_id: uid, kind, text, by_name: byName })

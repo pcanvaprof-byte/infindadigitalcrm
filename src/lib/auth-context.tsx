@@ -31,15 +31,19 @@ function readStoredUser(): MockUser | null {
  * Tenta sign-in; se a conta não existir, faz sign-up e sign-in.
  * Necessário para que as RLS policies (auth.uid()) funcionem.
  */
-async function ensureSupabaseSession(seed: AccountSeed) {
+async function ensureSupabaseSession(seed: AccountSeed): Promise<{ ok: true; cloud: boolean } | { ok: false; error: string }> {
   const { data: existing } = await supabase.auth.getSession();
-  if (existing.session?.user.email?.toLowerCase() === seed.email.toLowerCase()) return;
+  if (existing.session?.user.email?.toLowerCase() === seed.email.toLowerCase()) return { ok: true, cloud: true };
 
   const { data: signIn, error: signInError } = await supabase.auth.signInWithPassword({
     email: seed.email,
     password: seed.password,
   });
-  if (signIn?.session) return;
+  if (signIn?.session) return { ok: true, cloud: true };
+  if (/email not confirmed/i.test(signInError?.message ?? "")) {
+    console.warn("[auth] Conta MVP existe no Cloud, mas ainda não foi confirmada.");
+    return { ok: true, cloud: false };
+  }
 
   // Conta ainda não existe no Supabase Auth — cria e tenta novamente.
   const { error: signUpError } = await supabase.auth.signUp({
@@ -52,7 +56,7 @@ async function ensureSupabaseSession(seed: AccountSeed) {
   });
   if (signUpError && !/registered|exists/i.test(signUpError.message)) {
     console.warn("[auth] signUp falhou:", signUpError.message);
-    return;
+    return { ok: true, cloud: false };
   }
 
   const { data: retry, error: retryError } = await supabase.auth.signInWithPassword({
@@ -60,11 +64,11 @@ async function ensureSupabaseSession(seed: AccountSeed) {
     password: seed.password,
   });
   if (!retry?.session) {
-    console.warn(
-      "[auth] Não foi possível autenticar no Cloud:",
-      retryError?.message ?? signInError?.message ?? "desconhecido",
-    );
+    const message = retryError?.message ?? signInError?.message ?? "desconhecido";
+    console.warn("[auth] Não foi possível autenticar no Cloud:", message);
+    return { ok: true, cloud: false };
   }
+  return { ok: true, cloud: true };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -72,15 +76,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    setUser(readStoredUser());
-    setIsReady(true);
+    let alive = true;
+    async function restore() {
+      const stored = readStoredUser();
+      if (!stored) {
+        if (alive) setIsReady(true);
+        return;
+      }
+      const seed = SEED_ACCOUNTS.find((a) => a.email.toLowerCase() === stored.email.toLowerCase());
+      const result = seed ? await ensureSupabaseSession(seed) : { ok: false as const };
+      if (!alive) return;
+      if (result.ok) {
+        setUser(stored);
+      } else {
+        window.localStorage.removeItem(KEY);
+        setUser(null);
+      }
+      setIsReady(true);
+    }
+    void restore();
+    return () => { alive = false; };
   }, []);
-
-  useEffect(() => {
-    if (!isReady || !user) return;
-    const seed = SEED_ACCOUNTS.find((a) => a.email.toLowerCase() === user.email.toLowerCase());
-    if (seed) void ensureSupabaseSession(seed);
-  }, [isReady, user]);
 
   const login: AuthCtx["login"] = async (email, password) => {
     const e = email.trim().toLowerCase();
@@ -89,20 +105,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
     if (!found) return { ok: false, error: "Email ou senha inválidos." };
     const u: MockUser = { name: found.name, email: found.email, role: found.role };
+    const session = await ensureSupabaseSession(found);
+    if (!session.ok) return { ok: false, error: session.error };
     window.localStorage.setItem(KEY, JSON.stringify(u));
     setUser(u);
     setIsReady(true);
-    await ensureSupabaseSession(found);
     return { ok: true };
   };
 
   const loginAs: AuthCtx["loginAs"] = async (u) => {
     const seed = SEED_ACCOUNTS.find((a) => a.email.toLowerCase() === u.email.toLowerCase());
     if (!seed) return { ok: false, error: "Conta de acesso rápido inválida." };
+    const session = await ensureSupabaseSession(seed);
+    if (!session.ok) return { ok: false, error: session.error };
     window.localStorage.setItem(KEY, JSON.stringify(u));
     setUser(u);
     setIsReady(true);
-    await ensureSupabaseSession(seed);
     return { ok: true };
   };
 
