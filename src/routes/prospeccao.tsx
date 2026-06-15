@@ -89,7 +89,7 @@ import {
 import { History, FileSpreadsheet } from "lucide-react";
 import { EnrichmentDrawer } from "@/components/EnrichmentDrawer";
 import { runEnrichment } from "@/lib/enrichment/api";
-import { Sparkles as SparklesIcon, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 
 export const Route = createFileRoute("/prospeccao")({
