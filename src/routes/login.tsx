@@ -1,6 +1,6 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { useAuth, SEED_ACCOUNTS } from "@/lib/auth-context";
+import { AuthLoadingScreen, useAuth, SEED_ACCOUNTS } from "@/lib/auth-context";
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const { login, loginAs } = useAuth();
+  const { user, isReady, login, loginAs } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -32,15 +32,18 @@ function LoginPage() {
       return;
     }
     toast.success("Bem-vindo de volta!");
-    navigate({ to: "/dashboard" });
+    navigate({ to: "/dashboard", replace: true });
   };
 
   const quickLogin = async (idx: number) => {
     const a = SEED_ACCOUNTS[idx];
     await loginAs({ name: a.name, email: a.email, role: a.role });
     toast.success(`Entrando como ${a.name}…`);
-    navigate({ to: "/dashboard" });
+    navigate({ to: "/dashboard", replace: true });
   };
+
+  if (!isReady) return <AuthLoadingScreen />;
+  if (user) return <Navigate to="/dashboard" replace />;
 
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
