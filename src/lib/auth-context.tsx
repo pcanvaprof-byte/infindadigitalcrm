@@ -32,12 +32,39 @@ function readStoredUser(): MockUser | null {
  * Necessário para que as RLS policies (auth.uid()) funcionem.
  */
 async function ensureSupabaseSession(seed: AccountSeed) {
-  const { data: signIn, error } = await supabase.auth.signInWithPassword({
+  const { data: existing } = await supabase.auth.getSession();
+  if (existing.session?.user.email?.toLowerCase() === seed.email.toLowerCase()) return;
+
+  const { data: signIn, error: signInError } = await supabase.auth.signInWithPassword({
     email: seed.email,
     password: seed.password,
   });
   if (signIn?.session) return;
-  if (error) console.warn("[auth] Sessão Cloud indisponível:", error.message);
+
+  // Conta ainda não existe no Supabase Auth — cria e tenta novamente.
+  const { error: signUpError } = await supabase.auth.signUp({
+    email: seed.email,
+    password: seed.password,
+    options: {
+      emailRedirectTo: typeof window !== "undefined" ? window.location.origin : undefined,
+      data: { name: seed.name, role: seed.role },
+    },
+  });
+  if (signUpError && !/registered|exists/i.test(signUpError.message)) {
+    console.warn("[auth] signUp falhou:", signUpError.message);
+    return;
+  }
+
+  const { data: retry, error: retryError } = await supabase.auth.signInWithPassword({
+    email: seed.email,
+    password: seed.password,
+  });
+  if (!retry?.session) {
+    console.warn(
+      "[auth] Não foi possível autenticar no Cloud:",
+      retryError?.message ?? signInError?.message ?? "desconhecido",
+    );
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
