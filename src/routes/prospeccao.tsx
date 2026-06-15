@@ -87,6 +87,7 @@ import {
   type ImportLog,
 } from "@/lib/prospects-api";
 import { History, FileSpreadsheet } from "lucide-react";
+import { EnrichmentDrawer } from "@/components/EnrichmentDrawer";
 
 
 export const Route = createFileRoute("/prospeccao")({
@@ -260,6 +261,7 @@ function ProspeccaoPage() {
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([]);
   const [previewFileName, setPreviewFileName] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [enrichFor, setEnrichFor] = useState<Prospect | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -797,6 +799,7 @@ function ProspeccaoPage() {
             onStatus={(s) => updateStatus(detail.id, s)}
             onConvert={() => convertToLead(detail)}
             onAddNote={(text) => { addInteraction(detail.id, "nota", text); toast.success("Nota registrada"); }}
+            onEnrich={() => setEnrichFor(detail)}
           />
         )}
       </Dialog>
@@ -821,6 +824,14 @@ function ProspeccaoPage() {
           Carregando…
         </div>
       )}
+
+      <EnrichmentDrawer
+        open={!!enrichFor}
+        onOpenChange={(o) => !o && setEnrichFor(null)}
+        cnpj={enrichFor?.cnpj ?? ""}
+        prospectId={enrichFor?.id}
+        companyName={enrichFor?.company}
+      />
     </AppShell>
 
   );
@@ -940,7 +951,7 @@ function KanbanView({
 }
 
 function DetailDialog({
-  p, onWhats, onCall, onStatus, onConvert, onAddNote,
+  p, onWhats, onCall, onStatus, onConvert, onAddNote, onEnrich,
 }: {
   p: Prospect;
   onWhats: () => void;
@@ -948,6 +959,7 @@ function DetailDialog({
   onStatus: (s: ProspectStatus) => void;
   onConvert: () => void;
   onAddNote: (text: string) => void;
+  onEnrich: () => void;
 }) {
   const [note, setNote] = useState("");
   const timeline = p.interactions ?? [];
@@ -966,6 +978,9 @@ function DetailDialog({
               <StatusBadge status={p.status} />
             </DialogDescription>
           </div>
+          <Button size="sm" className="btn-gradient h-8 text-xs" onClick={onEnrich}>
+            <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Enriquecer Lead
+          </Button>
         </div>
       </DialogHeader>
 
