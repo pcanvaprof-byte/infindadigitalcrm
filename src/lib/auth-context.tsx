@@ -31,21 +31,21 @@ function readStoredUser(): MockUser | null {
  * Tenta sign-in; se a conta não existir, faz sign-up e sign-in.
  * Necessário para que as RLS policies (auth.uid()) funcionem.
  */
-async function ensureSupabaseSession(seed: AccountSeed): Promise<{ ok: true; cloud: boolean } | { ok: false; error: string }> {
+async function ensureSupabaseSession(
+  seed: AccountSeed,
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const { data: existing } = await supabase.auth.getSession();
-  if (existing.session?.user.email?.toLowerCase() === seed.email.toLowerCase()) return { ok: true, cloud: true };
+  if (existing.session?.user.email?.toLowerCase() === seed.email.toLowerCase()) {
+    return { ok: true };
+  }
 
   const { data: signIn, error: signInError } = await supabase.auth.signInWithPassword({
     email: seed.email,
     password: seed.password,
   });
-  if (signIn?.session) return { ok: true, cloud: true };
-  if (/email not confirmed/i.test(signInError?.message ?? "")) {
-    console.warn("[auth] Conta MVP existe no Cloud, mas ainda não foi confirmada.");
-    return { ok: true, cloud: false };
-  }
+  if (signIn?.session) return { ok: true };
 
-  // Conta ainda não existe no Supabase Auth — cria e tenta novamente.
+  // Conta pode não existir → cria e tenta de novo.
   const { error: signUpError } = await supabase.auth.signUp({
     email: seed.email,
     password: seed.password,
@@ -55,20 +55,24 @@ async function ensureSupabaseSession(seed: AccountSeed): Promise<{ ok: true; clo
     },
   });
   if (signUpError && !/registered|exists/i.test(signUpError.message)) {
-    console.warn("[auth] signUp falhou:", signUpError.message);
-    return { ok: true, cloud: false };
+    return { ok: false, error: signUpError.message };
   }
 
   const { data: retry, error: retryError } = await supabase.auth.signInWithPassword({
     email: seed.email,
     password: seed.password,
   });
-  if (!retry?.session) {
-    const message = retryError?.message ?? signInError?.message ?? "desconhecido";
-    console.warn("[auth] Não foi possível autenticar no Cloud:", message);
-    return { ok: true, cloud: false };
+  if (retry?.session) return { ok: true };
+
+  const msg = retryError?.message ?? signInError?.message ?? "Falha desconhecida";
+  if (/email not confirmed/i.test(msg)) {
+    return {
+      ok: false,
+      error:
+        "Confirmação de e-mail está ativa no Cloud. Desative em Cloud → Users → Auth Settings → 'Confirm email' e tente novamente.",
+    };
   }
-  return { ok: true, cloud: true };
+  return { ok: false, error: `Falha no Cloud: ${msg}` };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
