@@ -31,6 +31,10 @@ function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
+    if (!email.trim() || !password) {
+      toast.error("Informe email e senha para entrar.");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await login(email, password);
@@ -110,6 +114,8 @@ function LoginPage() {
                 placeholder="voce@infinda.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
+                required
               />
             </div>
             <div className="space-y-1.5">
@@ -120,11 +126,14 @@ function LoginPage() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="current-password"
+                required
               />
             </div>
             <Button
               type="submit"
               disabled={submitting}
+              aria-busy={submitting}
               className="btn-gradient h-11 w-full text-sm font-semibold"
             >
               {submitting ? "Entrando…" : "Entrar na plataforma"}
