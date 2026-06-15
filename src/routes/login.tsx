@@ -12,7 +12,10 @@ export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
       { title: "Entrar — INFINDA" },
-      { name: "description", content: "Acesse a plataforma INFINDA — CRM + IA + Automação Comercial." },
+      {
+        name: "description",
+        content: "Acesse a plataforma INFINDA — CRM + IA + Automação Comercial.",
+      },
     ],
   }),
   component: LoginPage,
@@ -51,7 +54,11 @@ function LoginPage() {
         className="relative hidden overflow-hidden border-r border-border lg:flex lg:flex-col lg:justify-between lg:p-10"
         style={{ background: "var(--gradient-surface)" }}
       >
-        <div aria-hidden className="pointer-events-none absolute inset-0" style={{ background: "var(--gradient-glow)" }} />
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{ background: "var(--gradient-glow)" }}
+        />
         <div className="relative">
           <Logo size={40} />
         </div>
@@ -60,8 +67,8 @@ function LoginPage() {
             O sistema operacional <span className="text-gradient">comercial</span> da sua empresa.
           </h2>
           <p className="max-w-md text-sm text-muted-foreground">
-            CRM, prospecção, metas, propostas e IA em uma única plataforma. Construído para
-            equipes que vendem todo dia.
+            CRM, prospecção, metas, propostas e IA em uma única plataforma. Construído para equipes
+            que vendem todo dia.
           </p>
           <ul className="grid gap-3 text-sm">
             {[
@@ -115,7 +122,11 @@ function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
-            <Button type="submit" disabled={submitting} className="btn-gradient h-11 w-full text-sm font-semibold">
+            <Button
+              type="submit"
+              disabled={submitting}
+              className="btn-gradient h-11 w-full text-sm font-semibold"
+            >
               {submitting ? "Entrando…" : "Entrar na plataforma"}
             </Button>
           </form>
