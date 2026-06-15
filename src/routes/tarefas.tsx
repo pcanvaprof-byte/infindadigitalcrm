@@ -9,6 +9,7 @@ import { MapPin, Loader2, Sparkles, Search } from "lucide-react";
 import { toast } from "sonner";
 import { loadMapPoints, bairroColor, type MapPoint } from "@/lib/tasks-map-api";
 import { runEnrichment } from "@/lib/enrichment/api";
+import { collectBairro } from "@/lib/enrichment/bairro";
 
 const TasksMap = lazy(() => import("@/components/TasksMap").then((m) => ({ default: m.TasksMap })));
 
@@ -28,6 +29,7 @@ function TarefasPage() {
   const [selectedBairro, setSelectedBairro] = useState<string | null>(null);
   const [q, setQ] = useState("");
   const [geocoding, setGeocoding] = useState(false);
+  const [collectingBairro, setCollectingBairro] = useState(false);
 
   const refresh = () => {
     setLoading(true);
@@ -59,6 +61,7 @@ function TarefasPage() {
 
   const withCoords = filtered.filter((p) => p.lat && p.lon).length;
   const withoutCoords = filtered.length - withCoords;
+  const withoutBairro = points.filter((p) => !p.bairro).length;
 
   const enrichMissing = async () => {
     const missing = points.filter((p) => !p.lat || !p.lon).slice(0, 50);
@@ -73,6 +76,22 @@ function TarefasPage() {
     }
     toast.success(`Concluído: ${ok}/${missing.length}`, { id: tid });
     setGeocoding(false);
+    refresh();
+  };
+
+  const collectBairros = async () => {
+    const missing = points.filter((p) => !p.bairro);
+    if (!missing.length) return toast.info("Todos já têm bairro.");
+    setCollectingBairro(true);
+    const tid = toast.loading(`Coletando bairros 0/${missing.length}…`);
+    let ok = 0;
+    for (let i = 0; i < missing.length; i++) {
+      try { await collectBairro(missing[i].cnpj); ok++; } catch { /* ignore */ }
+      toast.loading(`Coletando bairros ${i + 1}/${missing.length}…`, { id: tid });
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    toast.success(`Bairros coletados: ${ok}/${missing.length}`, { id: tid });
+    setCollectingBairro(false);
     refresh();
   };
 
@@ -104,6 +123,22 @@ function TarefasPage() {
                 ? <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                 : <Sparkles className="mr-1 h-3 w-3" />}
               Geocodificar
+            </Button>
+          </div>
+
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>{withoutBairro} sem bairro</span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-[11px]"
+              disabled={collectingBairro || withoutBairro === 0}
+              onClick={collectBairros}
+            >
+              {collectingBairro
+                ? <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                : <MapPin className="mr-1 h-3 w-3" />}
+              Coletar bairros
             </Button>
           </div>
 
