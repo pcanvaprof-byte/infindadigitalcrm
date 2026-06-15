@@ -1,4 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const db = supabase as any;
 
 export interface MapPoint {
   cnpj: string;
@@ -42,11 +44,11 @@ export async function loadMapPoints(): Promise<MapPoint[]> {
   if (!uid) return [];
 
   const [profilesRes, prospectsRes] = await Promise.all([
-    supabase
+    db
       .from("company_profiles")
       .select("cnpj,razao_social,nome_fantasia,company_addresses(logradouro,numero,bairro,cidade,uf,cep),company_locations(lat,lon)")
       .eq("user_id", uid),
-    supabase
+    db
       .from("prospects")
       .select("cnpj,company,whatsapp,phone,email,status,potential,city,state")
       .eq("user_id", uid),
