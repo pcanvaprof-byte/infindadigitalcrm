@@ -12,6 +12,7 @@ import type {
   EnrichedLocation,
   MarketData,
   ScoreResult,
+  CompanyVisit,
 } from "./types";
 
 type StepStatus = "pending" | "running" | "done" | "error" | "skipped";
@@ -98,6 +99,9 @@ export async function loadExistingEnrichment(
       cnae_principal_desc: profile.cnae_principal_desc,
       cnaes_secundarios: profile.cnaes_secundarios ?? [],
       socios: profile.socios ?? [],
+      telefone_1: profile.telefone_1 ?? undefined,
+      telefone_2: profile.telefone_2 ?? undefined,
+      email: profile.email ?? undefined,
     },
     address: addr ? {
       cep: addr.cep, logradouro: addr.logradouro, numero: addr.numero,
@@ -118,6 +122,7 @@ export async function loadExistingEnrichment(
       classificacao: score.classificacao, breakdown: score.breakdown,
     } : computeScore({ cnpj: profile.cnpj }, null, null),
   };
+  result.visits = await listVisits(profile.id);
   return result;
 }
 
@@ -203,6 +208,9 @@ export async function runEnrichment(
         cnae_principal_desc: profile.cnae_principal_desc ?? null,
         cnaes_secundarios: profile.cnaes_secundarios ?? [],
         socios: profile.socios ?? [],
+        telefone_1: profile.telefone_1 ?? null,
+        telefone_2: profile.telefone_2 ?? null,
+        email: profile.email ?? null,
         raw: profile.raw ?? null,
         updated_at: new Date().toISOString(),
       };
