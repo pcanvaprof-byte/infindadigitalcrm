@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { Navigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 
 export type Role = "admin" | "consultor";
@@ -140,6 +141,19 @@ export function useAuth() {
   const v = useContext(Ctx);
   if (!v) throw new Error("useAuth must be used within AuthProvider");
   return v;
+}
+
+export function useRequiredUser() {
+  const { user } = useAuth();
+  if (!user) throw new Error("Authenticated route rendered without a user");
+  return user;
+}
+
+export function RequireAuth({ children }: { children: ReactNode }) {
+  const { user, isReady } = useAuth();
+  if (!isReady) return <AuthLoadingScreen />;
+  if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
 }
 
 export const ROLE_LABEL: Record<Role, string> = {
