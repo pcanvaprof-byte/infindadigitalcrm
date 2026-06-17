@@ -325,7 +325,7 @@ export async function runEnrichment(
         try {
           const { data: prosp } = await db
             .from("prospects")
-            .select("phone, whatsapp, email")
+            .select("phone, whatsapp, email, city, state")
             .eq("id", opts.prospectId)
             .maybeSingle();
           const patch: Record<string, string> = {};
@@ -346,6 +346,7 @@ export async function runEnrichment(
         } catch (e) {
           await log(uid, profileId, profile.cnpj, "persist", "error",
             "prospect update: " + (e as Error).message);
+          throw e;
         }
       }
 
@@ -356,9 +357,11 @@ export async function runEnrichment(
     } catch (e) {
       await log(uid, null, profile.cnpj, "persist", "error", (e as Error).message);
       emit(opts, "persist", "error", (e as Error).message);
+      throw e;
     }
   } else {
     emit(opts, "persist", "skipped", "Sem sessão Cloud — dados não foram salvos.");
+    throw new Error("Sessão necessária para salvar o enriquecimento.");
   }
 
   return { profile, address, location, market, score };
