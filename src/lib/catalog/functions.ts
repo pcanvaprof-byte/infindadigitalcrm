@@ -118,6 +118,7 @@ export const createCatalogItemMutation = createServerFn({ method: "POST" })
     return row as CatalogItem;
   });
 
+
 export const updateCatalogItemMutation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => UpdateInput.parse(data))
