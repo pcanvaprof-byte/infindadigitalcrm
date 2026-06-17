@@ -858,10 +858,25 @@ function ProspeccaoPage() {
                     <td className="px-4 py-3 align-top"><PotentialBadge p={p.potential} /></td>
                     <td className="px-4 py-3 align-top"><StatusBadge status={p.status} /></td>
                     <td className="px-4 py-3 align-top">
-                      <RowActions p={p} onWhats={openWhats} onCall={callPhone}
-                        onAgendar={() => updateStatus(p.id, "agendado")}
-                        onConvert={() => convertToLead(p)} onStatus={updateStatus}
-                        onRemove={() => removeProspect([p.id])} onOpen={() => setDetailId(p.id)} />
+                      <div className="flex items-center justify-end gap-1">
+                        <RowActions p={p} onWhats={openWhats} onCall={callPhone}
+                          onAgendar={() => updateStatus(p.id, "agendado")}
+                          onConvert={() => convertToLead(p)} onStatus={updateStatus}
+                          onRemove={() => removeProspect([p.id])} onOpen={() => setDetailId(p.id)} />
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          aria-label={`Apagar ${p.company}`}
+                          onClick={() => {
+                            if (window.confirm(`Apagar "${p.company}"? Esta ação não pode ser desfeita.`)) {
+                              removeProspect([p.id]);
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
