@@ -2,6 +2,9 @@ import { supabase } from "@/integrations/supabase/client";
 import type { CatalogCategoria, CatalogItem, CatalogArea, CatalogTipo } from "./types";
 import {
   createCatalogItemMutation,
+  getCatalogItemQuery,
+  listCatalogCategoriasQuery,
+  listCatalogItemsQuery,
   toggleCatalogItemMutation,
   updateCatalogItemMutation,
 } from "./catalog.functions";
@@ -61,12 +64,12 @@ function withItemDefaults(row: unknown): CatalogItem {
 
 // -------- Categorias --------
 export async function listCategorias(): Promise<CatalogCategoria[]> {
-  const { data, error } = await db
-    .from("catalog_categorias")
-    .select("*")
-    .order("ordem", { ascending: true });
-  if (error) throw normalize(error);
-  return (data ?? []) as CatalogCategoria[];
+  try {
+    const data = await listCatalogCategoriasQuery();
+    return (data ?? []) as CatalogCategoria[];
+  } catch (error) {
+    throw normalize(error);
+  }
 }
 
 // -------- Items --------
@@ -79,25 +82,21 @@ export interface ListItemsFilters {
 }
 
 export async function listItems(filters: ListItemsFilters = {}): Promise<CatalogItem[]> {
-  let q = db.from("catalog_items").select("*");
-  if (filters.categoriaId) q = q.eq("categoria_id", filters.categoriaId);
-  if (filters.tipo) q = q.eq("tipo", filters.tipo);
-  if (filters.area) q = q.eq("area_responsavel", filters.area);
-  if (filters.apenasAtivos) q = q.eq("ativo", true);
-  if (filters.search && filters.search.trim()) {
-    const s = filters.search.trim().replace(/[%_]/g, "");
-    q = q.or(`nome_comercial.ilike.%${s}%,nome_interno.ilike.%${s}%,codigo.ilike.%${s}%`);
+  try {
+    const data = await listCatalogItemsQuery({ data: filters as Record<string, unknown> });
+    return ((data ?? []) as unknown[]).map(withItemDefaults);
+  } catch (error) {
+    throw normalize(error);
   }
-  q = q.order("ordem", { ascending: true }).order("nome_comercial", { ascending: true });
-  const { data, error } = await q;
-  if (error) throw normalize(error);
-  return ((data ?? []) as unknown[]).map(withItemDefaults);
 }
 
 export async function getItem(id: string): Promise<CatalogItem | null> {
-  const { data, error } = await db.from("catalog_items").select("*").eq("id", id).maybeSingle();
-  if (error) throw normalize(error);
-  return data ? withItemDefaults(data) : null;
+  try {
+    const data = await getCatalogItemQuery({ data: { id } });
+    return data ? withItemDefaults(data) : null;
+  } catch (error) {
+    throw normalize(error);
+  }
 }
 
 export type CatalogItemInput = Omit<CatalogItem, "id" | "created_at" | "updated_at" | "created_by">;
