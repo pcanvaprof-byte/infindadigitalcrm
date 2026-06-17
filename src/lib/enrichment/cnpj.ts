@@ -33,6 +33,32 @@ interface BrasilApiResponse {
   email?: string;
 }
 
+interface PublicaCnpjWsResponse {
+  razao_social?: string;
+  capital_social?: string | number;
+  porte?: { descricao?: string };
+  natureza_juridica?: { descricao?: string };
+  socios?: { nome?: string; qualificacao_socio?: { descricao?: string } }[];
+  estabelecimento?: {
+    nome_fantasia?: string;
+    situacao_cadastral?: string;
+    data_inicio_atividade?: string;
+    atividade_principal?: { id?: string | number; descricao?: string };
+    atividades_secundarias?: { id?: string | number; descricao?: string }[];
+    cep?: string;
+    tipo_logradouro?: string;
+    logradouro?: string;
+    numero?: string;
+    complemento?: string;
+    bairro?: string;
+    cidade?: { nome?: string };
+    estado?: { sigla?: string };
+    ddd1?: string; telefone1?: string;
+    ddd2?: string; telefone2?: string;
+    email?: string;
+  };
+}
+
 function formatPhone(raw?: string): string | undefined {
   if (!raw) return undefined;
   const d = raw.replace(/\D/g, "");
@@ -42,6 +68,45 @@ function formatPhone(raw?: string): string | undefined {
   if (rest.length === 9) return `(${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
   if (rest.length === 8) return `(${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
   return raw;
+}
+
+function mapPublicaCnpjWs(clean: string, data: PublicaCnpjWsResponse): { profile: EnrichedProfile; address: EnrichedAddress } {
+  const est = data.estabelecimento ?? {};
+  return {
+    profile: {
+      cnpj: clean,
+      razao_social: data.razao_social,
+      nome_fantasia: est.nome_fantasia,
+      situacao: est.situacao_cadastral,
+      data_abertura: est.data_inicio_atividade,
+      natureza_juridica: data.natureza_juridica?.descricao,
+      porte: data.porte?.descricao,
+      capital_social: data.capital_social === undefined ? undefined : Number(data.capital_social),
+      cnae_principal: est.atividade_principal?.id ? String(est.atividade_principal.id) : undefined,
+      cnae_principal_desc: est.atividade_principal?.descricao,
+      cnaes_secundarios: (est.atividades_secundarias ?? []).map((c) => ({
+        codigo: String(c.id ?? ""),
+        descricao: c.descricao ?? "",
+      })).filter((c) => c.codigo || c.descricao),
+      socios: (data.socios ?? []).map((s) => ({
+        nome: s.nome ?? "",
+        qualificacao: s.qualificacao_socio?.descricao,
+      })).filter((s) => s.nome),
+      telefone_1: est.ddd1 && est.telefone1 ? formatPhone(est.ddd1 + est.telefone1) : undefined,
+      telefone_2: est.ddd2 && est.telefone2 ? formatPhone(est.ddd2 + est.telefone2) : undefined,
+      email: est.email?.toLowerCase(),
+      raw: data,
+    },
+    address: {
+      cep: est.cep,
+      logradouro: [est.tipo_logradouro, est.logradouro].filter(Boolean).join(" ") || undefined,
+      numero: est.numero,
+      complemento: est.complemento,
+      bairro: est.bairro,
+      cidade: est.cidade?.nome,
+      uf: est.estado?.sigla,
+    },
+  };
 }
 
 export async function fetchCnpj(
