@@ -80,6 +80,17 @@ function defaults(initial?: CatalogItem | null): CatalogItemFormValues {
   };
 }
 
+function optionalNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function requiredNumber(value: unknown): number {
+  const n = Number(value ?? 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function TagListInput({
   label,
   values,
@@ -156,6 +167,10 @@ export function CatalogItemForm({ initial, categorias, onSubmit, onCancel, submi
       toast.error("Informe o nome comercial");
       return;
     }
+    if (categorias.length > 0 && !v.categoria_id) {
+      toast.error("Selecione uma categoria");
+      return;
+    }
     setSaving(true);
     try {
       const payload: CatalogItemFormValues = {
@@ -167,19 +182,18 @@ export function CatalogItemForm({ initial, categorias, onSubmit, onCancel, submi
         descricao_completa: v.descricao_completa?.toString().trim() || null,
         objetivo: v.objetivo?.toString().trim() || null,
         observacoes_internas: v.observacoes_internas?.toString().trim() || null,
-        valor_implantacao: Number(v.valor_implantacao ?? 0),
-        valor_mensal: Number(v.valor_mensal ?? 0),
-        valor_avulso: Number(v.valor_avulso ?? 0),
-        prioridade: Number(v.prioridade ?? 0),
-        ordem: Number(v.ordem ?? 0),
-        prazo_estimado_dias:
-          v.prazo_estimado_dias === null || v.prazo_estimado_dias === undefined
-            ? null
-            : Number(v.prazo_estimado_dias),
-        tempo_execucao_horas:
-          v.tempo_execucao_horas === null || v.tempo_execucao_horas === undefined
-            ? null
-            : Number(v.tempo_execucao_horas),
+        categoria_id: v.categoria_id || null,
+        beneficios: v.beneficios ?? [],
+        entregaveis: v.entregaveis ?? [],
+        nao_incluso: v.nao_incluso ?? [],
+        tags: v.tags ?? [],
+        valor_implantacao: requiredNumber(v.valor_implantacao),
+        valor_mensal: requiredNumber(v.valor_mensal),
+        valor_avulso: requiredNumber(v.valor_avulso),
+        prioridade: requiredNumber(v.prioridade),
+        ordem: requiredNumber(v.ordem),
+        prazo_estimado_dias: optionalNumber(v.prazo_estimado_dias),
+        tempo_execucao_horas: optionalNumber(v.tempo_execucao_horas),
       };
       await onSubmit(payload);
     } catch (err) {
