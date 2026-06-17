@@ -599,6 +599,8 @@ function ProspeccaoPage() {
         if (!p.whatsapp && tel) patch.whatsapp = tel;
         if (!p.phone && r.profile.telefone_2 && r.profile.telefone_2 !== patch.whatsapp) patch.phone = r.profile.telefone_2;
         if (!p.email && r.profile.email) patch.email = r.profile.email;
+        if (!p.city && r.address?.cidade) patch.city = r.address.cidade;
+        if (!p.state && r.address?.uf) patch.state = r.address.uf;
         if (Object.keys(patch).length) {
           await updateProspect(p.id, patch);
           contatosNovos++;
@@ -616,6 +618,7 @@ function ProspeccaoPage() {
       `Enriquecimento concluído: ${ok} ok, ${fail} falhas, ${contatosNovos} contato(s) preenchido(s).`,
       { id: tid, duration: 8000 },
     );
+    loadAllProspects().then(setProspects).catch(() => {});
     setBulkEnriching(false);
   };
 

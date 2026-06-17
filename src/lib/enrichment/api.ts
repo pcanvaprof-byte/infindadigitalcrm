@@ -42,6 +42,24 @@ async function currentUserId(): Promise<string | null> {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
 
+type DbResponse = { error?: { message?: string; details?: string; hint?: string } | null };
+
+async function expectDb<T extends DbResponse>(promise: PromiseLike<T>, action: string): Promise<T> {
+  const response = await promise;
+  if (response.error) {
+    const details = [response.error.message, response.error.details, response.error.hint]
+      .filter(Boolean)
+      .join(" — ");
+    throw new Error(`${action}: ${details || "erro ao salvar"}`);
+  }
+  return response;
+}
+
+function filled(value?: string | null): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 async function log(
   uid: string,
   profileId: string | null,
@@ -278,28 +296,28 @@ export async function runEnrichment(
       if (upErr) throw upErr;
       const profileId = up.id as string;
 
-      await db.from("company_addresses").delete().eq("profile_id", profileId);
-      await db.from("company_addresses").insert({
+      await expectDb(db.from("company_addresses").delete().eq("profile_id", profileId), "limpar endereço antigo");
+      await expectDb(db.from("company_addresses").insert({
         user_id: uid, profile_id: profileId, ...address,
-      });
+      }), "salvar endereço");
       if (location) {
-        await db.from("company_locations").delete().eq("profile_id", profileId);
-        await db.from("company_locations").insert({
+        await expectDb(db.from("company_locations").delete().eq("profile_id", profileId), "limpar localização antiga");
+        await expectDb(db.from("company_locations").insert({
           user_id: uid, profile_id: profileId,
           lat: location.lat, lon: location.lon, display_name: location.display_name ?? null,
-        });
+        }), "salvar localização");
       }
       if (market?.municipio_ibge_id) {
-        await db.from("company_market_data").upsert(
+        await expectDb(db.from("company_market_data").upsert(
           { user_id: uid, ...market },
           { onConflict: "user_id,municipio_ibge_id" },
-        );
+        ), "salvar indicadores");
       }
-      await db.from("company_scores").insert({
+      await expectDb(db.from("company_scores").insert({
         user_id: uid, profile_id: profileId,
         lead_score: score.lead_score, market_score: score.market_score,
         classificacao: score.classificacao, breakdown: score.breakdown,
-      });
+      }), "salvar score");
 
       // Também atualiza o prospect (telefone/whatsapp/email) — preenche somente
       // campos vazios para não sobrescrever dados manuais do usuário.
@@ -307,20 +325,28 @@ export async function runEnrichment(
         try {
           const { data: prosp } = await db
             .from("prospects")
-            .select("phone, whatsapp, email")
+            .select("phone, whatsapp, email, city, state")
             .eq("id", opts.prospectId)
             .maybeSingle();
           const patch: Record<string, string> = {};
-          const tel = profile.telefone_1 || profile.telefone_2 || "";
-          if (prosp && !prosp.phone && tel) patch.phone = tel;
-          if (prosp && !prosp.whatsapp && tel) patch.whatsapp = tel;
-          if (prosp && !prosp.email && profile.email) patch.email = profile.email;
+          const tel1 = filled(profile.telefone_1);
+          const tel2 = filled(profile.telefone_2);
+          const tel = tel1 || tel2;
+          const email = filled(profile.email);
+          const city = filled(address.cidade);
+          const state = filled(address.uf);
+          if (prosp && !filled(prosp.phone) && tel) patch.phone = tel;
+          if (prosp && !filled(prosp.whatsapp) && tel) patch.whatsapp = tel;
+          if (prosp && !filled(prosp.email) && email) patch.email = email;
+          if (prosp && !filled(prosp.city) && city) patch.city = city;
+          if (prosp && !filled(prosp.state) && state) patch.state = state;
           if (Object.keys(patch).length) {
-            await db.from("prospects").update(patch).eq("id", opts.prospectId);
+            await expectDb(db.from("prospects").update(patch).eq("id", opts.prospectId), "atualizar lead");
           }
         } catch (e) {
           await log(uid, profileId, profile.cnpj, "persist", "error",
             "prospect update: " + (e as Error).message);
+          throw e;
         }
       }
 
@@ -331,9 +357,11 @@ export async function runEnrichment(
     } catch (e) {
       await log(uid, null, profile.cnpj, "persist", "error", (e as Error).message);
       emit(opts, "persist", "error", (e as Error).message);
+      throw e;
     }
   } else {
     emit(opts, "persist", "skipped", "Sem sessão Cloud — dados não foram salvos.");
+    throw new Error("Sessão necessária para salvar o enriquecimento.");
   }
 
   return { profile, address, location, market, score };
