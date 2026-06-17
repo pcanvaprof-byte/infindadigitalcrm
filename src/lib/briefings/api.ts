@@ -14,6 +14,35 @@ function generateToken(): string {
   return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+function isBriefingSchemaError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /lead_id|tipo|schema cache|column .* does not exist/i.test(message);
+}
+
+function normalizeBriefingError(error: unknown): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  if (isBriefingSchemaError(error)) {
+    return new Error(
+      "O backend conectado ao app ainda está sem a migration do módulo Briefings/Kickoff. Rode `scripts/migrations/20260619_briefings_kickoff.sql` no mesmo banco configurado no app e depois `NOTIFY pgrst, 'reload schema';`.",
+    );
+  }
+  return error instanceof Error ? error : new Error(message);
+}
+
+function withBriefingDefaults(row: unknown): Briefing {
+  const b = row as Partial<Briefing>;
+  return {
+    ...b,
+    tipo: b.tipo ?? "briefing_comercial",
+    lead_id: b.lead_id ?? null,
+    telefone: b.telefone ?? null,
+    email: b.email ?? null,
+    respostas_json: b.respostas_json ?? {},
+    resumo_ia: b.resumo_ia ?? null,
+    responsavel: b.responsavel ?? null,
+  } as Briefing;
+}
+
 export interface CreateBriefingInput {
   cliente_nome: string;
   empresa?: string;
@@ -67,8 +96,16 @@ export async function createBriefing(input: CreateBriefingInput): Promise<Briefi
     respostas_json: {},
   };
   const { data, error } = await db.from("briefings").insert(row).select().single();
-  if (error) throw error;
-  return data as Briefing;
+  if (error) {
+    if (tipo === "briefing_comercial" && isBriefingSchemaError(error)) {
+      const { tipo: _tipo, lead_id: _leadId, ...legacyRow } = row;
+      const { data: legacyData, error: legacyError } = await db.from("briefings").insert(legacyRow).select().single();
+      if (legacyError) throw normalizeBriefingError(legacyError);
+      return withBriefingDefaults(legacyData);
+    }
+    throw normalizeBriefingError(error);
+  }
+  return withBriefingDefaults(data);
 }
 
 export async function listBriefings(opts?: { tipo?: BriefingTipo }): Promise<Briefing[]> {
@@ -78,8 +115,18 @@ export async function listBriefings(opts?: { tipo?: BriefingTipo }): Promise<Bri
     .order("created_at", { ascending: false });
   if (opts?.tipo) q = q.eq("tipo", opts.tipo);
   const { data, error } = await q;
-  if (error) throw error;
-  return (data ?? []) as Briefing[];
+  if (error) {
+    if (opts?.tipo === "briefing_comercial" && isBriefingSchemaError(error)) {
+      const { data: legacyData, error: legacyError } = await db
+        .from("briefings")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (legacyError) throw normalizeBriefingError(legacyError);
+      return (legacyData ?? []).map(withBriefingDefaults);
+    }
+    throw normalizeBriefingError(error);
+  }
+  return (data ?? []).map(withBriefingDefaults);
 }
 
 export interface KickoffElegivel {
@@ -107,6 +154,13 @@ export async function listKickoffsElegiveis(): Promise<KickoffElegivel[]> {
     .select("lead_id")
     .eq("tipo", "kickoff_producao")
     .in("lead_id", list.map((p) => p.id));
+  if (existing === null) return list.map((p) => ({
+    id: p.id,
+    company: p.company,
+    owner: p.owner_name,
+    email: p.email,
+    phone: p.phone,
+  }));
   const used = new Set(((existing ?? []) as { lead_id: string | null }[]).map((r) => r.lead_id));
   return list
     .filter((p) => !used.has(p.id))
@@ -121,7 +175,7 @@ export async function listKickoffsElegiveis(): Promise<KickoffElegivel[]> {
 
 export async function getBriefingById(id: string): Promise<Briefing | null> {
   const { data, error } = await db.from("briefings").select("*").eq("id", id).maybeSingle();
-  if (error) throw error;
+  if (error) throw normalizeBriefingError(error);
   return (data as Briefing | null) ?? null;
 }
 
