@@ -222,7 +222,7 @@ function CreateDialog({ tipo, onCreated }: { tipo: BriefingTipo; onCreated: (b: 
   }
 
   async function submit() {
-    if (isKickoff && !leadId) { toast.error("Selecione um negócio Fechado/Ganho."); return; }
+    if (isKickoff && !leadId) { toast.error("Selecione um negócio Ganho."); return; }
     if (!form.cliente_nome.trim()) { toast.error("Informe o nome do cliente."); return; }
     setSaving(true);
     try {
@@ -246,17 +246,17 @@ function CreateDialog({ tipo, onCreated }: { tipo: BriefingTipo; onCreated: (b: 
         <DialogTitle>{isKickoff ? "Criar Kickoff de Produção" : "Criar Briefing Comercial"}</DialogTitle>
         <DialogDescription>
           {isKickoff
-            ? "Selecione o negócio Fechado/Ganho e o serviço contratado."
+            ? "Selecione o negócio Ganho e o serviço contratado."
             : "Selecione o serviço e preencha os dados do cliente."}
         </DialogDescription>
       </DialogHeader>
       <div className="grid gap-3">
         {isKickoff && (
           <div className="grid gap-1.5">
-            <Label>Negócio (Fechado / Ganho)</Label>
+            <Label>Negócio (Ganho)</Label>
             {elegiveis.length === 0 ? (
               <p className="text-xs text-muted-foreground">
-                Nenhum prospect com status “Fechado/Ganho” disponível. Atualize o CRM primeiro.
+                Nenhum prospect com status “Ganho” disponível. Atualize o CRM primeiro.
               </p>
             ) : (
               <Select value={leadId} onValueChange={pickLead}>
