@@ -20,10 +20,14 @@ function isBriefingSchemaError(error: unknown): boolean {
 }
 
 function normalizeBriefingError(error: unknown): Error {
-  const message = error instanceof Error ? error.message : String(error);
+  const anyErr = error as { message?: string; details?: string; hint?: string; code?: string } | null;
+  const parts = [anyErr?.message, anyErr?.details, anyErr?.hint, anyErr?.code]
+    .filter(Boolean)
+    .join(" · ");
+  const message = parts || (error instanceof Error ? error.message : String(error));
   if (isBriefingSchemaError(error)) {
     return new Error(
-      "O backend conectado ao app ainda está sem a migration do módulo Briefings/Kickoff. Rode `scripts/migrations/20260619_briefings_kickoff.sql` no mesmo banco configurado no app e depois `NOTIFY pgrst, 'reload schema';`.",
+      `Backend sem a migration de Briefings/Kickoff. Rode scripts/migrations/20260619_briefings_kickoff.sql + NOTIFY pgrst, 'reload schema'. Detalhe: ${message}`,
     );
   }
   return error instanceof Error ? error : new Error(message);

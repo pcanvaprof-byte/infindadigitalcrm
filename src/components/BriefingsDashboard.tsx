@@ -209,6 +209,7 @@ function CreateDialog({ tipo, onCreated }: { tipo: BriefingTipo; onCreated: (b: 
       toast.success(isKickoff ? "Kickoff criado!" : "Briefing criado!");
       onCreated(b);
     } catch (e) {
+      console.error("[briefings] createBriefing failed", e);
       toast.error("Erro ao criar", { description: (e as Error).message });
     } finally { setSaving(false); }
   }
