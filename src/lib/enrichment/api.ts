@@ -318,7 +318,11 @@ export async function runEnrichment(
         .single();
 
       if (upsert.error && isSchemaCacheError(upsert.error)) {
-        const { telefone_1: _t1, telefone_2: _t2, email: _email, updated_at: _updatedAt, ...compatibleProfileRow } = profileRow;
+        const compatibleProfileRow: Record<string, unknown> = { ...profileRow };
+        delete compatibleProfileRow.telefone_1;
+        delete compatibleProfileRow.telefone_2;
+        delete compatibleProfileRow.email;
+        delete compatibleProfileRow.updated_at;
         upsert = await db
           .from("company_profiles")
           .upsert(compatibleProfileRow, { onConflict: "user_id,cnpj" })
