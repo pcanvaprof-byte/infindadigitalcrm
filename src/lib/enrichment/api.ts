@@ -68,6 +68,20 @@ function filled(value?: string | null): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
+async function optionalPersist(
+  action: string,
+  promise: PromiseLike<DbResponse>,
+  uid: string,
+  profileId: string | null,
+  cnpj: string,
+) {
+  const response = await promise;
+  if (response.error) {
+    await log(uid, profileId, cnpj, "persist", "error", `${action}: ${formatDbError(response.error)}`);
+  }
+  return response;
+}
+
 async function log(
   uid: string,
   profileId: string | null,
