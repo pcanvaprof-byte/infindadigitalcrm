@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { CatalogCategoria, CatalogItem, CatalogArea, CatalogTipo } from "./types";
 import {
   createCatalogItemMutation,
+  deleteCatalogItemMutation,
   getCatalogItemQuery,
   listCatalogCategoriasQuery,
   listCatalogItemsQuery,
@@ -213,8 +214,11 @@ export async function duplicateItem(id: string): Promise<CatalogItem> {
 }
 
 export async function deleteItem(id: string): Promise<void> {
-  const { error } = await db.from("catalog_items").delete().eq("id", id);
-  if (error) throw normalize(error);
+  try {
+    await deleteCatalogItemMutation({ data: { id } });
+  } catch (error) {
+    throw normalize(error);
+  }
 }
 
 // -------- Stats --------
