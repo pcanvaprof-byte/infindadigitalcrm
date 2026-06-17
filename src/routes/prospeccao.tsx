@@ -309,6 +309,18 @@ function ProspeccaoPage() {
     });
   }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact]);
 
+  const availableSegments = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of prospects) {
+      const s = (p.segment || "").trim();
+      if (s) set.add(s);
+    }
+    const list = Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+    // Ensure canonical segments still appear even if no prospect uses them
+    for (const s of SEGMENTS) if (!set.has(s)) list.push(s);
+    return list;
+  }, [prospects]);
+
   const stats = useMemo(() => {
     const t = prospects.length;
     const contatadas = prospects.filter((p) => p.status !== "nao_contatado").length;
