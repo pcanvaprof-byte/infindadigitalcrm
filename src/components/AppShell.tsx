@@ -12,7 +12,6 @@ import {
   Rocket,
   Settings,
   Bell,
-  LogOut,
   Menu,
   Package,
 } from "lucide-react";
@@ -22,9 +21,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -125,8 +122,7 @@ export function AppShell({ children, title, subtitle, actions }: {
   subtitle?: string;
   actions?: ReactNode;
 }) {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
 
   const initials = (user?.name ?? "U")
     .split(" ")
@@ -190,15 +186,6 @@ export function AppShell({ children, title, subtitle, actions }: {
                     </span>
                   </div>
                 </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={async () => {
-                    await logout();
-                    navigate({ to: "/login", replace: true });
-                  }}
-                >
-                  <LogOut className="mr-2 h-4 w-4" /> Sair
-                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
