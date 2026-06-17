@@ -24,24 +24,25 @@ export const gerarResumoBriefing = createServerFn({ method: "POST" })
 
     const { data: rows, error } = await admin
       .from("briefings")
-      .select("cliente_nome, empresa, servico, respostas_json")
+      .select("cliente_nome, empresa, servico, tipo, respostas_json")
       .eq("token_publico", data.token)
       .limit(1);
     if (error) throw error;
     const briefing = rows?.[0];
     if (!briefing) throw new Error("Briefing não encontrado");
 
-    const prompt = `Você é um consultor estratégico da INFINDA Digital.
+    const isKickoff = briefing.tipo === "kickoff_producao";
+    const promptComercial = `Você é um consultor estratégico da INFINDA Digital.
 Analise as respostas do briefing abaixo e gere um resumo executivo curto e objetivo, em português, organizado nestes itens:
 
-1. Resumo do negócio
+1. Resumo da empresa
 2. Objetivo principal
 3. Público-alvo
-4. Ticket médio
-5. Verba disponível
-6. Principais dores
-7. Principais oportunidades
-8. Estratégia recomendada
+4. Principais dores
+5. Principais oportunidades
+6. Escopo recomendado
+7. Serviços recomendados
+8. Próximos passos
 
 Cliente: ${briefing.cliente_nome ?? "-"}
 Empresa: ${briefing.empresa ?? "-"}
@@ -49,6 +50,29 @@ Serviço: ${briefing.servico}
 
 Respostas:
 ${JSON.stringify(briefing.respostas_json, null, 2)}`;
+
+    const promptKickoff = `Você é o gestor de produção da INFINDA Digital.
+Analise o kickoff abaixo e gere um Resumo Operacional em português, organizado nestes itens:
+
+1. Escopo contratado
+2. Acessos recebidos (liste apenas os preenchidos)
+3. Materiais recebidos (liste apenas os preenchidos)
+4. Pendências (campos obrigatórios faltantes ou acessos vazios)
+5. Riscos identificados
+6. Checklist operacional (5–8 itens objetivos, em bullets)
+7. Próximos passos imediatos (equipe de produção)
+
+Cliente: ${briefing.cliente_nome ?? "-"}
+Empresa: ${briefing.empresa ?? "-"}
+Serviço contratado: ${briefing.servico}
+
+Respostas do kickoff:
+${JSON.stringify(briefing.respostas_json, null, 2)}`;
+
+    const prompt = isKickoff ? promptKickoff : promptComercial;
+    const systemMsg = isKickoff
+      ? "Você é gestor de produção sênior. Seja conciso, prático e direto."
+      : "Você é um consultor estratégico sênior. Seja conciso e direto.";
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -59,7 +83,7 @@ ${JSON.stringify(briefing.respostas_json, null, 2)}`;
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [
-          { role: "system", content: "Você é um consultor estratégico sênior. Seja conciso e direto." },
+          { role: "system", content: systemMsg },
           { role: "user", content: prompt },
         ],
       }),
@@ -77,6 +101,29 @@ ${JSON.stringify(briefing.respostas_json, null, 2)}`;
       p_resumo: resumo,
     });
     if (upErr) throw upErr;
+
+    // Automações pós-conclusão
+    try {
+      if (isKickoff) {
+        await admin.rpc("set_briefing_lead_status", {
+          p_token: data.token,
+          p_status: "aguardando_producao",
+        });
+        await admin.rpc("log_briefing_activity", {
+          p_token: data.token,
+          p_kind: "nota",
+          p_text: "Kickoff de Produção concluído. Resumo operacional gerado pela IA.",
+        });
+      } else {
+        await admin.rpc("log_briefing_activity", {
+          p_token: data.token,
+          p_kind: "nota",
+          p_text: "Briefing Comercial concluído. Diagnóstico gerado pela IA.",
+        });
+      }
+    } catch (e) {
+      console.warn("[briefings] automações pós-conclusão falharam:", e);
+    }
 
     return { resumo };
   });
