@@ -5,6 +5,11 @@ import type {
   CatalogArea,
   CatalogTipo,
 } from "./types";
+import {
+  createCatalogItemMutation,
+  toggleCatalogItemMutation,
+  updateCatalogItemMutation,
+} from "./functions";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -149,31 +154,29 @@ function buildItemPayload(input: Partial<CatalogItemInput>, createdBy?: string |
 }
 
 export async function createItem(input: Partial<CatalogItemInput>): Promise<CatalogItem> {
-  const { data: auth, error: authError } = await supabase.auth.getUser();
-  if (authError || !auth.user) throw new Error("Sessão expirada. Entre novamente para criar itens no Catálogo.");
-  const payload = buildItemPayload(input, auth.user.id);
-  if (!payload.nome_comercial) throw new Error("Informe o nome comercial");
-  const { data, error } = await db.from("catalog_items").insert(payload).select().single();
-  if (error) throw normalize(error);
-  return withItemDefaults(data);
+  try {
+    const data = await createCatalogItemMutation({ data: input as Record<string, unknown> });
+    return withItemDefaults(data);
+  } catch (error) {
+    throw normalize(error);
+  }
 }
 
 export async function updateItem(id: string, patch: Partial<CatalogItemInput>): Promise<CatalogItem> {
-  const payload = buildItemPayload(patch);
-  if (!payload.nome_comercial) throw new Error("Informe o nome comercial");
-  console.log("[catalog.updateItem] payload", { id, payload });
-  const { data, error } = await db.from("catalog_items").update(payload).eq("id", id).select().single();
-  if (error) {
-    console.error("[catalog.updateItem] erro do Supabase", error);
+  try {
+    const data = await updateCatalogItemMutation({ data: { id, patch: patch as Record<string, unknown> } });
+    return withItemDefaults(data);
+  } catch (error) {
     throw normalize(error);
   }
-  console.log("[catalog.updateItem] sucesso", data);
-  return withItemDefaults(data);
 }
 
 export async function toggleAtivo(id: string, ativo: boolean): Promise<void> {
-  const { error } = await db.from("catalog_items").update({ ativo }).eq("id", id);
-  if (error) throw normalize(error);
+  try {
+    await toggleCatalogItemMutation({ data: { id, ativo } });
+  } catch (error) {
+    throw normalize(error);
+  }
 }
 
 export async function duplicateItem(id: string): Promise<CatalogItem> {
