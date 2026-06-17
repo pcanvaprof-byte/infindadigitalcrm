@@ -38,6 +38,13 @@ create table if not exists public.catalog_categorias (
   created_at timestamptz not null default now()
 );
 
+alter table public.catalog_categorias
+  add column if not exists nome text,
+  add column if not exists slug text,
+  add column if not exists ordem int not null default 0,
+  add column if not exists ativo boolean not null default true,
+  add column if not exists created_at timestamptz not null default now();
+
 grant select, insert, update, delete on public.catalog_categorias to authenticated;
 grant all on public.catalog_categorias to service_role;
 
@@ -113,6 +120,43 @@ create table if not exists public.catalog_items (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.catalog_items
+  add column if not exists tipo public.catalog_tipo not null default 'servico',
+  add column if not exists codigo text,
+  add column if not exists nome_comercial text,
+  add column if not exists nome_interno text,
+  add column if not exists categoria_id uuid references public.catalog_categorias(id) on delete restrict,
+  add column if not exists subcategoria text,
+  add column if not exists descricao_curta text,
+  add column if not exists descricao_completa text,
+  add column if not exists beneficios text[] not null default '{}',
+  add column if not exists entregaveis text[] not null default '{}',
+  add column if not exists nao_incluso text[] not null default '{}',
+  add column if not exists prazo_estimado_dias int,
+  add column if not exists complexidade public.catalog_complexidade not null default 'media',
+  add column if not exists prioridade int not null default 0,
+  add column if not exists area_responsavel public.catalog_area not null default 'comercial',
+  add column if not exists tempo_execucao_horas numeric(10,2),
+  add column if not exists objetivo text,
+  add column if not exists cobranca public.catalog_cobranca not null default 'implantacao',
+  add column if not exists valor_implantacao numeric(12,2) not null default 0,
+  add column if not exists valor_mensal numeric(12,2) not null default 0,
+  add column if not exists valor_avulso numeric(12,2) not null default 0,
+  add column if not exists ativo boolean not null default true,
+  add column if not exists ordem int not null default 0,
+  add column if not exists tags text[] not null default '{}',
+  add column if not exists observacoes_internas text,
+  add column if not exists created_by uuid references auth.users(id) on delete set null,
+  add column if not exists created_at timestamptz not null default now(),
+  add column if not exists updated_at timestamptz not null default now();
+
+alter table public.catalog_items
+  alter column nome_comercial set not null;
+
+create unique index if not exists catalog_items_codigo_key
+  on public.catalog_items(codigo)
+  where codigo is not null;
 
 grant select, insert, update, delete on public.catalog_items to authenticated;
 grant all on public.catalog_items to service_role;
