@@ -170,7 +170,7 @@ export const createCatalogItemMutation = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const userId = (context as { userId?: string }).userId;
     if (!userId) throw new Error("Sessão expirada. Entre novamente para salvar no Catálogo.");
-    const payload = buildItemPayload(data, userId);
+    const payload = buildItemPayload(data, null);
     if (!payload.nome_comercial) throw new Error("Informe o nome comercial");
     const admin = await getCatalogDb();
     const { data: row, error } = await admin
