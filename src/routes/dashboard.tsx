@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth, useRequiredUser } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
@@ -102,6 +102,7 @@ function EmptyPanel({
 
 function DashboardPage() {
   const user = useRequiredUser();
+  const navigate = useNavigate();
 
   const isAdmin = user.role === "admin";
   const subtitle = isAdmin
@@ -113,7 +114,10 @@ function DashboardPage() {
       title={`Olá, ${user.name.split(" ")[0]} 👋`}
       subtitle={subtitle}
       actions={
-        <Button className="btn-gradient hidden h-9 px-3 text-xs font-semibold sm:inline-flex">
+        <Button
+          className="btn-gradient hidden h-9 px-3 text-xs font-semibold sm:inline-flex"
+          onClick={() => navigate({ to: "/prospeccao", search: { new: 1 } as any })}
+        >
           <Plus className="mr-1.5 h-4 w-4" /> Nova oportunidade
         </Button>
       }
