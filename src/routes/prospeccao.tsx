@@ -277,6 +277,17 @@ function ProspeccaoPage() {
     return () => { alive = false; };
   }, [user]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("new") === "1") {
+      setDialogOpen(true);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("new");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, []);
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return prospects.filter((p) => {
