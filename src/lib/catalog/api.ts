@@ -161,8 +161,13 @@ export async function createItem(input: Partial<CatalogItemInput>): Promise<Cata
 export async function updateItem(id: string, patch: Partial<CatalogItemInput>): Promise<CatalogItem> {
   const payload = buildItemPayload(patch);
   if (!payload.nome_comercial) throw new Error("Informe o nome comercial");
+  console.log("[catalog.updateItem] payload", { id, payload });
   const { data, error } = await db.from("catalog_items").update(payload).eq("id", id).select().single();
-  if (error) throw normalize(error);
+  if (error) {
+    console.error("[catalog.updateItem] erro do Supabase", error);
+    throw normalize(error);
+  }
+  console.log("[catalog.updateItem] sucesso", data);
   return withItemDefaults(data);
 }
 
