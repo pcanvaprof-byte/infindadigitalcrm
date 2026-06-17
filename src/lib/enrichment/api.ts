@@ -42,6 +42,24 @@ async function currentUserId(): Promise<string | null> {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
 
+type DbResponse = { error?: { message?: string; details?: string; hint?: string } | null };
+
+async function expectDb<T extends DbResponse>(promise: PromiseLike<T>, action: string): Promise<T> {
+  const response = await promise;
+  if (response.error) {
+    const details = [response.error.message, response.error.details, response.error.hint]
+      .filter(Boolean)
+      .join(" — ");
+    throw new Error(`${action}: ${details || "erro ao salvar"}`);
+  }
+  return response;
+}
+
+function filled(value?: string | null): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : undefined;
+}
+
 async function log(
   uid: string,
   profileId: string | null,
