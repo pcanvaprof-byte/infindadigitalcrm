@@ -6,6 +6,7 @@ import type { CatalogItem } from "./types";
 type ItemMutationInput = Record<string, unknown>;
 
 const RawItemInput = z.record(z.string(), z.unknown());
+const GetInput = z.object({ id: z.string().uuid() });
 const UpdateInput = z.object({ id: z.string().uuid(), patch: RawItemInput });
 const ToggleInput = z.object({ id: z.string().uuid(), ativo: z.boolean() });
 
@@ -21,6 +22,15 @@ const areas = [
   "outros",
 ] as const;
 const cobrancas = ["implantacao", "mensal", "avulso"] as const;
+const ListItemsInput = z
+  .object({
+    search: z.string().optional(),
+    categoriaId: z.string().nullable().optional(),
+    tipo: z.enum(tipos).nullable().optional(),
+    area: z.enum(areas).nullable().optional(),
+    apenasAtivos: z.boolean().optional(),
+  })
+  .optional();
 
 function cleanNullableString(value: unknown): string | null {
   if (typeof value !== "string") return value == null ? null : String(value).trim() || null;
@@ -61,9 +71,13 @@ function normalizeDbError(error: unknown): Error {
   return new Error(msg);
 }
 
-async function getAdmin() {
-  const url = process.env.SUPABASE_URL ?? process.env.OWN_SB_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.OWN_SB_SERVICE_ROLE_KEY;
+async function getCatalogDb() {
+  const ownUrl = process.env.OWN_SB_URL;
+  const ownKey = process.env.OWN_SB_SERVICE_ROLE_KEY;
+  const defaultUrl = process.env.SUPABASE_URL;
+  const defaultKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const url = ownUrl && ownKey ? ownUrl : defaultUrl;
+  const key = ownUrl && ownKey ? ownKey : defaultKey;
   if (!url || !key) throw new Error("Configuração do banco externo ausente no servidor.");
   const { createClient } = await import("@supabase/supabase-js");
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -100,15 +114,65 @@ function buildItemPayload(input: ItemMutationInput, createdBy?: string | null) {
   };
 }
 
+export const listCatalogCategoriasQuery = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
+    const admin = await getCatalogDb();
+    const { data, error } = await admin
+      .from("catalog_categorias")
+      .select("*")
+      .order("ordem", { ascending: true });
+    if (error) throw normalizeDbError(error);
+    return data ?? [];
+  });
+
+export const listCatalogItemsQuery = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => ListItemsInput.parse(data))
+  .handler(async ({ data }) => {
+    const filters = data ?? {};
+    const admin = await getCatalogDb();
+    let query = admin.from("catalog_items").select("*");
+    if (filters.categoriaId) query = query.eq("categoria_id", filters.categoriaId);
+    if (filters.tipo) query = query.eq("tipo", filters.tipo);
+    if (filters.area) query = query.eq("area_responsavel", filters.area);
+    if (filters.apenasAtivos) query = query.eq("ativo", true);
+    if (filters.search?.trim()) {
+      const search = filters.search.trim().replace(/[%_]/g, "");
+      query = query.or(
+        `nome_comercial.ilike.%${search}%,nome_interno.ilike.%${search}%,codigo.ilike.%${search}%`,
+      );
+    }
+    const { data: rows, error } = await query
+      .order("ordem", { ascending: true })
+      .order("nome_comercial", { ascending: true });
+    if (error) throw normalizeDbError(error);
+    return rows ?? [];
+  });
+
+export const getCatalogItemQuery = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => GetInput.parse(data))
+  .handler(async ({ data }) => {
+    const admin = await getCatalogDb();
+    const { data: row, error } = await admin
+      .from("catalog_items")
+      .select("*")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (error) throw normalizeDbError(error);
+    return row;
+  });
+
 export const createCatalogItemMutation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => RawItemInput.parse(data))
   .handler(async ({ data, context }) => {
     const userId = (context as { userId?: string }).userId;
     if (!userId) throw new Error("Sessão expirada. Entre novamente para salvar no Catálogo.");
-    const payload = buildItemPayload(data, userId);
+    const payload = buildItemPayload(data, null);
     if (!payload.nome_comercial) throw new Error("Informe o nome comercial");
-    const admin = await getAdmin();
+    const admin = await getCatalogDb();
     const { data: row, error } = await admin
       .from("catalog_items")
       .insert(payload)
@@ -124,7 +188,7 @@ export const updateCatalogItemMutation = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const payload = buildItemPayload(data.patch);
     if (!payload.nome_comercial) throw new Error("Informe o nome comercial");
-    const admin = await getAdmin();
+    const admin = await getCatalogDb();
     const { data: row, error } = await admin
       .from("catalog_items")
       .update(payload)
@@ -140,11 +204,21 @@ export const toggleCatalogItemMutation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => ToggleInput.parse(data))
   .handler(async ({ data }) => {
-    const admin = await getAdmin();
+    const admin = await getCatalogDb();
     const { error } = await admin
       .from("catalog_items")
       .update({ ativo: data.ativo })
       .eq("id", data.id);
+    if (error) throw normalizeDbError(error);
+    return { ok: true };
+  });
+
+export const deleteCatalogItemMutation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => GetInput.parse(data))
+  .handler(async ({ data }) => {
+    const admin = await getCatalogDb();
+    const { error } = await admin.from("catalog_items").delete().eq("id", data.id);
     if (error) throw normalizeDbError(error);
     return { ok: true };
   });

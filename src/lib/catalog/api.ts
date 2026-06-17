@@ -1,13 +1,13 @@
-import { supabase } from "@/integrations/supabase/client";
 import type { CatalogCategoria, CatalogItem, CatalogArea, CatalogTipo } from "./types";
 import {
   createCatalogItemMutation,
+  deleteCatalogItemMutation,
+  getCatalogItemQuery,
+  listCatalogCategoriasQuery,
+  listCatalogItemsQuery,
   toggleCatalogItemMutation,
   updateCatalogItemMutation,
 } from "./catalog.functions";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = supabase as any;
 
 function normalize(error: unknown): Error {
   const e = error as { message?: string; details?: string; hint?: string; code?: string } | null;
@@ -61,12 +61,12 @@ function withItemDefaults(row: unknown): CatalogItem {
 
 // -------- Categorias --------
 export async function listCategorias(): Promise<CatalogCategoria[]> {
-  const { data, error } = await db
-    .from("catalog_categorias")
-    .select("*")
-    .order("ordem", { ascending: true });
-  if (error) throw normalize(error);
-  return (data ?? []) as CatalogCategoria[];
+  try {
+    const data = await listCatalogCategoriasQuery();
+    return (data ?? []) as CatalogCategoria[];
+  } catch (error) {
+    throw normalize(error);
+  }
 }
 
 // -------- Items --------
@@ -79,75 +79,24 @@ export interface ListItemsFilters {
 }
 
 export async function listItems(filters: ListItemsFilters = {}): Promise<CatalogItem[]> {
-  let q = db.from("catalog_items").select("*");
-  if (filters.categoriaId) q = q.eq("categoria_id", filters.categoriaId);
-  if (filters.tipo) q = q.eq("tipo", filters.tipo);
-  if (filters.area) q = q.eq("area_responsavel", filters.area);
-  if (filters.apenasAtivos) q = q.eq("ativo", true);
-  if (filters.search && filters.search.trim()) {
-    const s = filters.search.trim().replace(/[%_]/g, "");
-    q = q.or(`nome_comercial.ilike.%${s}%,nome_interno.ilike.%${s}%,codigo.ilike.%${s}%`);
+  try {
+    const data = await listCatalogItemsQuery({ data: filters as Record<string, unknown> });
+    return ((data ?? []) as unknown[]).map(withItemDefaults);
+  } catch (error) {
+    throw normalize(error);
   }
-  q = q.order("ordem", { ascending: true }).order("nome_comercial", { ascending: true });
-  const { data, error } = await q;
-  if (error) throw normalize(error);
-  return ((data ?? []) as unknown[]).map(withItemDefaults);
 }
 
 export async function getItem(id: string): Promise<CatalogItem | null> {
-  const { data, error } = await db.from("catalog_items").select("*").eq("id", id).maybeSingle();
-  if (error) throw normalize(error);
-  return data ? withItemDefaults(data) : null;
+  try {
+    const data = await getCatalogItemQuery({ data: { id } });
+    return data ? withItemDefaults(data) : null;
+  } catch (error) {
+    throw normalize(error);
+  }
 }
 
 export type CatalogItemInput = Omit<CatalogItem, "id" | "created_at" | "updated_at" | "created_by">;
-
-function cleanNullableString(value: unknown): string | null {
-  if (typeof value !== "string") return value == null ? null : String(value).trim() || null;
-  return value.trim() || null;
-}
-
-function cleanNumber(value: unknown, fallback = 0): number {
-  const n = Number(value ?? fallback);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function cleanOptionalNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === "") return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-function buildItemPayload(input: Partial<CatalogItemInput>, createdBy?: string | null) {
-  return {
-    tipo: input.tipo ?? "servico",
-    codigo: cleanNullableString(input.codigo),
-    nome_comercial: cleanNullableString(input.nome_comercial),
-    nome_interno: cleanNullableString(input.nome_interno),
-    categoria_id: cleanNullableString(input.categoria_id),
-    subcategoria: cleanNullableString(input.subcategoria),
-    descricao_curta: cleanNullableString(input.descricao_curta),
-    descricao_completa: cleanNullableString(input.descricao_completa),
-    beneficios: input.beneficios ?? [],
-    entregaveis: input.entregaveis ?? [],
-    nao_incluso: input.nao_incluso ?? [],
-    prazo_estimado_dias: cleanOptionalNumber(input.prazo_estimado_dias),
-    complexidade: input.complexidade ?? "media",
-    prioridade: cleanNumber(input.prioridade),
-    area_responsavel: input.area_responsavel ?? "comercial",
-    tempo_execucao_horas: cleanOptionalNumber(input.tempo_execucao_horas),
-    objetivo: cleanNullableString(input.objetivo),
-    cobranca: input.cobranca ?? "implantacao",
-    valor_implantacao: cleanNumber(input.valor_implantacao),
-    valor_mensal: cleanNumber(input.valor_mensal),
-    valor_avulso: cleanNumber(input.valor_avulso),
-    ativo: input.ativo ?? true,
-    ordem: cleanNumber(input.ordem),
-    tags: input.tags ?? [],
-    observacoes_internas: cleanNullableString(input.observacoes_internas),
-    ...(createdBy !== undefined ? { created_by: createdBy } : {}),
-  };
-}
 
 export async function createItem(input: Partial<CatalogItemInput>): Promise<CatalogItem> {
   try {
@@ -214,8 +163,11 @@ export async function duplicateItem(id: string): Promise<CatalogItem> {
 }
 
 export async function deleteItem(id: string): Promise<void> {
-  const { error } = await db.from("catalog_items").delete().eq("id", id);
-  if (error) throw normalize(error);
+  try {
+    await deleteCatalogItemMutation({ data: { id } });
+  } catch (error) {
+    throw normalize(error);
+  }
 }
 
 // -------- Stats --------
