@@ -300,6 +300,30 @@ export async function runEnrichment(
         lead_score: score.lead_score, market_score: score.market_score,
         classificacao: score.classificacao, breakdown: score.breakdown,
       });
+
+      // Também atualiza o prospect (telefone/whatsapp/email) — preenche somente
+      // campos vazios para não sobrescrever dados manuais do usuário.
+      if (opts.prospectId) {
+        try {
+          const { data: prosp } = await db
+            .from("prospects")
+            .select("phone, whatsapp, email")
+            .eq("id", opts.prospectId)
+            .maybeSingle();
+          const patch: Record<string, string> = {};
+          const tel = profile.telefone_1 || profile.telefone_2 || "";
+          if (prosp && !prosp.phone && tel) patch.phone = tel;
+          if (prosp && !prosp.whatsapp && tel) patch.whatsapp = tel;
+          if (prosp && !prosp.email && profile.email) patch.email = profile.email;
+          if (Object.keys(patch).length) {
+            await db.from("prospects").update(patch).eq("id", opts.prospectId);
+          }
+        } catch (e) {
+          await log(uid, profileId, profile.cnpj, "persist", "error",
+            "prospect update: " + (e as Error).message);
+        }
+      }
+
       await log(uid, profileId, profile.cnpj, "persist", "done");
       emit(opts, "persist", "done");
       const visits = await listVisits(profileId);
