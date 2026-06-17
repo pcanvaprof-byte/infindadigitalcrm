@@ -1,4 +1,3 @@
-import { supabase } from "@/integrations/supabase/client";
 import type { CatalogCategoria, CatalogItem, CatalogArea, CatalogTipo } from "./types";
 import {
   createCatalogItemMutation,
@@ -9,9 +8,6 @@ import {
   toggleCatalogItemMutation,
   updateCatalogItemMutation,
 } from "./catalog.functions";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const db = supabase as any;
 
 function normalize(error: unknown): Error {
   const e = error as { message?: string; details?: string; hint?: string; code?: string } | null;
@@ -101,53 +97,6 @@ export async function getItem(id: string): Promise<CatalogItem | null> {
 }
 
 export type CatalogItemInput = Omit<CatalogItem, "id" | "created_at" | "updated_at" | "created_by">;
-
-function cleanNullableString(value: unknown): string | null {
-  if (typeof value !== "string") return value == null ? null : String(value).trim() || null;
-  return value.trim() || null;
-}
-
-function cleanNumber(value: unknown, fallback = 0): number {
-  const n = Number(value ?? fallback);
-  return Number.isFinite(n) ? n : fallback;
-}
-
-function cleanOptionalNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === "") return null;
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
-}
-
-function buildItemPayload(input: Partial<CatalogItemInput>, createdBy?: string | null) {
-  return {
-    tipo: input.tipo ?? "servico",
-    codigo: cleanNullableString(input.codigo),
-    nome_comercial: cleanNullableString(input.nome_comercial),
-    nome_interno: cleanNullableString(input.nome_interno),
-    categoria_id: cleanNullableString(input.categoria_id),
-    subcategoria: cleanNullableString(input.subcategoria),
-    descricao_curta: cleanNullableString(input.descricao_curta),
-    descricao_completa: cleanNullableString(input.descricao_completa),
-    beneficios: input.beneficios ?? [],
-    entregaveis: input.entregaveis ?? [],
-    nao_incluso: input.nao_incluso ?? [],
-    prazo_estimado_dias: cleanOptionalNumber(input.prazo_estimado_dias),
-    complexidade: input.complexidade ?? "media",
-    prioridade: cleanNumber(input.prioridade),
-    area_responsavel: input.area_responsavel ?? "comercial",
-    tempo_execucao_horas: cleanOptionalNumber(input.tempo_execucao_horas),
-    objetivo: cleanNullableString(input.objetivo),
-    cobranca: input.cobranca ?? "implantacao",
-    valor_implantacao: cleanNumber(input.valor_implantacao),
-    valor_mensal: cleanNumber(input.valor_mensal),
-    valor_avulso: cleanNumber(input.valor_avulso),
-    ativo: input.ativo ?? true,
-    ordem: cleanNumber(input.ordem),
-    tags: input.tags ?? [],
-    observacoes_internas: cleanNullableString(input.observacoes_internas),
-    ...(createdBy !== undefined ? { created_by: createdBy } : {}),
-  };
-}
 
 export async function createItem(input: Partial<CatalogItemInput>): Promise<CatalogItem> {
   try {
