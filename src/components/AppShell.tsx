@@ -14,6 +14,7 @@ import {
   Bell,
   LogOut,
   Menu,
+  Package,
 } from "lucide-react";
 import { Logo } from "./Logo";
 import { useAuth, ROLE_LABEL } from "@/lib/auth-context";
@@ -41,6 +42,7 @@ const NAV = [
   { to: "/metas", label: "Metas", icon: Target, enabled: true },
   { to: "/tarefas", label: "Tarefas", icon: ListChecks, enabled: true },
   { to: "/briefings", label: "Briefings Comerciais", icon: FileText, enabled: true },
+  { to: "/catalogo", label: "Catálogo Comercial", icon: Package, enabled: true },
   { to: "/kickoff", label: "Kickoff Produção", icon: Rocket, enabled: true },
   { to: "/propostas", label: "Propostas", icon: FileText, enabled: false },
   { to: "/indicacoes", label: "Indicações", icon: Share2, enabled: false },
