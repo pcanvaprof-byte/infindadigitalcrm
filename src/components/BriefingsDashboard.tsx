@@ -16,10 +16,10 @@ import { Badge } from "@/components/ui/badge";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Plus, Copy, MessageCircle, Mail, ExternalLink, Search } from "lucide-react";
+import { Plus, Copy, MessageCircle, Mail, ExternalLink, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  createBriefing, listBriefings, listKickoffsElegiveis, type KickoffElegivel,
+  createBriefing, listBriefings, listKickoffsElegiveis, deleteBriefing, type KickoffElegivel,
 } from "@/lib/briefings/api";
 import {
   SERVICO_LABEL, STATUS_LABEL, type Briefing, type BriefingServico,
@@ -47,6 +47,7 @@ export function BriefingsDashboard({ tipo }: { tipo: BriefingTipo }) {
   const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [shareTarget, setShareTarget] = useState<Briefing | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   async function reload() {
     setLoading(true);
@@ -55,6 +56,21 @@ export function BriefingsDashboard({ tipo }: { tipo: BriefingTipo }) {
     finally { setLoading(false); }
   }
   useEffect(() => { void reload(); /* eslint-disable-next-line */ }, [tipo]);
+
+  async function handleDelete(b: Briefing) {
+    const label = b.empresa || b.cliente_nome || "este registro";
+    if (!window.confirm(`Apagar "${label}"? Esta ação não pode ser desfeita.`)) return;
+    setDeleting(b.id);
+    try {
+      await deleteBriefing(b.id);
+      toast.success("Registro apagado");
+      setItems((prev) => prev.filter((x) => x.id !== b.id));
+    } catch (e) {
+      toast.error("Erro ao apagar", { description: (e as Error).message });
+    } finally {
+      setDeleting(null);
+    }
+  }
 
   const filtered = useMemo(() => items.filter((b) => {
     if (filter !== "todos" && b.status !== filter) return false;
@@ -136,6 +152,16 @@ export function BriefingsDashboard({ tipo }: { tipo: BriefingTipo }) {
                   <Link to="/briefings/$id" params={{ id: b.id }}>
                     <Button size="sm" variant="ghost">Abrir</Button>
                   </Link>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    disabled={deleting === b.id}
+                    onClick={() => void handleDelete(b)}
+                    aria-label="Apagar"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
