@@ -108,6 +108,15 @@ const STATUSES: ProspectStatus[] = [
   "qualificado",
   "agendado",
   "perdido",
+  "briefing_enviado",
+  "diagnostico_pendente",
+  "proposta_pendente",
+  "proposta_enviada",
+  "fechado_ganho",
+  "aguardando_kickoff",
+  "aguardando_producao",
+  "em_producao",
+  "entregue",
 ];
 const POTENTIALS: ProspectPotential[] = ["alto", "medio", "baixo"];
 
