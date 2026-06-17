@@ -14,6 +14,16 @@ function generateToken(): string {
   return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+function normalizeBriefingError(error: unknown): Error {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/lead_id|tipo|schema cache|column .* does not exist/i.test(message)) {
+    return new Error(
+      "O banco ainda está sem a migration do módulo Briefings/Kickoff. Rode a migration `supabase/migrations/20260619000000_briefings_kickoff.sql` e depois `NOTIFY pgrst, 'reload schema';`.",
+    );
+  }
+  return error instanceof Error ? error : new Error(message);
+}
+
 export interface CreateBriefingInput {
   cliente_nome: string;
   empresa?: string;
@@ -67,7 +77,7 @@ export async function createBriefing(input: CreateBriefingInput): Promise<Briefi
     respostas_json: {},
   };
   const { data, error } = await db.from("briefings").insert(row).select().single();
-  if (error) throw error;
+  if (error) throw normalizeBriefingError(error);
   return data as Briefing;
 }
 
@@ -78,7 +88,7 @@ export async function listBriefings(opts?: { tipo?: BriefingTipo }): Promise<Bri
     .order("created_at", { ascending: false });
   if (opts?.tipo) q = q.eq("tipo", opts.tipo);
   const { data, error } = await q;
-  if (error) throw error;
+  if (error) throw normalizeBriefingError(error);
   return (data ?? []) as Briefing[];
 }
 
@@ -107,6 +117,13 @@ export async function listKickoffsElegiveis(): Promise<KickoffElegivel[]> {
     .select("lead_id")
     .eq("tipo", "kickoff_producao")
     .in("lead_id", list.map((p) => p.id));
+  if (existing === null) return list.map((p) => ({
+    id: p.id,
+    company: p.company,
+    owner: p.owner_name,
+    email: p.email,
+    phone: p.phone,
+  }));
   const used = new Set(((existing ?? []) as { lead_id: string | null }[]).map((r) => r.lead_id));
   return list
     .filter((p) => !used.has(p.id))
@@ -121,7 +138,7 @@ export async function listKickoffsElegiveis(): Promise<KickoffElegivel[]> {
 
 export async function getBriefingById(id: string): Promise<Briefing | null> {
   const { data, error } = await db.from("briefings").select("*").eq("id", id).maybeSingle();
-  if (error) throw error;
+  if (error) throw normalizeBriefingError(error);
   return (data as Briefing | null) ?? null;
 }
 
