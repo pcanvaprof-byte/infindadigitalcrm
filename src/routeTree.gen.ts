@@ -16,8 +16,11 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as KickoffRouteImport } from './routes/kickoff'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CrmRouteImport } from './routes/crm'
+import { Route as CatalogoRouteImport } from './routes/catalogo'
 import { Route as BriefingsRouteImport } from './routes/briefings'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CatalogoNovoRouteImport } from './routes/catalogo.novo'
+import { Route as CatalogoIdRouteImport } from './routes/catalogo.$id'
 import { Route as BriefingsIdRouteImport } from './routes/briefings.$id'
 import { Route as BriefingTokenRouteImport } from './routes/briefing.$token'
 
@@ -56,6 +59,11 @@ const CrmRoute = CrmRouteImport.update({
   path: '/crm',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CatalogoRoute = CatalogoRouteImport.update({
+  id: '/catalogo',
+  path: '/catalogo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BriefingsRoute = BriefingsRouteImport.update({
   id: '/briefings',
   path: '/briefings',
@@ -65,6 +73,16 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const CatalogoNovoRoute = CatalogoNovoRouteImport.update({
+  id: '/novo',
+  path: '/novo',
+  getParentRoute: () => CatalogoRoute,
+} as any)
+const CatalogoIdRoute = CatalogoIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => CatalogoRoute,
 } as any)
 const BriefingsIdRoute = BriefingsIdRouteImport.update({
   id: '/$id',
@@ -80,6 +98,7 @@ const BriefingTokenRoute = BriefingTokenRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/briefings': typeof BriefingsRouteWithChildren
+  '/catalogo': typeof CatalogoRouteWithChildren
   '/crm': typeof CrmRoute
   '/dashboard': typeof DashboardRoute
   '/kickoff': typeof KickoffRoute
@@ -89,10 +108,13 @@ export interface FileRoutesByFullPath {
   '/tarefas': typeof TarefasRoute
   '/briefing/$token': typeof BriefingTokenRoute
   '/briefings/$id': typeof BriefingsIdRoute
+  '/catalogo/$id': typeof CatalogoIdRoute
+  '/catalogo/novo': typeof CatalogoNovoRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/briefings': typeof BriefingsRouteWithChildren
+  '/catalogo': typeof CatalogoRouteWithChildren
   '/crm': typeof CrmRoute
   '/dashboard': typeof DashboardRoute
   '/kickoff': typeof KickoffRoute
@@ -102,11 +124,14 @@ export interface FileRoutesByTo {
   '/tarefas': typeof TarefasRoute
   '/briefing/$token': typeof BriefingTokenRoute
   '/briefings/$id': typeof BriefingsIdRoute
+  '/catalogo/$id': typeof CatalogoIdRoute
+  '/catalogo/novo': typeof CatalogoNovoRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/briefings': typeof BriefingsRouteWithChildren
+  '/catalogo': typeof CatalogoRouteWithChildren
   '/crm': typeof CrmRoute
   '/dashboard': typeof DashboardRoute
   '/kickoff': typeof KickoffRoute
@@ -116,12 +141,15 @@ export interface FileRoutesById {
   '/tarefas': typeof TarefasRoute
   '/briefing/$token': typeof BriefingTokenRoute
   '/briefings/$id': typeof BriefingsIdRoute
+  '/catalogo/$id': typeof CatalogoIdRoute
+  '/catalogo/novo': typeof CatalogoNovoRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/briefings'
+    | '/catalogo'
     | '/crm'
     | '/dashboard'
     | '/kickoff'
@@ -131,10 +159,13 @@ export interface FileRouteTypes {
     | '/tarefas'
     | '/briefing/$token'
     | '/briefings/$id'
+    | '/catalogo/$id'
+    | '/catalogo/novo'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/briefings'
+    | '/catalogo'
     | '/crm'
     | '/dashboard'
     | '/kickoff'
@@ -144,10 +175,13 @@ export interface FileRouteTypes {
     | '/tarefas'
     | '/briefing/$token'
     | '/briefings/$id'
+    | '/catalogo/$id'
+    | '/catalogo/novo'
   id:
     | '__root__'
     | '/'
     | '/briefings'
+    | '/catalogo'
     | '/crm'
     | '/dashboard'
     | '/kickoff'
@@ -157,11 +191,14 @@ export interface FileRouteTypes {
     | '/tarefas'
     | '/briefing/$token'
     | '/briefings/$id'
+    | '/catalogo/$id'
+    | '/catalogo/novo'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BriefingsRoute: typeof BriefingsRouteWithChildren
+  CatalogoRoute: typeof CatalogoRouteWithChildren
   CrmRoute: typeof CrmRoute
   DashboardRoute: typeof DashboardRoute
   KickoffRoute: typeof KickoffRoute
@@ -223,6 +260,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CrmRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/catalogo': {
+      id: '/catalogo'
+      path: '/catalogo'
+      fullPath: '/catalogo'
+      preLoaderRoute: typeof CatalogoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/briefings': {
       id: '/briefings'
       path: '/briefings'
@@ -236,6 +280,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/catalogo/novo': {
+      id: '/catalogo/novo'
+      path: '/novo'
+      fullPath: '/catalogo/novo'
+      preLoaderRoute: typeof CatalogoNovoRouteImport
+      parentRoute: typeof CatalogoRoute
+    }
+    '/catalogo/$id': {
+      id: '/catalogo/$id'
+      path: '/$id'
+      fullPath: '/catalogo/$id'
+      preLoaderRoute: typeof CatalogoIdRouteImport
+      parentRoute: typeof CatalogoRoute
     }
     '/briefings/$id': {
       id: '/briefings/$id'
@@ -266,9 +324,24 @@ const BriefingsRouteWithChildren = BriefingsRoute._addFileChildren(
   BriefingsRouteChildren,
 )
 
+interface CatalogoRouteChildren {
+  CatalogoIdRoute: typeof CatalogoIdRoute
+  CatalogoNovoRoute: typeof CatalogoNovoRoute
+}
+
+const CatalogoRouteChildren: CatalogoRouteChildren = {
+  CatalogoIdRoute: CatalogoIdRoute,
+  CatalogoNovoRoute: CatalogoNovoRoute,
+}
+
+const CatalogoRouteWithChildren = CatalogoRoute._addFileChildren(
+  CatalogoRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BriefingsRoute: BriefingsRouteWithChildren,
+  CatalogoRoute: CatalogoRouteWithChildren,
   CrmRoute: CrmRoute,
   DashboardRoute: DashboardRoute,
   KickoffRoute: KickoffRoute,
