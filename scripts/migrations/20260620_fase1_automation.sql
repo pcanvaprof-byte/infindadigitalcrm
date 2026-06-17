@@ -78,7 +78,7 @@ begin
        where lead_id = new.id and tipo = 'kickoff_producao' and status <> 'cancelado'
     ) into v_has_kickoff;
     if not v_has_kickoff then
-      v_token := encode(gen_random_bytes(16), 'hex');
+      v_token := replace(gen_random_uuid()::text, '-', '') || replace(gen_random_uuid()::text, '-', '');
       insert into public.briefings(
         user_id, tipo, lead_id, cliente_nome, empresa, telefone, email,
         servico, status, token_publico, respostas_json
