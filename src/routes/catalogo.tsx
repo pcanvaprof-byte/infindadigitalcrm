@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
@@ -83,12 +83,18 @@ export const Route = createFileRoute("/catalogo")({
       { name: "description", content: "Serviços, pacotes, complementos e bônus da INFINDA." },
     ],
   }),
-  component: () => (
-    <RequireAuth>
-      <CatalogoPage />
-    </RequireAuth>
-  ),
+  component: CatalogoRoute,
 });
+
+function CatalogoRoute() {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+
+  return (
+    <RequireAuth>
+      {pathname === "/catalogo" ? <CatalogoPage /> : <Outlet />}
+    </RequireAuth>
+  );
+}
 
 function CatalogoPage() {
   const navigate = useNavigate();
