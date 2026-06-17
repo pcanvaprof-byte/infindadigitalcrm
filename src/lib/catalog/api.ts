@@ -1,10 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type {
-  CatalogCategoria,
-  CatalogItem,
-  CatalogArea,
-  CatalogTipo,
-} from "./types";
+import type { CatalogCategoria, CatalogItem, CatalogArea, CatalogTipo } from "./types";
 import {
   createCatalogItemMutation,
   toggleCatalogItemMutation,
@@ -18,8 +13,12 @@ function normalize(error: unknown): Error {
   const e = error as { message?: string; details?: string; hint?: string; code?: string } | null;
   const parts = [e?.message, e?.details, e?.hint, e?.code].filter(Boolean).join(" · ");
   const msg = parts || (error instanceof Error ? error.message : String(error));
-  if (/duplicate key|unique constraint.*catalog_items.*codigo|catalog_items_codigo_key/i.test(msg)) {
-    return new Error("Já existe um item com este Código/SKU. Altere o código interno e tente novamente.");
+  if (
+    /duplicate key|unique constraint.*catalog_items.*codigo|catalog_items_codigo_key/i.test(msg)
+  ) {
+    return new Error(
+      "Já existe um item com este Código/SKU. Altere o código interno e tente novamente.",
+    );
   }
   if (/row-level security|violates row-level security/i.test(msg)) {
     return new Error(
@@ -101,10 +100,7 @@ export async function getItem(id: string): Promise<CatalogItem | null> {
   return data ? withItemDefaults(data) : null;
 }
 
-export type CatalogItemInput = Omit<
-  CatalogItem,
-  "id" | "created_at" | "updated_at" | "created_by"
->;
+export type CatalogItemInput = Omit<CatalogItem, "id" | "created_at" | "updated_at" | "created_by">;
 
 function cleanNullableString(value: unknown): string | null {
   if (typeof value !== "string") return value == null ? null : String(value).trim() || null;
@@ -162,9 +158,14 @@ export async function createItem(input: Partial<CatalogItemInput>): Promise<Cata
   }
 }
 
-export async function updateItem(id: string, patch: Partial<CatalogItemInput>): Promise<CatalogItem> {
+export async function updateItem(
+  id: string,
+  patch: Partial<CatalogItemInput>,
+): Promise<CatalogItem> {
   try {
-    const data = await updateCatalogItemMutation({ data: { id, patch: patch as Record<string, unknown> } });
+    const data = await updateCatalogItemMutation({
+      data: { id, patch: patch as Record<string, unknown> },
+    });
     return withItemDefaults(data);
   } catch (error) {
     throw normalize(error);
