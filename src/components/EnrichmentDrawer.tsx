@@ -19,11 +19,12 @@ interface Props {
   cnpj: string;
   prospectId?: string;
   companyName?: string;
+  onEnriched?: (r: EnrichmentResult) => void;
 }
 
 type StepMap = Record<string, { status: StepEvent["status"]; message?: string }>;
 
-export function EnrichmentDrawer({ open, onOpenChange, cnpj, prospectId, companyName }: Props) {
+export function EnrichmentDrawer({ open, onOpenChange, cnpj, prospectId, companyName, onEnriched }: Props) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<EnrichmentResult | null>(null);
   const [steps, setSteps] = useState<StepMap>({});
@@ -47,6 +48,7 @@ export function EnrichmentDrawer({ open, onOpenChange, cnpj, prospectId, company
       });
       setResult(r);
       toast.success(`Enriquecido · ${r.score.classificacao}`);
+      onEnriched?.(r);
     } catch (e) {
       toast.error(`Falha: ${(e as Error).message}`);
     } finally {
