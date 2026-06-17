@@ -212,3 +212,13 @@ export const toggleCatalogItemMutation = createServerFn({ method: "POST" })
     if (error) throw normalizeDbError(error);
     return { ok: true };
   });
+
+export const deleteCatalogItemMutation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => GetInput.parse(data))
+  .handler(async ({ data }) => {
+    const admin = await getCatalogDb();
+    const { error } = await admin.from("catalog_items").delete().eq("id", data.id);
+    if (error) throw normalizeDbError(error);
+    return { ok: true };
+  });
