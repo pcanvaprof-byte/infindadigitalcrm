@@ -5,8 +5,15 @@ export type ProspectStatus =
   | "qualificado"
   | "agendado"
   | "perdido"
+  | "briefing_enviado"
+  | "diagnostico_pendente"
+  | "proposta_pendente"
+  | "proposta_enviada"
   | "fechado_ganho"
-  | "aguardando_producao";
+  | "aguardando_kickoff"
+  | "aguardando_producao"
+  | "em_producao"
+  | "entregue";
 
 export type ProspectPotential = "alto" | "medio" | "baixo";
 
@@ -52,8 +59,15 @@ export const STATUS_LABEL: Record<ProspectStatus, string> = {
   qualificado: "Qualificado",
   agendado: "Agendado",
   perdido: "Perdido",
+  briefing_enviado: "Briefing enviado",
+  diagnostico_pendente: "Diagnóstico pendente",
+  proposta_pendente: "Proposta pendente",
+  proposta_enviada: "Proposta enviada",
   fechado_ganho: "Fechado / Ganho",
+  aguardando_kickoff: "Aguardando kickoff",
   aguardando_producao: "Aguardando produção",
+  em_producao: "Em produção",
+  entregue: "Entregue",
 };
 
 export const STATUS_TONE: Record<ProspectStatus, string> = {
@@ -63,8 +77,15 @@ export const STATUS_TONE: Record<ProspectStatus, string> = {
   qualificado: "bg-violet-500/10 text-violet-300 border-violet-500/20",
   agendado: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
   perdido: "bg-rose-500/10 text-rose-300 border-rose-500/20",
+  briefing_enviado: "bg-indigo-500/10 text-indigo-300 border-indigo-500/20",
+  diagnostico_pendente: "bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/20",
+  proposta_pendente: "bg-amber-500/10 text-amber-300 border-amber-500/20",
+  proposta_enviada: "bg-orange-500/10 text-orange-300 border-orange-500/20",
   fechado_ganho: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+  aguardando_kickoff: "bg-teal-500/10 text-teal-300 border-teal-500/20",
   aguardando_producao: "bg-cyan-500/10 text-cyan-300 border-cyan-500/20",
+  em_producao: "bg-blue-500/10 text-blue-300 border-blue-500/20",
+  entregue: "bg-emerald-500/20 text-emerald-200 border-emerald-500/40",
 };
 
 export const POTENTIAL_LABEL: Record<ProspectPotential, string> = {

@@ -10,8 +10,8 @@ const Input = z.object({ token: z.string().min(8) });
 export const gerarResumoBriefing = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => Input.parse(data))
   .handler(async ({ data }) => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY ausente");
+    const groqKey = process.env.GROQ_API_KEY;
+    if (!groqKey) throw new Error("GROQ_API_KEY ausente");
 
     const supabaseUrl = process.env.SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -74,14 +74,15 @@ ${JSON.stringify(briefing.respostas_json, null, 2)}`;
       ? "Você é gestor de produção sênior. Seja conciso, prático e direto."
       : "Você é um consultor estratégico sênior. Seja conciso e direto.";
 
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: `Bearer ${groqKey}`,
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: "llama-3.3-70b-versatile",
+        temperature: 0.4,
         messages: [
           { role: "system", content: systemMsg },
           { role: "user", content: prompt },
@@ -90,7 +91,7 @@ ${JSON.stringify(briefing.respostas_json, null, 2)}`;
     });
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`AI Gateway ${res.status}: ${text.slice(0, 200)}`);
+      throw new Error(`Groq ${res.status}: ${text.slice(0, 300)}`);
     }
     const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
     const resumo = json.choices?.[0]?.message?.content?.trim() ?? "";
@@ -102,28 +103,8 @@ ${JSON.stringify(briefing.respostas_json, null, 2)}`;
     });
     if (upErr) throw upErr;
 
-    // Automações pós-conclusão
-    try {
-      if (isKickoff) {
-        await admin.rpc("set_briefing_lead_status", {
-          p_token: data.token,
-          p_status: "aguardando_producao",
-        });
-        await admin.rpc("log_briefing_activity", {
-          p_token: data.token,
-          p_kind: "nota",
-          p_text: "Kickoff de Produção concluído. Resumo operacional gerado pela IA.",
-        });
-      } else {
-        await admin.rpc("log_briefing_activity", {
-          p_token: data.token,
-          p_kind: "nota",
-          p_text: "Briefing Comercial concluído. Diagnóstico gerado pela IA.",
-        });
-      }
-    } catch (e) {
-      console.warn("[briefings] automações pós-conclusão falharam:", e);
-    }
+    // Automações pós-conclusão (status + atividades) agora ficam dentro
+    // do RPC set_briefing_resumo_ia (ver migration 20260620 Fase 1).
 
     return { resumo };
   });
