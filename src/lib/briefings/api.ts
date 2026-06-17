@@ -188,6 +188,32 @@ export async function cancelBriefing(id: string): Promise<void> {
   if (error) throw error;
 }
 
+/** Apaga o briefing e, se nenhum outro briefing referenciar o prospect criado,
+ *  apaga também esse prospect (limpa duplicatas geradas automaticamente). */
+export async function deleteBriefing(id: string): Promise<void> {
+  const { data: row, error: getErr } = await db
+    .from("briefings")
+    .select("lead_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (getErr) throw normalizeBriefingError(getErr);
+  const leadId = (row as { lead_id: string | null } | null)?.lead_id ?? null;
+
+  const { error } = await db.from("briefings").delete().eq("id", id);
+  if (error) throw normalizeBriefingError(error);
+
+  if (leadId) {
+    const { data: others } = await db
+      .from("briefings")
+      .select("id")
+      .eq("lead_id", leadId)
+      .limit(1);
+    if (!others || (others as unknown[]).length === 0) {
+      await db.from("prospects").delete().eq("id", leadId);
+    }
+  }
+}
+
 // === Acesso público (via token + RPC SECURITY DEFINER) ===
 
 export interface PublicBriefing {
