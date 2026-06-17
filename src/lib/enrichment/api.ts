@@ -42,14 +42,22 @@ async function currentUserId(): Promise<string | null> {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
 
-type DbResponse = { error?: { message?: string; details?: string; hint?: string } | null };
+type DbError = { code?: string; message?: string; details?: string; hint?: string };
+type DbResponse = { error?: DbError | null };
+
+function formatDbError(error: DbError): string {
+  return [error.message, error.details, error.hint].filter(Boolean).join(" — ");
+}
+
+function isSchemaCacheError(error: DbError): boolean {
+  const text = `${error.code ?? ""} ${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
+  return text.includes("pgrst204") || text.includes("schema cache") || text.includes("could not find");
+}
 
 async function expectDb<T extends DbResponse>(promise: PromiseLike<T>, action: string): Promise<T> {
   const response = await promise;
   if (response.error) {
-    const details = [response.error.message, response.error.details, response.error.hint]
-      .filter(Boolean)
-      .join(" — ");
+    const details = formatDbError(response.error);
     throw new Error(`${action}: ${details || "erro ao salvar"}`);
   }
   return response;
