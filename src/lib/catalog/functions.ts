@@ -11,7 +11,15 @@ const ToggleInput = z.object({ id: z.string().uuid(), ativo: z.boolean() });
 
 const tipos = ["servico", "pacote", "complemento", "bonus"] as const;
 const complexidades = ["baixa", "media", "alta"] as const;
-const areas = ["comercial", "marketing", "desenvolvimento", "design", "ia", "suporte", "outros"] as const;
+const areas = [
+  "comercial",
+  "marketing",
+  "desenvolvimento",
+  "design",
+  "ia",
+  "suporte",
+  "outros",
+] as const;
 const cobrancas = ["implantacao", "mensal", "avulso"] as const;
 
 function cleanNullableString(value: unknown): string | null {
@@ -41,9 +49,14 @@ function cleanEnum<T extends string>(value: unknown, allowed: readonly T[], fall
 
 function normalizeDbError(error: unknown): Error {
   const e = error as { message?: string; details?: string; hint?: string; code?: string } | null;
-  const msg = [e?.message, e?.details, e?.hint, e?.code].filter(Boolean).join(" · ") || String(error);
-  if (/duplicate key|unique constraint.*catalog_items.*codigo|catalog_items_codigo_key/i.test(msg)) {
-    return new Error("Já existe um item com este Código/SKU. Altere o código interno e tente novamente.");
+  const msg =
+    [e?.message, e?.details, e?.hint, e?.code].filter(Boolean).join(" · ") || String(error);
+  if (
+    /duplicate key|unique constraint.*catalog_items.*codigo|catalog_items_codigo_key/i.test(msg)
+  ) {
+    return new Error(
+      "Já existe um item com este Código/SKU. Altere o código interno e tente novamente.",
+    );
   }
   return new Error(msg);
 }
@@ -96,7 +109,11 @@ export const createCatalogItemMutation = createServerFn({ method: "POST" })
     const payload = buildItemPayload(data, userId);
     if (!payload.nome_comercial) throw new Error("Informe o nome comercial");
     const admin = await getAdmin();
-    const { data: row, error } = await admin.from("catalog_items").insert(payload).select().single();
+    const { data: row, error } = await admin
+      .from("catalog_items")
+      .insert(payload)
+      .select()
+      .single();
     if (error) throw normalizeDbError(error);
     return row as CatalogItem;
   });
@@ -108,7 +125,12 @@ export const updateCatalogItemMutation = createServerFn({ method: "POST" })
     const payload = buildItemPayload(data.patch);
     if (!payload.nome_comercial) throw new Error("Informe o nome comercial");
     const admin = await getAdmin();
-    const { data: row, error } = await admin.from("catalog_items").update(payload).eq("id", data.id).select().maybeSingle();
+    const { data: row, error } = await admin
+      .from("catalog_items")
+      .update(payload)
+      .eq("id", data.id)
+      .select()
+      .maybeSingle();
     if (error) throw normalizeDbError(error);
     if (!row) throw new Error("Item não encontrado para edição.");
     return row as CatalogItem;
@@ -119,7 +141,10 @@ export const toggleCatalogItemMutation = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => ToggleInput.parse(data))
   .handler(async ({ data }) => {
     const admin = await getAdmin();
-    const { error } = await admin.from("catalog_items").update({ ativo: data.ativo }).eq("id", data.id);
+    const { error } = await admin
+      .from("catalog_items")
+      .update({ ativo: data.ativo })
+      .eq("id", data.id);
     if (error) throw normalizeDbError(error);
     return { ok: true };
   });
