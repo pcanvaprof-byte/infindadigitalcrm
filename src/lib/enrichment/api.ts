@@ -42,14 +42,22 @@ async function currentUserId(): Promise<string | null> {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
 
-type DbResponse = { error?: { message?: string; details?: string; hint?: string } | null };
+type DbError = { code?: string; message?: string; details?: string; hint?: string };
+type DbResponse = { error?: DbError | null };
+
+function formatDbError(error: DbError): string {
+  return [error.message, error.details, error.hint].filter(Boolean).join(" — ");
+}
+
+function isSchemaCacheError(error: DbError): boolean {
+  const text = `${error.code ?? ""} ${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
+  return text.includes("pgrst204") || text.includes("schema cache") || text.includes("could not find");
+}
 
 async function expectDb<T extends DbResponse>(promise: PromiseLike<T>, action: string): Promise<T> {
   const response = await promise;
   if (response.error) {
-    const details = [response.error.message, response.error.details, response.error.hint]
-      .filter(Boolean)
-      .join(" — ");
+    const details = formatDbError(response.error);
     throw new Error(`${action}: ${details || "erro ao salvar"}`);
   }
   return response;
@@ -58,6 +66,20 @@ async function expectDb<T extends DbResponse>(promise: PromiseLike<T>, action: s
 function filled(value?: string | null): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
+}
+
+async function optionalPersist(
+  action: string,
+  promise: PromiseLike<DbResponse>,
+  uid: string,
+  profileId: string | null,
+  cnpj: string,
+) {
+  const response = await promise;
+  if (response.error) {
+    await log(uid, profileId, cnpj, "persist", "error", `${action}: ${formatDbError(response.error)}`);
+  }
+  return response;
 }
 
 async function log(
@@ -288,36 +310,53 @@ export async function runEnrichment(
         raw: profile.raw ?? null,
         updated_at: new Date().toISOString(),
       };
-      const { data: up, error: upErr } = await db
+      let profileId: string | null = null;
+      let upsert = await db
         .from("company_profiles")
         .upsert(profileRow, { onConflict: "user_id,cnpj" })
-        .select()
+        .select("id")
         .single();
-      if (upErr) throw upErr;
-      const profileId = up.id as string;
 
-      await expectDb(db.from("company_addresses").delete().eq("profile_id", profileId), "limpar endereço antigo");
-      await expectDb(db.from("company_addresses").insert({
-        user_id: uid, profile_id: profileId, ...address,
-      }), "salvar endereço");
-      if (location) {
-        await expectDb(db.from("company_locations").delete().eq("profile_id", profileId), "limpar localização antiga");
-        await expectDb(db.from("company_locations").insert({
+      if (upsert.error && isSchemaCacheError(upsert.error)) {
+        const compatibleProfileRow: Record<string, unknown> = { ...profileRow };
+        delete compatibleProfileRow.telefone_1;
+        delete compatibleProfileRow.telefone_2;
+        delete compatibleProfileRow.email;
+        delete compatibleProfileRow.updated_at;
+        upsert = await db
+          .from("company_profiles")
+          .upsert(compatibleProfileRow, { onConflict: "user_id,cnpj" })
+          .select("id")
+          .single();
+      }
+
+      if (upsert.error) {
+        await log(uid, null, profile.cnpj, "persist", "error", `perfil: ${formatDbError(upsert.error)}`);
+      } else {
+        profileId = upsert.data.id as string;
+        await optionalPersist("limpar endereço antigo", db.from("company_addresses").delete().eq("profile_id", profileId), uid, profileId, profile.cnpj);
+        await optionalPersist("salvar endereço", db.from("company_addresses").insert({
+          user_id: uid, profile_id: profileId, ...address,
+        }), uid, profileId, profile.cnpj);
+        if (location) {
+          await optionalPersist("limpar localização antiga", db.from("company_locations").delete().eq("profile_id", profileId), uid, profileId, profile.cnpj);
+          await optionalPersist("salvar localização", db.from("company_locations").insert({
+            user_id: uid, profile_id: profileId,
+            lat: location.lat, lon: location.lon, display_name: location.display_name ?? null,
+          }), uid, profileId, profile.cnpj);
+        }
+        if (market?.municipio_ibge_id) {
+          await optionalPersist("salvar indicadores", db.from("company_market_data").upsert(
+            { user_id: uid, ...market },
+            { onConflict: "user_id,municipio_ibge_id" },
+          ), uid, profileId, profile.cnpj);
+        }
+        await optionalPersist("salvar score", db.from("company_scores").insert({
           user_id: uid, profile_id: profileId,
-          lat: location.lat, lon: location.lon, display_name: location.display_name ?? null,
-        }), "salvar localização");
+          lead_score: score.lead_score, market_score: score.market_score,
+          classificacao: score.classificacao, breakdown: score.breakdown,
+        }), uid, profileId, profile.cnpj);
       }
-      if (market?.municipio_ibge_id) {
-        await expectDb(db.from("company_market_data").upsert(
-          { user_id: uid, ...market },
-          { onConflict: "user_id,municipio_ibge_id" },
-        ), "salvar indicadores");
-      }
-      await expectDb(db.from("company_scores").insert({
-        user_id: uid, profile_id: profileId,
-        lead_score: score.lead_score, market_score: score.market_score,
-        classificacao: score.classificacao, breakdown: score.breakdown,
-      }), "salvar score");
 
       // Também atualiza o prospect (telefone/whatsapp/email) — preenche somente
       // campos vazios para não sobrescrever dados manuais do usuário.
@@ -344,7 +383,7 @@ export async function runEnrichment(
             await expectDb(db.from("prospects").update(patch).eq("id", opts.prospectId), "atualizar lead");
           }
         } catch (e) {
-          await log(uid, profileId, profile.cnpj, "persist", "error",
+            await log(uid, profileId, profile.cnpj, "persist", "error",
             "prospect update: " + (e as Error).message);
           throw e;
         }
@@ -352,7 +391,7 @@ export async function runEnrichment(
 
       await log(uid, profileId, profile.cnpj, "persist", "done");
       emit(opts, "persist", "done");
-      const visits = await listVisits(profileId);
+      const visits = profileId ? await listVisits(profileId) : [];
       return { profile, address, location, market, score, visits };
     } catch (e) {
       await log(uid, null, profile.cnpj, "persist", "error", (e as Error).message);
