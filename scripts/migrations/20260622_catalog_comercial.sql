@@ -151,6 +151,10 @@ alter table public.catalog_items
   add column if not exists created_at timestamptz not null default now(),
   add column if not exists updated_at timestamptz not null default now();
 
+update public.catalog_items
+set nome_comercial = coalesce(nullif(nome_interno, ''), codigo, 'Item sem nome')
+where nome_comercial is null;
+
 alter table public.catalog_items
   alter column nome_comercial set not null;
 
