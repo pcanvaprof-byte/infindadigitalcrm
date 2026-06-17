@@ -897,6 +897,23 @@ function ProspeccaoPage() {
         cnpj={enrichFor?.cnpj ?? ""}
         prospectId={enrichFor?.id}
         companyName={enrichFor?.company}
+        onEnriched={(r) => {
+          const pid = enrichFor?.id;
+          if (!pid) return;
+          const tel = r.profile.telefone_1 || r.profile.telefone_2 || "";
+          setProspects((prev) => prev.map((x) => {
+            if (x.id !== pid) return x;
+            return {
+              ...x,
+              phone: x.phone || tel,
+              whatsapp: x.whatsapp || tel,
+              email: x.email || r.profile.email || "",
+              city: x.city || r.address?.cidade || "",
+              state: x.state || r.address?.uf || "",
+            };
+          }));
+          loadAllProspects().then(setProspects).catch(() => {});
+        }}
       />
     </AppShell>
 
