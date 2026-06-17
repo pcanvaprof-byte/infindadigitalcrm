@@ -43,7 +43,6 @@ function normalize(error: unknown): Error {
   return error instanceof Error ? error : new Error(msg);
 }
 
-
 function withItemDefaults(row: unknown): CatalogItem {
   const r = row as Partial<CatalogItem>;
   return {
