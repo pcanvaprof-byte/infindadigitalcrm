@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Briefing, BriefingServico, BriefingStatus } from "./types";
+import type { Briefing, BriefingServico, BriefingStatus, BriefingTipo } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -21,13 +21,41 @@ export interface CreateBriefingInput {
   email?: string;
   servico: BriefingServico;
   responsavel?: string;
+  tipo?: BriefingTipo;
+  lead_id?: string | null;
 }
 
 export async function createBriefing(input: CreateBriefingInput): Promise<Briefing> {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth.user) throw new Error("Sessão necessária.");
+  const tipo: BriefingTipo = input.tipo ?? "briefing_comercial";
+  let leadId = input.lead_id ?? null;
+
+  // Briefing Comercial sem lead vinculado → cria prospect automaticamente
+  if (tipo === "briefing_comercial" && !leadId) {
+    const { data: lead, error: leadErr } = await db
+      .from("prospects")
+      .insert({
+        user_id: auth.user.id,
+        company: input.empresa || input.cliente_nome,
+        owner_name: input.cliente_nome,
+        whatsapp: input.telefone ?? "",
+        phone: input.telefone ?? "",
+        email: input.email ?? "",
+        segment: "Outros",
+        source: "briefing",
+        potential: "medio",
+        status: "nao_contatado",
+      })
+      .select("id")
+      .single();
+    if (!leadErr && lead) leadId = lead.id as string;
+  }
+
   const row = {
     user_id: auth.user.id,
+    tipo,
+    lead_id: leadId,
     cliente_nome: input.cliente_nome,
     empresa: input.empresa ?? null,
     telefone: input.telefone ?? null,
@@ -43,13 +71,52 @@ export async function createBriefing(input: CreateBriefingInput): Promise<Briefi
   return data as Briefing;
 }
 
-export async function listBriefings(): Promise<Briefing[]> {
-  const { data, error } = await db
+export async function listBriefings(opts?: { tipo?: BriefingTipo }): Promise<Briefing[]> {
+  let q = db
     .from("briefings")
     .select("*")
     .order("created_at", { ascending: false });
+  if (opts?.tipo) q = q.eq("tipo", opts.tipo);
+  const { data, error } = await q;
   if (error) throw error;
   return (data ?? []) as Briefing[];
+}
+
+export interface KickoffElegivel {
+  id: string;
+  company: string;
+  owner: string;
+  email: string;
+  phone: string;
+}
+
+/** Prospects com status `fechado_ganho` sem kickoff ainda. */
+export async function listKickoffsElegiveis(): Promise<KickoffElegivel[]> {
+  const { data: prospects, error } = await db
+    .from("prospects")
+    .select("id, company, owner_name, email, phone")
+    .eq("status", "fechado_ganho")
+    .order("updated_at", { ascending: false });
+  if (error) throw error;
+  const list = (prospects ?? []) as Array<{
+    id: string; company: string; owner_name: string; email: string; phone: string;
+  }>;
+  if (!list.length) return [];
+  const { data: existing } = await db
+    .from("briefings")
+    .select("lead_id")
+    .eq("tipo", "kickoff_producao")
+    .in("lead_id", list.map((p) => p.id));
+  const used = new Set(((existing ?? []) as { lead_id: string | null }[]).map((r) => r.lead_id));
+  return list
+    .filter((p) => !used.has(p.id))
+    .map((p) => ({
+      id: p.id,
+      company: p.company,
+      owner: p.owner_name,
+      email: p.email,
+      phone: p.phone,
+    }));
 }
 
 export async function getBriefingById(id: string): Promise<Briefing | null> {
@@ -67,8 +134,12 @@ export async function cancelBriefing(id: string): Promise<void> {
 
 export interface PublicBriefing {
   id: string;
+  tipo: BriefingTipo;
+  lead_id: string | null;
   cliente_nome: string | null;
   empresa: string | null;
+  telefone: string | null;
+  email: string | null;
   servico: BriefingServico;
   status: BriefingStatus;
   respostas_json: Record<string, string>;

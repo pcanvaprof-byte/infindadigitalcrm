@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import { getQuestions } from "./questions";
-import { SERVICO_LABEL, type Briefing } from "./types";
+import { SERVICO_LABEL, TIPO_LABEL, type Briefing } from "./types";
 
 export function downloadBriefingPdf(b: Briefing) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
@@ -8,9 +8,10 @@ export function downloadBriefingPdf(b: Briefing) {
   const margin = 40;
   let y = margin;
 
+  const isKickoff = b.tipo === "kickoff_producao";
   doc.setFontSize(18);
   doc.setTextColor(20, 20, 30);
-  doc.text("INFINDA Digital — Briefing", margin, y);
+  doc.text(`INFINDA Digital — ${TIPO_LABEL[b.tipo]}`, margin, y);
   y += 22;
 
   doc.setFontSize(11);
@@ -28,7 +29,7 @@ export function downloadBriefingPdf(b: Briefing) {
   doc.text(`Data: ${new Date(b.created_at).toLocaleString("pt-BR")}`, margin, y);
   y += 20;
 
-  const sections = getQuestions(b.servico);
+  const sections = getQuestions(b.tipo, b.servico);
   doc.setDrawColor(220);
   doc.line(margin, y, pageW - margin, y);
   y += 16;
@@ -69,7 +70,7 @@ export function downloadBriefingPdf(b: Briefing) {
     ensureSpace(40);
     doc.setFontSize(13);
     doc.setTextColor(20);
-    doc.text("Resumo Executivo (IA)", margin, y);
+    doc.text(isKickoff ? "Resumo Operacional (IA)" : "Diagnóstico Comercial (IA)", margin, y);
     y += 16;
     doc.setFontSize(10);
     doc.setTextColor(40);
@@ -81,5 +82,5 @@ export function downloadBriefingPdf(b: Briefing) {
     }
   }
 
-  doc.save(`briefing-${b.cliente_nome ?? b.id}.pdf`);
+  doc.save(`${isKickoff ? "kickoff" : "briefing"}-${b.cliente_nome ?? b.id}.pdf`);
 }

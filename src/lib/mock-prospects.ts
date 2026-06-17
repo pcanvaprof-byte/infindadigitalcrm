@@ -4,7 +4,9 @@ export type ProspectStatus =
   | "em_negociacao"
   | "qualificado"
   | "agendado"
-  | "perdido";
+  | "perdido"
+  | "fechado_ganho"
+  | "aguardando_producao";
 
 export type ProspectPotential = "alto" | "medio" | "baixo";
 
@@ -50,6 +52,8 @@ export const STATUS_LABEL: Record<ProspectStatus, string> = {
   qualificado: "Qualificado",
   agendado: "Agendado",
   perdido: "Perdido",
+  fechado_ganho: "Fechado / Ganho",
+  aguardando_producao: "Aguardando produção",
 };
 
 export const STATUS_TONE: Record<ProspectStatus, string> = {
@@ -59,6 +63,8 @@ export const STATUS_TONE: Record<ProspectStatus, string> = {
   qualificado: "bg-violet-500/10 text-violet-300 border-violet-500/20",
   agendado: "bg-emerald-500/10 text-emerald-300 border-emerald-500/20",
   perdido: "bg-rose-500/10 text-rose-300 border-rose-500/20",
+  fechado_ganho: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
+  aguardando_producao: "bg-cyan-500/10 text-cyan-300 border-cyan-500/20",
 };
 
 export const POTENTIAL_LABEL: Record<ProspectPotential, string> = {

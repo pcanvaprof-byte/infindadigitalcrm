@@ -10,7 +10,7 @@ import { getBriefingById } from "@/lib/briefings/api";
 import { getQuestions } from "@/lib/briefings/questions";
 import { downloadBriefingPdf } from "@/lib/briefings/pdf";
 import { gerarResumoBriefing } from "@/lib/briefings/ai.functions";
-import { SERVICO_LABEL, STATUS_LABEL, type Briefing } from "@/lib/briefings/types";
+import { SERVICO_LABEL, STATUS_LABEL, TIPO_LABEL, type Briefing } from "@/lib/briefings/types";
 
 export const Route = createFileRoute("/briefings/$id")({
   head: () => ({ meta: [{ title: "Briefing — INFINDA" }] }),
@@ -51,15 +51,17 @@ function Detail() {
   if (loading) return <AppShell title="Briefing"><p className="text-muted-foreground">Carregando…</p></AppShell>;
   if (!b) return <AppShell title="Briefing"><p className="text-muted-foreground">Não encontrado.</p></AppShell>;
 
-  const sections = getQuestions(b.servico);
+  const sections = getQuestions(b.tipo, b.servico);
 
   return (
     <AppShell
       title={b.cliente_nome ?? "Briefing"}
-      subtitle={SERVICO_LABEL[b.servico]}
+      subtitle={`${TIPO_LABEL[b.tipo]} · ${SERVICO_LABEL[b.servico]}`}
       actions={
         <div className="flex gap-2">
-          <Link to="/briefings"><Button variant="ghost" size="sm"><ArrowLeft className="mr-2 h-4 w-4" /> Voltar</Button></Link>
+          <Link to={b.tipo === "kickoff_producao" ? "/kickoff" : "/briefings"}>
+            <Button variant="ghost" size="sm"><ArrowLeft className="mr-2 h-4 w-4" /> Voltar</Button>
+          </Link>
           <Button size="sm" variant="outline" onClick={() => downloadBriefingPdf(b)}>
             <Download className="mr-2 h-4 w-4" /> Baixar PDF
           </Button>

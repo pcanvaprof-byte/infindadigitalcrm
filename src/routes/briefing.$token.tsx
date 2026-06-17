@@ -14,7 +14,8 @@ import { toast } from "sonner";
 import { getBriefingByToken, saveAnswersByToken, type PublicBriefing } from "@/lib/briefings/api";
 import { getQuestions, countQuestions } from "@/lib/briefings/questions";
 import { gerarResumoBriefing } from "@/lib/briefings/ai.functions";
-import { SERVICO_LABEL } from "@/lib/briefings/types";
+import { createKickoffUpload } from "@/lib/briefings/uploads.functions";
+import { SERVICO_LABEL, TIPO_LABEL } from "@/lib/briefings/types";
 
 export const Route = createFileRoute("/briefing/$token")({
   head: () => ({ meta: [{ title: "Briefing — INFINDA Digital" }] }),
@@ -49,7 +50,10 @@ function PublicBriefingPage() {
     })();
   }, [token]);
 
-  const sections = useMemo(() => (briefing ? getQuestions(briefing.servico) : []), [briefing]);
+  const sections = useMemo(
+    () => (briefing ? getQuestions(briefing.tipo, briefing.servico) : []),
+    [briefing],
+  );
   const total = useMemo(() => countQuestions(sections), [sections]);
   const answered = Object.values(answers).filter((v) => (v ?? "").trim() !== "").length;
   const progress = total ? Math.round((answered / total) * 100) : 0;
@@ -125,7 +129,9 @@ function PublicBriefingPage() {
       <header className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
           <Logo />
-          <div className="text-xs text-muted-foreground">{SERVICO_LABEL[briefing.servico]}</div>
+          <div className="text-xs text-muted-foreground">
+            {TIPO_LABEL[briefing.tipo]} · {SERVICO_LABEL[briefing.servico]}
+          </div>
         </div>
       </header>
 
@@ -164,6 +170,15 @@ function PublicBriefingPage() {
                         ))}
                       </SelectContent>
                     </Select>
+                  ) : q.type === "upload" ? (
+                    <UploadField
+                      token={token}
+                      fieldKey={key}
+                      value={value}
+                      accept={q.accept}
+                      multiple={q.multiple}
+                      onChange={(v) => { update(key, v); void persist("em_preenchimento"); }}
+                    />
                   ) : (
                     <Input value={value} placeholder={q.placeholder} onChange={(e) => update(key, e.target.value)} onBlur={() => persist("em_preenchimento")} />
                   )}
@@ -189,5 +204,79 @@ function PublicBriefingPage() {
 function CenterScreen({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">{children}</div>
+  );
+}
+
+function UploadField({
+  token, fieldKey, value, accept, multiple, onChange,
+}: {
+  token: string; fieldKey: string; value: string;
+  accept?: string; multiple?: boolean;
+  onChange: (v: string) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const files = value ? (value.split("|").filter(Boolean)) : [];
+
+  async function handle(list: FileList | null) {
+    if (!list || !list.length) return;
+    setBusy(true);
+    const next = [...files];
+    try {
+      for (const file of Array.from(list)) {
+        if (file.size > 100 * 1024 * 1024) {
+          toast.error(`Arquivo ${file.name} excede 100 MB`);
+          continue;
+        }
+        const sig = await createKickoffUpload({
+          data: {
+            token,
+            field: fieldKey.replace(/[^\w.-]/g, "_"),
+            filename: file.name.replace(/[^\w. ()\-+]/g, "_"),
+            size: file.size,
+            contentType: file.type || "application/octet-stream",
+          },
+        });
+        const up = await fetch(sig.signedUrl, {
+          method: "PUT",
+          headers: { "Content-Type": file.type || "application/octet-stream" },
+          body: file,
+        });
+        if (!up.ok) throw new Error(`Upload falhou (${up.status})`);
+        next.push(`${file.name}::${sig.path}`);
+      }
+      onChange(next.join("|"));
+      toast.success("Arquivo enviado");
+    } catch (e) {
+      toast.error("Falha ao enviar", { description: (e as Error).message });
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="space-y-2">
+      <Input
+        type="file"
+        accept={accept}
+        multiple={multiple}
+        disabled={busy}
+        onChange={(e) => void handle(e.target.files)}
+      />
+      {files.length > 0 && (
+        <ul className="text-xs text-muted-foreground space-y-1">
+          {files.map((entry, i) => {
+            const [name] = entry.split("::");
+            return (
+              <li key={i} className="flex items-center justify-between gap-2">
+                <span className="truncate">📎 {name}</span>
+                <button
+                  type="button"
+                  className="text-destructive hover:underline"
+                  onClick={() => onChange(files.filter((_, idx) => idx !== i).join("|"))}
+                >remover</button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
