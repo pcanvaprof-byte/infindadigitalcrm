@@ -5,6 +5,13 @@ import { fetchCep, mergeAddress } from "./cep";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
 
+type DbError = { code?: string; message?: string; details?: string };
+
+function isSchemaCacheError(error: DbError): boolean {
+  const text = `${error.code ?? ""} ${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
+  return text.includes("pgrst204") || text.includes("schema cache") || text.includes("could not find");
+}
+
 /** Lightweight enrichment: fetches CNPJ + CEP and persists ONLY the address
  *  (skips Nominatim/IBGE/score). Use to fill `bairro` in bulk quickly. */
 export async function collectBairro(cnpj: string): Promise<string | null> {
@@ -31,11 +38,25 @@ export async function collectBairro(cnpj: string): Promise<string | null> {
     email: profile.email ?? null,
     updated_at: new Date().toISOString(),
   };
-  const { data: up, error: upErr } = await db
+  let { data: up, error: upErr } = await db
     .from("company_profiles")
     .upsert(profileRow, { onConflict: "user_id,cnpj" })
     .select("id")
     .single();
+  if (upErr && isSchemaCacheError(upErr)) {
+    const compatibleProfileRow: Record<string, unknown> = { ...profileRow };
+    delete compatibleProfileRow.telefone_1;
+    delete compatibleProfileRow.telefone_2;
+    delete compatibleProfileRow.email;
+    delete compatibleProfileRow.updated_at;
+    const retry = await db
+      .from("company_profiles")
+      .upsert(compatibleProfileRow, { onConflict: "user_id,cnpj" })
+      .select("id")
+      .single();
+    up = retry.data;
+    upErr = retry.error;
+  }
   if (upErr) throw upErr;
   const profileId = up.id as string;
 
