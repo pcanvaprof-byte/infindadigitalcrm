@@ -1,10 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
-import type {
-  CatalogCategoria,
-  CatalogItem,
-  CatalogArea,
-  CatalogTipo,
-} from "./types";
+import type { CatalogCategoria, CatalogItem, CatalogArea, CatalogTipo } from "./types";
+import {
+  createCatalogItemMutation,
+  toggleCatalogItemMutation,
+  updateCatalogItemMutation,
+} from "./catalog.functions";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -13,8 +13,12 @@ function normalize(error: unknown): Error {
   const e = error as { message?: string; details?: string; hint?: string; code?: string } | null;
   const parts = [e?.message, e?.details, e?.hint, e?.code].filter(Boolean).join(" · ");
   const msg = parts || (error instanceof Error ? error.message : String(error));
-  if (/duplicate key|unique constraint.*catalog_items.*codigo|catalog_items_codigo_key/i.test(msg)) {
-    return new Error("Já existe um item com este Código/SKU. Altere o código interno e tente novamente.");
+  if (
+    /duplicate key|unique constraint.*catalog_items.*codigo|catalog_items_codigo_key/i.test(msg)
+  ) {
+    return new Error(
+      "Já existe um item com este Código/SKU. Altere o código interno e tente novamente.",
+    );
   }
   if (/row-level security|violates row-level security/i.test(msg)) {
     return new Error(
@@ -96,10 +100,7 @@ export async function getItem(id: string): Promise<CatalogItem | null> {
   return data ? withItemDefaults(data) : null;
 }
 
-export type CatalogItemInput = Omit<
-  CatalogItem,
-  "id" | "created_at" | "updated_at" | "created_by"
->;
+export type CatalogItemInput = Omit<CatalogItem, "id" | "created_at" | "updated_at" | "created_by">;
 
 function cleanNullableString(value: unknown): string | null {
   if (typeof value !== "string") return value == null ? null : String(value).trim() || null;
@@ -149,31 +150,34 @@ function buildItemPayload(input: Partial<CatalogItemInput>, createdBy?: string |
 }
 
 export async function createItem(input: Partial<CatalogItemInput>): Promise<CatalogItem> {
-  const { data: auth, error: authError } = await supabase.auth.getUser();
-  if (authError || !auth.user) throw new Error("Sessão expirada. Entre novamente para criar itens no Catálogo.");
-  const payload = buildItemPayload(input, auth.user.id);
-  if (!payload.nome_comercial) throw new Error("Informe o nome comercial");
-  const { data, error } = await db.from("catalog_items").insert(payload).select().single();
-  if (error) throw normalize(error);
-  return withItemDefaults(data);
-}
-
-export async function updateItem(id: string, patch: Partial<CatalogItemInput>): Promise<CatalogItem> {
-  const payload = buildItemPayload(patch);
-  if (!payload.nome_comercial) throw new Error("Informe o nome comercial");
-  console.log("[catalog.updateItem] payload", { id, payload });
-  const { data, error } = await db.from("catalog_items").update(payload).eq("id", id).select().single();
-  if (error) {
-    console.error("[catalog.updateItem] erro do Supabase", error);
+  try {
+    const data = await createCatalogItemMutation({ data: input as Record<string, unknown> });
+    return withItemDefaults(data);
+  } catch (error) {
     throw normalize(error);
   }
-  console.log("[catalog.updateItem] sucesso", data);
-  return withItemDefaults(data);
+}
+
+export async function updateItem(
+  id: string,
+  patch: Partial<CatalogItemInput>,
+): Promise<CatalogItem> {
+  try {
+    const data = await updateCatalogItemMutation({
+      data: { id, patch: patch as Record<string, unknown> },
+    });
+    return withItemDefaults(data);
+  } catch (error) {
+    throw normalize(error);
+  }
 }
 
 export async function toggleAtivo(id: string, ativo: boolean): Promise<void> {
-  const { error } = await db.from("catalog_items").update({ ativo }).eq("id", id);
-  if (error) throw normalize(error);
+  try {
+    await toggleCatalogItemMutation({ data: { id, ativo } });
+  } catch (error) {
+    throw normalize(error);
+  }
 }
 
 export async function duplicateItem(id: string): Promise<CatalogItem> {

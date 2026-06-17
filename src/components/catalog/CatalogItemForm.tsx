@@ -163,15 +163,12 @@ export function CatalogItemForm({ initial, categorias, onSubmit, onCancel, submi
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    console.log("[CatalogItemForm] submit iniciado", { values: v });
     if (!v.nome_comercial?.trim()) {
       toast.error("Informe o nome comercial");
-      console.warn("[CatalogItemForm] bloqueado: nome_comercial vazio");
       return;
     }
     if (categorias.length > 0 && !v.categoria_id) {
       toast.error("Selecione uma categoria");
-      console.warn("[CatalogItemForm] bloqueado: categoria_id vazio", { categorias: categorias.length });
       return;
     }
     setSaving(true);
@@ -199,9 +196,7 @@ export function CatalogItemForm({ initial, categorias, onSubmit, onCancel, submi
         tempo_execucao_horas: optionalNumber(v.tempo_execucao_horas),
       };
       await onSubmit(payload);
-      console.log("[CatalogItemForm] submit OK");
     } catch (err) {
-      console.error("[CatalogItemForm] erro no submit", err);
       toast.error(err instanceof Error ? err.message : "Erro ao salvar");
     } finally {
       setSaving(false);
