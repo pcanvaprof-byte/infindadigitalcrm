@@ -115,7 +115,15 @@ export async function fetchCnpj(
   const clean = sanitizeCnpj(cnpj);
   if (clean.length !== 14) throw new Error("CNPJ inválido");
   const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${clean}`);
-  if (!res.ok) throw new Error(`BrasilAPI ${res.status}`);
+  if (!res.ok) {
+    try {
+      const fallback = await fetch(`https://publica.cnpj.ws/cnpj/${clean}`);
+      if (fallback.ok) return mapPublicaCnpjWs(clean, await fallback.json() as PublicaCnpjWsResponse);
+    } catch {
+      /* mantém erro da BrasilAPI */
+    }
+    throw new Error(`BrasilAPI ${res.status}`);
+  }
   const data = (await res.json()) as BrasilApiResponse;
 
   // Fallback: BrasilAPI frequentemente retorna telefone/email vazios.
@@ -127,13 +135,7 @@ export async function fetchCnpj(
     try {
       const r2 = await fetch(`https://publica.cnpj.ws/cnpj/${clean}`);
       if (r2.ok) {
-        const d2 = (await r2.json()) as {
-          estabelecimento?: {
-            ddd1?: string; telefone1?: string;
-            ddd2?: string; telefone2?: string;
-            email?: string;
-          };
-        };
+        const d2 = (await r2.json()) as PublicaCnpjWsResponse;
         const est = d2.estabelecimento ?? {};
         if (!tel1 && est.ddd1 && est.telefone1) tel1 = formatPhone(est.ddd1 + est.telefone1);
         if (!tel2 && est.ddd2 && est.telefone2) tel2 = formatPhone(est.ddd2 + est.telefone2);
