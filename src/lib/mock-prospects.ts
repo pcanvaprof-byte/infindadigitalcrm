@@ -55,7 +55,7 @@ export interface Interaction {
 export const STATUS_LABEL: Record<ProspectStatus, string> = {
   nao_contatado: "Não contatado",
   primeiro_contato: "Primeiro contato",
-  em_negociacao: "Em negociação",
+  em_negociacao: "Em andamento",
   qualificado: "Qualificado",
   agendado: "Agendado",
   perdido: "Perdido",
@@ -63,7 +63,7 @@ export const STATUS_LABEL: Record<ProspectStatus, string> = {
   diagnostico_pendente: "Diagnóstico pendente",
   proposta_pendente: "Proposta pendente",
   proposta_enviada: "Proposta enviada",
-  fechado_ganho: "Fechado / Ganho",
+  fechado_ganho: "Ganho",
   aguardando_kickoff: "Aguardando kickoff",
   aguardando_producao: "Aguardando produção",
   em_producao: "Em produção",

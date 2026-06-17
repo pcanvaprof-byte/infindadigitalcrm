@@ -141,7 +141,7 @@ export interface KickoffElegivel {
   phone: string;
 }
 
-/** Prospects com status `fechado_ganho` sem kickoff ainda. */
+/** Prospects ganhos sem kickoff ainda. */
 export async function listKickoffsElegiveis(): Promise<KickoffElegivel[]> {
   const { data: prospects, error } = await db
     .from("prospects")
