@@ -14,14 +14,33 @@ function generateToken(): string {
   return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+function isBriefingSchemaError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return /lead_id|tipo|schema cache|column .* does not exist/i.test(message);
+}
+
 function normalizeBriefingError(error: unknown): Error {
   const message = error instanceof Error ? error.message : String(error);
-  if (/lead_id|tipo|schema cache|column .* does not exist/i.test(message)) {
+  if (isBriefingSchemaError(error)) {
     return new Error(
-      "O banco ainda está sem a migration do módulo Briefings/Kickoff. Rode a migration `supabase/migrations/20260619000000_briefings_kickoff.sql` e depois `NOTIFY pgrst, 'reload schema';`.",
+      "O backend conectado ao app ainda está sem a migration do módulo Briefings/Kickoff. Rode `scripts/migrations/20260619_briefings_kickoff.sql` no mesmo banco configurado no app e depois `NOTIFY pgrst, 'reload schema';`.",
     );
   }
   return error instanceof Error ? error : new Error(message);
+}
+
+function withBriefingDefaults(row: unknown): Briefing {
+  const b = row as Partial<Briefing>;
+  return {
+    ...b,
+    tipo: b.tipo ?? "briefing_comercial",
+    lead_id: b.lead_id ?? null,
+    telefone: b.telefone ?? null,
+    email: b.email ?? null,
+    respostas_json: b.respostas_json ?? {},
+    resumo_ia: b.resumo_ia ?? null,
+    responsavel: b.responsavel ?? null,
+  } as Briefing;
 }
 
 export interface CreateBriefingInput {
@@ -77,8 +96,16 @@ export async function createBriefing(input: CreateBriefingInput): Promise<Briefi
     respostas_json: {},
   };
   const { data, error } = await db.from("briefings").insert(row).select().single();
-  if (error) throw normalizeBriefingError(error);
-  return data as Briefing;
+  if (error) {
+    if (tipo === "briefing_comercial" && isBriefingSchemaError(error)) {
+      const { tipo: _tipo, lead_id: _leadId, ...legacyRow } = row;
+      const { data: legacyData, error: legacyError } = await db.from("briefings").insert(legacyRow).select().single();
+      if (legacyError) throw normalizeBriefingError(legacyError);
+      return withBriefingDefaults(legacyData);
+    }
+    throw normalizeBriefingError(error);
+  }
+  return withBriefingDefaults(data);
 }
 
 export async function listBriefings(opts?: { tipo?: BriefingTipo }): Promise<Briefing[]> {
