@@ -1,0 +1,82 @@
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+
+const Input = z.object({ token: z.string().min(8) });
+
+/**
+ * Gera o resumo executivo IA do briefing identificado por token público.
+ * Usa LOVABLE_API_KEY (server-only) e salva via RPC set_briefing_resumo_ia.
+ */
+export const gerarResumoBriefing = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => Input.parse(data))
+  .handler(async ({ data }) => {
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) throw new Error("LOVABLE_API_KEY ausente");
+
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceKey) throw new Error("Supabase server env ausente");
+
+    const { createClient } = await import("@supabase/supabase-js");
+    const admin = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+
+    const { data: rows, error } = await admin
+      .from("briefings")
+      .select("cliente_nome, empresa, servico, respostas_json")
+      .eq("token_publico", data.token)
+      .limit(1);
+    if (error) throw error;
+    const briefing = rows?.[0];
+    if (!briefing) throw new Error("Briefing não encontrado");
+
+    const prompt = `Você é um consultor estratégico da INFINDA Digital.
+Analise as respostas do briefing abaixo e gere um resumo executivo curto e objetivo, em português, organizado nestes itens:
+
+1. Resumo do negócio
+2. Objetivo principal
+3. Público-alvo
+4. Ticket médio
+5. Verba disponível
+6. Principais dores
+7. Principais oportunidades
+8. Estratégia recomendada
+
+Cliente: ${briefing.cliente_nome ?? "-"}
+Empresa: ${briefing.empresa ?? "-"}
+Serviço: ${briefing.servico}
+
+Respostas:
+${JSON.stringify(briefing.respostas_json, null, 2)}`;
+
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          { role: "system", content: "Você é um consultor estratégico sênior. Seja conciso e direto." },
+          { role: "user", content: prompt },
+        ],
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`AI Gateway ${res.status}: ${text.slice(0, 200)}`);
+    }
+    const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+    const resumo = json.choices?.[0]?.message?.content?.trim() ?? "";
+    if (!resumo) throw new Error("Resposta IA vazia");
+
+    const { error: upErr } = await admin.rpc("set_briefing_resumo_ia", {
+      p_token: data.token,
+      p_resumo: resumo,
+    });
+    if (upErr) throw upErr;
+
+    return { resumo };
+  });
