@@ -115,8 +115,18 @@ export async function listBriefings(opts?: { tipo?: BriefingTipo }): Promise<Bri
     .order("created_at", { ascending: false });
   if (opts?.tipo) q = q.eq("tipo", opts.tipo);
   const { data, error } = await q;
-  if (error) throw normalizeBriefingError(error);
-  return (data ?? []) as Briefing[];
+  if (error) {
+    if (opts?.tipo === "briefing_comercial" && isBriefingSchemaError(error)) {
+      const { data: legacyData, error: legacyError } = await db
+        .from("briefings")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (legacyError) throw normalizeBriefingError(legacyError);
+      return (legacyData ?? []).map(withBriefingDefaults);
+    }
+    throw normalizeBriefingError(error);
+  }
+  return (data ?? []).map(withBriefingDefaults);
 }
 
 export interface KickoffElegivel {
