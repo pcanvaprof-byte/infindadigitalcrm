@@ -6,15 +6,6 @@ import type { CatalogItem } from "./types";
 type ItemMutationInput = Record<string, unknown>;
 
 const RawItemInput = z.record(z.string(), z.unknown());
-const ListItemsInput = z
-  .object({
-    search: z.string().optional(),
-    categoriaId: z.string().nullable().optional(),
-    tipo: z.enum(tipos).nullable().optional(),
-    area: z.enum(areas).nullable().optional(),
-    apenasAtivos: z.boolean().optional(),
-  })
-  .optional();
 const GetInput = z.object({ id: z.string().uuid() });
 const UpdateInput = z.object({ id: z.string().uuid(), patch: RawItemInput });
 const ToggleInput = z.object({ id: z.string().uuid(), ativo: z.boolean() });
@@ -31,6 +22,15 @@ const areas = [
   "outros",
 ] as const;
 const cobrancas = ["implantacao", "mensal", "avulso"] as const;
+const ListItemsInput = z
+  .object({
+    search: z.string().optional(),
+    categoriaId: z.string().nullable().optional(),
+    tipo: z.enum(tipos).nullable().optional(),
+    area: z.enum(areas).nullable().optional(),
+    apenasAtivos: z.boolean().optional(),
+  })
+  .optional();
 
 function cleanNullableString(value: unknown): string | null {
   if (typeof value !== "string") return value == null ? null : String(value).trim() || null;
