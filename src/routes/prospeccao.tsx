@@ -292,7 +292,7 @@ function ProspeccaoPage() {
     const q = search.trim().toLowerCase();
     return prospects.filter((p) => {
       if (statusFilter !== "all" && p.status !== statusFilter) return false;
-      if (segmentFilter !== "all" && p.segment !== segmentFilter) return false;
+      if (segmentFilter !== "all" && (p.segment || "").trim().toLowerCase() !== segmentFilter.toLowerCase()) return false;
       if (stateFilter !== "all" && p.state !== stateFilter) return false;
       if (potentialFilter !== "all" && p.potential !== potentialFilter) return false;
       if (onlyWithContact) {
@@ -308,6 +308,18 @@ function ProspeccaoPage() {
         .join(" ").toLowerCase().includes(q);
     });
   }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact]);
+
+  const availableSegments = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of prospects) {
+      const s = (p.segment || "").trim();
+      if (s) set.add(s);
+    }
+    const list = Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+    // Ensure canonical segments still appear even if no prospect uses them
+    for (const s of SEGMENTS) if (!set.has(s)) list.push(s);
+    return list;
+  }, [prospects]);
 
   const stats = useMemo(() => {
     const t = prospects.length;
@@ -708,9 +720,9 @@ function ProspeccaoPage() {
             </Select>
             <Select value={segmentFilter} onValueChange={setSegmentFilter}>
               <SelectTrigger><SelectValue placeholder="Segmento" /></SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-72">
                 <SelectItem value="all">Todos segmentos</SelectItem>
-                {SEGMENTS.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                {availableSegments.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={stateFilter} onValueChange={setStateFilter}>
