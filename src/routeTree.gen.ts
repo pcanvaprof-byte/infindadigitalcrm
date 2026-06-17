@@ -15,7 +15,10 @@ import { Route as MetasRouteImport } from './routes/metas'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CrmRouteImport } from './routes/crm'
+import { Route as BriefingsRouteImport } from './routes/briefings'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BriefingsIdRouteImport } from './routes/briefings.$id'
+import { Route as BriefingTokenRouteImport } from './routes/briefing.$token'
 
 const TarefasRoute = TarefasRouteImport.update({
   id: '/tarefas',
@@ -47,78 +50,113 @@ const CrmRoute = CrmRouteImport.update({
   path: '/crm',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BriefingsRoute = BriefingsRouteImport.update({
+  id: '/briefings',
+  path: '/briefings',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BriefingsIdRoute = BriefingsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => BriefingsRoute,
+} as any)
+const BriefingTokenRoute = BriefingTokenRouteImport.update({
+  id: '/briefing/$token',
+  path: '/briefing/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/briefings': typeof BriefingsRouteWithChildren
   '/crm': typeof CrmRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
+  '/briefing/$token': typeof BriefingTokenRoute
+  '/briefings/$id': typeof BriefingsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/briefings': typeof BriefingsRouteWithChildren
   '/crm': typeof CrmRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
+  '/briefing/$token': typeof BriefingTokenRoute
+  '/briefings/$id': typeof BriefingsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/briefings': typeof BriefingsRouteWithChildren
   '/crm': typeof CrmRoute
   '/dashboard': typeof DashboardRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
+  '/briefing/$token': typeof BriefingTokenRoute
+  '/briefings/$id': typeof BriefingsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/briefings'
     | '/crm'
     | '/dashboard'
     | '/login'
     | '/metas'
     | '/prospeccao'
     | '/tarefas'
+    | '/briefing/$token'
+    | '/briefings/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/briefings'
     | '/crm'
     | '/dashboard'
     | '/login'
     | '/metas'
     | '/prospeccao'
     | '/tarefas'
+    | '/briefing/$token'
+    | '/briefings/$id'
   id:
     | '__root__'
     | '/'
+    | '/briefings'
     | '/crm'
     | '/dashboard'
     | '/login'
     | '/metas'
     | '/prospeccao'
     | '/tarefas'
+    | '/briefing/$token'
+    | '/briefings/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  BriefingsRoute: typeof BriefingsRouteWithChildren
   CrmRoute: typeof CrmRoute
   DashboardRoute: typeof DashboardRoute
   LoginRoute: typeof LoginRoute
   MetasRoute: typeof MetasRoute
   ProspeccaoRoute: typeof ProspeccaoRoute
   TarefasRoute: typeof TarefasRoute
+  BriefingTokenRoute: typeof BriefingTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -165,6 +203,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CrmRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/briefings': {
+      id: '/briefings'
+      path: '/briefings'
+      fullPath: '/briefings'
+      preLoaderRoute: typeof BriefingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -172,17 +217,45 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/briefings/$id': {
+      id: '/briefings/$id'
+      path: '/$id'
+      fullPath: '/briefings/$id'
+      preLoaderRoute: typeof BriefingsIdRouteImport
+      parentRoute: typeof BriefingsRoute
+    }
+    '/briefing/$token': {
+      id: '/briefing/$token'
+      path: '/briefing/$token'
+      fullPath: '/briefing/$token'
+      preLoaderRoute: typeof BriefingTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
+interface BriefingsRouteChildren {
+  BriefingsIdRoute: typeof BriefingsIdRoute
+}
+
+const BriefingsRouteChildren: BriefingsRouteChildren = {
+  BriefingsIdRoute: BriefingsIdRoute,
+}
+
+const BriefingsRouteWithChildren = BriefingsRoute._addFileChildren(
+  BriefingsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  BriefingsRoute: BriefingsRouteWithChildren,
   CrmRoute: CrmRoute,
   DashboardRoute: DashboardRoute,
   LoginRoute: LoginRoute,
   MetasRoute: MetasRoute,
   ProspeccaoRoute: ProspeccaoRoute,
   TarefasRoute: TarefasRoute,
+  BriefingTokenRoute: BriefingTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
