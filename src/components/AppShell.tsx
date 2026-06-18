@@ -1,5 +1,6 @@
-import { Link, useRouterState } from "@tanstack/react-router";
-import { type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useState, type ReactNode } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -12,6 +13,7 @@ import {
   Rocket,
   Settings,
   Bell,
+  LogOut,
   Menu,
   Package,
 } from "lucide-react";
@@ -21,16 +23,12 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-  SheetTitle,
-  SheetHeader,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, enabled: true },
@@ -54,8 +52,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
       {NAV.map((item) => {
         const Icon = item.icon;
         const active = pathname === item.to;
-        const base =
-          "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all";
+        const base = "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all";
         if (!item.enabled) {
           return (
             <button
@@ -116,13 +113,28 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function AppShell({ children, title, subtitle, actions }: {
+export function AppShell({
+  children,
+  title,
+  subtitle,
+  actions,
+}: {
   children: ReactNode;
   title: string;
   subtitle?: string;
   actions?: ReactNode;
 }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const handleLogout = async () => {
+    await queryClient.cancelQueries();
+    queryClient.clear();
+    await logout();
+    await navigate({ to: "/login", replace: true });
+  };
 
   const initials = (user?.name ?? "U")
     .split(" ")
@@ -139,7 +151,7 @@ export function AppShell({ children, title, subtitle, actions }: {
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 border-b border-border bg-background/80 px-4 py-3 backdrop-blur-xl sm:px-6">
           <div className="flex items-center gap-3">
-            <Sheet>
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="lg:hidden">
                   <Menu className="h-5 w-5" />
@@ -149,14 +161,12 @@ export function AppShell({ children, title, subtitle, actions }: {
                 <SheetHeader className="sr-only">
                   <SheetTitle>Menu</SheetTitle>
                 </SheetHeader>
-                <Sidebar />
+                <Sidebar onNavigate={() => setMobileMenuOpen(false)} />
               </SheetContent>
             </Sheet>
             <div className="min-w-0">
               <h1 className="truncate text-base font-semibold sm:text-lg">{title}</h1>
-              {subtitle && (
-                <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
-              )}
+              {subtitle && <p className="truncate text-xs text-muted-foreground">{subtitle}</p>}
             </div>
           </div>
 
@@ -186,6 +196,14 @@ export function AppShell({ children, title, subtitle, actions }: {
                     </span>
                   </div>
                 </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="cursor-pointer text-destructive"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Sair
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
