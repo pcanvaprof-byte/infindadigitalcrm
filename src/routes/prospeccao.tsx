@@ -1273,7 +1273,7 @@ function NewProspectDialog({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
           <Label>Nome da empresa *</Label>
-          <Input value={form.company} onChange={(e) => set("company", e.target.value)} placeholder="Ex: Padaria Pão Quente" />
+          <Input autoFocus autoComplete="organization" value={form.company} onChange={(e) => set("company", e.target.value)} placeholder="Ex: Padaria Pão Quente" />
         </div>
         <div className="space-y-1.5"><Label>Segmento</Label>
           <Select value={form.segment} onValueChange={(v) => set("segment", v)}>
@@ -1282,22 +1282,22 @@ function NewProspectDialog({
           </Select>
         </div>
         <div className="space-y-1.5"><Label>Responsável</Label>
-          <Input value={form.owner} onChange={(e) => set("owner", e.target.value)} placeholder="Nome do consultor" />
+          <Input autoComplete="name" value={form.owner} onChange={(e) => set("owner", e.target.value)} placeholder="Nome do consultor" />
         </div>
         <div className="space-y-1.5"><Label>WhatsApp</Label>
-          <Input value={form.whatsapp} onChange={(e) => set("whatsapp", e.target.value)} placeholder="(11) 99999-0000" />
+          <Input type="tel" inputMode="tel" autoComplete="tel" value={form.whatsapp} onChange={(e) => set("whatsapp", e.target.value)} placeholder="(11) 99999-0000" />
         </div>
         <div className="space-y-1.5"><Label>Telefone</Label>
-          <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="(11) 3333-0000" />
+          <Input type="tel" inputMode="tel" autoComplete="tel-national" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="(11) 3333-0000" />
         </div>
         <div className="space-y-1.5"><Label>Email</Label>
-          <Input value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="contato@empresa.com" />
+          <Input type="email" inputMode="email" autoComplete="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="contato@empresa.com" />
         </div>
         <div className="space-y-1.5"><Label>Instagram</Label>
-          <Input value={form.instagram} onChange={(e) => set("instagram", e.target.value)} placeholder="@empresa" />
+          <Input autoCapitalize="none" autoCorrect="off" value={form.instagram} onChange={(e) => set("instagram", e.target.value)} placeholder="@empresa" />
         </div>
         <div className="space-y-1.5"><Label>Cidade</Label>
-          <Input value={form.city} onChange={(e) => set("city", e.target.value)} placeholder="São Paulo" />
+          <Input autoComplete="address-level2" value={form.city} onChange={(e) => set("city", e.target.value)} placeholder="São Paulo" />
         </div>
         <div className="space-y-1.5"><Label>Estado</Label>
           <Select value={form.state} onValueChange={(v) => set("state", v)}>
@@ -1318,8 +1318,8 @@ function NewProspectDialog({
           </Select>
         </div>
       </div>
-      <DialogFooter>
-        <Button onClick={onCreate} className="btn-gradient">
+      <DialogFooter className="sticky bottom-0 -mx-4 -mb-4 border-t border-border/60 bg-background px-4 py-3 sm:static sm:mx-0 sm:mb-0 sm:border-0 sm:bg-transparent sm:p-0">
+        <Button onClick={onCreate} className="btn-gradient w-full sm:w-auto">
           <Plus className="mr-1.5 h-4 w-4" /> Cadastrar empresa
         </Button>
       </DialogFooter>
@@ -1342,7 +1342,7 @@ function ImportPreviewDialog({
   const newOnes = validRows.length - duplicates;
 
   return (
-    <DialogContent className="max-w-5xl">
+    <DialogContent className="max-w-5xl sm:max-w-5xl">
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
           <FileSpreadsheet className="h-5 w-5 text-primary-glow" /> Pré-visualização da importação
@@ -1356,7 +1356,7 @@ function ImportPreviewDialog({
       </DialogHeader>
 
       <div className="max-h-[55vh] overflow-auto rounded-md border border-border">
-        <table className="w-full text-xs">
+        <table className="w-full min-w-[640px] text-xs">
           <thead className="sticky top-0 bg-accent text-left text-[10px] uppercase tracking-wider text-muted-foreground">
             <tr>
               <th className="px-2 py-2">Linha</th>
@@ -1398,10 +1398,10 @@ function ImportPreviewDialog({
         </table>
       </div>
 
-      <DialogFooter>
-        <Button variant="ghost" onClick={onCancel} disabled={submitting}>Cancelar</Button>
+      <DialogFooter className="sticky bottom-0 -mx-4 -mb-4 flex-col gap-2 border-t border-border/60 bg-background px-4 py-3 sm:static sm:mx-0 sm:mb-0 sm:flex-row sm:border-0 sm:bg-transparent sm:p-0">
+        <Button variant="ghost" onClick={onCancel} disabled={submitting} className="w-full sm:w-auto">Cancelar</Button>
         <Button
-          className="btn-gradient"
+          className="btn-gradient w-full sm:w-auto"
           disabled={submitting || validRows.length === 0}
           onClick={async () => { setSubmitting(true); await onConfirm(); setSubmitting(false); }}
         >

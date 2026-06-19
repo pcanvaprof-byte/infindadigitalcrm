@@ -135,7 +135,7 @@ function PublicBriefingPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-3xl px-4 py-6">
+      <main className="mx-auto max-w-3xl px-4 py-6 pb-28 sm:pb-6">
         <div className="mb-6">
           <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
             <span>{progress}% concluído</span>
@@ -150,7 +150,7 @@ function PublicBriefingPage() {
           </div>
         </div>
 
-        <div className="surface-card p-6">
+        <div className="surface-card p-4 sm:p-6">
           <h2 className="mb-4 text-lg font-semibold">{section.title}</h2>
           <div className="space-y-5">
             {section.questions.map((q) => {
@@ -188,13 +188,15 @@ function PublicBriefingPage() {
           </div>
         </div>
 
-        <div className="mt-6 flex items-center justify-between">
-          <Button variant="ghost" onClick={prev} disabled={step === 0}>Voltar</Button>
-          {isLast ? (
-            <Button onClick={finish}>Finalizar briefing</Button>
-          ) : (
-            <Button onClick={next}>Próxima etapa</Button>
-          )}
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 px-4 py-3 pb-safe backdrop-blur sm:static sm:mt-6 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-0">
+          <div className="mx-auto flex max-w-3xl items-center justify-between gap-2">
+            <Button variant="ghost" onClick={prev} disabled={step === 0}>Voltar</Button>
+            {isLast ? (
+              <Button onClick={finish} className="flex-1 sm:flex-none">Finalizar briefing</Button>
+            ) : (
+              <Button onClick={next} className="flex-1 sm:flex-none">Próxima etapa</Button>
+            )}
+          </div>
         </div>
       </main>
     </div>
