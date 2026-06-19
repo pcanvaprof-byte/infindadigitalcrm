@@ -286,6 +286,7 @@ function ProspeccaoPage() {
   const [previewFileName, setPreviewFileName] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [enrichFor, setEnrichFor] = useState<Prospect | null>(null);
+  const [whatsConfirm, setWhatsConfirm] = useState<{ id: string; company: string } | null>(null);
 
   // Única fonte de verdade. Mutations fazem optimistic update via setCache
   // diretamente no cache do Query — sem espelho via useState/useEffect.
@@ -477,6 +478,17 @@ function ProspeccaoPage() {
     if (!d) return toast.error("WhatsApp não cadastrado");
     addInteraction(p.id, "whatsapp", "Abriu conversa no WhatsApp");
     window.open(`https://wa.me/55${d}`, "_blank");
+    // Ao voltar à aba, se ainda estava "não contatado", perguntar
+    // se o primeiro contato foi feito para avançar o status do card.
+    if (p.status === "nao_contatado") {
+      const askOnReturn = () => {
+        if (document.visibilityState !== "visible") return;
+        document.removeEventListener("visibilitychange", askOnReturn);
+        // Pequeno atraso para evitar abrir antes da aba estar realmente focada.
+        setTimeout(() => setWhatsConfirm({ id: p.id, company: p.company }), 250);
+      };
+      document.addEventListener("visibilitychange", askOnReturn);
+    }
   };
   const callPhone = (p: Prospect) => {
     const d = onlyDigits(p.phone || p.whatsapp);
@@ -1028,6 +1040,34 @@ function ProspeccaoPage() {
       {/* Import history */}
       <Dialog open={historyOpen} onOpenChange={setHistoryOpen}>
         <ImportHistoryDialog open={historyOpen} />
+      </Dialog>
+
+      {/* Confirmação pós-WhatsApp: avança status para "Primeiro contato" */}
+      <Dialog open={!!whatsConfirm} onOpenChange={(o) => !o && setWhatsConfirm(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Foi feito o primeiro contato?</DialogTitle>
+            <DialogDescription>
+              {whatsConfirm
+                ? `Confirme se você conseguiu falar com ${whatsConfirm.company} no WhatsApp para avançar o card.`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="ghost" onClick={() => setWhatsConfirm(null)}>
+              Ainda não
+            </Button>
+            <Button
+              className="btn-gradient"
+              onClick={() => {
+                if (whatsConfirm) updateStatus(whatsConfirm.id, "primeiro_contato");
+                setWhatsConfirm(null);
+              }}
+            >
+              Sim, avançar status
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
       {loading && (
