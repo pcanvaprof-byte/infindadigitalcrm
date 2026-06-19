@@ -1273,7 +1273,7 @@ function NewProspectDialog({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-1.5 sm:col-span-2">
           <Label>Nome da empresa *</Label>
-          <Input value={form.company} onChange={(e) => set("company", e.target.value)} placeholder="Ex: Padaria Pão Quente" />
+          <Input autoFocus autoComplete="organization" value={form.company} onChange={(e) => set("company", e.target.value)} placeholder="Ex: Padaria Pão Quente" />
         </div>
         <div className="space-y-1.5"><Label>Segmento</Label>
           <Select value={form.segment} onValueChange={(v) => set("segment", v)}>
@@ -1282,22 +1282,22 @@ function NewProspectDialog({
           </Select>
         </div>
         <div className="space-y-1.5"><Label>Responsável</Label>
-          <Input value={form.owner} onChange={(e) => set("owner", e.target.value)} placeholder="Nome do consultor" />
+          <Input autoComplete="name" value={form.owner} onChange={(e) => set("owner", e.target.value)} placeholder="Nome do consultor" />
         </div>
         <div className="space-y-1.5"><Label>WhatsApp</Label>
-          <Input value={form.whatsapp} onChange={(e) => set("whatsapp", e.target.value)} placeholder="(11) 99999-0000" />
+          <Input type="tel" inputMode="tel" autoComplete="tel" value={form.whatsapp} onChange={(e) => set("whatsapp", e.target.value)} placeholder="(11) 99999-0000" />
         </div>
         <div className="space-y-1.5"><Label>Telefone</Label>
-          <Input value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="(11) 3333-0000" />
+          <Input type="tel" inputMode="tel" autoComplete="tel-national" value={form.phone} onChange={(e) => set("phone", e.target.value)} placeholder="(11) 3333-0000" />
         </div>
         <div className="space-y-1.5"><Label>Email</Label>
-          <Input value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="contato@empresa.com" />
+          <Input type="email" inputMode="email" autoComplete="email" value={form.email} onChange={(e) => set("email", e.target.value)} placeholder="contato@empresa.com" />
         </div>
         <div className="space-y-1.5"><Label>Instagram</Label>
-          <Input value={form.instagram} onChange={(e) => set("instagram", e.target.value)} placeholder="@empresa" />
+          <Input autoCapitalize="none" autoCorrect="off" value={form.instagram} onChange={(e) => set("instagram", e.target.value)} placeholder="@empresa" />
         </div>
         <div className="space-y-1.5"><Label>Cidade</Label>
-          <Input value={form.city} onChange={(e) => set("city", e.target.value)} placeholder="São Paulo" />
+          <Input autoComplete="address-level2" value={form.city} onChange={(e) => set("city", e.target.value)} placeholder="São Paulo" />
         </div>
         <div className="space-y-1.5"><Label>Estado</Label>
           <Select value={form.state} onValueChange={(v) => set("state", v)}>
@@ -1318,8 +1318,8 @@ function NewProspectDialog({
           </Select>
         </div>
       </div>
-      <DialogFooter>
-        <Button onClick={onCreate} className="btn-gradient">
+      <DialogFooter className="sticky bottom-0 -mx-4 -mb-4 border-t border-border/60 bg-background px-4 py-3 sm:static sm:mx-0 sm:mb-0 sm:border-0 sm:bg-transparent sm:p-0">
+        <Button onClick={onCreate} className="btn-gradient w-full sm:w-auto">
           <Plus className="mr-1.5 h-4 w-4" /> Cadastrar empresa
         </Button>
       </DialogFooter>
