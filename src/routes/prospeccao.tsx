@@ -1105,7 +1105,7 @@ function ProspeccaoPage() {
   );
 }
 
-function RowActions({
+const RowActions = memo(function RowActions({
   p, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onOpen,
 }: {
   p: Prospect;
@@ -1152,7 +1152,7 @@ function RowActions({
       </DropdownMenu>
     </div>
   );
-}
+});
 
 function KanbanView({
   prospects, onOpen, onMove,
