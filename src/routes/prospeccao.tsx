@@ -1284,7 +1284,7 @@ function DetailDialog({
                       <div className="rounded-md border border-border/60 bg-card/50 p-2.5">
                         <div className="flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
                           <span>{INTERACTION_LABEL[ix.kind]}</span>
-                          <span>{ix.at} · {ix.by}</span>
+                          <span>{fmtBR(ix.at)} · {ix.by}</span>
                         </div>
                         <p className="mt-1 text-xs">{ix.text}</p>
                       </div>
