@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth-context";
+import { APP_VERSION } from "@/lib/version";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search) => ({
@@ -155,6 +156,9 @@ function LoginPage() {
                 )}
               </Button>
             </form>
+            <p className="mt-6 text-center text-[11px] text-muted-foreground">
+              {APP_VERSION}
+            </p>
           </div>
         </section>
       </div>
