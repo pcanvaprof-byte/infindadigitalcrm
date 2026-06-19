@@ -51,15 +51,43 @@ export interface DealWithClient extends Deal {
   client: Pick<Client, "id" | "company" | "city" | "state" | "contact_name" | "segment" | "whatsapp"> | null;
 }
 
-// Chaves canônicas — usadas pelas mutações para invalidar caches.
+// Chaves canônicas centralizadas — todos os módulos invalidam por estas chaves.
+// Mantida em crm/api.ts por compatibilidade; espelhada em src/lib/query-keys.ts.
 export const crmKeys = {
   stages: ["crm", "stages"] as const,
   deals: ["crm", "deals"] as const,
   clients: ["crm", "clients"] as const,
   dealActivities: (dealId: string) => ["crm", "deal-activities", dealId] as const,
+  pipeline: ["crm", "pipeline"] as const,
   dashboardKpis: ["dashboard", "kpis"] as const,
+  dashboardFunnel: ["dashboard", "funnel"] as const,
+  dashboardConversion: ["dashboard", "conversion"] as const,
   prospects: ["prospects"] as const,
+  tasks: ["tasks"] as const,
+  briefings: ["briefings"] as const,
+  goals: ["goals"] as const,
 };
+
+/**
+ * Invalida o "núcleo CRM" — usar após qualquer mutação que afete
+ * prospects, clients, deals, tasks ou briefings.
+ */
+export async function invalidateCrmCore(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  qc: { invalidateQueries: (opts: { queryKey: readonly unknown[] }) => any },
+) {
+  await Promise.all([
+    qc.invalidateQueries({ queryKey: crmKeys.deals }),
+    qc.invalidateQueries({ queryKey: crmKeys.clients }),
+    qc.invalidateQueries({ queryKey: crmKeys.prospects }),
+    qc.invalidateQueries({ queryKey: crmKeys.tasks }),
+    qc.invalidateQueries({ queryKey: crmKeys.briefings }),
+    qc.invalidateQueries({ queryKey: crmKeys.dashboardKpis }),
+    qc.invalidateQueries({ queryKey: crmKeys.dashboardFunnel }),
+    qc.invalidateQueries({ queryKey: crmKeys.dashboardConversion }),
+    qc.invalidateQueries({ queryKey: crmKeys.goals }),
+  ]);
+}
 
 // Sem types regenerados ainda — usa o client como genérico permissivo.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
