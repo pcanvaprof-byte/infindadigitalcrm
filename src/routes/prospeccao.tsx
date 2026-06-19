@@ -497,7 +497,6 @@ function ProspeccaoPage() {
       // Cross-module sync: CRM, clientes, dashboard, prospects
       qc.invalidateQueries({ queryKey: crmKeys.deals });
       qc.invalidateQueries({ queryKey: crmKeys.clients });
-      qc.invalidateQueries({ queryKey: crmKeys.dashboardKpis });
       qc.invalidateQueries({ queryKey: crmKeys.prospects });
       toast.success(res.created ? `${p.company} convertida em cliente` : `${p.company} já era cliente — vínculo atualizado`);
       setTimeout(() => navigate({ to: "/crm" }), 500);

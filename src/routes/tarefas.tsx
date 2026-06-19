@@ -41,7 +41,6 @@ function TarefasPage() {
   const refresh = () => {
     qc.invalidateQueries({ queryKey: crmKeys.tasks });
     qc.invalidateQueries({ queryKey: crmKeys.prospects });
-    qc.invalidateQueries({ queryKey: crmKeys.dashboardKpis });
   };
 
   const geoMut = useMutation({
