@@ -195,3 +195,23 @@
 #lovable-badge {
   display: none !important;
 }
+
+/* Fade-in suave (opacity-only, sem layout shift) — usado em troca silenciosa
+   de dados (dashboard/listas). Aplicar como className="fade-soft". */
+@keyframes fade-soft-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@utility fade-soft {
+  animation: fade-soft-in 140ms ease-out both;
+}
+
+/* Suaviza qualquer transição de cor/fundo dos cards do dashboard e linhas
+   de tabela — evita "salto" visual quando o status/valor muda. */
+@utility ui-smooth {
+  transition:
+    background-color 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease,
+    opacity 180ms ease;
+}
