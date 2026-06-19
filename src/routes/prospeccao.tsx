@@ -255,6 +255,7 @@ function ProspeccaoPage() {
   const user = useRequiredUser();
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
+  const qc = useQueryClient();
 
   const [prospects, setProspects] = useState<Prospect[]>(INITIAL_PROSPECTS);
   const [loading, setLoading] = useState(true);
@@ -429,7 +430,6 @@ function ProspeccaoPage() {
     window.open(`tel:+55${d}`);
   };
 
-  const qc = useQueryClient();
   const convertToLead = async (p: Prospect) => {
     try {
       const res = await convertProspectToClient(p.id, { dealTitle: p.company });
