@@ -1,6 +1,6 @@
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { FormEvent, useState } from "react";
-import { Loader2, LogIn } from "lucide-react";
+import { BarChart3, Loader2, Shield, Sparkles, User } from "lucide-react";
 
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
@@ -34,12 +34,11 @@ function LoginPage() {
     return <Navigate to={redirect || "/dashboard"} replace />;
   }
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const performLogin = async (loginEmail: string, loginPassword: string) => {
     setError("");
     setSubmitting(true);
 
-    const result = await login(email.trim(), password);
+    const result = await login(loginEmail.trim(), loginPassword);
     setSubmitting(false);
 
     if (!result.ok) {
@@ -50,72 +49,171 @@ function LoginPage() {
     await navigate({ to: redirect || "/dashboard", replace: true });
   };
 
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void performLogin(email, password);
+  };
+
+  const quickAccess = [
+    {
+      name: "Danielly",
+      role: "Administradora",
+      email: "danielly@infinda.com",
+      password: "danielly123",
+      icon: Shield,
+    },
+    {
+      name: "Valdinei",
+      role: "Consultor Comercial",
+      email: "valdinei@infinda.com",
+      password: "valdinei123",
+      icon: User,
+    },
+  ];
+
   return (
-    <main
-      className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-8"
-      style={{
-        paddingTop: "max(env(safe-area-inset-top, 0px), 2rem)",
-        paddingBottom: "max(env(safe-area-inset-bottom, 0px), 2rem)",
-      }}
-    >
-      <section className="w-full max-w-sm">
-        <div className="mb-6 flex justify-center sm:mb-8">
-          <Logo />
-        </div>
-
-        <div className="surface-card p-5 sm:p-6">
-          <div className="mb-5">
-            <h1 className="text-xl font-semibold tracking-tight">Entrar</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Acesse sua conta para continuar.</p>
+    <main className="min-h-[100dvh] bg-background text-foreground">
+      <div className="grid min-h-[100dvh] lg:grid-cols-2">
+        {/* Left: brand / pitch */}
+        <aside className="relative hidden flex-col justify-between overflow-hidden bg-gradient-to-br from-[#0b1426] via-[#0a1020] to-[#050811] p-10 lg:flex">
+          <div className="absolute inset-0 opacity-40" style={{ background: "radial-gradient(circle at 20% 20%, rgba(59,130,246,0.25), transparent 60%), radial-gradient(circle at 80% 80%, rgba(139,92,246,0.18), transparent 55%)" }} />
+          <div className="relative z-10">
+            <Logo size={40} />
           </div>
+          <div className="relative z-10 max-w-md space-y-6">
+            <h2 className="text-4xl font-bold leading-tight tracking-tight">
+              O sistema operacional{" "}
+              <span className="bg-gradient-to-r from-blue-400 to-blue-500 bg-clip-text text-transparent">
+                comercial
+              </span>{" "}
+              da sua empresa.
+            </h2>
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              CRM, prospecção, metas, propostas e IA em uma única plataforma. Construído para
+              equipes que vendem todo dia.
+            </p>
+            <ul className="space-y-3 pt-2">
+              {[
+                { icon: BarChart3, text: "Dashboard executivo em tempo real" },
+                { icon: Sparkles, text: "IA que qualifica leads e cria tarefas" },
+                { icon: Shield, text: "Multi-tenant seguro e escalável" },
+              ].map(({ icon: Icon, text }) => (
+                <li key={text} className="flex items-center gap-3 text-sm">
+                  <span className="grid h-8 w-8 place-items-center rounded-md bg-blue-500/10 text-blue-400">
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span>{text}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <p className="relative z-10 text-xs text-muted-foreground">
+            © 2026 Infinda Mídias Digitais. Todos os direitos reservados.
+          </p>
+        </aside>
 
-          <form className="space-y-4" onSubmit={handleSubmit}>
-            <div className="space-y-2">
-              <Label htmlFor="email">E-mail</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                inputMode="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                required
-              />
+        {/* Right: form */}
+        <section className="flex items-center justify-center px-4 py-10 sm:px-8">
+          <div className="w-full max-w-md">
+            <div className="mb-8 flex justify-center lg:hidden">
+              <Logo />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
-            </div>
-
-            {error && (
-              <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-                {error}
+            <div className="mb-6">
+              <h1 className="text-2xl font-semibold tracking-tight">Acesse sua conta</h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Entre com seu email e senha para continuar.
               </p>
-            )}
+            </div>
 
-            <Button
-              type="submit"
-              className="btn-gradient h-12 w-full text-base sm:h-10 sm:text-sm"
-              disabled={submitting || !isReady}
-            >
-              {submitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <LogIn className="h-4 w-4" />
+            <form className="space-y-4" onSubmit={handleSubmit}>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  inputMode="email"
+                  placeholder="voce@infinda.com"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">Senha</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                />
+              </div>
+
+              {error && (
+                <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                  {error}
+                </p>
               )}
-              Entrar
-            </Button>
-          </form>
-        </div>
-      </section>
+
+              <Button
+                type="submit"
+                className="btn-gradient h-11 w-full text-base"
+                disabled={submitting || !isReady}
+              >
+                {submitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Entrar na plataforma"
+                )}
+              </Button>
+            </form>
+
+            <div className="my-6 flex items-center gap-3">
+              <div className="h-px flex-1 bg-border" />
+              <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+                Acesso rápido (MVP)
+              </span>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+
+            <div className="space-y-2">
+              {quickAccess.map((q) => {
+                const Icon = q.icon;
+                return (
+                  <button
+                    key={q.email}
+                    type="button"
+                    onClick={() => {
+                      setEmail(q.email);
+                      setPassword(q.password);
+                      void performLogin(q.email, q.password);
+                    }}
+                    disabled={submitting || !isReady}
+                    className="flex w-full items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left transition hover:border-blue-500/50 hover:bg-blue-500/5 disabled:opacity-60"
+                  >
+                    <span className="grid h-9 w-9 place-items-center rounded-md bg-blue-500/10 text-blue-400">
+                      <Icon className="h-4 w-4" />
+                    </span>
+                    <span className="flex flex-col">
+                      <span className="text-sm font-semibold">{q.name}</span>
+                      <span className="text-xs text-muted-foreground">{q.role}</span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <p className="mt-6 text-center text-[11px] leading-relaxed text-muted-foreground">
+              Credenciais: danielly@infinda.com / danielly123 · valdinei@infinda.com / valdinei123
+            </p>
+          </div>
+        </section>
+      </div>
     </main>
   );
 }
