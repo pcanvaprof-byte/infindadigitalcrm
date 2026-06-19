@@ -747,6 +747,18 @@ function ProspeccaoPage() {
 
   const selCount = selected.size;
 
+  // Render guard: nunca tentar renderizar listas antes do cache estar pronto.
+  if (prospectsQ.isLoading && !prospectsQ.data) {
+    return (
+      <AppShell title="Prospecção" subtitle="Sua máquina de geração de oportunidades comerciais">
+        <div className="grid place-items-center py-24 text-sm text-muted-foreground">
+          <Loader2 className="mb-2 h-5 w-5 animate-spin" />
+          Carregando empresas…
+        </div>
+      </AppShell>
+    );
+  }
+
   return (
     <AppShell
       title="Prospecção"
