@@ -826,56 +826,20 @@ function ProspeccaoPage() {
       {view === "table" ? (
         <section className="mt-4 surface-card overflow-hidden">
           {/* Mobile: card list */}
-          <ul className="divide-y divide-border/60 md:hidden">
-            {filtered.length === 0 && (
-              <li className="px-4 py-16 text-center text-sm text-muted-foreground">
-                Nenhuma empresa encontrada.
-              </li>
-            )}
-            {filtered.map((p) => (
-              <li
-                key={p.id}
-                className={`flex gap-3 p-3 ${selected.has(p.id) ? "bg-primary/5" : ""}`}
-              >
-                <Checkbox
-                  checked={selected.has(p.id)}
-                  onCheckedChange={() => toggleSelect(p.id)}
-                  aria-label={`Selecionar ${p.company}`}
-                  className="mt-1 shrink-0"
-                />
-                <div className="min-w-0 flex-1">
-                  <button
-                    className="block w-full text-left"
-                    onClick={() => setDetailId(p.id)}
-                  >
-                    <div className="truncate text-sm font-semibold">{p.company}</div>
-                    <div className="truncate text-[11px] text-muted-foreground">
-                      {p.segment} · {p.city ? `${p.city}-${p.state}` : p.state || "—"}
-                    </div>
-                  </button>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                    <PotentialBadge p={p.potential} />
-                    <StatusBadge status={p.status} />
-                  </div>
-                  <div className="mt-1 truncate text-[11px] text-muted-foreground">
-                    {p.whatsapp || p.phone || p.email || p.instagram || "—"}
-                  </div>
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-1">
-                  <RowActions
-                    p={p}
-                    onWhats={openWhats}
-                    onCall={callPhone}
-                    onAgendar={() => updateStatus(p.id, "agendado")}
-                    onConvert={() => convertToLead(p)}
-                    onStatus={updateStatus}
-                    onRemove={() => removeProspect([p.id])}
-                    onOpen={() => setDetailId(p.id)}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div className="md:hidden">
+            <MobileProspectList
+              items={filtered}
+              selected={selected}
+              onToggleSelect={toggleSelect}
+              onOpen={setDetailId}
+              onWhats={openWhats}
+              onCall={callPhone}
+              onAgendar={(id) => updateStatus(id, "agendado")}
+              onConvert={convertToLead}
+              onStatus={updateStatus}
+              onRemove={(id) => removeProspect([id])}
+            />
+          </div>
           {/* Desktop: table */}
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-sm">
