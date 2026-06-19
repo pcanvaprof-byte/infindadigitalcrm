@@ -5,14 +5,13 @@ import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { crmKeys } from "@/lib/crm/api";
+import { loadAllProspects, updateProspect } from "@/lib/prospects-api";
 import {
-  crmKeys,
-  listDealStages,
-  listDeals,
-  moveDealStage,
-  type DealStage,
-  type DealWithClient,
-} from "@/lib/crm/api";
+  STATUS_LABEL,
+  type Prospect,
+  type ProspectStatus,
+} from "@/lib/mock-prospects";
 import {
   DndContext,
   PointerSensor,
@@ -38,9 +37,6 @@ export const Route = createFileRoute("/crm")({
   ),
 });
 
-const brl = (n: number) =>
-  new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(n);
-
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60000);
@@ -52,12 +48,24 @@ function timeAgo(iso: string): string {
   return `${d}d`;
 }
 
-function DealCard({ deal, dragging = false }: { deal: DealWithClient; dragging?: boolean }) {
-  const company = deal.client?.company ?? deal.title;
-  const contact = deal.client?.contact_name ?? deal.owner_name ?? "—";
-  const city = [deal.client?.city, deal.client?.state].filter(Boolean).join("/") || "—";
-  const segment = deal.client?.segment ?? "Sem segmento";
-  const ownerInitial = (deal.owner_name ?? company ?? "?")[0]?.toUpperCase() ?? "?";
+// Estágios do funil — derivados do ProspectStatus. Define a ordem visual.
+const PIPELINE_STAGES: { id: ProspectStatus; tone: string; tone_won?: boolean; tone_lost?: boolean }[] = [
+  { id: "primeiro_contato", tone: "#38bdf8" },
+  { id: "em_negociacao", tone: "#f59e0b" },
+  { id: "qualificado", tone: "#a78bfa" },
+  { id: "agendado", tone: "#10b981" },
+  { id: "briefing_enviado", tone: "#6366f1" },
+  { id: "proposta_enviada", tone: "#fb923c" },
+  { id: "fechado_ganho", tone: "#22c55e", tone_won: true },
+  { id: "perdido", tone: "#f43f5e", tone_lost: true },
+];
+const STAGE_IDS = new Set<ProspectStatus>(PIPELINE_STAGES.map((s) => s.id));
+
+function ProspectCard({ p, dragging = false }: { p: Prospect; dragging?: boolean }) {
+  const contact = p.owner || "—";
+  const city = [p.city, p.state].filter(Boolean).join("/") || "—";
+  const segment = p.segment || "Sem segmento";
+  const ownerInitial = (p.owner || p.company || "?")[0]?.toUpperCase() ?? "?";
   return (
     <div
       className={`surface-card group cursor-grab rounded-lg p-3 transition-shadow active:cursor-grabbing ${
@@ -66,12 +74,9 @@ function DealCard({ deal, dragging = false }: { deal: DealWithClient; dragging?:
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{company}</p>
+          <p className="truncate text-sm font-semibold">{p.company}</p>
           <p className="truncate text-[11px] text-muted-foreground">{segment}</p>
         </div>
-        <span className="shrink-0 rounded-md bg-accent px-2 py-0.5 text-[10px] font-semibold text-primary-glow">
-          {brl(deal.value)}
-        </span>
       </div>
       <div className="mt-2.5 space-y-1 text-[11px] text-muted-foreground">
         <p className="flex items-center gap-1.5">
@@ -85,14 +90,14 @@ function DealCard({ deal, dragging = false }: { deal: DealWithClient; dragging?:
         <span className="grid h-5 w-5 place-items-center rounded-full bg-[var(--gradient-primary)] text-[9px] font-bold text-primary-foreground">
           {ownerInitial}
         </span>
-        <span className="text-[10px] text-muted-foreground">{timeAgo(deal.updated_at)}</span>
+        <span className="text-[10px] text-muted-foreground">{timeAgo(p.createdAt)}</span>
       </div>
     </div>
   );
 }
 
-function DraggableDeal({ deal }: { deal: DealWithClient }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: deal.id });
+function DraggableProspect({ p }: { p: Prospect }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: p.id });
   return (
     <div
       ref={setNodeRef}
@@ -100,31 +105,29 @@ function DraggableDeal({ deal }: { deal: DealWithClient }) {
       {...listeners}
       style={{ opacity: isDragging ? 0 : 1 }}
     >
-      <DealCard deal={deal} />
+      <ProspectCard p={p} />
     </div>
   );
 }
 
 function StageColumn({
   stage,
-  deals,
+  items,
 }: {
-  stage: DealStage;
-  deals: DealWithClient[];
+  stage: { id: ProspectStatus; tone: string };
+  items: Prospect[];
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
-  const total = deals.reduce((s, d) => s + d.value, 0);
   return (
     <div className="flex w-[85vw] max-w-[300px] shrink-0 snap-start flex-col sm:w-[280px]">
       <div className="flex items-center justify-between px-1 pb-2">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full" style={{ background: stage.tone }} />
-          <span className="text-xs font-semibold">{stage.label}</span>
+          <span className="text-xs font-semibold">{STATUS_LABEL[stage.id]}</span>
           <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] text-muted-foreground">
-            {deals.length}
+            {items.length}
           </span>
         </div>
-        <span className="text-[10px] text-muted-foreground">{brl(total)}</span>
       </div>
       <div
         ref={setNodeRef}
@@ -133,10 +136,10 @@ function StageColumn({
         }`}
         style={{ minHeight: 200 }}
       >
-        {deals.map((d) => (
-          <DraggableDeal key={d.id} deal={d} />
+        {items.map((p) => (
+          <DraggableProspect key={p.id} p={p} />
         ))}
-        {deals.length === 0 && (
+        {items.length === 0 && (
           <p className="py-8 text-center text-[11px] text-muted-foreground">
             Arraste cards aqui
           </p>
@@ -152,77 +155,76 @@ function CrmPage() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
-  const stagesQ = useQuery({ queryKey: crmKeys.stages, queryFn: listDealStages, staleTime: 60_000 });
-  const dealsQ = useQuery({ queryKey: crmKeys.deals, queryFn: listDeals, staleTime: 10_000 });
-
-  const stages: DealStage[] = stagesQ.data ?? [];
-  const deals: DealWithClient[] = dealsQ.data ?? [];
+  const prospectsQ = useQuery({
+    queryKey: crmKeys.prospects,
+    queryFn: loadAllProspects,
+    staleTime: 5_000,
+  });
+  const prospects: Prospect[] = prospectsQ.data ?? [];
 
   const moveMut = useMutation({
-    mutationFn: ({ id, stageId }: { id: string; stageId: string }) => moveDealStage(id, stageId),
-    onMutate: async ({ id, stageId }) => {
-      await qc.cancelQueries({ queryKey: crmKeys.deals });
-      const prev = qc.getQueryData<DealWithClient[]>(crmKeys.deals);
-      qc.setQueryData<DealWithClient[]>(crmKeys.deals, (old) =>
-        (old ?? []).map((d) => (d.id === id ? { ...d, stage_id: stageId } : d)),
+    mutationFn: ({ id, status }: { id: string; status: ProspectStatus }) =>
+      updateProspect(id, { status }),
+    onMutate: async ({ id, status }) => {
+      await qc.cancelQueries({ queryKey: crmKeys.prospects });
+      const prev = qc.getQueryData<Prospect[]>(crmKeys.prospects);
+      qc.setQueryData<Prospect[]>(crmKeys.prospects, (old) =>
+        (old ?? []).map((p) => (p.id === id ? { ...p, status } : p)),
       );
       return { prev };
     },
     onError: (err, _v, ctx) => {
-      if (ctx?.prev) qc.setQueryData(crmKeys.deals, ctx.prev);
-      toast.error(`Falha ao mover deal: ${(err as Error).message}`);
+      if (ctx?.prev) qc.setQueryData(crmKeys.prospects, ctx.prev);
+      toast.error(`Falha ao mover card: ${(err as Error).message}`);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: crmKeys.deals });
+      qc.invalidateQueries({ queryKey: crmKeys.prospects });
     },
   });
 
   const filtered = useMemo(() => {
-    if (!query.trim()) return deals;
+    // Mostra apenas cards já em algum estágio do funil (exclui "nao_contatado"
+    // e pós-venda como "cliente"/"em_producao" etc.).
+    const inPipeline = prospects.filter((p) => STAGE_IDS.has(p.status));
+    if (!query.trim()) return inPipeline;
     const q = query.toLowerCase();
-    return deals.filter((d) => {
-      const c = d.client;
-      return (
-        d.title.toLowerCase().includes(q) ||
-        (c?.company ?? "").toLowerCase().includes(q) ||
-        (c?.contact_name ?? "").toLowerCase().includes(q) ||
-        (c?.segment ?? "").toLowerCase().includes(q) ||
-        (c?.city ?? "").toLowerCase().includes(q)
-      );
-    });
-  }, [deals, query]);
+    return inPipeline.filter(
+      (p) =>
+        p.company.toLowerCase().includes(q) ||
+        (p.owner || "").toLowerCase().includes(q) ||
+        (p.segment || "").toLowerCase().includes(q) ||
+        (p.city || "").toLowerCase().includes(q),
+    );
+  }, [prospects, query]);
 
   const grouped = useMemo(() => {
-    const map = new Map<string, DealWithClient[]>();
-    stages.forEach((s) => map.set(s.id, []));
-    filtered.forEach((d) => {
-      if (!map.has(d.stage_id)) map.set(d.stage_id, []);
-      map.get(d.stage_id)!.push(d);
-    });
+    const map = new Map<ProspectStatus, Prospect[]>();
+    PIPELINE_STAGES.forEach((s) => map.set(s.id, []));
+    filtered.forEach((p) => map.get(p.status)?.push(p));
     return map;
-  }, [filtered, stages]);
+  }, [filtered]);
 
   const handleDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id));
   const handleDragEnd = (e: DragEndEvent) => {
     setActiveId(null);
     const { active, over } = e;
     if (!over) return;
-    const stageId = String(over.id);
-    const deal = deals.find((d) => d.id === active.id);
-    if (!deal || deal.stage_id === stageId) return;
-    const stageLabel = stages.find((s) => s.id === stageId)?.label ?? stageId;
-    moveMut.mutate({ id: deal.id, stageId });
-    const company = deal.client?.company ?? deal.title;
-    toast.success(`${company} movido para "${stageLabel}"`);
+    const status = String(over.id) as ProspectStatus;
+    if (!STAGE_IDS.has(status)) return;
+    const p = prospects.find((x) => x.id === active.id);
+    if (!p || p.status === status) return;
+    moveMut.mutate({ id: p.id, status });
+    toast.success(`${p.company} movido para "${STATUS_LABEL[status]}"`);
   };
 
-  const activeDeal = activeId ? deals.find((d) => d.id === activeId) ?? null : null;
-  const wonStageIds = new Set(stages.filter((s) => s.is_won).map((s) => s.id));
-  const total = deals.reduce((s, d) => s + Number(d.value || 0), 0);
-  const won = deals.filter((d) => wonStageIds.has(d.stage_id)).reduce((s, d) => s + Number(d.value || 0), 0);
-  const wonCount = deals.filter((d) => wonStageIds.has(d.stage_id)).length;
-  const conversion = deals.length ? `${((wonCount / deals.length) * 100).toFixed(0)}%` : "0%";
-  const loading = stagesQ.isLoading || dealsQ.isLoading;
+  const activeProspect = activeId ? prospects.find((p) => p.id === activeId) ?? null : null;
+  const inPipeline = filtered;
+  const wonCount = inPipeline.filter((p) => p.status === "fechado_ganho").length;
+  const lostCount = inPipeline.filter((p) => p.status === "perdido").length;
+  const conversion = inPipeline.length
+    ? `${((wonCount / inPipeline.length) * 100).toFixed(0)}%`
+    : "0%";
+  const loading = prospectsQ.isLoading;
 
   return (
     <AppShell
@@ -237,9 +239,9 @@ function CrmPage() {
       {/* Summary strip */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: "Total no pipeline", value: brl(total) },
-          { label: "Oportunidades", value: deals.length.toString() },
-          { label: "Ganho no mês", value: brl(won) },
+          { label: "Oportunidades", value: inPipeline.length.toString() },
+          { label: "Ganhos", value: wonCount.toString() },
+          { label: "Perdidos", value: lostCount.toString() },
           { label: "Taxa de conversão", value: conversion },
         ].map((s) => (
           <div key={s.label} className="surface-card p-3">
@@ -272,18 +274,14 @@ function CrmPage() {
       <div className="mt-5 -mx-3 snap-x snap-mandatory overflow-x-auto px-3 pb-4 sm:-mx-6 sm:px-6 sm:snap-none lg:-mx-8 lg:px-8">
         {loading ? (
           <p className="py-12 text-center text-xs text-muted-foreground">Carregando pipeline…</p>
-        ) : stages.length === 0 ? (
-          <p className="py-12 text-center text-xs text-muted-foreground">
-            Nenhum estágio cadastrado. Execute a migração 20260623_crm_clients_deals.sql.
-          </p>
         ) : (
           <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <div className="flex gap-4">
-              {stages.map((stage) => (
-                <StageColumn key={stage.id} stage={stage} deals={grouped.get(stage.id) ?? []} />
+              {PIPELINE_STAGES.map((stage) => (
+                <StageColumn key={stage.id} stage={stage} items={grouped.get(stage.id) ?? []} />
               ))}
             </div>
-            <DragOverlay>{activeDeal ? <DealCard deal={activeDeal} dragging /> : null}</DragOverlay>
+            <DragOverlay>{activeProspect ? <ProspectCard p={activeProspect} dragging /> : null}</DragOverlay>
           </DndContext>
         )}
       </div>
