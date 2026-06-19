@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth, useRequiredUser } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,8 @@ import {
   Target,
   TrendingUp,
 } from "lucide-react";
+import { crmKeys } from "@/lib/crm/api";
+import { getDashboardKPIs, getPipelineMetrics, type DashboardKPIs, type FunnelStage } from "@/lib/dashboard/api";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -28,17 +31,44 @@ export const Route = createFileRoute("/dashboard")({
   ),
 });
 
-// Metas (targets) preservadas — valores reais zerados até integração real
-const KPIS = [
-  { label: "Empresas Visitadas", value: 0, target: 150, icon: Building2 },
-  { label: "Conversas Qualificadas", value: 0, target: 60, icon: MessageSquare },
-  { label: "Apresentações", value: 0, target: 30, icon: Phone },
-  { label: "Reuniões", value: 0, target: 12, icon: CalendarClock },
-  { label: "Propostas", value: 0, target: 6, icon: FileText },
-  { label: "Contratos Fechados", value: 0, target: 6, icon: CheckCircle2 },
-  { label: "Receita Gerada", value: 0, target: 100000, icon: DollarSign, money: true },
-  { label: "Ticket Médio", value: 0, target: 15000, icon: TrendingUp, money: true },
-];
+// Targets ainda são alvos comerciais; valores vêm de getDashboardKPIs.
+const KPI_TARGETS = {
+  prospects: 150,
+  contacted: 60,
+  meetings: 30,
+  proposals: 12,
+  clients: 6,
+  dealsWon: 6,
+  revenue: 100000,
+  avgTicket: 15000,
+};
+
+type KpiItem = {
+  label: string;
+  value: number;
+  target: number;
+  icon: typeof Building2;
+  money?: boolean;
+};
+
+function kpisFromData(d?: DashboardKPIs): KpiItem[] {
+  const k = d ?? {
+    prospectsTotal: 0, prospectsContacted: 0, clientsTotal: 0,
+    dealsOpen: 0, dealsWon: 0, dealsLost: 0, revenueWon: 0,
+    pipelineValue: 0, avgTicket: 0, meetings: 0, proposals: 0,
+    briefingsTotal: 0, tasksTotal: 0,
+  };
+  return [
+    { label: "Empresas Prospectadas", value: k.prospectsTotal, target: KPI_TARGETS.prospects, icon: Building2 },
+    { label: "Contatos Realizados", value: k.prospectsContacted, target: KPI_TARGETS.contacted, icon: MessageSquare },
+    { label: "Reuniões", value: k.meetings, target: KPI_TARGETS.meetings, icon: CalendarClock },
+    { label: "Propostas", value: k.proposals, target: KPI_TARGETS.proposals, icon: FileText },
+    { label: "Clientes", value: k.clientsTotal, target: KPI_TARGETS.clients, icon: CheckCircle2 },
+    { label: "Deals Ganhos", value: k.dealsWon, target: KPI_TARGETS.dealsWon, icon: Phone },
+    { label: "Receita Gerada", value: k.revenueWon, target: KPI_TARGETS.revenue, icon: DollarSign, money: true },
+    { label: "Ticket Médio", value: k.avgTicket, target: KPI_TARGETS.avgTicket, icon: TrendingUp, money: true },
+  ];
+}
 
 const brl = (n: number) =>
   new Intl.NumberFormat("pt-BR", {
@@ -47,7 +77,7 @@ const brl = (n: number) =>
     maximumFractionDigits: 0,
   }).format(n);
 
-function KpiCard({ k }: { k: (typeof KPIS)[number] }) {
+function KpiCard({ k }: { k: KpiItem }) {
   const Icon = k.icon;
   const pct = k.target > 0 ? Math.min(100, Math.round((k.value / k.target) * 100)) : 0;
   return (
@@ -103,6 +133,11 @@ function EmptyPanel({
 function DashboardPage() {
   const user = useRequiredUser();
   const navigate = useNavigate();
+  const kpiQ = useQuery({ queryKey: crmKeys.dashboardKpis, queryFn: getDashboardKPIs, staleTime: 10_000 });
+  const funnelQ = useQuery({ queryKey: crmKeys.dashboardFunnel, queryFn: getPipelineMetrics, staleTime: 10_000 });
+  const kpis = kpisFromData(kpiQ.data);
+  const funnel: FunnelStage[] = funnelQ.data ?? [];
+  const totalDeals = funnel.reduce((s, f) => s + f.count, 0);
 
   const isAdmin = user.role === "admin";
   const subtitle = isAdmin
@@ -124,7 +159,7 @@ function DashboardPage() {
     >
       {/* KPIs */}
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {KPIS.map((k) => (
+        {kpis.map((k) => (
           <KpiCard key={k.label} k={k} />
         ))}
       </section>
@@ -150,18 +185,37 @@ function DashboardPage() {
         ))}
       </section>
 
-      {/* Painéis vazios */}
+      {/* Funil Comercial */}
       <section className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
-          <EmptyPanel
-            title="Funil Comercial"
-            subtitle="Da prospecção ao fechamento"
-            hint={
-              isAdmin
-                ? "Quando consultores começarem a registrar oportunidades, o funil aparecerá aqui."
-                : "Cadastre suas primeiras oportunidades no CRM para acompanhar seu funil."
-            }
-          />
+          {funnel.length === 0 || totalDeals === 0 ? (
+            <EmptyPanel
+              title="Funil Comercial"
+              subtitle="Da prospecção ao fechamento"
+              hint="Cadastre oportunidades no CRM para visualizar o funil em tempo real."
+            />
+          ) : (
+            <div className="surface-card p-5">
+              <h3 className="text-sm font-semibold">Funil Comercial</h3>
+              <p className="text-xs text-muted-foreground">Distribuição por estágio (em tempo real)</p>
+              <div className="mt-4 space-y-2">
+                {funnel.map((s) => {
+                  const max = Math.max(...funnel.map((x) => x.count), 1);
+                  const pct = (s.count / max) * 100;
+                  return (
+                    <div key={s.stageId} className="flex items-center gap-3">
+                      <div className="w-32 shrink-0 text-xs text-muted-foreground">{s.label}</div>
+                      <div className="relative h-7 flex-1 overflow-hidden rounded-md bg-accent/50">
+                        <div className="h-full rounded-md" style={{ width: `${pct}%`, background: "var(--gradient-primary)" }} />
+                        <span className="absolute inset-0 flex items-center px-3 text-[11px] font-semibold">{s.count}</span>
+                      </div>
+                      <div className="w-20 shrink-0 text-right text-[11px] text-muted-foreground">{brl(s.value)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
         <EmptyPanel
           title="Receita Mensal"
