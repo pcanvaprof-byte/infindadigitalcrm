@@ -51,7 +51,8 @@ function fromRow(r: Row, ixs: IxRow[] = []): Prospect {
     source: r.source,
     potential: r.potential as ProspectPotential,
     status: r.status as ProspectStatus,
-    createdAt: new Date(r.created_at).toLocaleString("pt-BR"),
+    // Mantém ISO; formatação acontece apenas na UI.
+    createdAt: r.created_at,
     interactions: ixs
       .filter((i) => i.prospect_id === r.id)
       .map((i) => ({
@@ -59,7 +60,7 @@ function fromRow(r: Row, ixs: IxRow[] = []): Prospect {
         kind: i.kind as InteractionKind,
         text: i.text,
         by: i.by_name,
-        at: new Date(i.created_at).toLocaleString("pt-BR"),
+        at: i.created_at,
       })),
   };
 }
@@ -106,12 +107,39 @@ export async function loadAllProspects(): Promise<Prospect[]> {
 }
 
 async function currentUserId(): Promise<string | null> {
+  if (_cachedUid) return _cachedUid;
   try {
+    // Prefere a sessão já em memória (sem round-trip ao Auth).
+    const { data: sess } = await supabase.auth.getSession();
+    const sid = sess.session?.user?.id ?? null;
+    if (sid) {
+      _cachedUid = sid;
+      _subscribeUidInvalidator();
+      return sid;
+    }
     const { data } = await supabase.auth.getUser();
-    return data.user?.id ?? null;
+    _cachedUid = data.user?.id ?? null;
+    _subscribeUidInvalidator();
+    return _cachedUid;
   } catch {
     return null;
   }
+}
+
+// Cache em memória do uid + invalidação em SIGNED_IN/OUT/USER_UPDATED.
+let _cachedUid: string | null = null;
+let _uidSubscribed = false;
+function _subscribeUidInvalidator() {
+  if (_uidSubscribed) return;
+  _uidSubscribed = true;
+  try {
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") _cachedUid = null;
+      else if (event === "SIGNED_IN" || event === "USER_UPDATED" || event === "TOKEN_REFRESHED") {
+        _cachedUid = session?.user?.id ?? null;
+      }
+    });
+  } catch { /* noop */ }
 }
 
 async function requireUserId(): Promise<string> {
@@ -195,8 +223,57 @@ export async function addInteractionRemote(
     kind: r.kind as InteractionKind,
     text: r.text,
     by: r.by_name,
-    at: new Date(r.created_at).toLocaleString("pt-BR"),
+    at: r.created_at,
   };
+}
+
+/** Insert em lote — 1 round-trip para N interações. Mantém atomicidade no Supabase. */
+export async function addInteractionsBatch(
+  items: { prospectId: string; kind: InteractionKind; text: string; byName: string }[],
+): Promise<{ prospectId: string; ix: Interaction }[]> {
+  if (!items.length) return [];
+  const uid = await requireUserId();
+  const payload = items.map((i) => ({
+    prospect_id: i.prospectId,
+    user_id: uid,
+    kind: i.kind,
+    text: i.text,
+    by_name: i.byName,
+  }));
+  const { data, error } = await supabase
+    .from("prospect_interactions")
+    .insert(payload as never)
+    .select();
+  if (error) {
+    console.warn("addInteractionsBatch error", error);
+    return [];
+  }
+  return (data as IxRow[]).map((r) => ({
+    prospectId: r.prospect_id,
+    ix: {
+      id: r.id,
+      kind: r.kind as InteractionKind,
+      text: r.text,
+      by: r.by_name,
+      at: r.created_at,
+    },
+  }));
+}
+
+/** Update em lote — 1 round-trip para N prospects (mesmo patch). */
+export async function bulkUpdateProspects(
+  ids: string[],
+  patch: Partial<Pick<Prospect, "status" | "owner" | "potential">>,
+): Promise<void> {
+  if (!ids.length) return;
+  await requireUserId();
+  const map: Record<string, unknown> = {};
+  if (patch.status !== undefined) map.status = patch.status;
+  if (patch.owner !== undefined) map.owner_name = patch.owner;
+  if (patch.potential !== undefined) map.potential = patch.potential;
+  if (!Object.keys(map).length) return;
+  const { error } = await supabase.from("prospects").update(map as never).in("id", ids);
+  if (error) throw error;
 }
 
 // ============ IMPORT ============
@@ -382,7 +459,7 @@ export async function listImports(): Promise<ImportLog[]> {
     skipped: r.skipped_count,
     errorCount: r.error_count,
     errors: (r.errors as { row: number; message: string }[]) ?? [],
-    createdAt: new Date(r.created_at).toLocaleString("pt-BR"),
+    createdAt: r.created_at,
   }));
 }
 
