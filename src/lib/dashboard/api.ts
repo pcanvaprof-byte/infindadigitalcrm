@@ -1,7 +1,7 @@
-import { supabase } from "@/integrations/supabase/client";
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const sb = supabase as any;
+import type { DealWithClient, Client, DealStage } from "@/lib/crm/api";
+import type { Prospect } from "@/lib/mock-prospects";
+import type { MapPoint } from "@/lib/tasks-map-api";
+import type { Briefing } from "@/lib/briefings/types";
 
 export interface DashboardKPIs {
   prospectsTotal: number;
@@ -36,38 +36,44 @@ export interface ConversionMetrics {
   meetingsToProposals: number; // %
 }
 
-async function uid(): Promise<string | null> {
-  const { data } = await sb.auth.getUser();
-  return data?.user?.id ?? null;
+export interface DashboardInputs {
+  deals: DealWithClient[];
+  prospects: Prospect[];
+  clients: Client[];
+  tasks: MapPoint[];
+  briefings: Briefing[];
+  stages: DealStage[];
 }
 
-export async function getDashboardKPIs(): Promise<DashboardKPIs> {
-  const id = await uid();
-  if (!id) {
-    return {
-      prospectsTotal: 0, prospectsContacted: 0, conversationsStarted: 0, clientsTotal: 0,
-      dealsOpen: 0, dealsWon: 0, dealsLost: 0,
-      revenueWon: 0, pipelineValue: 0, avgTicket: 0,
-      meetings: 0, proposals: 0, briefingsTotal: 0, tasksTotal: 0,
-    };
-  }
+export interface DashboardMetrics {
+  kpis: DashboardKPIs;
+  funnel: FunnelStage[];
+  conversion: ConversionMetrics;
+}
 
-  const [pAll, pContacted, convRes, clients, dealsRes, stagesRes, briefingsRes] = await Promise.all([
-    sb.from("prospects").select("id", { count: "exact", head: true }).eq("user_id", id),
-    sb.from("prospects").select("id", { count: "exact", head: true }).eq("user_id", id).neq("status", "nao_contatado"),
-    sb.from("prospect_interactions").select("id", { count: "exact", head: true })
-      .eq("user_id", id).in("kind", ["whatsapp", "ligacao", "email"]),
-    sb.from("clients").select("id", { count: "exact", head: true }).eq("user_id", id),
-    sb.from("deals").select("id, stage_id, value").eq("user_id", id),
-    sb.from("deal_stages").select("id, is_won, is_lost, position, label"),
-    sb.from("briefings").select("id", { count: "exact", head: true }),
-  ]);
+const EMPTY_KPIS: DashboardKPIs = {
+  prospectsTotal: 0, prospectsContacted: 0, conversationsStarted: 0, clientsTotal: 0,
+  dealsOpen: 0, dealsWon: 0, dealsLost: 0,
+  revenueWon: 0, pipelineValue: 0, avgTicket: 0,
+  meetings: 0, proposals: 0, briefingsTotal: 0, tasksTotal: 0,
+};
 
-  const stages = (stagesRes.data ?? []) as { id: string; is_won: boolean; is_lost: boolean }[];
+/**
+ * Pura — deriva todos os indicadores do dashboard a partir das queries
+ * centrais do CRM (deals, prospects, clients, tasks, briefings, stages).
+ * NÃO faz fetch. NÃO toca em rede. Memoizar no consumidor.
+ */
+export function deriveDashboardMetrics(input: Partial<DashboardInputs>): DashboardMetrics {
+  const deals = input.deals ?? [];
+  const prospects = input.prospects ?? [];
+  const clients = input.clients ?? [];
+  const tasks = input.tasks ?? [];
+  const briefings = input.briefings ?? [];
+  const stages = input.stages ?? [];
+
   const wonIds = new Set(stages.filter((s) => s.is_won).map((s) => s.id));
   const lostIds = new Set(stages.filter((s) => s.is_lost).map((s) => s.id));
 
-  const deals = (dealsRes.data ?? []) as { id: string; stage_id: string; value: number | string }[];
   let revenueWon = 0, pipelineValue = 0, dealsOpen = 0, dealsWon = 0, dealsLost = 0;
   let meetings = 0, proposals = 0;
   for (const d of deals) {
@@ -79,11 +85,21 @@ export async function getDashboardKPIs(): Promise<DashboardKPIs> {
     if (d.stage_id === "proposta") proposals++;
   }
 
-  return {
-    prospectsTotal: pAll.count ?? 0,
-    prospectsContacted: pContacted.count ?? 0,
-    conversationsStarted: convRes.count ?? 0,
-    clientsTotal: clients.count ?? 0,
+  const prospectsContacted = prospects.filter((p) => p.status !== "nao_contatado").length;
+  let conversationsStarted = 0;
+  for (const p of prospects) {
+    for (const ix of p.interactions ?? []) {
+      if (ix.kind === "whatsapp" || ix.kind === "ligacao" || ix.kind === "email") {
+        conversationsStarted++;
+      }
+    }
+  }
+
+  const kpis: DashboardKPIs = {
+    prospectsTotal: prospects.length,
+    prospectsContacted,
+    conversationsStarted,
+    clientsTotal: clients.length,
     dealsOpen,
     dealsWon,
     dealsLost,
@@ -92,41 +108,38 @@ export async function getDashboardKPIs(): Promise<DashboardKPIs> {
     avgTicket: dealsWon ? revenueWon / dealsWon : 0,
     meetings,
     proposals,
-    briefingsTotal: briefingsRes.count ?? 0,
-    tasksTotal: 0,
+    briefingsTotal: briefings.length,
+    tasksTotal: tasks.length,
   };
+
+  const funnel: FunnelStage[] = stages
+    .slice()
+    .sort((a, b) => a.position - b.position)
+    .map((s) => {
+      const list = deals.filter((d) => d.stage_id === s.id);
+      return {
+        stageId: s.id,
+        label: s.label,
+        count: list.length,
+        value: list.reduce((acc, d) => acc + Number(d.value || 0), 0),
+        position: s.position,
+        is_won: s.is_won,
+        is_lost: s.is_lost,
+      };
+    });
+
+  const totalDeals = kpis.dealsOpen + kpis.dealsWon + kpis.dealsLost;
+  const conversion: ConversionMetrics = {
+    prospectsToClients: kpis.prospectsTotal ? (kpis.clientsTotal / kpis.prospectsTotal) * 100 : 0,
+    dealsToWon: totalDeals > 0 ? (kpis.dealsWon / totalDeals) * 100 : 0,
+    meetingsToProposals: kpis.meetings ? (kpis.proposals / kpis.meetings) * 100 : 0,
+  };
+
+  return { kpis, funnel, conversion };
 }
 
-export async function getPipelineMetrics(): Promise<FunnelStage[]> {
-  const id = await uid();
-  if (!id) return [];
-  const [stagesRes, dealsRes] = await Promise.all([
-    sb.from("deal_stages").select("id, label, position, is_won, is_lost").order("position"),
-    sb.from("deals").select("stage_id, value").eq("user_id", id),
-  ]);
-  const stages = (stagesRes.data ?? []) as { id: string; label: string; position: number; is_won: boolean; is_lost: boolean }[];
-  const deals = (dealsRes.data ?? []) as { stage_id: string; value: number | string }[];
-  return stages.map((s) => {
-    const list = deals.filter((d) => d.stage_id === s.id);
-    return {
-      stageId: s.id,
-      label: s.label,
-      count: list.length,
-      value: list.reduce((acc, d) => acc + Number(d.value || 0), 0),
-      position: s.position,
-      is_won: s.is_won,
-      is_lost: s.is_lost,
-    };
-  });
-}
-
-export async function getConversionMetrics(): Promise<ConversionMetrics> {
-  const kpi = await getDashboardKPIs();
-  return {
-    prospectsToClients: kpi.prospectsTotal ? (kpi.clientsTotal / kpi.prospectsTotal) * 100 : 0,
-    dealsToWon: kpi.dealsOpen + kpi.dealsWon + kpi.dealsLost > 0
-      ? (kpi.dealsWon / (kpi.dealsOpen + kpi.dealsWon + kpi.dealsLost)) * 100
-      : 0,
-    meetingsToProposals: kpi.meetings ? (kpi.proposals / kpi.meetings) * 100 : 0,
-  };
-}
+export const EMPTY_DASHBOARD_METRICS: DashboardMetrics = {
+  kpis: EMPTY_KPIS,
+  funnel: [],
+  conversion: { prospectsToClients: 0, dealsToWon: 0, meetingsToProposals: 0 },
+};

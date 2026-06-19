@@ -174,7 +174,6 @@ function CrmPage() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: crmKeys.deals });
-      qc.invalidateQueries({ queryKey: crmKeys.dashboardKpis });
     },
   });
 

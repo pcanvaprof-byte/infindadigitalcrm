@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth, useRequiredUser } from "@/lib/auth-context";
@@ -17,8 +18,11 @@ import {
   Target,
   TrendingUp,
 } from "lucide-react";
-import { crmKeys } from "@/lib/crm/api";
-import { getDashboardKPIs, getPipelineMetrics, type DashboardKPIs, type FunnelStage } from "@/lib/dashboard/api";
+import { crmKeys, listDeals, listClients, listDealStages } from "@/lib/crm/api";
+import { loadAllProspects } from "@/lib/prospects-api";
+import { loadMapPoints } from "@/lib/tasks-map-api";
+import { listBriefings } from "@/lib/briefings/api";
+import { deriveDashboardMetrics, type DashboardKPIs, type FunnelStage } from "@/lib/dashboard/api";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -135,10 +139,28 @@ function EmptyPanel({
 function DashboardPage() {
   const user = useRequiredUser();
   const navigate = useNavigate();
-  const kpiQ = useQuery({ queryKey: crmKeys.dashboardKpis, queryFn: getDashboardKPIs, staleTime: 10_000 });
-  const funnelQ = useQuery({ queryKey: crmKeys.dashboardFunnel, queryFn: getPipelineMetrics, staleTime: 10_000 });
-  const kpis = kpisFromData(kpiQ.data);
-  const funnel: FunnelStage[] = funnelQ.data ?? [];
+
+  // Dashboard é camada derivada — consome apenas as queries centrais do CRM.
+  const dealsQ = useQuery({ queryKey: crmKeys.deals, queryFn: listDeals, staleTime: 15_000 });
+  const clientsQ = useQuery({ queryKey: crmKeys.clients, queryFn: listClients, staleTime: 15_000 });
+  const stagesQ = useQuery({ queryKey: crmKeys.stages, queryFn: listDealStages, staleTime: 60_000 });
+  const prospectsQ = useQuery({ queryKey: crmKeys.prospects, queryFn: loadAllProspects, staleTime: 15_000 });
+  const tasksQ = useQuery({ queryKey: crmKeys.tasks, queryFn: loadMapPoints, staleTime: 15_000 });
+  const briefingsQ = useQuery({ queryKey: crmKeys.briefings, queryFn: () => listBriefings(), staleTime: 15_000 });
+
+  const metrics = useMemo(
+    () => deriveDashboardMetrics({
+      deals: dealsQ.data ?? [],
+      clients: clientsQ.data ?? [],
+      prospects: prospectsQ.data ?? [],
+      tasks: tasksQ.data ?? [],
+      briefings: briefingsQ.data ?? [],
+      stages: stagesQ.data ?? [],
+    }),
+    [dealsQ.data, clientsQ.data, prospectsQ.data, tasksQ.data, briefingsQ.data, stagesQ.data],
+  );
+  const kpis = kpisFromData(metrics.kpis);
+  const funnel: FunnelStage[] = metrics.funnel;
   const totalDeals = funnel.reduce((s, f) => s + f.count, 0);
 
   const isAdmin = user.role === "admin";
