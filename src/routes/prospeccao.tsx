@@ -1371,7 +1371,7 @@ function DetailDialog({
             ) : (
               <ol className="relative space-y-3 border-l border-border pl-4">
                 {timeline.map((ix) => {
-                  const Icon = INTERACTION_ICON[ix.kind];
+                  const Icon = INTERACTION_ICON[ix.kind] ?? StickyNote;
                   return (
                     <li key={ix.id} className="relative">
                       <span className="absolute -left-[22px] grid h-6 w-6 place-items-center rounded-full border border-border bg-card">
@@ -1725,6 +1725,7 @@ function MobileProspectList({
     <div ref={parentRef} className="relative" style={{ height: virtualizer.getTotalSize() }}>
       {virtualItems.map((vi) => {
         const p = items[vi.index];
+        if (!p) return null;
         return (
           <div
             key={p.id}
