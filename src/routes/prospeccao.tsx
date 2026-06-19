@@ -7,7 +7,6 @@ import { RequireAuth, useRequiredUser } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -298,6 +297,28 @@ function PotentialBadge({ p }: { p: ProspectPotential }) {
     <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${POTENTIAL_TONE[p] ?? POTENTIAL_TONE.medio}`}>
       {POTENTIAL_LABEL[p] ?? POTENTIAL_LABEL.medio}
     </span>
+  );
+}
+
+function NativeCheckbox({
+  checked,
+  onChange,
+  ariaLabel,
+  className = "",
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  ariaLabel?: string;
+  className?: string;
+}) {
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={(event) => onChange(event.currentTarget.checked)}
+      aria-label={ariaLabel}
+      className={`h-4 w-4 shrink-0 cursor-pointer rounded-sm border border-primary bg-transparent accent-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+    />
   );
 }
 
@@ -918,9 +939,10 @@ function ProspeccaoPage() {
               <X className="mr-1.5 h-4 w-4" /> Limpar filtros
             </Button>
             <label className="col-span-full flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
-              <Checkbox
+              <NativeCheckbox
                 checked={onlyWithContact}
-                onCheckedChange={(v) => setOnlyWithContact(Boolean(v))}
+                onChange={setOnlyWithContact}
+                ariaLabel="Mostrar somente empresas com contato disponível"
               />
               Mostrar somente empresas com contato disponível (WhatsApp, telefone ou e-mail)
             </label>
@@ -1005,75 +1027,20 @@ function ProspeccaoPage() {
               onRemove={(id) => removeProspect([id])}
             />
           </div>
-          {/* Desktop: table */}
-          <div className="hidden overflow-x-auto md:block">
-            <table className="w-full text-sm">
-              <thead className="bg-accent/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-3 w-10">
-                    <Checkbox checked={allVisibleSelected} onCheckedChange={toggleSelectAll} aria-label="Selecionar todos" />
-                  </th>
-                  <th className="px-4 py-3">Empresa</th>
-                  <th className="px-4 py-3">Contato</th>
-                  <th className="px-4 py-3">Localização</th>
-                  <th className="px-4 py-3">Origem</th>
-                  <th className="px-4 py-3">Potencial</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 && (
-                  <tr><td colSpan={8} className="px-4 py-16 text-center text-sm text-muted-foreground">
-                    Nenhuma empresa encontrada.
-                  </td></tr>
-                )}
-                {filtered.map((p) => (
-                  <tr key={p.id}
-                    className={`border-t border-border/60 hover:bg-accent/30 ${selected.has(p.id) ? "bg-primary/5" : ""}`}>
-                    <td className="px-3 py-3 align-top">
-                      <Checkbox checked={selected.has(p.id)} onCheckedChange={() => toggleSelect(p.id)} aria-label={`Selecionar ${p.company}`} />
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <button className="text-left" onClick={() => setDetailId(p.id)}>
-                        <div className="font-semibold hover:text-primary-glow">{p.company}</div>
-                        <div className="text-[11px] text-muted-foreground">{p.segment} · resp. {p.owner}</div>
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <div className="text-xs">{p.whatsapp || p.phone || "—"}</div>
-                      <div className="text-[11px] text-muted-foreground">{p.email || p.instagram || "—"}</div>
-                    </td>
-                    <td className="px-4 py-3 align-top text-xs">{p.city ? `${p.city} - ${p.state}` : p.state || "—"}</td>
-                    <td className="px-4 py-3 align-top text-xs">{p.source}</td>
-                    <td className="px-4 py-3 align-top"><PotentialBadge p={p.potential} /></td>
-                    <td className="px-4 py-3 align-top"><StatusBadge status={p.status} /></td>
-                    <td className="px-4 py-3 align-top">
-                      <div className="flex items-center justify-end gap-1">
-                        <RowActions p={p} onWhats={openWhats} onCall={callPhone}
-                          onAgendar={() => updateStatus(p.id, "agendado")}
-                          onConvert={() => convertToLead(p)} onStatus={updateStatus}
-                          onRemove={() => removeProspect([p.id])} onOpen={() => setDetailId(p.id)} />
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          aria-label={`Apagar ${p.company}`}
-                          onClick={() => {
-                            if (window.confirm(`Apagar "${p.company}"? Esta ação não pode ser desfeita.`)) {
-                              removeProspect([p.id]);
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DesktopProspectTable
+            items={filtered}
+            selected={selected}
+            allVisibleSelected={allVisibleSelected}
+            onToggleSelect={toggleSelect}
+            onToggleSelectAll={toggleSelectAll}
+            onOpen={setDetailId}
+            onWhats={openWhats}
+            onCall={callPhone}
+            onAgendar={(id) => updateStatus(id, "agendado")}
+            onConvert={convertToLead}
+            onStatus={updateStatus}
+            onRemove={(id) => removeProspect([id])}
+          />
           <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground">
             <span>Mostrando {filtered.length} de {prospects.length} empresas</span>
             <span className="hidden sm:inline">INFINDA digital — Prospecção</span>
@@ -1180,6 +1147,125 @@ function ProspeccaoPage() {
   );
 }
 
+function DesktopProspectTable({
+  items,
+  selected,
+  allVisibleSelected,
+  onToggleSelect,
+  onToggleSelectAll,
+  onOpen,
+  onWhats,
+  onCall,
+  onAgendar,
+  onConvert,
+  onStatus,
+  onRemove,
+}: {
+  items: Prospect[];
+  selected: Set<string>;
+  allVisibleSelected: boolean;
+  onToggleSelect: (id: string) => void;
+  onToggleSelectAll: () => void;
+  onOpen: (id: string) => void;
+  onWhats: (p: Prospect) => void;
+  onCall: (p: Prospect) => void;
+  onAgendar: (id: string) => void;
+  onConvert: (p: Prospect) => void;
+  onStatus: (id: string, s: ProspectStatus) => void;
+  onRemove: (id: string) => void;
+}) {
+  const parentRef = useRef<HTMLDivElement | null>(null);
+  const virtualizer = useWindowVirtualizer({
+    count: items.length,
+    estimateSize: () => 64,
+    overscan: 8,
+    scrollMargin: parentRef.current?.offsetTop ?? 0,
+  });
+
+  return (
+    <div className="hidden overflow-x-auto md:block">
+      <div className="min-w-[980px] text-sm">
+        <div className="grid grid-cols-[52px_minmax(220px,1.5fr)_minmax(170px,1fr)_minmax(130px,0.8fr)_minmax(110px,0.7fr)_110px_130px_220px] bg-accent/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
+          <div className="px-3 py-3">
+            <NativeCheckbox checked={allVisibleSelected} onChange={onToggleSelectAll} ariaLabel="Selecionar todos" />
+          </div>
+          <div className="px-4 py-3">Empresa</div>
+          <div className="px-4 py-3">Contato</div>
+          <div className="px-4 py-3">Localização</div>
+          <div className="px-4 py-3">Origem</div>
+          <div className="px-4 py-3">Potencial</div>
+          <div className="px-4 py-3">Status</div>
+          <div className="px-4 py-3 text-right">Ações</div>
+        </div>
+
+        {items.length === 0 ? (
+          <div className="border-t border-border/60 px-4 py-16 text-center text-sm text-muted-foreground">
+            Nenhuma empresa encontrada.
+          </div>
+        ) : (
+          <div ref={parentRef} className="relative" style={{ height: virtualizer.getTotalSize() }}>
+            {virtualizer.getVirtualItems().map((vi) => {
+              const p = items[vi.index];
+              if (!p) return null;
+              return (
+                <div
+                  key={p.id}
+                  data-index={vi.index}
+                  className={`absolute left-0 right-0 grid grid-cols-[52px_minmax(220px,1.5fr)_minmax(170px,1fr)_minmax(130px,0.8fr)_minmax(110px,0.7fr)_110px_130px_220px] border-t border-border/60 hover:bg-accent/30 ${selected.has(p.id) ? "bg-primary/5" : ""}`}
+                  style={{ transform: `translateY(${vi.start - virtualizer.options.scrollMargin}px)` }}
+                >
+                  <div className="px-3 py-3">
+                    <NativeCheckbox checked={selected.has(p.id)} onChange={() => onToggleSelect(p.id)} ariaLabel={`Selecionar ${p.company}`} />
+                  </div>
+                  <div className="px-4 py-3">
+                    <button className="text-left" onClick={() => onOpen(p.id)}>
+                      <div className="font-semibold hover:text-primary-glow">{p.company}</div>
+                      <div className="text-[11px] text-muted-foreground">{p.segment} · resp. {p.owner}</div>
+                    </button>
+                  </div>
+                  <div className="px-4 py-3">
+                    <div className="text-xs">{p.whatsapp || p.phone || "—"}</div>
+                    <div className="text-[11px] text-muted-foreground">{p.email || p.instagram || "—"}</div>
+                  </div>
+                  <div className="px-4 py-3 text-xs">{p.city ? `${p.city} - ${p.state}` : p.state || "—"}</div>
+                  <div className="px-4 py-3 text-xs">{p.source}</div>
+                  <div className="px-4 py-3"><PotentialBadge p={p.potential} /></div>
+                  <div className="px-4 py-3"><StatusBadge status={p.status} /></div>
+                  <div className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1">
+                      <RowActions
+                        p={p}
+                        onWhats={onWhats}
+                        onCall={onCall}
+                        onAgendar={() => onAgendar(p.id)}
+                        onConvert={() => onConvert(p)}
+                        onStatus={onStatus}
+                        onRemove={() => onRemove(p.id)}
+                        onOpen={() => onOpen(p.id)}
+                      />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        aria-label={`Apagar ${p.company}`}
+                        onClick={() => {
+                          if (window.confirm(`Apagar "${p.company}"? Esta ação não pode ser desfeita.`)) onRemove(p.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const RowActions = memo(function RowActions({
   p, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onOpen,
 }: {
@@ -1192,6 +1278,8 @@ const RowActions = memo(function RowActions({
   onRemove: () => void;
   onOpen: () => void;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
     <div className="flex items-center justify-end gap-1">
       <Button size="icon" variant="ghost" className="h-8 w-8 text-emerald-400" title="WhatsApp" onClick={() => onWhats(p)}>
@@ -1206,24 +1294,26 @@ const RowActions = memo(function RowActions({
       <Button size="icon" variant="ghost" className="h-8 w-8 text-primary-glow" title="Converter para Lead" onClick={onConvert}>
         <Sparkles className="h-4 w-4" />
       </Button>
-      <DropdownMenu>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger asChild>
           <Button size="icon" variant="ghost" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={onOpen} className="text-xs">Abrir detalhes</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel className="text-[11px]">Alterar status</DropdownMenuLabel>
-          {STATUSES.map((s) => (
-            <DropdownMenuItem key={s} onClick={() => onStatus(p.id, s)} className="text-xs">
-              <CheckCircle2 className="mr-2 h-3.5 w-3.5" />{STATUS_LABEL[s]}
+        {menuOpen && (
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onOpen} className="text-xs">Abrir detalhes</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-[11px]">Alterar status</DropdownMenuLabel>
+            {STATUSES.map((s) => (
+              <DropdownMenuItem key={s} onClick={() => onStatus(p.id, s)} className="text-xs">
+                <CheckCircle2 className="mr-2 h-3.5 w-3.5" />{STATUS_LABEL[s]}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-xs text-destructive" onClick={onRemove}>
+              <Trash2 className="mr-2 h-3.5 w-3.5" /> Remover
             </DropdownMenuItem>
-          ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem className="text-xs text-destructive" onClick={onRemove}>
-            <Trash2 className="mr-2 h-3.5 w-3.5" /> Remover
-          </DropdownMenuItem>
-        </DropdownMenuContent>
+          </DropdownMenuContent>
+        )}
       </DropdownMenu>
     </div>
   );
@@ -1648,10 +1738,10 @@ const MobileProspectRow = memo(function MobileProspectRow({
 }) {
   return (
     <div className={`flex gap-3 border-b border-border/60 p-3 ${isSelected ? "bg-primary/5" : ""}`}>
-      <Checkbox
+      <NativeCheckbox
         checked={isSelected}
-        onCheckedChange={() => onToggleSelect(p.id)}
-        aria-label={`Selecionar ${p.company}`}
+        onChange={() => onToggleSelect(p.id)}
+        ariaLabel={`Selecionar ${p.company}`}
         className="mt-1 shrink-0"
       />
       <div className="min-w-0 flex-1">
@@ -1748,7 +1838,6 @@ function MobileProspectList({
           <div
             key={p.id}
             data-index={vi.index}
-            ref={virtualizer.measureElement}
             style={{
               position: "absolute",
               top: 0,
