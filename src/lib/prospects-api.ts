@@ -66,22 +66,43 @@ function fromRow(r: Row, ixs: IxRow[] = []): Prospect {
 
 export async function loadAllProspects(): Promise<Prospect[]> {
   await requireUserId();
-  const { data: rows, error } = await supabase
-    .from("prospects")
-    .select("*")
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  const ids = (rows ?? []).map((r) => r.id);
-  let ixs: IxRow[] = [];
-  if (ids.length) {
-    const { data } = await supabase
-      .from("prospect_interactions")
+  // PostgREST limita 1000 linhas/consulta — paginar via range() até esgotar.
+  const PAGE = 1000;
+  const rows: Row[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from("prospects")
       .select("*")
-      .in("prospect_id", ids)
-      .order("created_at", { ascending: false });
-    ixs = (data ?? []) as IxRow[];
+      .order("created_at", { ascending: false })
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    const batch = (data ?? []) as Row[];
+    rows.push(...batch);
+    if (batch.length < PAGE) break;
   }
-  return (rows ?? []).map((r) => fromRow(r as Row, ixs));
+  // Interações: também pagina e busca em lotes de ids (evita URL gigante no .in()).
+  const ids = rows.map((r) => r.id);
+  const ixs: IxRow[] = [];
+  const ID_BATCH = 200;
+  for (let i = 0; i < ids.length; i += ID_BATCH) {
+    const slice = ids.slice(i, i + ID_BATCH);
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await supabase
+        .from("prospect_interactions")
+        .select("*")
+        .in("prospect_id", slice)
+        .order("created_at", { ascending: false })
+        .range(from, from + PAGE - 1);
+      if (error) {
+        console.warn("loadAllProspects interactions error", error);
+        break;
+      }
+      const batch = (data ?? []) as IxRow[];
+      ixs.push(...batch);
+      if (batch.length < PAGE) break;
+    }
+  }
+  return rows.map((r) => fromRow(r, ixs));
 }
 
 async function currentUserId(): Promise<string | null> {
