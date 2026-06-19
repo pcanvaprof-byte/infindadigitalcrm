@@ -1,5 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { crmKeys } from "@/lib/crm/api";
+import { getDashboardKPIs, getPipelineMetrics } from "@/lib/dashboard/api";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth, useRequiredUser } from "@/lib/auth-context";
 import { Progress } from "@/components/ui/progress";
@@ -85,7 +88,7 @@ const WEEKLY_EVOLUTION = [
   { s: "S6", atingido: 74 },
 ];
 
-const FUNNEL = [
+const FUNNEL_FALLBACK = [
   { label: "Empresas", value: 112 },
   { label: "Conversas", value: 41 },
   { label: "Apresentações", value: 22 },
@@ -171,13 +174,13 @@ function MetricCard({ m, period }: { m: Metric; period: "daily" | "weekly" }) {
   );
 }
 
-function FunnelChart() {
-  const max = FUNNEL[0].value;
+function FunnelChart({ data }: { data: { label: string; value: number }[] }) {
+  const max = data[0]?.value ?? 0;
   return (
     <div className="space-y-2">
-      {FUNNEL.map((s, i) => {
+      {data.map((s, i) => {
         const widthPct = max > 0 ? (s.value / max) * 100 : 0;
-        const conv = i === 0 ? 100 : Math.round((s.value / Math.max(FUNNEL[i - 1].value, 1)) * 100);
+        const conv = i === 0 ? 100 : Math.round((s.value / Math.max(data[i - 1].value, 1)) * 100);
         return (
           <div key={s.label} className="flex items-center gap-3">
             <div className="w-32 shrink-0 text-xs text-muted-foreground">{s.label}</div>
@@ -256,12 +259,39 @@ function MetasPage() {
   const [period, setPeriod] = useState<"daily" | "weekly">("daily");
 
   const isAdmin = user.role === "admin";
-  const metrics = scope === "me" ? MY_METRICS : TEAM_METRICS;
+
+  // Dados reais para alimentar metrics + funil
+  const kpiQ = useQuery({ queryKey: crmKeys.dashboardKpis, queryFn: getDashboardKPIs, staleTime: 10_000 });
+  const funnelQ = useQuery({ queryKey: crmKeys.dashboardFunnel, queryFn: getPipelineMetrics, staleTime: 10_000 });
+  const k = kpiQ.data;
+
+  const liveMetrics: Metric[] = useMemo(() => {
+    const base = scope === "me" ? MY_METRICS : TEAM_METRICS;
+    if (!k) return base;
+    const overrides: Record<string, number> = {
+      empresas: k.prospectsTotal,
+      conversas: k.prospectsContacted,
+      apresentacoes: k.meetings,
+      reunioes: k.meetings,
+      propostas: k.proposals,
+      contratos: k.dealsWon,
+    };
+    return base.map((m) => ({ ...m, current: overrides[m.key] ?? m.current }));
+  }, [k, scope]);
+  const metrics = liveMetrics;
+
+  const funnelData = useMemo(() => {
+    if (!funnelQ.data || funnelQ.data.length === 0) return FUNNEL_FALLBACK;
+    return funnelQ.data
+      .filter((s) => !s.is_lost)
+      .sort((a, b) => a.position - b.position)
+      .map((s) => ({ label: s.label, value: s.count }));
+  }, [funnelQ.data]);
 
   const myScore = useMemo(() => {
-    const total = MY_METRICS.reduce((acc, m) => acc + Math.min(m.current / m.weekly, 1), 0);
-    return Math.round((total / MY_METRICS.length) * 100);
-  }, []);
+    const total = liveMetrics.reduce((acc, m) => acc + Math.min(m.current / Math.max(m.weekly, 1), 1), 0);
+    return Math.round((total / Math.max(liveMetrics.length, 1)) * 100);
+  }, [liveMetrics]);
 
   return (
     <AppShell
@@ -419,11 +449,11 @@ function MetasPage() {
             <p className="text-xs text-muted-foreground">Da prospecção ao fechamento</p>
           </div>
           <span className="rounded-md border border-border px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-            Conversão {((FUNNEL[FUNNEL.length - 1].value / FUNNEL[0].value) * 100).toFixed(1)}%
+            Conversão {funnelData[0]?.value ? ((funnelData[funnelData.length - 1].value / funnelData[0].value) * 100).toFixed(1) : "0.0"}%
           </span>
         </div>
         <div className="mt-4">
-          <FunnelChart />
+          <FunnelChart data={funnelData} />
         </div>
       </section>
 
