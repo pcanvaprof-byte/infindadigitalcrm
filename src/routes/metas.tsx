@@ -263,10 +263,25 @@ function MetasPage() {
 
   const isAdmin = user.role === "admin";
 
-  // Dados reais para alimentar metrics + funil
-  const kpiQ = useQuery({ queryKey: crmKeys.dashboardKpis, queryFn: getDashboardKPIs, staleTime: 10_000 });
-  const funnelQ = useQuery({ queryKey: crmKeys.dashboardFunnel, queryFn: getPipelineMetrics, staleTime: 10_000 });
-  const k = kpiQ.data;
+  // Dados reais — Metas é camada derivada das queries centrais do CRM.
+  const dealsQ = useQuery({ queryKey: crmKeys.deals, queryFn: listDeals, staleTime: 15_000 });
+  const clientsQ = useQuery({ queryKey: crmKeys.clients, queryFn: listClients, staleTime: 15_000 });
+  const stagesQ = useQuery({ queryKey: crmKeys.stages, queryFn: listDealStages, staleTime: 60_000 });
+  const prospectsQ = useQuery({ queryKey: crmKeys.prospects, queryFn: loadAllProspects, staleTime: 15_000 });
+  const tasksQ = useQuery({ queryKey: crmKeys.tasks, queryFn: loadMapPoints, staleTime: 15_000 });
+  const briefingsQ = useQuery({ queryKey: crmKeys.briefings, queryFn: () => listBriefings(), staleTime: 15_000 });
+  const dashMetrics = useMemo(
+    () => deriveDashboardMetrics({
+      deals: dealsQ.data ?? [],
+      clients: clientsQ.data ?? [],
+      prospects: prospectsQ.data ?? [],
+      tasks: tasksQ.data ?? [],
+      briefings: briefingsQ.data ?? [],
+      stages: stagesQ.data ?? [],
+    }),
+    [dealsQ.data, clientsQ.data, prospectsQ.data, tasksQ.data, briefingsQ.data, stagesQ.data],
+  );
+  const k = dashMetrics.kpis;
 
   const liveMetrics: Metric[] = useMemo(() => {
     const base = scope === "me" ? MY_METRICS : TEAM_METRICS;
@@ -284,12 +299,11 @@ function MetasPage() {
   const metrics = liveMetrics;
 
   const funnelData = useMemo(() => {
-    if (!funnelQ.data || funnelQ.data.length === 0) return FUNNEL_FALLBACK;
-    return funnelQ.data
+    if (!dashMetrics.funnel.length) return FUNNEL_FALLBACK;
+    return dashMetrics.funnel
       .filter((s) => !s.is_lost)
-      .sort((a, b) => a.position - b.position)
       .map((s) => ({ label: s.label, value: s.count }));
-  }, [funnelQ.data]);
+  }, [dashMetrics.funnel]);
 
   const myScore = useMemo(() => {
     const total = liveMetrics.reduce((acc, m) => acc + Math.min(m.current / Math.max(m.weekly, 1), 1), 0);
