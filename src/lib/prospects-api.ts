@@ -66,7 +66,8 @@ function fromRow(r: Row, ixs: IxRow[] = []): Prospect {
 }
 
 export async function loadAllProspects(): Promise<Prospect[]> {
-  await requireUserId();
+  const uid = await currentUserId();
+  if (!uid) return [];
   // PostgREST limita 1000 linhas/consulta — paginar via range() até esgotar.
   const PAGE = 1000;
   const rows: Row[] = [];
@@ -76,7 +77,10 @@ export async function loadAllProspects(): Promise<Prospect[]> {
       .select("*")
       .order("created_at", { ascending: false })
       .range(from, from + PAGE - 1);
-    if (error) throw error;
+    if (error) {
+      console.warn("loadAllProspects prospects error", error);
+      return [];
+    }
     const batch = (data ?? []) as Row[];
     rows.push(...batch);
     if (batch.length < PAGE) break;
