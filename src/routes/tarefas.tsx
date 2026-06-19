@@ -150,7 +150,7 @@ function TarefasPage() {
             </Button>
           </div>
 
-          <div className="-mx-1 flex-1 overflow-y-auto px-1" style={{ maxHeight: "calc(100vh - 260px)" }}>
+          <div className="-mx-1 flex-1 overflow-y-auto px-1 max-h-[40vh] lg:max-h-[calc(100vh-260px)]">
             {selectedBairro && (
               <button
                 className="mb-2 w-full rounded-md border border-border/60 px-2 py-1 text-left text-[11px] text-muted-foreground hover:bg-accent"
@@ -195,7 +195,7 @@ function TarefasPage() {
         </aside>
 
         {/* Map */}
-        <section className="surface-card overflow-hidden p-0" style={{ height: "calc(100vh - 200px)", minHeight: 480 }}>
+        <section className="surface-card overflow-hidden p-0 h-[60vh] min-h-[360px] lg:h-[calc(100vh-200px)] lg:min-h-[480px]">
           {loading ? (
             <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando mapa…
@@ -232,7 +232,7 @@ function TarefasPage() {
           <p className="text-[11px] text-muted-foreground">
             Primeiros 150 leads com telefone cadastrado.
           </p>
-          <ol className="-mx-1 flex-1 space-y-1 overflow-y-auto px-1" style={{ maxHeight: "calc(100vh - 260px)" }}>
+          <ol className="-mx-1 flex-1 space-y-1 overflow-y-auto px-1 max-h-[50vh] lg:max-h-[calc(100vh-260px)]">
             {taskQueue.map((p, i) => {
               const phone = (p.whatsapp || p.phone || "").replace(/\D/g, "");
               const wa = phone.length >= 10 ? `https://wa.me/55${phone}` : null;
