@@ -91,7 +91,7 @@ function StageColumn({
   const { setNodeRef, isOver } = useDroppable({ id: stage.id });
   const total = deals.reduce((s, d) => s + d.value, 0);
   return (
-    <div className="flex w-[280px] shrink-0 flex-col">
+    <div className="flex w-[85vw] max-w-[300px] shrink-0 snap-start flex-col sm:w-[280px]">
       <div className="flex items-center justify-between px-1 pb-2">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full" style={{ background: stage.tone }} />
@@ -212,7 +212,7 @@ function CrmPage() {
       </div>
 
       {/* Kanban */}
-      <div className="mt-5 -mx-4 overflow-x-auto px-4 pb-4 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+      <div className="mt-5 -mx-3 snap-x snap-mandatory overflow-x-auto px-3 pb-4 sm:-mx-6 sm:px-6 sm:snap-none lg:-mx-8 lg:px-8">
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div className="flex gap-4">
             {STAGES.map((stage) => (
