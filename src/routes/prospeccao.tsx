@@ -92,7 +92,7 @@ import { EnrichmentDrawer } from "@/components/EnrichmentDrawer";
 import { runEnrichment } from "@/lib/enrichment/api";
 import { Loader2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { convertProspectToClient, crmKeys } from "@/lib/crm/api";
+import { convertProspectToClient, crmKeys, invalidateCrmCore } from "@/lib/crm/api";
 
 
 export const Route = createFileRoute("/prospeccao")({
@@ -362,7 +362,9 @@ function ProspeccaoPage() {
 
   const updateStatus = (id: string, status: ProspectStatus) => {
     setProspects((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)));
-    updateProspect(id, { status }).catch((e) => toast.error(`Erro: ${e.message ?? e}`));
+    updateProspect(id, { status })
+      .then(() => invalidateCrmCore(qc))
+      .catch((e) => toast.error(`Erro: ${e.message ?? e}`));
     addInteraction(id, "status", `Status alterado para "${STATUS_LABEL[status]}"`);
     toast.success(`Status: ${STATUS_LABEL[status]}`);
   };
@@ -371,16 +373,16 @@ function ProspeccaoPage() {
     setProspects((prev) => prev.filter((p) => !ids.includes(p.id)));
     setSelected(new Set());
     deleteProspects(ids)
-      .then(() => toast.success(`${ids.length} empresa(s) removida(s)`))
+      .then(() => { toast.success(`${ids.length} empresa(s) removida(s)`); return invalidateCrmCore(qc); })
       .catch((e) => toast.error(`Erro: ${e.message ?? e}`));
   };
 
   const bulkStatus = (status: ProspectStatus) => {
     const ids = Array.from(selected);
     setProspects((prev) => prev.map((p) => (ids.includes(p.id) ? { ...p, status } : p)));
-    Promise.all(ids.map((id) => updateProspect(id, { status }))).catch((e) =>
-      toast.error(`Erro: ${e.message ?? e}`),
-    );
+    Promise.all(ids.map((id) => updateProspect(id, { status })))
+      .then(() => invalidateCrmCore(qc))
+      .catch((e) => toast.error(`Erro: ${e.message ?? e}`));
     ids.forEach((id) => addInteraction(id, "status", `Status em lote → "${STATUS_LABEL[status]}"`));
     toast.success(`${ids.length} atualizada(s) para ${STATUS_LABEL[status]}`);
     setSelected(new Set());
@@ -389,9 +391,9 @@ function ProspeccaoPage() {
   const bulkAssign = (owner: string) => {
     const ids = Array.from(selected);
     setProspects((prev) => prev.map((p) => (ids.includes(p.id) ? { ...p, owner } : p)));
-    Promise.all(ids.map((id) => updateProspect(id, { owner }))).catch((e) =>
-      toast.error(`Erro: ${e.message ?? e}`),
-    );
+    Promise.all(ids.map((id) => updateProspect(id, { owner })))
+      .then(() => invalidateCrmCore(qc))
+      .catch((e) => toast.error(`Erro: ${e.message ?? e}`));
     toast.success(`${ids.length} atribuída(s) a ${owner}`);
     setSelected(new Set());
   };
