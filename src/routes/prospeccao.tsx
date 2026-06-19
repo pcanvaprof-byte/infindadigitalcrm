@@ -1211,7 +1211,6 @@ function DesktopProspectTable({
                 <div
                   key={p.id}
                   data-index={vi.index}
-                  ref={virtualizer.measureElement}
                   className={`absolute left-0 right-0 grid grid-cols-[52px_minmax(220px,1.5fr)_minmax(170px,1fr)_minmax(130px,0.8fr)_minmax(110px,0.7fr)_110px_130px_220px] border-t border-border/60 hover:bg-accent/30 ${selected.has(p.id) ? "bg-primary/5" : ""}`}
                   style={{ transform: `translateY(${vi.start - virtualizer.options.scrollMargin}px)` }}
                 >
@@ -1839,7 +1838,6 @@ function MobileProspectList({
           <div
             key={p.id}
             data-index={vi.index}
-            ref={virtualizer.measureElement}
             style={{
               position: "absolute",
               top: 0,
