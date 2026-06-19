@@ -1027,75 +1027,20 @@ function ProspeccaoPage() {
               onRemove={(id) => removeProspect([id])}
             />
           </div>
-          {/* Desktop: table */}
-          <div className="hidden overflow-x-auto md:block">
-            <table className="w-full text-sm">
-              <thead className="bg-accent/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-3 w-10">
-                    <NativeCheckbox checked={allVisibleSelected} onChange={toggleSelectAll} ariaLabel="Selecionar todos" />
-                  </th>
-                  <th className="px-4 py-3">Empresa</th>
-                  <th className="px-4 py-3">Contato</th>
-                  <th className="px-4 py-3">Localização</th>
-                  <th className="px-4 py-3">Origem</th>
-                  <th className="px-4 py-3">Potencial</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 && (
-                  <tr><td colSpan={8} className="px-4 py-16 text-center text-sm text-muted-foreground">
-                    Nenhuma empresa encontrada.
-                  </td></tr>
-                )}
-                {filtered.map((p) => (
-                  <tr key={p.id}
-                    className={`border-t border-border/60 hover:bg-accent/30 ${selected.has(p.id) ? "bg-primary/5" : ""}`}>
-                    <td className="px-3 py-3 align-top">
-                      <NativeCheckbox checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} ariaLabel={`Selecionar ${p.company}`} />
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <button className="text-left" onClick={() => setDetailId(p.id)}>
-                        <div className="font-semibold hover:text-primary-glow">{p.company}</div>
-                        <div className="text-[11px] text-muted-foreground">{p.segment} · resp. {p.owner}</div>
-                      </button>
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <div className="text-xs">{p.whatsapp || p.phone || "—"}</div>
-                      <div className="text-[11px] text-muted-foreground">{p.email || p.instagram || "—"}</div>
-                    </td>
-                    <td className="px-4 py-3 align-top text-xs">{p.city ? `${p.city} - ${p.state}` : p.state || "—"}</td>
-                    <td className="px-4 py-3 align-top text-xs">{p.source}</td>
-                    <td className="px-4 py-3 align-top"><PotentialBadge p={p.potential} /></td>
-                    <td className="px-4 py-3 align-top"><StatusBadge status={p.status} /></td>
-                    <td className="px-4 py-3 align-top">
-                      <div className="flex items-center justify-end gap-1">
-                        <RowActions p={p} onWhats={openWhats} onCall={callPhone}
-                          onAgendar={() => updateStatus(p.id, "agendado")}
-                          onConvert={() => convertToLead(p)} onStatus={updateStatus}
-                          onRemove={() => removeProspect([p.id])} onOpen={() => setDetailId(p.id)} />
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                          aria-label={`Apagar ${p.company}`}
-                          onClick={() => {
-                            if (window.confirm(`Apagar "${p.company}"? Esta ação não pode ser desfeita.`)) {
-                              removeProspect([p.id]);
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DesktopProspectTable
+            items={filtered}
+            selected={selected}
+            allVisibleSelected={allVisibleSelected}
+            onToggleSelect={toggleSelect}
+            onToggleSelectAll={toggleSelectAll}
+            onOpen={setDetailId}
+            onWhats={openWhats}
+            onCall={callPhone}
+            onAgendar={(id) => updateStatus(id, "agendado")}
+            onConvert={convertToLead}
+            onStatus={updateStatus}
+            onRemove={(id) => removeProspect([id])}
+          />
           <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground">
             <span>Mostrando {filtered.length} de {prospects.length} empresas</span>
             <span className="hidden sm:inline">INFINDA digital — Prospecção</span>
