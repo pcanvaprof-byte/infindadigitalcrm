@@ -123,6 +123,35 @@ const STATUSES: ProspectStatus[] = [
   "entregue",
 ];
 const POTENTIALS: ProspectPotential[] = ["alto", "medio", "baixo"];
+const STATUS_SET = new Set<ProspectStatus>([...STATUSES, "cliente"]);
+const POTENTIAL_SET = new Set<ProspectPotential>(POTENTIALS);
+
+function safeProspect(p: Partial<Prospect> & { id?: unknown }, index: number): Prospect {
+  const status = typeof p.status === "string" && STATUS_SET.has(p.status as ProspectStatus)
+    ? p.status as ProspectStatus
+    : "nao_contatado";
+  const potential = typeof p.potential === "string" && POTENTIAL_SET.has(p.potential as ProspectPotential)
+    ? p.potential as ProspectPotential
+    : "medio";
+  return {
+    id: typeof p.id === "string" && p.id ? p.id : `safe_${index}`,
+    company: typeof p.company === "string" && p.company.trim() ? p.company : "Empresa sem nome",
+    cnpj: typeof p.cnpj === "string" ? p.cnpj : undefined,
+    segment: typeof p.segment === "string" && p.segment.trim() ? p.segment : "Outros",
+    owner: typeof p.owner === "string" ? p.owner : "",
+    whatsapp: typeof p.whatsapp === "string" ? p.whatsapp : "",
+    phone: typeof p.phone === "string" ? p.phone : "",
+    email: typeof p.email === "string" ? p.email : "",
+    instagram: typeof p.instagram === "string" ? p.instagram : "",
+    city: typeof p.city === "string" ? p.city : "",
+    state: typeof p.state === "string" ? p.state : "",
+    source: typeof p.source === "string" && p.source.trim() ? p.source : "Importação",
+    potential,
+    status,
+    createdAt: typeof p.createdAt === "string" ? p.createdAt : new Date(0).toISOString(),
+    interactions: Array.isArray(p.interactions) ? p.interactions : [],
+  };
+}
 
 const onlyDigits = (s: string) => s.replace(/\D/g, "");
 
@@ -230,15 +259,15 @@ function StatCard({
 
 function StatusBadge({ status }: { status: ProspectStatus }) {
   return (
-    <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[status]}`}>
-      {STATUS_LABEL[status]}
+    <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[status] ?? STATUS_TONE.nao_contatado}`}>
+      {STATUS_LABEL[status] ?? STATUS_LABEL.nao_contatado}
     </span>
   );
 }
 function PotentialBadge({ p }: { p: ProspectPotential }) {
   return (
-    <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${POTENTIAL_TONE[p]}`}>
-      {POTENTIAL_LABEL[p]}
+    <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${POTENTIAL_TONE[p] ?? POTENTIAL_TONE.medio}`}>
+      {POTENTIAL_LABEL[p] ?? POTENTIAL_LABEL.medio}
     </span>
   );
 }
