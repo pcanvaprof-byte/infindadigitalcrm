@@ -6,6 +6,7 @@ const sb = supabase as any;
 export interface DashboardKPIs {
   prospectsTotal: number;
   prospectsContacted: number;
+  conversationsStarted: number;
   clientsTotal: number;
   dealsOpen: number;
   dealsWon: number;
@@ -44,16 +45,18 @@ export async function getDashboardKPIs(): Promise<DashboardKPIs> {
   const id = await uid();
   if (!id) {
     return {
-      prospectsTotal: 0, prospectsContacted: 0, clientsTotal: 0,
+      prospectsTotal: 0, prospectsContacted: 0, conversationsStarted: 0, clientsTotal: 0,
       dealsOpen: 0, dealsWon: 0, dealsLost: 0,
       revenueWon: 0, pipelineValue: 0, avgTicket: 0,
       meetings: 0, proposals: 0, briefingsTotal: 0, tasksTotal: 0,
     };
   }
 
-  const [pAll, pContacted, clients, dealsRes, stagesRes, briefingsRes] = await Promise.all([
+  const [pAll, pContacted, convRes, clients, dealsRes, stagesRes, briefingsRes] = await Promise.all([
     sb.from("prospects").select("id", { count: "exact", head: true }).eq("user_id", id),
     sb.from("prospects").select("id", { count: "exact", head: true }).eq("user_id", id).neq("status", "nao_contatado"),
+    sb.from("prospect_interactions").select("id", { count: "exact", head: true })
+      .eq("user_id", id).in("kind", ["whatsapp", "ligacao", "email"]),
     sb.from("clients").select("id", { count: "exact", head: true }).eq("user_id", id),
     sb.from("deals").select("id, stage_id, value").eq("user_id", id),
     sb.from("deal_stages").select("id, is_won, is_lost, position, label"),
@@ -79,6 +82,7 @@ export async function getDashboardKPIs(): Promise<DashboardKPIs> {
   return {
     prospectsTotal: pAll.count ?? 0,
     prospectsContacted: pContacted.count ?? 0,
+    conversationsStarted: convRes.count ?? 0,
     clientsTotal: clients.count ?? 0,
     dealsOpen,
     dealsWon,
