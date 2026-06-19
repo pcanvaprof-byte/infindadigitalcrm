@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
+import { MobileNav } from "./MobileNav";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, enabled: true },
@@ -149,11 +150,14 @@ export function AppShell({
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 border-b border-border bg-background/80 px-4 py-3 backdrop-blur-xl sm:px-6">
+        <header
+          className="sticky top-0 z-30 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/80 px-3 py-2.5 backdrop-blur-xl sm:gap-4 sm:px-6 sm:py-3"
+          style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 0.625rem)" }}
+        >
           <div className="flex items-center gap-3">
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="lg:hidden">
+                <Button variant="ghost" size="icon" className="tap-target lg:hidden" aria-label="Abrir menu">
                   <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
@@ -165,23 +169,26 @@ export function AppShell({
               </SheetContent>
             </Sheet>
             <div className="min-w-0">
-              <h1 className="truncate text-base font-semibold sm:text-lg">{title}</h1>
+              <h1 className="truncate text-[15px] font-semibold leading-tight sm:text-lg">{title}</h1>
               {subtitle && <p className="truncate text-xs text-muted-foreground">{subtitle}</p>}
             </div>
           </div>
 
           <div className="hidden md:block" />
 
-          <div className="flex items-center gap-2">
-            {actions}
-            <Button variant="ghost" size="icon" className="relative">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="hidden sm:flex sm:items-center sm:gap-2">{actions}</div>
+            <Button variant="ghost" size="icon" className="tap-target relative" aria-label="Notificações">
               <Bell className="h-4 w-4" />
               <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-primary-glow" />
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 rounded-full border border-border bg-card px-1.5 py-1 pr-3 transition-colors hover:bg-accent">
-                  <span className="grid h-7 w-7 place-items-center rounded-full bg-[var(--gradient-primary)] text-xs font-bold text-primary-foreground">
+                <button
+                  aria-label="Conta"
+                  className="flex min-h-[40px] items-center gap-2 rounded-full border border-border bg-card px-1.5 py-1 sm:pr-3 transition-colors hover:bg-accent"
+                >
+                  <span className="grid h-8 w-8 place-items-center rounded-full bg-[var(--gradient-primary)] text-xs font-bold text-primary-foreground sm:h-7 sm:w-7">
                     {initials || "IN"}
                   </span>
                   <span className="hidden text-xs font-medium sm:block">{user?.name}</span>
@@ -209,8 +216,16 @@ export function AppShell({
           </div>
         </header>
 
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        {actions && (
+          <div className="flex items-center gap-2 overflow-x-auto border-b border-border/60 bg-background/60 px-3 py-2 sm:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {actions}
+          </div>
+        )}
+
+        <main className="flex-1 px-3 py-4 pb-mobile-nav sm:px-6 sm:py-6 lg:px-8">{children}</main>
       </div>
+
+      <MobileNav onOpenMenu={() => setMobileMenuOpen(true)} />
     </div>
   );
 }

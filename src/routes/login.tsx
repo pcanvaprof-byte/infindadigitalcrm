@@ -51,9 +51,15 @@ function LoginPage() {
   };
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
+    <main
+      className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-8"
+      style={{
+        paddingTop: "max(env(safe-area-inset-top, 0px), 2rem)",
+        paddingBottom: "max(env(safe-area-inset-bottom, 0px), 2rem)",
+      }}
+    >
       <section className="w-full max-w-sm">
-        <div className="mb-8 flex justify-center">
+        <div className="mb-6 flex justify-center sm:mb-8">
           <Logo />
         </div>
 
@@ -97,7 +103,7 @@ function LoginPage() {
 
             <Button
               type="submit"
-              className="btn-gradient h-10 w-full"
+              className="btn-gradient h-12 w-full text-base sm:h-10 sm:text-sm"
               disabled={submitting || !isReady}
             >
               {submitting ? (

@@ -41,6 +41,12 @@
   --color-sidebar-accent: var(--sidebar-accent);
 
   --font-display: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  /* Safe-area tokens for iOS notch / home indicator */
+  --spacing-safe-t: env(safe-area-inset-top, 0px);
+  --spacing-safe-b: env(safe-area-inset-bottom, 0px);
+  --spacing-safe-l: env(safe-area-inset-left, 0px);
+  --spacing-safe-r: env(safe-area-inset-right, 0px);
 }
 
 :root {
@@ -113,6 +119,29 @@
       radial-gradient(1200px 600px at 80% -10%, oklch(0.58 0.21 264 / 12%), transparent 60%),
       radial-gradient(900px 500px at -10% 10%, oklch(0.7 0.22 264 / 8%), transparent 60%);
     background-attachment: fixed;
+    /* Hard guard against horizontal scroll on mobile */
+    overflow-x: hidden;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  html {
+    overflow-x: hidden;
+  }
+
+  /* Prevent iOS auto-zoom on focused inputs (needs >=16px) */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  @media (min-width: 640px) {
+    input,
+    select,
+    textarea {
+      font-size: inherit;
+    }
   }
 }
 
@@ -121,6 +150,27 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
+}
+
+/* Safe-area paddings (iOS notch / home indicator) */
+@utility pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+@utility pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+@utility pl-safe { padding-left: env(safe-area-inset-left, 0px); }
+@utility pr-safe { padding-right: env(safe-area-inset-right, 0px); }
+@utility mb-safe { margin-bottom: env(safe-area-inset-bottom, 0px); }
+
+/* Touch-friendly minimum tap target (Apple HIG / Material) */
+@utility tap-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Reserve room for mobile bottom-nav (h-16 + safe area) */
+@utility pb-mobile-nav {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px) + 0.5rem);
+}
+@media (min-width: 1024px) {
+  .pb-mobile-nav { padding-bottom: 0; }
 }
 
 @utility btn-gradient {
