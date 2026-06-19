@@ -325,7 +325,10 @@ function ProspeccaoPage() {
     enabled: !!user,
     staleTime: 5_000,
   });
-  const prospects = prospectsQ.data ?? [];
+  const prospects = useMemo(
+    () => (Array.isArray(prospectsQ.data) ? prospectsQ.data : []).map(safeProspect),
+    [prospectsQ.data],
+  );
   const loading = prospectsQ.isLoading;
   useEffect(() => {
     if (prospectsQ.error) toast.error(`Falha ao carregar: ${(prospectsQ.error as Error).message}`);
@@ -333,7 +336,7 @@ function ProspeccaoPage() {
 
   // Helper para optimistic updates no cache do Query.
   const setCache = (update: (prev: Prospect[]) => Prospect[]) =>
-    qc.setQueryData<Prospect[]>(crmKeys.prospects, (old) => update(old ?? []));
+    qc.setQueryData<Prospect[]>(crmKeys.prospects, (old) => update(Array.isArray(old) ? old.map(safeProspect) : []));
 
   useEffect(() => {
     if (typeof window === "undefined") return;
