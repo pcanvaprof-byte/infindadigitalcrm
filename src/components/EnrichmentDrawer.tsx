@@ -63,7 +63,7 @@ export function EnrichmentDrawer({ open, onOpenChange, cnpj, prospectId, company
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-2xl">
+      <SheetContent side="right" className="w-full overflow-y-auto p-4 sm:max-w-2xl sm:p-6">
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-primary-glow" />
