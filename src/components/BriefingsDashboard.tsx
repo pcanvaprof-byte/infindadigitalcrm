@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import QRCode from "qrcode";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import {
   SERVICO_LABEL, STATUS_LABEL, type Briefing, type BriefingServico,
   type BriefingStatus, type BriefingTipo,
 } from "@/lib/briefings/types";
+import { crmKeys, invalidateCrmCore } from "@/lib/crm/api";
 
 const FILTERS: { id: "todos" | BriefingStatus; label: string }[] = [
   { id: "todos", label: "Todos" },
@@ -41,35 +43,34 @@ function publicUrl(token: string) {
 
 export function BriefingsDashboard({ tipo }: { tipo: BriefingTipo }) {
   const isKickoff = tipo === "kickoff_producao";
-  const [items, setItems] = useState<Briefing[]>([]);
-  const [loading, setLoading] = useState(true);
+  const qc = useQueryClient();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("todos");
   const [query, setQuery] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [shareTarget, setShareTarget] = useState<Briefing | null>(null);
-  const [deleting, setDeleting] = useState<string | null>(null);
 
-  async function reload() {
-    setLoading(true);
-    try { setItems(await listBriefings({ tipo })); }
-    catch (e) { toast.error("Não foi possível carregar", { description: (e as Error).message }); }
-    finally { setLoading(false); }
-  }
-  useEffect(() => { void reload(); /* eslint-disable-next-line */ }, [tipo]);
+  const briefingsQ = useQuery({
+    queryKey: [...crmKeys.briefings, tipo],
+    queryFn: () => listBriefings({ tipo }),
+    staleTime: 10_000,
+  });
+  const items: Briefing[] = briefingsQ.data ?? [];
+  const loading = briefingsQ.isLoading;
+
+  const deleteMut = useMutation({
+    mutationFn: (b: Briefing) => deleteBriefing(b.id),
+    onSuccess: async () => {
+      toast.success("Registro apagado");
+      await invalidateCrmCore(qc);
+    },
+    onError: (e) => toast.error("Erro ao apagar", { description: (e as Error).message }),
+  });
+  const deleting = deleteMut.isPending ? deleteMut.variables?.id ?? null : null;
 
   async function handleDelete(b: Briefing) {
     const label = b.empresa || b.cliente_nome || "este registro";
     if (!window.confirm(`Apagar "${label}"? Esta ação não pode ser desfeita.`)) return;
-    setDeleting(b.id);
-    try {
-      await deleteBriefing(b.id);
-      toast.success("Registro apagado");
-      setItems((prev) => prev.filter((x) => x.id !== b.id));
-    } catch (e) {
-      toast.error("Erro ao apagar", { description: (e as Error).message });
-    } finally {
-      setDeleting(null);
-    }
+    deleteMut.mutate(b);
   }
 
   const filtered = useMemo(() => items.filter((b) => {
@@ -99,7 +100,11 @@ export function BriefingsDashboard({ tipo }: { tipo: BriefingTipo }) {
           </DialogTrigger>
           <CreateDialog
             tipo={tipo}
-            onCreated={(b) => { setCreateOpen(false); setShareTarget(b); void reload(); }}
+            onCreated={(b) => {
+              setCreateOpen(false);
+              setShareTarget(b);
+              void invalidateCrmCore(qc);
+            }}
           />
         </Dialog>
       }

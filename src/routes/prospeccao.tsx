@@ -91,8 +91,8 @@ import { History, FileSpreadsheet } from "lucide-react";
 import { EnrichmentDrawer } from "@/components/EnrichmentDrawer";
 import { runEnrichment } from "@/lib/enrichment/api";
 import { Loader2 } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
-import { convertProspectToClient, crmKeys } from "@/lib/crm/api";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { convertProspectToClient, crmKeys, invalidateCrmCore } from "@/lib/crm/api";
 
 
 export const Route = createFileRoute("/prospeccao")({
@@ -279,15 +279,20 @@ function ProspeccaoPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [enrichFor, setEnrichFor] = useState<Prospect | null>(null);
 
+  // Fonte de verdade: TanStack Query. setProspects continua sendo usado
+  // como espelho local para edições otimistas, mas qualquer invalidação
+  // de ["prospects"] dispara refetch automático.
+  const prospectsQ = useQuery({
+    queryKey: crmKeys.prospects,
+    queryFn: loadAllProspects,
+    enabled: !!user,
+    staleTime: 5_000,
+  });
   useEffect(() => {
-    if (!user) return;
-    let alive = true;
-    loadAllProspects()
-      .then((rows) => { if (alive) setProspects(rows); })
-      .catch((err) => toast.error(`Falha ao carregar: ${err.message ?? err}`))
-      .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
-  }, [user]);
+    if (prospectsQ.data) setProspects(prospectsQ.data);
+    if (!prospectsQ.isLoading) setLoading(false);
+    if (prospectsQ.error) toast.error(`Falha ao carregar: ${(prospectsQ.error as Error).message}`);
+  }, [prospectsQ.data, prospectsQ.isLoading, prospectsQ.error]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -362,7 +367,9 @@ function ProspeccaoPage() {
 
   const updateStatus = (id: string, status: ProspectStatus) => {
     setProspects((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)));
-    updateProspect(id, { status }).catch((e) => toast.error(`Erro: ${e.message ?? e}`));
+    updateProspect(id, { status })
+      .then(() => invalidateCrmCore(qc))
+      .catch((e) => toast.error(`Erro: ${e.message ?? e}`));
     addInteraction(id, "status", `Status alterado para "${STATUS_LABEL[status]}"`);
     toast.success(`Status: ${STATUS_LABEL[status]}`);
   };
@@ -371,16 +378,16 @@ function ProspeccaoPage() {
     setProspects((prev) => prev.filter((p) => !ids.includes(p.id)));
     setSelected(new Set());
     deleteProspects(ids)
-      .then(() => toast.success(`${ids.length} empresa(s) removida(s)`))
+      .then(() => { toast.success(`${ids.length} empresa(s) removida(s)`); return invalidateCrmCore(qc); })
       .catch((e) => toast.error(`Erro: ${e.message ?? e}`));
   };
 
   const bulkStatus = (status: ProspectStatus) => {
     const ids = Array.from(selected);
     setProspects((prev) => prev.map((p) => (ids.includes(p.id) ? { ...p, status } : p)));
-    Promise.all(ids.map((id) => updateProspect(id, { status }))).catch((e) =>
-      toast.error(`Erro: ${e.message ?? e}`),
-    );
+    Promise.all(ids.map((id) => updateProspect(id, { status })))
+      .then(() => invalidateCrmCore(qc))
+      .catch((e) => toast.error(`Erro: ${e.message ?? e}`));
     ids.forEach((id) => addInteraction(id, "status", `Status em lote → "${STATUS_LABEL[status]}"`));
     toast.success(`${ids.length} atualizada(s) para ${STATUS_LABEL[status]}`);
     setSelected(new Set());
@@ -389,9 +396,9 @@ function ProspeccaoPage() {
   const bulkAssign = (owner: string) => {
     const ids = Array.from(selected);
     setProspects((prev) => prev.map((p) => (ids.includes(p.id) ? { ...p, owner } : p)));
-    Promise.all(ids.map((id) => updateProspect(id, { owner }))).catch((e) =>
-      toast.error(`Erro: ${e.message ?? e}`),
-    );
+    Promise.all(ids.map((id) => updateProspect(id, { owner })))
+      .then(() => invalidateCrmCore(qc))
+      .catch((e) => toast.error(`Erro: ${e.message ?? e}`));
     toast.success(`${ids.length} atribuída(s) a ${owner}`);
     setSelected(new Set());
   };
@@ -456,6 +463,7 @@ function ProspeccaoPage() {
       toast.success("Empresa cadastrada");
       setForm({ ...EMPTY_FORM, owner: user.name });
       setDialogOpen(false);
+      void invalidateCrmCore(qc);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       toast.error(`Erro: ${msg}`);
@@ -612,6 +620,7 @@ function ProspeccaoPage() {
       setProspects(fresh);
       setPreviewOpen(false);
       setPreviewRows([]);
+      void invalidateCrmCore(qc);
       toast.success(
         `Importação salva no banco: ${result.inserted} novas, ${result.updated} atualizadas, ${result.skipped} ignoradas`,
         { duration: 8000 },

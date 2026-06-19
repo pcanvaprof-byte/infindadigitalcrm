@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState, lazy, Suspense } from "react";
+import { useMemo, useState, lazy, Suspense } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/lib/auth-context";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import { toast } from "sonner";
 import { loadMapPoints, bairroColor, type MapPoint } from "@/lib/tasks-map-api";
 import { runEnrichment } from "@/lib/enrichment/api";
 import { collectBairro } from "@/lib/enrichment/bairro";
+import { crmKeys } from "@/lib/crm/api";
 
 const TasksMap = lazy(() => import("@/components/TasksMap").then((m) => ({ default: m.TasksMap })));
 
@@ -24,22 +26,60 @@ export const Route = createFileRoute("/tarefas")({
 });
 
 function TarefasPage() {
-  const [points, setPoints] = useState<MapPoint[]>([]);
-  const [loading, setLoading] = useState(true);
+  const qc = useQueryClient();
   const [selectedBairro, setSelectedBairro] = useState<string | null>(null);
   const [q, setQ] = useState("");
-  const [geocoding, setGeocoding] = useState(false);
-  const [collectingBairro, setCollectingBairro] = useState(false);
+
+  const tasksQ = useQuery({
+    queryKey: crmKeys.tasks,
+    queryFn: loadMapPoints,
+    staleTime: 15_000,
+  });
+  const points: MapPoint[] = tasksQ.data ?? [];
+  const loading = tasksQ.isLoading;
 
   const refresh = () => {
-    setLoading(true);
-    loadMapPoints()
-      .then(setPoints)
-      .catch((e) => toast.error(`Erro: ${(e as Error).message}`))
-      .finally(() => setLoading(false));
+    qc.invalidateQueries({ queryKey: crmKeys.tasks });
+    qc.invalidateQueries({ queryKey: crmKeys.prospects });
+    qc.invalidateQueries({ queryKey: crmKeys.dashboardKpis });
   };
 
-  useEffect(() => { refresh(); }, []);
+  const geoMut = useMutation({
+    mutationFn: async () => {
+      const missing = points.filter((p) => !p.lat || !p.lon).slice(0, 50);
+      if (!missing.length) { toast.info("Todos os leads já têm coordenadas."); return 0; }
+      const tid = toast.loading(`Geocodificando 0/${missing.length}…`);
+      let ok = 0;
+      for (let i = 0; i < missing.length; i++) {
+        try { await runEnrichment(missing[i].cnpj); ok++; } catch { /* ignore */ }
+        toast.loading(`Geocodificando ${i + 1}/${missing.length}…`, { id: tid });
+        await new Promise((r) => setTimeout(r, 1100));
+      }
+      toast.success(`Concluído: ${ok}/${missing.length}`, { id: tid });
+      return ok;
+    },
+    onSuccess: refresh,
+  });
+
+  const bairroMut = useMutation({
+    mutationFn: async () => {
+      const missing = points.filter((p) => !p.bairro);
+      if (!missing.length) { toast.info("Todos já têm bairro."); return 0; }
+      const tid = toast.loading(`Coletando bairros 0/${missing.length}…`);
+      let ok = 0;
+      for (let i = 0; i < missing.length; i++) {
+        try { await collectBairro(missing[i].cnpj); ok++; } catch { /* ignore */ }
+        toast.loading(`Coletando bairros ${i + 1}/${missing.length}…`, { id: tid });
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      toast.success(`Bairros coletados: ${ok}/${missing.length}`, { id: tid });
+      return ok;
+    },
+    onSuccess: refresh,
+  });
+
+  const geocoding = geoMut.isPending;
+  const collectingBairro = bairroMut.isPending;
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -71,37 +111,8 @@ function TarefasPage() {
       .slice(0, 150);
   }, [filtered]);
 
-  const enrichMissing = async () => {
-    const missing = points.filter((p) => !p.lat || !p.lon).slice(0, 50);
-    if (!missing.length) return toast.info("Todos os leads já têm coordenadas.");
-    setGeocoding(true);
-    const tid = toast.loading(`Geocodificando 0/${missing.length}…`);
-    let ok = 0;
-    for (let i = 0; i < missing.length; i++) {
-      try { await runEnrichment(missing[i].cnpj); ok++; } catch { /* ignore */ }
-      toast.loading(`Geocodificando ${i + 1}/${missing.length}…`, { id: tid });
-      await new Promise((r) => setTimeout(r, 1100)); // Nominatim ~1 req/s
-    }
-    toast.success(`Concluído: ${ok}/${missing.length}`, { id: tid });
-    setGeocoding(false);
-    refresh();
-  };
-
-  const collectBairros = async () => {
-    const missing = points.filter((p) => !p.bairro);
-    if (!missing.length) return toast.info("Todos já têm bairro.");
-    setCollectingBairro(true);
-    const tid = toast.loading(`Coletando bairros 0/${missing.length}…`);
-    let ok = 0;
-    for (let i = 0; i < missing.length; i++) {
-      try { await collectBairro(missing[i].cnpj); ok++; } catch { /* ignore */ }
-      toast.loading(`Coletando bairros ${i + 1}/${missing.length}…`, { id: tid });
-      await new Promise((r) => setTimeout(r, 250));
-    }
-    toast.success(`Bairros coletados: ${ok}/${missing.length}`, { id: tid });
-    setCollectingBairro(false);
-    refresh();
-  };
+  const enrichMissing = () => geoMut.mutate();
+  const collectBairros = () => bairroMut.mutate();
 
   return (
     <AppShell title="Tarefas" subtitle="Mapa de leads cadastrados por bairro">
