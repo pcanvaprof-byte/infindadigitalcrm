@@ -1147,6 +1147,126 @@ function ProspeccaoPage() {
   );
 }
 
+function DesktopProspectTable({
+  items,
+  selected,
+  allVisibleSelected,
+  onToggleSelect,
+  onToggleSelectAll,
+  onOpen,
+  onWhats,
+  onCall,
+  onAgendar,
+  onConvert,
+  onStatus,
+  onRemove,
+}: {
+  items: Prospect[];
+  selected: Set<string>;
+  allVisibleSelected: boolean;
+  onToggleSelect: (id: string) => void;
+  onToggleSelectAll: () => void;
+  onOpen: (id: string) => void;
+  onWhats: (p: Prospect) => void;
+  onCall: (p: Prospect) => void;
+  onAgendar: (id: string) => void;
+  onConvert: (p: Prospect) => void;
+  onStatus: (id: string, s: ProspectStatus) => void;
+  onRemove: (id: string) => void;
+}) {
+  const parentRef = useRef<HTMLDivElement | null>(null);
+  const virtualizer = useWindowVirtualizer({
+    count: items.length,
+    estimateSize: () => 64,
+    overscan: 8,
+    scrollMargin: parentRef.current?.offsetTop ?? 0,
+  });
+
+  return (
+    <div className="hidden overflow-x-auto md:block">
+      <div className="min-w-[980px] text-sm">
+        <div className="grid grid-cols-[52px_minmax(220px,1.5fr)_minmax(170px,1fr)_minmax(130px,0.8fr)_minmax(110px,0.7fr)_110px_130px_220px] bg-accent/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
+          <div className="px-3 py-3">
+            <NativeCheckbox checked={allVisibleSelected} onChange={onToggleSelectAll} ariaLabel="Selecionar todos" />
+          </div>
+          <div className="px-4 py-3">Empresa</div>
+          <div className="px-4 py-3">Contato</div>
+          <div className="px-4 py-3">Localização</div>
+          <div className="px-4 py-3">Origem</div>
+          <div className="px-4 py-3">Potencial</div>
+          <div className="px-4 py-3">Status</div>
+          <div className="px-4 py-3 text-right">Ações</div>
+        </div>
+
+        {items.length === 0 ? (
+          <div className="border-t border-border/60 px-4 py-16 text-center text-sm text-muted-foreground">
+            Nenhuma empresa encontrada.
+          </div>
+        ) : (
+          <div ref={parentRef} className="relative" style={{ height: virtualizer.getTotalSize() }}>
+            {virtualizer.getVirtualItems().map((vi) => {
+              const p = items[vi.index];
+              if (!p) return null;
+              return (
+                <div
+                  key={p.id}
+                  data-index={vi.index}
+                  ref={virtualizer.measureElement}
+                  className={`absolute left-0 right-0 grid grid-cols-[52px_minmax(220px,1.5fr)_minmax(170px,1fr)_minmax(130px,0.8fr)_minmax(110px,0.7fr)_110px_130px_220px] border-t border-border/60 hover:bg-accent/30 ${selected.has(p.id) ? "bg-primary/5" : ""}`}
+                  style={{ transform: `translateY(${vi.start - virtualizer.options.scrollMargin}px)` }}
+                >
+                  <div className="px-3 py-3">
+                    <NativeCheckbox checked={selected.has(p.id)} onChange={() => onToggleSelect(p.id)} ariaLabel={`Selecionar ${p.company}`} />
+                  </div>
+                  <div className="px-4 py-3">
+                    <button className="text-left" onClick={() => onOpen(p.id)}>
+                      <div className="font-semibold hover:text-primary-glow">{p.company}</div>
+                      <div className="text-[11px] text-muted-foreground">{p.segment} · resp. {p.owner}</div>
+                    </button>
+                  </div>
+                  <div className="px-4 py-3">
+                    <div className="text-xs">{p.whatsapp || p.phone || "—"}</div>
+                    <div className="text-[11px] text-muted-foreground">{p.email || p.instagram || "—"}</div>
+                  </div>
+                  <div className="px-4 py-3 text-xs">{p.city ? `${p.city} - ${p.state}` : p.state || "—"}</div>
+                  <div className="px-4 py-3 text-xs">{p.source}</div>
+                  <div className="px-4 py-3"><PotentialBadge p={p.potential} /></div>
+                  <div className="px-4 py-3"><StatusBadge status={p.status} /></div>
+                  <div className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1">
+                      <RowActions
+                        p={p}
+                        onWhats={onWhats}
+                        onCall={onCall}
+                        onAgendar={() => onAgendar(p.id)}
+                        onConvert={() => onConvert(p)}
+                        onStatus={onStatus}
+                        onRemove={() => onRemove(p.id)}
+                        onOpen={() => onOpen(p.id)}
+                      />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        aria-label={`Apagar ${p.company}`}
+                        onClick={() => {
+                          if (window.confirm(`Apagar "${p.company}"? Esta ação não pode ser desfeita.`)) onRemove(p.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const RowActions = memo(function RowActions({
   p, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onOpen,
 }: {
