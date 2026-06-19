@@ -91,6 +91,8 @@ import { History, FileSpreadsheet } from "lucide-react";
 import { EnrichmentDrawer } from "@/components/EnrichmentDrawer";
 import { runEnrichment } from "@/lib/enrichment/api";
 import { Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { convertProspectToClient, crmKeys } from "@/lib/crm/api";
 
 
 export const Route = createFileRoute("/prospeccao")({
@@ -420,14 +422,27 @@ function ProspeccaoPage() {
     window.open(`tel:+55${d}`);
   };
 
-  const convertToLead = (p: Prospect) => {
-    addInteraction(p.id, "status", "Convertida em Lead no CRM");
-    setProspects((prev) => prev.map((x) => (x.id === p.id ? { ...x, status: "qualificado" } : x)));
-    updateProspect(p.id, { status: "qualificado" }).catch((e) =>
-      toast.error(`Erro: ${e.message ?? e}`),
-    );
-    toast.success(`${p.company} convertida em lead`);
-    setTimeout(() => navigate({ to: "/crm" }), 500);
+  const qc = useQueryClient();
+  const convertToLead = async (p: Prospect) => {
+    try {
+      const res = await convertProspectToClient(p.id, { dealTitle: p.company });
+      setProspects((prev) => prev.map((x) => (x.id === p.id ? { ...x, status: "cliente" } : x)));
+      addInteraction(
+        p.id,
+        "status",
+        res.created ? "Convertida em cliente no CRM" : "Cliente já existia — vínculo reforçado",
+      );
+      // Cross-module sync: CRM, clientes, dashboard, prospects
+      qc.invalidateQueries({ queryKey: crmKeys.deals });
+      qc.invalidateQueries({ queryKey: crmKeys.clients });
+      qc.invalidateQueries({ queryKey: crmKeys.dashboardKpis });
+      qc.invalidateQueries({ queryKey: crmKeys.prospects });
+      toast.success(res.created ? `${p.company} convertida em cliente` : `${p.company} já era cliente — vínculo atualizado`);
+      setTimeout(() => navigate({ to: "/crm" }), 500);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`Erro ao converter: ${msg}`);
+    }
   };
 
   const handleCreate = async () => {

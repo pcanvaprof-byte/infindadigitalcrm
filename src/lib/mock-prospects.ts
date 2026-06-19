@@ -13,7 +13,8 @@ export type ProspectStatus =
   | "aguardando_kickoff"
   | "aguardando_producao"
   | "em_producao"
-  | "entregue";
+  | "entregue"
+  | "cliente";
 
 export type ProspectPotential = "alto" | "medio" | "baixo";
 
@@ -68,6 +69,7 @@ export const STATUS_LABEL: Record<ProspectStatus, string> = {
   aguardando_producao: "Aguardando produção",
   em_producao: "Em produção",
   entregue: "Entregue",
+  cliente: "Cliente",
 };
 
 export const STATUS_TONE: Record<ProspectStatus, string> = {
@@ -86,6 +88,7 @@ export const STATUS_TONE: Record<ProspectStatus, string> = {
   aguardando_producao: "bg-cyan-500/10 text-cyan-300 border-cyan-500/20",
   em_producao: "bg-blue-500/10 text-blue-300 border-blue-500/20",
   entregue: "bg-emerald-500/20 text-emerald-200 border-emerald-500/40",
+  cliente: "bg-emerald-500/15 text-emerald-200 border-emerald-500/30",
 };
 
 export const POTENTIAL_LABEL: Record<ProspectPotential, string> = {
