@@ -1,8 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { crmKeys } from "@/lib/crm/api";
-import { getDashboardKPIs, getPipelineMetrics } from "@/lib/dashboard/api";
+import { crmKeys, listDeals, listClients, listDealStages } from "@/lib/crm/api";
+import { loadAllProspects } from "@/lib/prospects-api";
+import { loadMapPoints } from "@/lib/tasks-map-api";
+import { listBriefings } from "@/lib/briefings/api";
+import { deriveDashboardMetrics } from "@/lib/dashboard/api";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth, useRequiredUser } from "@/lib/auth-context";
 import { Progress } from "@/components/ui/progress";
