@@ -1,6 +1,6 @@
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { FormEvent, useState } from "react";
-import { BarChart3, Loader2, Shield, Sparkles, User } from "lucide-react";
+import { BarChart3, Loader2, Shield, Sparkles } from "lucide-react";
 
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
@@ -53,23 +53,6 @@ function LoginPage() {
     event.preventDefault();
     void performLogin(email, password);
   };
-
-  const quickAccess = [
-    {
-      name: "Danielly",
-      role: "Administradora",
-      email: "danielly@infinda.com",
-      password: "danielly123",
-      icon: Shield,
-    },
-    {
-      name: "Valdinei",
-      role: "Consultor Comercial",
-      email: "valdinei@infinda.com",
-      password: "valdinei123",
-      icon: User,
-    },
-  ];
 
   return (
     <main className="min-h-[100dvh] bg-background text-foreground">
@@ -172,45 +155,6 @@ function LoginPage() {
                 )}
               </Button>
             </form>
-
-            <div className="my-6 flex items-center gap-3">
-              <div className="h-px flex-1 bg-border" />
-              <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
-                Acesso rápido (MVP)
-              </span>
-              <div className="h-px flex-1 bg-border" />
-            </div>
-
-            <div className="space-y-2">
-              {quickAccess.map((q) => {
-                const Icon = q.icon;
-                return (
-                  <button
-                    key={q.email}
-                    type="button"
-                    onClick={() => {
-                      setEmail(q.email);
-                      setPassword(q.password);
-                      void performLogin(q.email, q.password);
-                    }}
-                    disabled={submitting || !isReady}
-                    className="flex w-full items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left transition hover:border-blue-500/50 hover:bg-blue-500/5 disabled:opacity-60"
-                  >
-                    <span className="grid h-9 w-9 place-items-center rounded-md bg-blue-500/10 text-blue-400">
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <span className="flex flex-col">
-                      <span className="text-sm font-semibold">{q.name}</span>
-                      <span className="text-xs text-muted-foreground">{q.role}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <p className="mt-6 text-center text-[11px] leading-relaxed text-muted-foreground">
-              Credenciais: danielly@infinda.com / danielly123 · valdinei@infinda.com / valdinei123
-            </p>
           </div>
         </section>
       </div>
