@@ -91,7 +91,7 @@ import { History, FileSpreadsheet } from "lucide-react";
 import { EnrichmentDrawer } from "@/components/EnrichmentDrawer";
 import { runEnrichment } from "@/lib/enrichment/api";
 import { Loader2 } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { convertProspectToClient, crmKeys, invalidateCrmCore } from "@/lib/crm/api";
 
 
@@ -279,15 +279,20 @@ function ProspeccaoPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [enrichFor, setEnrichFor] = useState<Prospect | null>(null);
 
+  // Fonte de verdade: TanStack Query. setProspects continua sendo usado
+  // como espelho local para edições otimistas, mas qualquer invalidação
+  // de ["prospects"] dispara refetch automático.
+  const prospectsQ = useQuery({
+    queryKey: crmKeys.prospects,
+    queryFn: loadAllProspects,
+    enabled: !!user,
+    staleTime: 5_000,
+  });
   useEffect(() => {
-    if (!user) return;
-    let alive = true;
-    loadAllProspects()
-      .then((rows) => { if (alive) setProspects(rows); })
-      .catch((err) => toast.error(`Falha ao carregar: ${err.message ?? err}`))
-      .finally(() => { if (alive) setLoading(false); });
-    return () => { alive = false; };
-  }, [user]);
+    if (prospectsQ.data) setProspects(prospectsQ.data);
+    if (!prospectsQ.isLoading) setLoading(false);
+    if (prospectsQ.error) toast.error(`Falha ao carregar: ${(prospectsQ.error as Error).message}`);
+  }, [prospectsQ.data, prospectsQ.isLoading, prospectsQ.error]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
