@@ -35,6 +35,7 @@ export const Route = createFileRoute("/dashboard")({
 const KPI_TARGETS = {
   prospects: 150,
   contacted: 60,
+  conversations: 120,
   meetings: 30,
   proposals: 12,
   clients: 6,
@@ -53,7 +54,7 @@ type KpiItem = {
 
 function kpisFromData(d?: DashboardKPIs): KpiItem[] {
   const k = d ?? {
-    prospectsTotal: 0, prospectsContacted: 0, clientsTotal: 0,
+    prospectsTotal: 0, prospectsContacted: 0, conversationsStarted: 0, clientsTotal: 0,
     dealsOpen: 0, dealsWon: 0, dealsLost: 0, revenueWon: 0,
     pipelineValue: 0, avgTicket: 0, meetings: 0, proposals: 0,
     briefingsTotal: 0, tasksTotal: 0,
@@ -61,6 +62,7 @@ function kpisFromData(d?: DashboardKPIs): KpiItem[] {
   return [
     { label: "Empresas Prospectadas", value: k.prospectsTotal, target: KPI_TARGETS.prospects, icon: Building2 },
     { label: "Contatos Realizados", value: k.prospectsContacted, target: KPI_TARGETS.contacted, icon: MessageSquare },
+    { label: "Conversas Iniciadas", value: k.conversationsStarted, target: KPI_TARGETS.conversations, icon: MessageSquare },
     { label: "Reuniões", value: k.meetings, target: KPI_TARGETS.meetings, icon: CalendarClock },
     { label: "Propostas", value: k.proposals, target: KPI_TARGETS.proposals, icon: FileText },
     { label: "Clientes", value: k.clientsTotal, target: KPI_TARGETS.clients, icon: CheckCircle2 },
