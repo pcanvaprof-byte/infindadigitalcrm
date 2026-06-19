@@ -12,4 +12,9 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
+  // Deploy target fora do sandbox da Lovable.
+  // - Dentro da Lovable: o wrapper força Cloudflare (este preset é ignorado).
+  // - Em CI/Vercel: Nitro gera .vercel/output (Build Output API) automaticamente.
+  //   Vercel também respeita NITRO_PRESET=vercel se você preferir setar via env.
+  nitro: { preset: "vercel" },
 });
