@@ -1,5 +1,3 @@
-import logoAsset from "@/assets/infinda-logo.png.asset.json";
-
 export function Logo({ size = 32, withText = true }: { size?: number; withText?: boolean }) {
   return (
     <div className="flex items-center gap-2.5">
@@ -8,7 +6,7 @@ export function Logo({ size = 32, withText = true }: { size?: number; withText?:
         style={{ width: size, height: size }}
       >
         <img
-          src={logoAsset.url}
+          src="/infinda-logo.png"
           alt="Infinda"
           className="object-contain"
           style={{ width: size * 0.78, height: size * 0.78 }}
