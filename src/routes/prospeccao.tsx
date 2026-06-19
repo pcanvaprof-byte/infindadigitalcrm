@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, memo } from "react";
+import { useWindowVirtualizer } from "@tanstack/react-virtual";
 
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth, useRequiredUser } from "@/lib/auth-context";
@@ -825,56 +826,20 @@ function ProspeccaoPage() {
       {view === "table" ? (
         <section className="mt-4 surface-card overflow-hidden">
           {/* Mobile: card list */}
-          <ul className="divide-y divide-border/60 md:hidden">
-            {filtered.length === 0 && (
-              <li className="px-4 py-16 text-center text-sm text-muted-foreground">
-                Nenhuma empresa encontrada.
-              </li>
-            )}
-            {filtered.map((p) => (
-              <li
-                key={p.id}
-                className={`flex gap-3 p-3 ${selected.has(p.id) ? "bg-primary/5" : ""}`}
-              >
-                <Checkbox
-                  checked={selected.has(p.id)}
-                  onCheckedChange={() => toggleSelect(p.id)}
-                  aria-label={`Selecionar ${p.company}`}
-                  className="mt-1 shrink-0"
-                />
-                <div className="min-w-0 flex-1">
-                  <button
-                    className="block w-full text-left"
-                    onClick={() => setDetailId(p.id)}
-                  >
-                    <div className="truncate text-sm font-semibold">{p.company}</div>
-                    <div className="truncate text-[11px] text-muted-foreground">
-                      {p.segment} · {p.city ? `${p.city}-${p.state}` : p.state || "—"}
-                    </div>
-                  </button>
-                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                    <PotentialBadge p={p.potential} />
-                    <StatusBadge status={p.status} />
-                  </div>
-                  <div className="mt-1 truncate text-[11px] text-muted-foreground">
-                    {p.whatsapp || p.phone || p.email || p.instagram || "—"}
-                  </div>
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-1">
-                  <RowActions
-                    p={p}
-                    onWhats={openWhats}
-                    onCall={callPhone}
-                    onAgendar={() => updateStatus(p.id, "agendado")}
-                    onConvert={() => convertToLead(p)}
-                    onStatus={updateStatus}
-                    onRemove={() => removeProspect([p.id])}
-                    onOpen={() => setDetailId(p.id)}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
+          <div className="md:hidden">
+            <MobileProspectList
+              items={filtered}
+              selected={selected}
+              onToggleSelect={toggleSelect}
+              onOpen={setDetailId}
+              onWhats={openWhats}
+              onCall={callPhone}
+              onAgendar={(id) => updateStatus(id, "agendado")}
+              onConvert={convertToLead}
+              onStatus={updateStatus}
+              onRemove={(id) => removeProspect([id])}
+            />
+          </div>
           {/* Desktop: table */}
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full text-sm">
@@ -1473,3 +1438,146 @@ function ImportHistoryDialog({ open }: { open: boolean }) {
   );
 }
 
+
+const MobileProspectRow = memo(function MobileProspectRow({
+  p, isSelected, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove,
+}: {
+  p: Prospect;
+  isSelected: boolean;
+  onToggleSelect: (id: string) => void;
+  onOpen: (id: string) => void;
+  onWhats: (p: Prospect) => void;
+  onCall: (p: Prospect) => void;
+  onAgendar: (id: string) => void;
+  onConvert: (p: Prospect) => void;
+  onStatus: (id: string, s: ProspectStatus) => void;
+  onRemove: (id: string) => void;
+}) {
+  return (
+    <div className={`flex gap-3 border-b border-border/60 p-3 ${isSelected ? "bg-primary/5" : ""}`}>
+      <Checkbox
+        checked={isSelected}
+        onCheckedChange={() => onToggleSelect(p.id)}
+        aria-label={`Selecionar ${p.company}`}
+        className="mt-1 shrink-0"
+      />
+      <div className="min-w-0 flex-1">
+        <button className="block w-full text-left" onClick={() => onOpen(p.id)}>
+          <div className="truncate text-sm font-semibold">{p.company}</div>
+          <div className="truncate text-[11px] text-muted-foreground">
+            {p.segment} · {p.city ? `${p.city}-${p.state}` : p.state || "—"}
+          </div>
+        </button>
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          <PotentialBadge p={p.potential} />
+          <StatusBadge status={p.status} />
+        </div>
+        <div className="mt-1 truncate text-[11px] text-muted-foreground">
+          {p.whatsapp || p.phone || p.email || p.instagram || "—"}
+        </div>
+      </div>
+      <div className="flex shrink-0 flex-col items-end gap-1">
+        <RowActions
+          p={p}
+          onWhats={onWhats}
+          onCall={onCall}
+          onAgendar={() => onAgendar(p.id)}
+          onConvert={() => onConvert(p)}
+          onStatus={onStatus}
+          onRemove={() => onRemove(p.id)}
+          onOpen={() => onOpen(p.id)}
+        />
+      </div>
+    </div>
+  );
+});
+
+function MobileProspectList({
+  items, selected, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove,
+}: {
+  items: Prospect[];
+  selected: Set<string>;
+  onToggleSelect: (id: string) => void;
+  onOpen: (id: string) => void;
+  onWhats: (p: Prospect) => void;
+  onCall: (p: Prospect) => void;
+  onAgendar: (id: string) => void;
+  onConvert: (p: Prospect) => void;
+  onStatus: (id: string, s: ProspectStatus) => void;
+  onRemove: (id: string) => void;
+}) {
+  const parentRef = useRef<HTMLDivElement | null>(null);
+  const virtualizer = useWindowVirtualizer({
+    count: items.length,
+    estimateSize: () => 116,
+    overscan: 6,
+    scrollMargin: parentRef.current?.offsetTop ?? 0,
+  });
+
+  if (items.length === 0) {
+    return (
+      <div className="px-4 py-16 text-center text-sm text-muted-foreground">
+        Nenhuma empresa encontrada.
+      </div>
+    );
+  }
+
+  // Small lists: render directly (avoid virtualization overhead)
+  if (items.length <= 60) {
+    return (
+      <div>
+        {items.map((p) => (
+          <MobileProspectRow
+            key={p.id}
+            p={p}
+            isSelected={selected.has(p.id)}
+            onToggleSelect={onToggleSelect}
+            onOpen={onOpen}
+            onWhats={onWhats}
+            onCall={onCall}
+            onAgendar={onAgendar}
+            onConvert={onConvert}
+            onStatus={onStatus}
+            onRemove={onRemove}
+          />
+        ))}
+      </div>
+    );
+  }
+
+  const virtualItems = virtualizer.getVirtualItems();
+  return (
+    <div ref={parentRef} className="relative" style={{ height: virtualizer.getTotalSize() }}>
+      {virtualItems.map((vi) => {
+        const p = items[vi.index];
+        return (
+          <div
+            key={p.id}
+            data-index={vi.index}
+            ref={virtualizer.measureElement}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              transform: `translateY(${vi.start - virtualizer.options.scrollMargin}px)`,
+            }}
+          >
+            <MobileProspectRow
+              p={p}
+              isSelected={selected.has(p.id)}
+              onToggleSelect={onToggleSelect}
+              onOpen={onOpen}
+              onWhats={onWhats}
+              onCall={onCall}
+              onAgendar={onAgendar}
+              onConvert={onConvert}
+              onStatus={onStatus}
+              onRemove={onRemove}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
