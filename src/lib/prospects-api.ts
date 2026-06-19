@@ -35,32 +35,54 @@ type IxRow = {
   created_at: string;
 };
 
+const VALID_POTENTIALS = ["alto", "medio", "baixo"];
+const VALID_STATUSES = [
+  "nao_contatado",
+  "primeiro_contato",
+  "em_negociacao",
+  "qualificado",
+  "agendado",
+  "perdido",
+  "briefing_enviado",
+  "diagnostico_pendente",
+  "proposta_pendente",
+  "proposta_enviada",
+  "fechado_ganho",
+  "aguardando_kickoff",
+  "aguardando_producao",
+  "em_producao",
+  "entregue",
+  "cliente",
+];
+const VALID_INTERACTION_KINDS = ["whatsapp", "ligacao", "email", "reuniao", "nota", "status"];
+
 function fromRow(r: Row, ixs: IxRow[] = []): Prospect {
+  const interactions = Array.isArray(ixs) ? ixs : [];
   return {
-    id: r.id,
-    company: r.company,
+    id: r.id || crypto.randomUUID(),
+    company: r.company || "Empresa sem nome",
     cnpj: r.cnpj ?? undefined,
-    segment: r.segment,
-    owner: r.owner_name,
-    whatsapp: r.whatsapp,
-    phone: r.phone,
-    email: r.email,
-    instagram: r.instagram,
-    city: r.city,
-    state: r.state,
-    source: r.source,
-    potential: r.potential as ProspectPotential,
-    status: r.status as ProspectStatus,
+    segment: r.segment || "Outros",
+    owner: r.owner_name || "",
+    whatsapp: r.whatsapp || "",
+    phone: r.phone || "",
+    email: r.email || "",
+    instagram: r.instagram || "",
+    city: r.city || "",
+    state: r.state || "",
+    source: r.source || "Importação",
+    potential: (VALID_POTENTIALS.includes(r.potential) ? r.potential : "medio") as ProspectPotential,
+    status: (VALID_STATUSES.includes(r.status) ? r.status : "nao_contatado") as ProspectStatus,
     // Mantém ISO; formatação acontece apenas na UI.
-    createdAt: r.created_at,
-    interactions: ixs
+    createdAt: r.created_at || new Date(0).toISOString(),
+    interactions: interactions
       .filter((i) => i.prospect_id === r.id)
       .map((i) => ({
-        id: i.id,
-        kind: i.kind as InteractionKind,
-        text: i.text,
-        by: i.by_name,
-        at: i.created_at,
+        id: i.id || crypto.randomUUID(),
+        kind: (VALID_INTERACTION_KINDS.includes(i.kind) ? i.kind : "nota") as InteractionKind,
+        text: i.text || "",
+        by: i.by_name || "",
+        at: i.created_at || new Date(0).toISOString(),
       })),
   };
 }

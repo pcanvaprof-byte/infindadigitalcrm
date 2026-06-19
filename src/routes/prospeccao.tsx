@@ -123,6 +123,47 @@ const STATUSES: ProspectStatus[] = [
   "entregue",
 ];
 const POTENTIALS: ProspectPotential[] = ["alto", "medio", "baixo"];
+const STATUS_SET = new Set<ProspectStatus>([...STATUSES, "cliente"]);
+const POTENTIAL_SET = new Set<ProspectPotential>(POTENTIALS);
+
+function safeProspect(raw: unknown, index: number): Prospect {
+  const p = raw && typeof raw === "object" ? (raw as Partial<Prospect> & { id?: unknown }) : {};
+  const status =
+    typeof p.status === "string" && STATUS_SET.has(p.status as ProspectStatus)
+      ? (p.status as ProspectStatus)
+      : "nao_contatado";
+  const potential =
+    typeof p.potential === "string" && POTENTIAL_SET.has(p.potential as ProspectPotential)
+      ? (p.potential as ProspectPotential)
+      : "medio";
+  const interactions = Array.isArray(p.interactions)
+    ? p.interactions.map((ix, ixIndex) => ({
+        id: typeof ix?.id === "string" && ix.id ? ix.id : `safe_ix_${index}_${ixIndex}`,
+        kind: ix?.kind && INTERACTION_ICON[ix.kind] ? ix.kind : "nota",
+        text: typeof ix?.text === "string" ? ix.text : "",
+        by: typeof ix?.by === "string" ? ix.by : "",
+        at: typeof ix?.at === "string" ? ix.at : new Date(0).toISOString(),
+      }))
+    : [];
+  return {
+    id: typeof p.id === "string" && p.id ? p.id : `safe_${index}`,
+    company: typeof p.company === "string" && p.company.trim() ? p.company : "Empresa sem nome",
+    cnpj: typeof p.cnpj === "string" ? p.cnpj : undefined,
+    segment: typeof p.segment === "string" && p.segment.trim() ? p.segment : "Outros",
+    owner: typeof p.owner === "string" ? p.owner : "",
+    whatsapp: typeof p.whatsapp === "string" ? p.whatsapp : "",
+    phone: typeof p.phone === "string" ? p.phone : "",
+    email: typeof p.email === "string" ? p.email : "",
+    instagram: typeof p.instagram === "string" ? p.instagram : "",
+    city: typeof p.city === "string" ? p.city : "",
+    state: typeof p.state === "string" ? p.state : "",
+    source: typeof p.source === "string" && p.source.trim() ? p.source : "Importação",
+    potential,
+    status,
+    createdAt: typeof p.createdAt === "string" ? p.createdAt : new Date(0).toISOString(),
+    interactions,
+  };
+}
 
 const onlyDigits = (s: string) => s.replace(/\D/g, "");
 
@@ -230,15 +271,15 @@ function StatCard({
 
 function StatusBadge({ status }: { status: ProspectStatus }) {
   return (
-    <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[status]}`}>
-      {STATUS_LABEL[status]}
+    <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${STATUS_TONE[status] ?? STATUS_TONE.nao_contatado}`}>
+      {STATUS_LABEL[status] ?? STATUS_LABEL.nao_contatado}
     </span>
   );
 }
 function PotentialBadge({ p }: { p: ProspectPotential }) {
   return (
-    <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${POTENTIAL_TONE[p]}`}>
-      {POTENTIAL_LABEL[p]}
+    <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${POTENTIAL_TONE[p] ?? POTENTIAL_TONE.medio}`}>
+      {POTENTIAL_LABEL[p] ?? POTENTIAL_LABEL.medio}
     </span>
   );
 }
@@ -296,7 +337,10 @@ function ProspeccaoPage() {
     enabled: !!user,
     staleTime: 5_000,
   });
-  const prospects = prospectsQ.data ?? [];
+  const prospects = useMemo(
+    () => (Array.isArray(prospectsQ.data) ? prospectsQ.data : []).map(safeProspect),
+    [prospectsQ.data],
+  );
   const loading = prospectsQ.isLoading;
   useEffect(() => {
     if (prospectsQ.error) toast.error(`Falha ao carregar: ${(prospectsQ.error as Error).message}`);
@@ -304,7 +348,7 @@ function ProspeccaoPage() {
 
   // Helper para optimistic updates no cache do Query.
   const setCache = (update: (prev: Prospect[]) => Prospect[]) =>
-    qc.setQueryData<Prospect[]>(crmKeys.prospects, (old) => update(old ?? []));
+    qc.setQueryData<Prospect[]>(crmKeys.prospects, (old) => update(Array.isArray(old) ? old.map(safeProspect) : []));
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -463,7 +507,8 @@ function ProspeccaoPage() {
   const toggleSelect = (id: string) =>
     setSelected((prev) => {
       const n = new Set(prev);
-      n.has(id) ? n.delete(id) : n.add(id);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
       return n;
     });
 
@@ -1327,7 +1372,7 @@ function DetailDialog({
             ) : (
               <ol className="relative space-y-3 border-l border-border pl-4">
                 {timeline.map((ix) => {
-                  const Icon = INTERACTION_ICON[ix.kind];
+                  const Icon = INTERACTION_ICON[ix.kind] ?? StickyNote;
                   return (
                     <li key={ix.id} className="relative">
                       <span className="absolute -left-[22px] grid h-6 w-6 place-items-center rounded-full border border-border bg-card">
@@ -1681,6 +1726,7 @@ function MobileProspectList({
     <div ref={parentRef} className="relative" style={{ height: virtualizer.getTotalSize() }}>
       {virtualItems.map((vi) => {
         const p = items[vi.index];
+        if (!p) return null;
         return (
           <div
             key={p.id}
