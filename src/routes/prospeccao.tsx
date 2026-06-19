@@ -98,6 +98,23 @@ import { convertProspectToClient, crmKeys, invalidateCrmCore } from "@/lib/crm/a
 
 export const Route = createFileRoute("/prospeccao")({
   head: () => ({ meta: [{ title: "Prospecção — INFINDA" }] }),
+  errorComponent: ({ error }) => {
+    console.error("/prospeccao route error", error);
+    return (
+      <AppShell title="Prospecção" subtitle="Sua máquina de geração de oportunidades comerciais">
+        <div className="rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+          Erro ao carregar Prospecção: {error instanceof Error ? error.message : String(error)}
+        </div>
+      </AppShell>
+    );
+  },
+  notFoundComponent: () => (
+    <AppShell title="Prospecção" subtitle="Sua máquina de geração de oportunidades comerciais">
+      <div className="rounded-md border border-border p-4 text-sm text-muted-foreground">
+        Página de prospecção não encontrada.
+      </div>
+    </AppShell>
+  ),
   component: () => (
     <RequireAuth>
       <ProspeccaoPage />
