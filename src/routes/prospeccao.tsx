@@ -458,6 +458,7 @@ function ProspeccaoPage() {
       toast.success("Empresa cadastrada");
       setForm({ ...EMPTY_FORM, owner: user.name });
       setDialogOpen(false);
+      void invalidateCrmCore(qc);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       toast.error(`Erro: ${msg}`);
@@ -614,6 +615,7 @@ function ProspeccaoPage() {
       setProspects(fresh);
       setPreviewOpen(false);
       setPreviewRows([]);
+      void invalidateCrmCore(qc);
       toast.success(
         `Importação salva no banco: ${result.inserted} novas, ${result.updated} atualizadas, ${result.skipped} ignoradas`,
         { duration: 8000 },
