@@ -59,9 +59,6 @@ export const crmKeys = {
   clients: ["crm", "clients"] as const,
   dealActivities: (dealId: string) => ["crm", "deal-activities", dealId] as const,
   pipeline: ["crm", "pipeline"] as const,
-  dashboardKpis: ["dashboard", "kpis"] as const,
-  dashboardFunnel: ["dashboard", "funnel"] as const,
-  dashboardConversion: ["dashboard", "conversion"] as const,
   prospects: ["prospects"] as const,
   tasks: ["tasks"] as const,
   briefings: ["briefings"] as const,
@@ -82,9 +79,6 @@ export async function invalidateCrmCore(
     qc.invalidateQueries({ queryKey: crmKeys.prospects }),
     qc.invalidateQueries({ queryKey: crmKeys.tasks }),
     qc.invalidateQueries({ queryKey: crmKeys.briefings }),
-    qc.invalidateQueries({ queryKey: crmKeys.dashboardKpis }),
-    qc.invalidateQueries({ queryKey: crmKeys.dashboardFunnel }),
-    qc.invalidateQueries({ queryKey: crmKeys.dashboardConversion }),
     qc.invalidateQueries({ queryKey: crmKeys.goals }),
   ]);
 }
