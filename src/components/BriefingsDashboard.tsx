@@ -100,7 +100,11 @@ export function BriefingsDashboard({ tipo }: { tipo: BriefingTipo }) {
           </DialogTrigger>
           <CreateDialog
             tipo={tipo}
-            onCreated={(b) => { setCreateOpen(false); setShareTarget(b); void reload(); }}
+            onCreated={(b) => {
+              setCreateOpen(false);
+              setShareTarget(b);
+              void invalidateCrmCore(qc);
+            }}
           />
         </Dialog>
       }
