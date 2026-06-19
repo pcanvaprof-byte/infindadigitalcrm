@@ -7,7 +7,6 @@ import { RequireAuth, useRequiredUser } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -298,6 +297,28 @@ function PotentialBadge({ p }: { p: ProspectPotential }) {
     <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[11px] font-medium ${POTENTIAL_TONE[p] ?? POTENTIAL_TONE.medio}`}>
       {POTENTIAL_LABEL[p] ?? POTENTIAL_LABEL.medio}
     </span>
+  );
+}
+
+function NativeCheckbox({
+  checked,
+  onChange,
+  ariaLabel,
+  className = "",
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  ariaLabel?: string;
+  className?: string;
+}) {
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      onChange={(event) => onChange(event.currentTarget.checked)}
+      aria-label={ariaLabel}
+      className={`h-4 w-4 shrink-0 cursor-pointer rounded-sm border border-primary bg-transparent accent-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+    />
   );
 }
 
@@ -918,9 +939,10 @@ function ProspeccaoPage() {
               <X className="mr-1.5 h-4 w-4" /> Limpar filtros
             </Button>
             <label className="col-span-full flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
-              <Checkbox
+              <NativeCheckbox
                 checked={onlyWithContact}
-                onCheckedChange={(v) => setOnlyWithContact(Boolean(v))}
+                onChange={setOnlyWithContact}
+                ariaLabel="Mostrar somente empresas com contato disponível"
               />
               Mostrar somente empresas com contato disponível (WhatsApp, telefone ou e-mail)
             </label>
@@ -1011,7 +1033,7 @@ function ProspeccaoPage() {
               <thead className="bg-accent/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
                 <tr>
                   <th className="px-3 py-3 w-10">
-                    <Checkbox checked={allVisibleSelected} onCheckedChange={toggleSelectAll} aria-label="Selecionar todos" />
+                    <NativeCheckbox checked={allVisibleSelected} onChange={toggleSelectAll} ariaLabel="Selecionar todos" />
                   </th>
                   <th className="px-4 py-3">Empresa</th>
                   <th className="px-4 py-3">Contato</th>
@@ -1032,7 +1054,7 @@ function ProspeccaoPage() {
                   <tr key={p.id}
                     className={`border-t border-border/60 hover:bg-accent/30 ${selected.has(p.id) ? "bg-primary/5" : ""}`}>
                     <td className="px-3 py-3 align-top">
-                      <Checkbox checked={selected.has(p.id)} onCheckedChange={() => toggleSelect(p.id)} aria-label={`Selecionar ${p.company}`} />
+                      <NativeCheckbox checked={selected.has(p.id)} onChange={() => toggleSelect(p.id)} ariaLabel={`Selecionar ${p.company}`} />
                     </td>
                     <td className="px-4 py-3 align-top">
                       <button className="text-left" onClick={() => setDetailId(p.id)}>
@@ -1192,6 +1214,8 @@ const RowActions = memo(function RowActions({
   onRemove: () => void;
   onOpen: () => void;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
     <div className="flex items-center justify-end gap-1">
       <Button size="icon" variant="ghost" className="h-8 w-8 text-emerald-400" title="WhatsApp" onClick={() => onWhats(p)}>
@@ -1206,24 +1230,26 @@ const RowActions = memo(function RowActions({
       <Button size="icon" variant="ghost" className="h-8 w-8 text-primary-glow" title="Converter para Lead" onClick={onConvert}>
         <Sparkles className="h-4 w-4" />
       </Button>
-      <DropdownMenu>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
         <DropdownMenuTrigger asChild>
           <Button size="icon" variant="ghost" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={onOpen} className="text-xs">Abrir detalhes</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuLabel className="text-[11px]">Alterar status</DropdownMenuLabel>
-          {STATUSES.map((s) => (
-            <DropdownMenuItem key={s} onClick={() => onStatus(p.id, s)} className="text-xs">
-              <CheckCircle2 className="mr-2 h-3.5 w-3.5" />{STATUS_LABEL[s]}
+        {menuOpen && (
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onOpen} className="text-xs">Abrir detalhes</DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel className="text-[11px]">Alterar status</DropdownMenuLabel>
+            {STATUSES.map((s) => (
+              <DropdownMenuItem key={s} onClick={() => onStatus(p.id, s)} className="text-xs">
+                <CheckCircle2 className="mr-2 h-3.5 w-3.5" />{STATUS_LABEL[s]}
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-xs text-destructive" onClick={onRemove}>
+              <Trash2 className="mr-2 h-3.5 w-3.5" /> Remover
             </DropdownMenuItem>
-          ))}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem className="text-xs text-destructive" onClick={onRemove}>
-            <Trash2 className="mr-2 h-3.5 w-3.5" /> Remover
-          </DropdownMenuItem>
-        </DropdownMenuContent>
+          </DropdownMenuContent>
+        )}
       </DropdownMenu>
     </div>
   );
@@ -1648,10 +1674,10 @@ const MobileProspectRow = memo(function MobileProspectRow({
 }) {
   return (
     <div className={`flex gap-3 border-b border-border/60 p-3 ${isSelected ? "bg-primary/5" : ""}`}>
-      <Checkbox
+      <NativeCheckbox
         checked={isSelected}
-        onCheckedChange={() => onToggleSelect(p.id)}
-        aria-label={`Selecionar ${p.company}`}
+        onChange={() => onToggleSelect(p.id)}
+        ariaLabel={`Selecionar ${p.company}`}
         className="mt-1 shrink-0"
       />
       <div className="min-w-0 flex-1">
