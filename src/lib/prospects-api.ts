@@ -35,6 +35,27 @@ type IxRow = {
   created_at: string;
 };
 
+const VALID_POTENTIALS = ["alto", "medio", "baixo"];
+const VALID_STATUSES = [
+  "nao_contatado",
+  "primeiro_contato",
+  "em_negociacao",
+  "qualificado",
+  "agendado",
+  "perdido",
+  "briefing_enviado",
+  "diagnostico_pendente",
+  "proposta_pendente",
+  "proposta_enviada",
+  "fechado_ganho",
+  "aguardando_kickoff",
+  "aguardando_producao",
+  "em_producao",
+  "entregue",
+  "cliente",
+];
+const VALID_INTERACTION_KINDS = ["whatsapp", "ligacao", "email", "reuniao", "nota", "status"];
+
 function fromRow(r: Row, ixs: IxRow[] = []): Prospect {
   const interactions = Array.isArray(ixs) ? ixs : [];
   return {
@@ -50,15 +71,15 @@ function fromRow(r: Row, ixs: IxRow[] = []): Prospect {
     city: r.city || "",
     state: r.state || "",
     source: r.source || "Importação",
-    potential: (["alto", "medio", "baixo"].includes(r.potential) ? r.potential : "medio") as ProspectPotential,
-    status: (["nao_contatado", "primeiro_contato", "em_negociacao", "qualificado", "agendado", "perdido", "briefing_enviado", "diagnostico_pendente", "proposta_pendente", "proposta_enviada", "fechado_ganho", "aguardando_kickoff", "aguardando_producao", "em_producao", "entregue", "cliente"].includes(r.status) ? r.status : "nao_contatado") as ProspectStatus,
+    potential: (VALID_POTENTIALS.includes(r.potential) ? r.potential : "medio") as ProspectPotential,
+    status: (VALID_STATUSES.includes(r.status) ? r.status : "nao_contatado") as ProspectStatus,
     // Mantém ISO; formatação acontece apenas na UI.
     createdAt: r.created_at || new Date(0).toISOString(),
     interactions: interactions
       .filter((i) => i.prospect_id === r.id)
       .map((i) => ({
         id: i.id || crypto.randomUUID(),
-        kind: (["whatsapp", "ligacao", "email", "reuniao", "nota", "status"].includes(i.kind) ? i.kind : "nota") as InteractionKind,
+        kind: (VALID_INTERACTION_KINDS.includes(i.kind) ? i.kind : "nota") as InteractionKind,
         text: i.text || "",
         by: i.by_name || "",
         at: i.created_at || new Date(0).toISOString(),
