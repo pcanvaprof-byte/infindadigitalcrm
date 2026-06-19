@@ -40,29 +40,82 @@ type ProspectRow = {
   potential: string | null; city: string | null; state: string | null;
 };
 
+const PAGE = 1000;
+
+async function fetchAll<T>(
+  build: (from: number, to: number) => Promise<{ data: unknown; error: unknown }>,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await build(from, from + PAGE - 1);
+    if (error) throw error;
+    const batch = (data ?? []) as T[];
+    out.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+  return out;
+}
+
+async function fetchByIds<T>(
+  ids: string[],
+  build: (slice: string[], from: number, to: number) => Promise<{ data: unknown; error: unknown }>,
+): Promise<T[]> {
+  const out: T[] = [];
+  const ID_BATCH = 200;
+  for (let i = 0; i < ids.length; i += ID_BATCH) {
+    const slice = ids.slice(i, i + ID_BATCH);
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await build(slice, from, from + PAGE - 1);
+      if (error) throw error;
+      const batch = (data ?? []) as T[];
+      out.push(...batch);
+      if (batch.length < PAGE) break;
+    }
+  }
+  return out;
+}
+
 export async function loadMapPoints(): Promise<MapPoint[]> {
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData.user?.id;
   if (!uid) return [];
 
-  const [profilesRes, prospectsRes] = await Promise.all([
-    db.from("company_profiles").select("id,cnpj,razao_social,nome_fantasia").eq("user_id", uid),
-    db.from("prospects").select("cnpj,company,whatsapp,phone,email,status,potential,city,state").eq("user_id", uid),
+  const [profiles, prospects] = await Promise.all([
+    fetchAll<ProfileRow>((from, to) =>
+      db.from("company_profiles")
+        .select("id,cnpj,razao_social,nome_fantasia")
+        .eq("user_id", uid)
+        .range(from, to),
+    ),
+    fetchAll<ProspectRow>((from, to) =>
+      db.from("prospects")
+        .select("cnpj,company,whatsapp,phone,email,status,potential,city,state")
+        .eq("user_id", uid)
+        .range(from, to),
+    ),
   ]);
-  const profiles = (profilesRes.data ?? []) as ProfileRow[];
-  const prospects = (prospectsRes.data ?? []) as unknown as ProspectRow[];
   const profileIds = profiles.map((p) => p.id);
 
-  const [addrRes, locRes] = profileIds.length
+  const [addrs, locs] = profileIds.length
     ? await Promise.all([
-        db.from("company_addresses").select("profile_id,logradouro,numero,bairro,cidade,uf,cep").in("profile_id", profileIds),
-        db.from("company_locations").select("profile_id,lat,lon").in("profile_id", profileIds),
+        fetchByIds<AddrRow>(profileIds, (slice, from, to) =>
+          db.from("company_addresses")
+            .select("profile_id,logradouro,numero,bairro,cidade,uf,cep")
+            .in("profile_id", slice)
+            .range(from, to),
+        ),
+        fetchByIds<LocRow>(profileIds, (slice, from, to) =>
+          db.from("company_locations")
+            .select("profile_id,lat,lon")
+            .in("profile_id", slice)
+            .range(from, to),
+        ),
       ])
-    : [{ data: [] }, { data: [] }];
+    : [[] as AddrRow[], [] as LocRow[]];
   const addrByProf = new Map<string, AddrRow>();
-  for (const a of (addrRes.data ?? []) as AddrRow[]) addrByProf.set(a.profile_id, a);
+  for (const a of addrs) addrByProf.set(a.profile_id, a);
   const locByProf = new Map<string, LocRow>();
-  for (const l of (locRes.data ?? []) as LocRow[]) locByProf.set(l.profile_id, l);
+  for (const l of locs) locByProf.set(l.profile_id, l);
 
   const profByCnpj = new Map<string, ProfileRow>();
   for (const p of profiles) if (p.cnpj) profByCnpj.set(p.cnpj.replace(/\D/g, ""), p);
