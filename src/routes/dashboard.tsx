@@ -97,11 +97,14 @@ function KpiCard({ k }: { k: KpiItem }) {
         </span>
       </div>
       <p className="mt-4 text-xs text-muted-foreground">{k.label}</p>
-      <p className="mt-1 text-2xl font-bold tracking-tight">
+      <p
+        key={k.value}
+        className="fade-soft mt-1 text-2xl font-bold tracking-tight tabular-nums"
+      >
         {k.money ? brl(k.value) : k.value.toLocaleString("pt-BR")}
       </p>
       <div className="mt-3">
-        <Progress value={pct} className="h-1.5" />
+        <Progress value={pct} className="ui-smooth h-1.5" />
         <p className="mt-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
           {pct}% da meta
         </p>
