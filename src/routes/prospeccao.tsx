@@ -126,13 +126,25 @@ const POTENTIALS: ProspectPotential[] = ["alto", "medio", "baixo"];
 const STATUS_SET = new Set<ProspectStatus>([...STATUSES, "cliente"]);
 const POTENTIAL_SET = new Set<ProspectPotential>(POTENTIALS);
 
-function safeProspect(p: Partial<Prospect> & { id?: unknown }, index: number): Prospect {
-  const status = typeof p.status === "string" && STATUS_SET.has(p.status as ProspectStatus)
-    ? p.status as ProspectStatus
-    : "nao_contatado";
-  const potential = typeof p.potential === "string" && POTENTIAL_SET.has(p.potential as ProspectPotential)
-    ? p.potential as ProspectPotential
-    : "medio";
+function safeProspect(raw: unknown, index: number): Prospect {
+  const p = raw && typeof raw === "object" ? (raw as Partial<Prospect> & { id?: unknown }) : {};
+  const status =
+    typeof p.status === "string" && STATUS_SET.has(p.status as ProspectStatus)
+      ? (p.status as ProspectStatus)
+      : "nao_contatado";
+  const potential =
+    typeof p.potential === "string" && POTENTIAL_SET.has(p.potential as ProspectPotential)
+      ? (p.potential as ProspectPotential)
+      : "medio";
+  const interactions = Array.isArray(p.interactions)
+    ? p.interactions.map((ix, ixIndex) => ({
+        id: typeof ix?.id === "string" && ix.id ? ix.id : `safe_ix_${index}_${ixIndex}`,
+        kind: ix?.kind && INTERACTION_ICON[ix.kind] ? ix.kind : "nota",
+        text: typeof ix?.text === "string" ? ix.text : "",
+        by: typeof ix?.by === "string" ? ix.by : "",
+        at: typeof ix?.at === "string" ? ix.at : new Date(0).toISOString(),
+      }))
+    : [];
   return {
     id: typeof p.id === "string" && p.id ? p.id : `safe_${index}`,
     company: typeof p.company === "string" && p.company.trim() ? p.company : "Empresa sem nome",
@@ -149,7 +161,7 @@ function safeProspect(p: Partial<Prospect> & { id?: unknown }, index: number): P
     potential,
     status,
     createdAt: typeof p.createdAt === "string" ? p.createdAt : new Date(0).toISOString(),
-    interactions: Array.isArray(p.interactions) ? p.interactions : [],
+    interactions,
   };
 }
 
