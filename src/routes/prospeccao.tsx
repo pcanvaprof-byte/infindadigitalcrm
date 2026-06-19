@@ -60,7 +60,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  INITIAL_PROSPECTS,
   POTENTIAL_LABEL,
   POTENTIAL_TONE,
   SEGMENTS,
@@ -80,6 +79,8 @@ import {
   updateProspect,
   deleteProspects,
   addInteractionRemote,
+  addInteractionsBatch,
+  bulkUpdateProspects,
   applyImport,
   logImport,
   listImports,
@@ -251,14 +252,20 @@ const EMPTY_FORM: Omit<Prospect, "id" | "createdAt"> = {
 
 const newId = (prefix = "p") => `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
+// Formatação só na UI — dados em ISO no estado/cache.
+function fmtBR(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString("pt-BR");
+}
+
 function ProspeccaoPage() {
   const user = useRequiredUser();
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
 
-  const [prospects, setProspects] = useState<Prospect[]>(INITIAL_PROSPECTS);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProspectStatus | "all">("all");
   const [segmentFilter, setSegmentFilter] = useState<string>("all");
@@ -280,20 +287,23 @@ function ProspeccaoPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [enrichFor, setEnrichFor] = useState<Prospect | null>(null);
 
-  // Fonte de verdade: TanStack Query. setProspects continua sendo usado
-  // como espelho local para edições otimistas, mas qualquer invalidação
-  // de ["prospects"] dispara refetch automático.
+  // Única fonte de verdade. Mutations fazem optimistic update via setCache
+  // diretamente no cache do Query — sem espelho via useState/useEffect.
   const prospectsQ = useQuery({
     queryKey: crmKeys.prospects,
     queryFn: loadAllProspects,
     enabled: !!user,
     staleTime: 5_000,
   });
+  const prospects = prospectsQ.data ?? [];
+  const loading = prospectsQ.isLoading;
   useEffect(() => {
-    if (prospectsQ.data) setProspects(prospectsQ.data);
-    if (!prospectsQ.isLoading) setLoading(false);
     if (prospectsQ.error) toast.error(`Falha ao carregar: ${(prospectsQ.error as Error).message}`);
-  }, [prospectsQ.data, prospectsQ.isLoading, prospectsQ.error]);
+  }, [prospectsQ.error]);
+
+  // Helper para optimistic updates no cache do Query.
+  const setCache = (update: (prev: Prospect[]) => Prospect[]) =>
+    qc.setQueryData<Prospect[]>(crmKeys.prospects, (old) => update(old ?? []));
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -344,19 +354,30 @@ function ProspeccaoPage() {
     const contatadas = prospects.filter((p) => p.status !== "nao_contatado").length;
     const qualificadas = prospects.filter((p) => p.status === "qualificado").length;
     const agendadas = prospects.filter((p) => p.status === "agendado").length;
-    return { t, contatadas, qualificadas, agendadas };
+    let disparos = 0;
+    for (const p of prospects) {
+      for (const ix of p.interactions ?? []) {
+        if (ix.kind === "whatsapp" || ix.kind === "ligacao" || ix.kind === "email") disparos++;
+      }
+    }
+    return { t, contatadas, qualificadas, agendadas, disparos };
   }, [prospects]);
 
-  const detail = prospects.find((p) => p.id === detailId) ?? null;
+  const detail = useMemo(
+    () => prospects.find((p) => p.id === detailId) ?? null,
+    [prospects, detailId],
+  );
 
   const addInteraction = (id: string, kind: InteractionKind, text: string) => {
-    const tempIx: Interaction = { id: newId("ix"), kind, text, by: user.name, at: "agora" };
-    setProspects((prev) =>
+    const tempIx: Interaction = {
+      id: newId("ix"), kind, text, by: user.name, at: new Date().toISOString(),
+    };
+    setCache((prev) =>
       prev.map((p) => (p.id === id ? { ...p, interactions: [tempIx, ...(p.interactions ?? [])] } : p)),
     );
     addInteractionRemote(id, kind, text, user.name).then((saved) => {
       if (!saved) return;
-      setProspects((prev) =>
+      setCache((prev) =>
         prev.map((p) =>
           p.id === id
             ? { ...p, interactions: [saved, ...(p.interactions ?? []).filter((i) => i.id !== tempIx.id)] }
@@ -367,7 +388,7 @@ function ProspeccaoPage() {
   };
 
   const updateStatus = (id: string, status: ProspectStatus) => {
-    setProspects((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)));
+    setCache((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)));
     updateProspect(id, { status })
       .then(() => invalidateCrmCore(qc))
       .catch((e) => toast.error(`Erro: ${e.message ?? e}`));
@@ -376,32 +397,66 @@ function ProspeccaoPage() {
   };
 
   const removeProspect = (ids: string[]) => {
-    setProspects((prev) => prev.filter((p) => !ids.includes(p.id)));
+    setCache((prev) => prev.filter((p) => !ids.includes(p.id)));
     setSelected(new Set());
     deleteProspects(ids)
       .then(() => { toast.success(`${ids.length} empresa(s) removida(s)`); return invalidateCrmCore(qc); })
       .catch((e) => toast.error(`Erro: ${e.message ?? e}`));
   };
 
-  const bulkStatus = (status: ProspectStatus) => {
+  const bulkStatus = async (status: ProspectStatus) => {
     const ids = Array.from(selected);
-    setProspects((prev) => prev.map((p) => (ids.includes(p.id) ? { ...p, status } : p)));
-    Promise.all(ids.map((id) => updateProspect(id, { status })))
-      .then(() => invalidateCrmCore(qc))
-      .catch((e) => toast.error(`Erro: ${e.message ?? e}`));
-    ids.forEach((id) => addInteraction(id, "status", `Status em lote → "${STATUS_LABEL[status]}"`));
-    toast.success(`${ids.length} atualizada(s) para ${STATUS_LABEL[status]}`);
+    if (!ids.length) return;
+    // Optimistic + interações em memória
+    const text = `Status em lote → "${STATUS_LABEL[status]}"`;
+    const temps: Record<string, Interaction> = {};
+    for (const id of ids) {
+      temps[id] = { id: newId("ix"), kind: "status", text, by: user.name, at: new Date().toISOString() };
+    }
+    setCache((prev) =>
+      prev.map((p) =>
+        ids.includes(p.id)
+          ? { ...p, status, interactions: [temps[p.id], ...(p.interactions ?? [])] }
+          : p,
+      ),
+    );
     setSelected(new Set());
+    try {
+      await bulkUpdateProspects(ids, { status });
+      const saved = await addInteractionsBatch(
+        ids.map((id) => ({ prospectId: id, kind: "status" as InteractionKind, text, byName: user.name })),
+      );
+      setCache((prev) =>
+        prev.map((p) => {
+          const s = saved.find((x) => x.prospectId === p.id)?.ix;
+          if (!s) return p;
+          return {
+            ...p,
+            interactions: [s, ...(p.interactions ?? []).filter((i) => i.id !== temps[p.id]?.id)],
+          };
+        }),
+      );
+      await invalidateCrmCore(qc);
+      toast.success(`${ids.length} atualizada(s) para ${STATUS_LABEL[status]}`);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`Erro: ${msg}`);
+    }
   };
 
-  const bulkAssign = (owner: string) => {
+  const bulkAssign = async (owner: string) => {
     const ids = Array.from(selected);
-    setProspects((prev) => prev.map((p) => (ids.includes(p.id) ? { ...p, owner } : p)));
-    Promise.all(ids.map((id) => updateProspect(id, { owner })))
-      .then(() => invalidateCrmCore(qc))
-      .catch((e) => toast.error(`Erro: ${e.message ?? e}`));
-    toast.success(`${ids.length} atribuída(s) a ${owner}`);
+    if (!ids.length) return;
+    setCache((prev) => prev.map((p) => (ids.includes(p.id) ? { ...p, owner } : p)));
     setSelected(new Set());
+    try {
+      await bulkUpdateProspects(ids, { owner });
+      await invalidateCrmCore(qc);
+      toast.success(`${ids.length} atribuída(s) a ${owner}`);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`Erro: ${msg}`);
+    }
   };
 
   const toggleSelect = (id: string) =>
@@ -433,7 +488,7 @@ function ProspeccaoPage() {
   const convertToLead = async (p: Prospect) => {
     try {
       const res = await convertProspectToClient(p.id, { dealTitle: p.company });
-      setProspects((prev) => prev.map((x) => (x.id === p.id ? { ...x, status: "cliente" } : x)));
+      setCache((prev) => prev.map((x) => (x.id === p.id ? { ...x, status: "cliente" } : x)));
       addInteraction(
         p.id,
         "status",
@@ -459,7 +514,7 @@ function ProspeccaoPage() {
         ...form,
         owner: form.owner || user.name,
       });
-      setProspects((prev) => [saved, ...prev]);
+      setCache((prev) => [saved, ...prev]);
       toast.success("Empresa cadastrada");
       setForm({ ...EMPTY_FORM, owner: user.name });
       setDialogOpen(false);
@@ -616,11 +671,10 @@ function ProspeccaoPage() {
         totalRows: previewRows.length,
         result,
       });
-      const fresh = await loadAllProspects();
-      setProspects(fresh);
       setPreviewOpen(false);
       setPreviewRows([]);
-      void invalidateCrmCore(qc);
+      // invalidação dispara o refetch — não precisa de loadAllProspects manual
+      await invalidateCrmCore(qc);
       toast.success(
         `Importação salva no banco: ${result.inserted} novas, ${result.updated} atualizadas, ${result.skipped} ignoradas`,
         { duration: 8000 },
@@ -661,7 +715,7 @@ function ProspeccaoPage() {
         if (Object.keys(patch).length) {
           await updateProspect(p.id, patch);
           contatosNovos++;
-          setProspects((prev) => prev.map((x) => (x.id === p.id ? { ...x, ...patch } : x)));
+          setCache((prev) => prev.map((x) => (x.id === p.id ? { ...x, ...patch } : x)));
         }
         ok++;
       } catch {
@@ -675,7 +729,7 @@ function ProspeccaoPage() {
       `Enriquecimento concluído: ${ok} ok, ${fail} falhas, ${contatosNovos} contato(s) preenchido(s).`,
       { id: tid, duration: 8000 },
     );
-    loadAllProspects().then(setProspects).catch(() => {});
+    void invalidateCrmCore(qc);
     setBulkEnriching(false);
   };
 
@@ -711,9 +765,10 @@ function ProspeccaoPage() {
       }
     >
       {/* Stats */}
-      <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <StatCard icon={Building2} label="Empresas cadastradas" value={stats.t} hint="Base total" />
         <StatCard icon={MessageSquare} label="Contatadas" value={stats.contatadas} hint="Pelo menos 1 contato" />
+        <StatCard icon={MessageSquare} label="Conversas iniciadas" value={stats.disparos} hint="WhatsApp · ligação · e-mail" />
         <StatCard icon={Target} label="Qualificadas" value={stats.qualificadas} hint="Prontas para proposta" />
         <StatCard icon={CalendarPlus} label="Agendadas" value={stats.agendadas} hint="Com reunião marcada" />
       </section>
@@ -992,7 +1047,7 @@ function ProspeccaoPage() {
           const pid = enrichFor?.id;
           if (!pid) return;
           const tel = r.profile.telefone_1 || r.profile.telefone_2 || "";
-          setProspects((prev) => prev.map((x) => {
+          setCache((prev) => prev.map((x) => {
             if (x.id !== pid) return x;
             return {
               ...x,
@@ -1003,7 +1058,7 @@ function ProspeccaoPage() {
               state: x.state || r.address?.uf || "",
             };
           }));
-          loadAllProspects().then(setProspects).catch(() => {});
+          void invalidateCrmCore(qc);
         }}
       />
     </AppShell>
