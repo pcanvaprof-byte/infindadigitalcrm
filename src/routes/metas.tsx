@@ -334,25 +334,38 @@ function MetasPage() {
       { label: "Interessados", value: interessados },
     ];
 
-    const counts = new Map<string, number>();
-    for (const d of allDeals) counts.set(d.stage_id, (counts.get(d.stage_id) ?? 0) + 1);
     // Funil cumulativo: um deal em "proposta" também conta em "qualificado", "reunião" etc.
-    // Prospects marcados como 'cliente' que não tenham deal são contados como fechados.
+    // Se o prospect avançou para cliente/em produção, isso sobrepõe deal antigo parado em Lead.
     const dealProspectIds = new Set(allDeals.map((d) => d.prospect_id).filter(Boolean) as string[]);
-    const clientes = prospects.filter(isClientProspect);
-    const clientesSemDeal = clientes.filter((c) => !dealProspectIds.has(c.id)).length;
+    const prospectById = new Map(prospects.map((p) => [p.id, p]));
     const sortedStages = stages
       .filter((s) => !s.is_lost)
       .sort((a, b) => a.position - b.position);
     const wonPosition = sortedStages.find((s) => s.is_won)?.position ?? Infinity;
+    const proposalPosition = sortedStages.find((s) => /proposta/i.test(s.label))?.position ?? wonPosition;
+    const meetingPosition = sortedStages.find((s) => /reuni|apresent/i.test(s.label))?.position ?? proposalPosition;
+    const qualifiedPosition = sortedStages.find((s) => /qualificado/i.test(s.label))?.position ?? meetingPosition;
     const stagePos = new Map(sortedStages.map((s) => [s.id, s.position]));
+    const prospectEffectivePosition = (p: unknown) => {
+      const status = prospectPipelineStatus(p) ?? "";
+      if (isClientProspect(p)) return wonPosition;
+      if (PROPOSAL_PIPELINE_STATUSES.has(status)) return proposalPosition;
+      if (MEETING_PIPELINE_STATUSES.has(status)) return meetingPosition;
+      if (QUALIFIED_PIPELINE_STATUSES.has(status)) return qualifiedPosition;
+      return undefined;
+    };
     const dealStages = sortedStages.map((s) => {
       const cum = allDeals.reduce((acc, d) => {
         const pos = stagePos.get(d.stage_id);
+        const prospectPos = d.prospect_id ? prospectEffectivePosition(prospectById.get(d.prospect_id)) : undefined;
+        const effectivePos = Math.max(pos ?? 0, prospectPos ?? 0);
+        return effectivePos >= s.position ? acc + 1 : acc;
+      }, 0);
+      const bonus = prospects.reduce((acc, p) => {
+        if (dealProspectIds.has(p.id)) return acc;
+        const pos = prospectEffectivePosition(p);
         return pos !== undefined && pos >= s.position ? acc + 1 : acc;
       }, 0);
-      // soma clientes-sem-deal em todas as etapas até "Fechado" inclusive
-      const bonus = s.position <= wonPosition ? clientesSemDeal : 0;
       return { label: s.label, value: cum + bonus };
     });
 
