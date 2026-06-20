@@ -595,26 +595,21 @@ function ProspeccaoPage() {
   const openWhats = (p: Prospect) => {
     const d = onlyDigits(p.whatsapp);
     if (!d) return toast.error("WhatsApp não cadastrado");
-    addInteraction(p.id, "whatsapp", "Abriu conversa no WhatsApp");
     const msg = `Olá, vi que sua empresa foi aberta recentemente. Parabéns pela nova fase! 🎉\nPercebi que muitas empresas novas acabam perdendo oportunidades por ainda não terem uma presença profissional na internet.\n\nEu ajudo negócios a terem um site moderno que transmite confiança e gera contatos desde os primeiros meses de operação.\n\nPosso te mostrar alguns exemplos e fazer uma análise gratuita da sua presença digital?`;
     window.open(`https://wa.me/55${d}?text=${encodeURIComponent(msg)}`, "_blank");
-    // Ao voltar à aba, se ainda estava "não contatado", perguntar
-    // se o primeiro contato foi feito para avançar o status do card.
-    if (p.status === "nao_contatado") {
-      const askOnReturn = () => {
-        if (document.visibilityState !== "visible") return;
-        document.removeEventListener("visibilitychange", askOnReturn);
-        // Pequeno atraso para evitar abrir antes da aba estar realmente focada.
-        setTimeout(() => setWhatsConfirm({ id: p.id, company: p.company }), 250);
-      };
-      document.addEventListener("visibilitychange", askOnReturn);
-    }
+    // Abre o modal de cadência para registrar o touchpoint (avança o step no banco).
+    setTouchpointTarget({ prospect: p, tipo: "whatsapp" });
   };
   const callPhone = (p: Prospect) => {
     const d = onlyDigits(p.phone || p.whatsapp);
     if (!d) return toast.error("Telefone não cadastrado");
-    addInteraction(p.id, "ligacao", "Iniciou ligação");
     window.open(`tel:+55${d}`);
+    setTouchpointTarget({ prospect: p, tipo: "ligacao" });
+  };
+  const openEmail = (p: Prospect) => {
+    if (!p.email) return toast.error("Email não cadastrado");
+    window.open(`mailto:${p.email}`);
+    setTouchpointTarget({ prospect: p, tipo: "email" });
   };
 
   const convertToLead = async (p: Prospect) => {
