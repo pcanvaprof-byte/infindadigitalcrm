@@ -745,15 +745,19 @@ begin
 
   -- Pipeline: aprovação → cria Briefing Comercial automaticamente
   if p_decisao = 'aprovada' then
-    insert into public.briefings(user_id, tipo, status, lead_id, cliente_nome, empresa, respostas_json, token_publico)
+    insert into public.briefings(user_id, tipo, status, lead_id, cliente_nome, empresa, telefone, email, servico, respostas_json, token_publico, proposal_id)
     select v_prop.user_id,
            'briefing_comercial',
            'pendente',
            v_prop.lead_id,
            coalesce(c.contact_name, p_nome),
            coalesce(c.company, pr.company, v_prop.titulo),
+           coalesce(c.phone, pr.phone),
+           coalesce(c.email, pr.email),
+           'gestao_trafego',
            jsonb_build_object('proposal_id', v_prop.id, 'proposal_numero', v_prop.numero),
-           translate(encode(gen_random_bytes(18),'base64'),'+/=','-_')
+           translate(encode(gen_random_bytes(18),'base64'),'+/=','-_'),
+           v_prop.id
       from public.proposals p
       left join public.clients c on c.id = p.client_id
       left join public.prospects pr on pr.id = p.lead_id
