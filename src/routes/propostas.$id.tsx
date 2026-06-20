@@ -25,6 +25,7 @@ import {
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { gerarConteudoProposta } from "@/lib/propostas/ai.functions";
+import { ProposalTimeline } from "@/components/proposta/ProposalTimeline";
 
 export const Route = createFileRoute("/propostas/$id")({
   head: () => ({ meta: [{ title: "Editor de Proposta — INFINDA" }] }),
@@ -311,22 +312,8 @@ function EditorPage() {
             <p className="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               <FileText className="h-3.5 w-3.5" /> Timeline
             </p>
-            <ul className="space-y-2 text-xs">
-              {(eventsQ.data ?? []).map((e) => (
-                <li key={e.id} className="flex items-start gap-2">
-                  <span className="mt-1 h-1.5 w-1.5 rounded-full bg-primary/70" />
-                  <div className="flex-1">
-                    <p className="font-medium">{e.tipo.replaceAll("_", " ")}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {new Date(e.created_at).toLocaleString("pt-BR")} · {e.actor_type}
-                    </p>
-                  </div>
-                </li>
-              ))}
-              {(eventsQ.data ?? []).length === 0 && (
-                <li className="text-muted-foreground">Sem eventos ainda.</li>
-              )}
-            </ul>
+            {/* Lê vw_proposal_timeline (Etapa 6) — nada calculado no front. */}
+            <ProposalTimeline proposalId={id} />
           </div>
         </div>
       </div>
