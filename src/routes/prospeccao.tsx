@@ -1130,6 +1130,7 @@ function ProspeccaoPage() {
             onConvert={() => convertToLead(detail)}
             onAddNote={(text) => { addInteraction(detail.id, "nota", text); toast.success("Nota registrada"); }}
             onEnrich={() => setEnrichFor(detail)}
+            onRegisterTouchpoint={() => setTouchpointTarget(detail)}
           />
         )}
       </Dialog>
