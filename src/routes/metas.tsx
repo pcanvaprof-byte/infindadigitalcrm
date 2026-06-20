@@ -279,6 +279,72 @@ function MetasPage() {
       .map((s) => ({ label: s.label, value: counts.get(s.id) ?? 0 }));
   }, [dealsQ.data, stagesQ.data]);
 
+  const dailyData = useMemo(() => {
+    const prospects = prospectsQ.data ?? [];
+    const deals = dealsQ.data ?? [];
+    const stages = stagesQ.data ?? [];
+    const proposalStageIds = new Set(stages.filter((s) => s.is_proposal).map((s) => s.id));
+    // Monday of current week
+    const now = new Date();
+    const day = now.getDay(); // 0 Dom ... 6 Sab
+    const diffToMon = (day + 6) % 7;
+    const monday = new Date(now);
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(monday.getDate() - diffToMon);
+    const days = Array.from({ length: 5 }, (_, i) => {
+      const start = new Date(monday);
+      start.setDate(monday.getDate() + i);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 1);
+      const inDay = (iso: string | null | undefined) => {
+        if (!iso) return false;
+        const t = new Date(iso).getTime();
+        return t >= start.getTime() && t < end.getTime();
+      };
+      return {
+        d: DAY_LABELS[start.getDay()],
+        empresas: prospects.filter((p) => inDay(p.createdAt)).length,
+        conversas: prospects.filter((p) => inDay((p as { lastContactAt?: string | null }).lastContactAt)).length,
+        propostas: deals.filter((d) => proposalStageIds.has(d.stage_id) && inDay(d.updated_at)).length,
+      };
+    });
+    return days;
+  }, [prospectsQ.data, dealsQ.data, stagesQ.data]);
+
+  const weeklyData = useMemo(() => {
+    const deals = dealsQ.data ?? [];
+    const stages = stagesQ.data ?? [];
+    const wonIds = new Set(stages.filter((s) => s.is_won).map((s) => s.id));
+    const propIds = new Set(stages.filter((s) => s.is_proposal).map((s) => s.id));
+    const meetingIds = new Set(stages.filter((s) => s.is_meeting).map((s) => s.id));
+    const goal = 5; // pontuação semanal alvo
+    const now = new Date();
+    const day = now.getDay();
+    const diffToMon = (day + 6) % 7;
+    const thisMon = new Date(now);
+    thisMon.setHours(0, 0, 0, 0);
+    thisMon.setDate(thisMon.getDate() - diffToMon);
+    return Array.from({ length: 6 }, (_, i) => {
+      const start = new Date(thisMon);
+      start.setDate(thisMon.getDate() - (5 - i) * 7);
+      const end = new Date(start);
+      end.setDate(start.getDate() + 7);
+      const inWeek = (iso: string | null | undefined) => {
+        if (!iso) return false;
+        const t = new Date(iso).getTime();
+        return t >= start.getTime() && t < end.getTime();
+      };
+      const score = deals.reduce((acc, d) => {
+        if (!inWeek(d.updated_at)) return acc;
+        if (wonIds.has(d.stage_id)) return acc + 3;
+        if (propIds.has(d.stage_id)) return acc + 2;
+        if (meetingIds.has(d.stage_id)) return acc + 1;
+        return acc;
+      }, 0);
+      return { s: `S${i + 1}`, atingido: Math.min(100, Math.round((score / goal) * 100)) };
+    });
+  }, [dealsQ.data, stagesQ.data]);
+
   const myScore = useMemo(() => {
     const total = liveMetrics.reduce((acc, m) => acc + Math.min(m.current / Math.max(m.weekly, 1), 1), 0);
     return Math.round((total / Math.max(liveMetrics.length, 1)) * 100);
@@ -411,7 +477,7 @@ function MetasPage() {
           <p className="text-xs text-muted-foreground">Atividades por dia da semana</p>
           <div className="mt-4 h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={EMPTY_DAILY}>
+              <BarChart data={dailyData}>
                 <CartesianGrid stroke="oklch(1 0 0 / 6%)" vertical={false} />
                 <XAxis dataKey="d" stroke="oklch(0.68 0.012 250)" fontSize={11} tickLine={false} axisLine={false} />
                 <YAxis stroke="oklch(0.68 0.012 250)" fontSize={11} tickLine={false} axisLine={false} />
@@ -434,7 +500,7 @@ function MetasPage() {
           <p className="text-xs text-muted-foreground">% de meta atingida</p>
           <div className="mt-4 h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={EMPTY_WEEKLY}>
+              <LineChart data={weeklyData}>
                 <defs>
                   <linearGradient id="met" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="oklch(0.7 0.22 264)" stopOpacity={0.4} />
