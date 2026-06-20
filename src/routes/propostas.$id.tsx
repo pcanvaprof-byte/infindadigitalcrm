@@ -20,9 +20,11 @@ import { listItems as listCatalogItems, listCategorias } from "@/lib/catalog/api
 import { COBRANCA_LABEL, formatBRL } from "@/lib/catalog/types";
 import {
   Copy, ExternalLink, Plus, Save, Send, Trash2,
-  History, FileText, MessageCircle, Mail, Link as LinkIcon,
+  History, FileText, MessageCircle, Mail, Link as LinkIcon, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import { gerarConteudoProposta } from "@/lib/propostas/ai.functions";
 
 export const Route = createFileRoute("/propostas/$id")({
   head: () => ({ meta: [{ title: "Editor de Proposta — INFINDA" }] }),
@@ -48,6 +50,18 @@ function EditorPage() {
   const [validade, setValidade] = useState(7);
   const [addOpen, setAddOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
+  const [aiContext, setAiContext] = useState("");
+
+  const gerarFn = useServerFn(gerarConteudoProposta);
+  const gerar = useMutation({
+    mutationFn: async () =>
+      gerarFn({ data: { proposalId: id, contexto: aiContext || undefined } }),
+    onSuccess: (out) => {
+      setContent({ ...content, ...out });
+      toast.success("Conteúdo gerado. Revise e clique em Salvar versão.");
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
 
   useEffect(() => {
     if (propQ.data) {
@@ -227,9 +241,28 @@ function EditorPage() {
 
           {/* Conteúdo da proposta */}
           <div className="surface-card p-4">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Conteúdo da proposta (versão atual)
-            </p>
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Conteúdo da proposta (versão atual)
+              </p>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                onClick={() => gerar.mutate()}
+                disabled={gerar.isPending}
+              >
+                <Sparkles className="mr-1 h-3.5 w-3.5" />
+                {gerar.isPending ? "Gerando…" : "Gerar com IA"}
+              </Button>
+            </div>
+            <Textarea
+              className="mb-3 text-xs"
+              placeholder="Contexto opcional para a IA (ex: cliente prefere abordagem técnica, urgência alta, etc.)"
+              value={aiContext}
+              onChange={(e) => setAiContext(e.target.value)}
+              rows={2}
+            />
             <div className="space-y-3">
               <Field label="Sobre o cenário atual" value={content.diagnostico ?? ""}
                      onChange={(v) => setContent({ ...content, diagnostico: v })} />
