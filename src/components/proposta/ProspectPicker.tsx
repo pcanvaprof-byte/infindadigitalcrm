@@ -10,7 +10,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import type { Prospect } from "@/lib/prospects-api";
+import type { Prospect } from "@/lib/mock-prospects";
 
 const onlyDigits = (s: string) => s.replace(/\D+/g, "");
 
