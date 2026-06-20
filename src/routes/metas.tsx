@@ -104,6 +104,39 @@ const tooltipStyle = {
   fontSize: 12,
 };
 
+const CLIENT_PIPELINE_STATUSES = new Set([
+  "fechado_ganho",
+  "aguardando_kickoff",
+  "aguardando_producao",
+  "em_producao",
+  "entregue",
+  "cliente",
+]);
+
+const PROPOSAL_PIPELINE_STATUSES = new Set([
+  "proposta_pendente",
+  "proposta_enviada",
+  ...CLIENT_PIPELINE_STATUSES,
+]);
+
+function prospectResponseStatus(p: unknown) {
+  return (p as { responseStatus?: string | null; response_status?: string | null }).responseStatus
+    ?? (p as { response_status?: string | null }).response_status
+    ?? null;
+}
+
+function prospectPipelineStatus(p: unknown) {
+  return (p as { status?: string | null }).status ?? null;
+}
+
+function isClientProspect(p: unknown) {
+  return prospectResponseStatus(p) === "cliente" || CLIENT_PIPELINE_STATUSES.has(prospectPipelineStatus(p) ?? "");
+}
+
+function isInterestedProspect(p: unknown) {
+  return prospectResponseStatus(p) === "interessado" || isClientProspect(p);
+}
+
 function MetricCard({ m, period }: { m: Metric; period: "daily" | "weekly" }) {
   const Icon = m.icon;
   const target = period === "daily" ? m.daily : m.weekly;
