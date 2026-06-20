@@ -112,6 +112,16 @@ export async function createProposalFromProspect(prospectId: string, titulo?: st
   return data as string;
 }
 
+export async function createProposalBlank(titulo?: string): Promise<string> {
+  const { data, error } = await sb.rpc("create_proposal_from_source", {
+    p_deal_id: null,
+    p_prospect_id: null,
+    p_titulo: titulo ?? "Proposta Comercial",
+  });
+  if (error) throw error;
+  return data as string;
+}
+
 export async function updateProposal(id: string, patch: Partial<Proposal>): Promise<void> {
   const { error } = await sb.from("proposals").update(patch).eq("id", id);
   if (error) throw error;

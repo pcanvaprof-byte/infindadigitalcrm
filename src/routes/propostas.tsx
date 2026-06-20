@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   listProposals, propostasKeys,
-  createProposalFromDeal, createProposalFromProspect,
+  createProposalFromDeal, createProposalFromProspect, createProposalBlank,
 } from "@/lib/propostas/api";
 import {
   biKeys, fetchProposalKPIs, fetchProposalConversion,
@@ -22,6 +22,7 @@ import {
   PROPOSAL_STATUS_LABEL, PROPOSAL_STATUS_TONE, type ProposalStatus,
 } from "@/lib/propostas/types";
 import { listDeals } from "@/lib/crm/api";
+import { loadAllProspects } from "@/lib/prospects-api";
 import { formatBRL } from "@/lib/catalog/types";
 import { FileText, Plus, Search, TrendingUp, Eye, CheckCircle2, XCircle, Clock, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
@@ -263,13 +264,27 @@ function NovaPropostaDialog({
     queryFn: listDeals,
     enabled: open,
   });
+  const prospectsQ = useQuery({
+    queryKey: ["prospects", "for-proposal"],
+    queryFn: loadAllProspects,
+    enabled: open,
+  });
+  const [source, setSource] = useState<"deal" | "prospect" | "blank">("deal");
   const [dealId, setDealId] = useState<string>("");
+  const [prospectId, setProspectId] = useState<string>("");
   const [titulo, setTitulo] = useState("Proposta Comercial");
 
   const create = useMutation({
     mutationFn: async () => {
-      if (!dealId) throw new Error("Selecione uma oportunidade");
-      return createProposalFromDeal(dealId, titulo);
+      if (source === "deal") {
+        if (!dealId) throw new Error("Selecione uma oportunidade");
+        return createProposalFromDeal(dealId, titulo);
+      }
+      if (source === "prospect") {
+        if (!prospectId) throw new Error("Selecione um prospect");
+        return createProposalFromProspect(prospectId, titulo);
+      }
+      return createProposalBlank(titulo);
     },
     onSuccess: (id) => {
       toast.success("Proposta criada");
@@ -277,6 +292,13 @@ function NovaPropostaDialog({
     },
     onError: (e) => toast.error((e as Error).message),
   });
+
+  const deals = dealsQ.data ?? [];
+  const prospects = prospectsQ.data ?? [];
+  const canSubmit =
+    (source === "deal" && !!dealId) ||
+    (source === "prospect" && !!prospectId) ||
+    source === "blank";
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -286,21 +308,65 @@ function NovaPropostaDialog({
         </DialogHeader>
         <div className="space-y-3">
           <div>
-            <label className="text-xs font-semibold text-muted-foreground">Oportunidade (CRM)</label>
-            <Select value={dealId} onValueChange={setDealId}>
-              <SelectTrigger className="h-9 mt-1"><SelectValue placeholder="Selecione uma oportunidade…" /></SelectTrigger>
+            <label className="text-xs font-semibold text-muted-foreground">Origem</label>
+            <Select value={source} onValueChange={(v) => setSource(v as "deal" | "prospect" | "blank")}>
+              <SelectTrigger className="h-9 mt-1"><SelectValue /></SelectTrigger>
               <SelectContent>
-                {(dealsQ.data ?? []).map((d) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.client?.company || d.title} — {d.title}
-                  </SelectItem>
-                ))}
+                <SelectItem value="deal">Oportunidade (CRM)</SelectItem>
+                <SelectItem value="prospect">Prospect</SelectItem>
+                <SelectItem value="blank">Em branco</SelectItem>
               </SelectContent>
             </Select>
-            <p className="mt-1 text-[10px] text-muted-foreground">
-              A proposta herda automaticamente cliente, contato, segmento e observações do deal.
-            </p>
           </div>
+
+          {source === "deal" && (
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Oportunidade</label>
+              <Select value={dealId} onValueChange={setDealId}>
+                <SelectTrigger className="h-9 mt-1">
+                  <SelectValue placeholder={deals.length ? "Selecione uma oportunidade…" : "Nenhum deal disponível"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {deals.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.client?.company || d.title} — {d.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Herda cliente, contato, segmento e observações do deal.
+              </p>
+            </div>
+          )}
+
+          {source === "prospect" && (
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Prospect</label>
+              <Select value={prospectId} onValueChange={setProspectId}>
+                <SelectTrigger className="h-9 mt-1">
+                  <SelectValue placeholder={prospects.length ? "Selecione um prospect…" : "Nenhum prospect disponível"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {prospects.slice(0, 200).map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.company}{p.owner ? ` — ${p.owner}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Vincula o prospect; cliente/deal podem ser associados depois.
+              </p>
+            </div>
+          )}
+
+          {source === "blank" && (
+            <p className="text-[11px] text-muted-foreground">
+              Cria proposta em branco sem vínculo. Você associa deal/prospect depois.
+            </p>
+          )}
+
           <div>
             <label className="text-xs font-semibold text-muted-foreground">Título</label>
             <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} className="mt-1 h-9" />
@@ -308,7 +374,7 @@ function NovaPropostaDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button className="btn-gradient" onClick={() => create.mutate()} disabled={create.isPending || !dealId}>
+          <Button className="btn-gradient" onClick={() => create.mutate()} disabled={create.isPending || !canSubmit}>
             {create.isPending ? "Criando…" : "Criar proposta"}
           </Button>
         </DialogFooter>
