@@ -1,4 +1,4 @@
-import { createFileRoute, useParams } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
@@ -25,11 +25,13 @@ import { COBRANCA_LABEL, formatBRL } from "@/lib/catalog/types";
 import {
   Copy, ExternalLink, Plus, Save, Send, Trash2,
   History, FileText, MessageCircle, Mail, Link as LinkIcon, Sparkles,
+  FileSignature,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { gerarConteudoProposta } from "@/lib/propostas/ai.functions";
 import { ProposalTimeline } from "@/components/proposta/ProposalTimeline";
+import { criarContratoFromProposta, getContratoByProposal } from "@/lib/contratos/api";
 
 export const Route = createFileRoute("/propostas/$id")({
   head: () => ({ meta: [{ title: "Editor de Proposta — INFINDA" }] }),
@@ -42,12 +44,27 @@ export const Route = createFileRoute("/propostas/$id")({
 
 function EditorPage() {
   const { id } = useParams({ from: "/propostas/$id" });
+  const navigate = useNavigate();
   const qc = useQueryClient();
 
   const propQ = useQuery({ queryKey: propostasKeys.one(id), queryFn: () => getProposal(id) });
   const itemsQ = useQuery({ queryKey: propostasKeys.items(id), queryFn: () => listItems(id) });
   const versionQ = useQuery({ queryKey: ["propostas", id, "current-version"], queryFn: () => getCurrentVersion(id) });
   const versionsQ = useQuery({ queryKey: propostasKeys.versions(id), queryFn: () => listVersions(id) });
+
+  const contratoQ = useQuery({
+    queryKey: ["contratos", "by-proposal", id],
+    queryFn: () => getContratoByProposal(id),
+  });
+
+  const formalizar = useMutation({
+    mutationFn: async () => criarContratoFromProposta(id),
+    onSuccess: (contratoId) => {
+      toast.success("Contrato gerado — abrindo wizard…");
+      navigate({ to: "/contratos/$id", params: { id: contratoId } });
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
 
   const [content, setContent] = useState<ProposalContent>({});
   const [titulo, setTitulo] = useState("");
@@ -122,6 +139,22 @@ function EditorPage() {
           <span className={`rounded px-2 py-1 text-[10px] font-medium ${PROPOSAL_STATUS_TONE[p.status]}`}>
             {PROPOSAL_STATUS_LABEL[p.status]}
           </span>
+          {(p.status === "aprovada" || p.status === "convertida") && (
+            <Button
+              className="btn-gradient h-8 text-xs"
+              onClick={() => {
+                if (contratoQ.data) {
+                  navigate({ to: "/contratos/$id", params: { id: contratoQ.data.id } });
+                } else {
+                  formalizar.mutate();
+                }
+              }}
+              disabled={formalizar.isPending}
+            >
+              <FileSignature className="mr-1 h-3.5 w-3.5" />
+              {contratoQ.data ? "Abrir contrato" : "Formalizar contrato"}
+            </Button>
+          )}
           <Button variant="outline" size="sm" className="h-8" onClick={() => saveDraft.mutate()} disabled={saveDraft.isPending}>
             <Save className="mr-1 h-3.5 w-3.5" /> Salvar versão
           </Button>
