@@ -52,6 +52,8 @@ export interface ResolveOptions {
   publicUrl?: string | null;
   /** Decisões já registradas (para marcar status do item no modo público). */
   itemDecisions?: Record<string, "aceito" | "recusado" | "pendente">;
+  /** Estado de resolução das decisões — evita "estado parcial silencioso". */
+  itemDecisionsState?: "complete" | "partial" | "missing";
   /** Anexos visíveis (para o cliente). */
   anexos?: ProposalViewModel["anexos"];
 }
@@ -212,6 +214,7 @@ export function resolveFromPublic(
       publicUrl: opts.publicUrl ?? null,
       versionNumber: raw.versao?.version_number ?? null,
     },
+    itemDecisionsState: opts.itemDecisionsState ?? (opts.itemDecisions ? "complete" : "missing"),
   };
 }
 
