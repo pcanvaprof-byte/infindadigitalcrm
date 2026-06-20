@@ -20,8 +20,6 @@ import {
   Flame,
   MessageSquare,
   Medal,
-  Phone,
-  Star,
   Target,
   Trophy,
   TrendingUp,
