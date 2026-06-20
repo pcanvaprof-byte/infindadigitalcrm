@@ -25,6 +25,7 @@ const TIPO_LABEL: Record<Touchpoint["tipo"], string> = {
 };
 
 const RESULTADO_TONE: Record<Touchpoint["resultado"], string> = {
+  tentativa: "bg-amber-500/10 text-amber-300",
   enviado: "bg-muted text-muted-foreground",
   sem_resposta: "bg-muted text-muted-foreground",
   respondido: "bg-sky-500/10 text-sky-300",
