@@ -1,15 +1,6 @@
-import { useMemo, useState } from "react";
-import { Check, ChevronsUpDown, Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, Search, X } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import type { Prospect } from "@/lib/mock-prospects";
 
 const onlyDigits = (s: string) => s.replace(/\D+/g, "");
@@ -52,11 +43,31 @@ export function ProspectPicker({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [highlight, setHighlight] = useState(0);
+  const wrapRef = useRef<HTMLDivElement>(null);
 
   const selected = useMemo(
     () => prospects.find((p) => p.id === value) ?? null,
     [prospects, value],
   );
+
+  // When a prospect is already selected and input is empty, prefill the input
+  useEffect(() => {
+    if (selected && !query) {
+      setQuery(selected.company ?? "");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.id]);
+
+  // close on outside click
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (!wrapRef.current) return;
+      if (!wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, []);
 
   const filtered = useMemo(() => {
     const raw = query.trim();
@@ -95,58 +106,91 @@ export function ProspectPicker({
     return scored;
   }, [prospects, query]);
 
+  useEffect(() => {
+    setHighlight(0);
+  }, [query]);
+
+  function pick(p: Prospect) {
+    onChange(p.id);
+    setQuery(p.company ?? "");
+    setOpen(false);
+  }
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
+    <div ref={wrapRef} className="relative mt-1">
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          value={query}
           disabled={disabled}
-          className="mt-1 h-9 w-full justify-between font-normal"
-        >
-          <span className="flex min-w-0 items-center gap-2 truncate">
-            <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            <span className="truncate">
-              {selected
-                ? `${selected.company}${selected.cnpj ? ` · ${formatCnpj(selected.cnpj)}` : ""}`
-                : placeholder}
-            </span>
-          </span>
-          <ChevronsUpDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        align="start"
-        className="w-[var(--radix-popover-trigger-width)] min-w-[320px] p-0"
-      >
-        <Command shouldFilter={false}>
-          <CommandInput
-            value={query}
-            onValueChange={setQuery}
-            placeholder="Nome da empresa, CNPJ ou telefone…"
-          />
-          <CommandList>
-            <CommandEmpty>{emptyLabel}</CommandEmpty>
-            <CommandGroup>
-              {filtered.slice(0, 100).map((p) => {
+          placeholder={placeholder}
+          autoComplete="off"
+          className="h-9 pl-8 pr-8"
+          onFocus={() => setOpen(true)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setOpen(true);
+            if (value) onChange(""); // typing invalidates current selection
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setOpen(true);
+              setHighlight((h) => Math.min(h + 1, filtered.length - 1));
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setHighlight((h) => Math.max(h - 1, 0));
+            } else if (e.key === "Enter") {
+              if (open && filtered[highlight]) {
+                e.preventDefault();
+                pick(filtered[highlight]);
+              }
+            } else if (e.key === "Escape") {
+              setOpen(false);
+            }
+          }}
+        />
+        {query && (
+          <button
+            type="button"
+            aria-label="Limpar"
+            onClick={() => {
+              setQuery("");
+              onChange("");
+              setOpen(true);
+            }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
+
+      {open && (
+        <div className="absolute z-50 mt-1 max-h-72 w-full overflow-auto rounded-md border bg-popover p-1 shadow-md">
+          {filtered.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-muted-foreground">{emptyLabel}</div>
+          ) : (
+            <>
+              {filtered.slice(0, 100).map((p, i) => {
                 const phone = p.whatsapp || p.phone;
+                const active = i === highlight;
+                const isSel = value === p.id;
                 return (
-                  <CommandItem
+                  <button
                     key={p.id}
-                    value={p.id}
-                    onSelect={() => {
-                      onChange(p.id);
-                      setOpen(false);
-                      setQuery("");
+                    type="button"
+                    onMouseEnter={() => setHighlight(i)}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      pick(p);
                     }}
-                    className="flex items-start gap-2"
+                    className={`flex w-full items-start gap-2 rounded px-2 py-1.5 text-left ${
+                      active ? "bg-accent text-accent-foreground" : ""
+                    }`}
                   >
                     <Check
-                      className={`mt-0.5 h-4 w-4 shrink-0 ${
-                        value === p.id ? "opacity-100" : "opacity-0"
-                      }`}
+                      className={`mt-0.5 h-4 w-4 shrink-0 ${isSel ? "opacity-100" : "opacity-0"}`}
                     />
                     <div className="flex min-w-0 flex-1 flex-col">
                       <span className="truncate text-sm font-medium">{p.company}</span>
@@ -156,7 +200,7 @@ export function ProspectPicker({
                           .join(" · ") || (p.owner ?? "—")}
                       </span>
                     </div>
-                  </CommandItem>
+                  </button>
                 );
               })}
               {filtered.length > 100 && (
@@ -164,10 +208,10 @@ export function ProspectPicker({
                   Mostrando 100 de {filtered.length}. Refine a busca.
                 </div>
               )}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+            </>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
