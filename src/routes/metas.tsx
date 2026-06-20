@@ -474,7 +474,13 @@ function MetasPage() {
           </span>
         </div>
         <div className="mt-4">
-          <FunnelChart data={funnelData} />
+          {funnelData.length ? (
+            <FunnelChart data={funnelData} />
+          ) : (
+            <p className="rounded-md border border-dashed border-border/60 p-6 text-center text-xs text-muted-foreground">
+              Sem dados de funil ainda.
+            </p>
+          )}
         </div>
       </section>
 
@@ -489,7 +495,13 @@ function MetasPage() {
             <span className="text-[11px] text-muted-foreground">Mês atual</span>
           </div>
           <div className="mt-4">
-            <RankingTable rows={RANKING_CONSULTORES} kind="consultor" />
+            {RANKING_CONSULTORES.length ? (
+              <RankingTable rows={RANKING_CONSULTORES} kind="consultor" />
+            ) : (
+              <p className="rounded-md border border-dashed border-border/60 p-6 text-center text-xs text-muted-foreground">
+                Sem dados de equipe ainda. Cadastre consultores para ver o ranking.
+              </p>
+            )}
           </div>
         </div>
 
@@ -502,7 +514,13 @@ function MetasPage() {
             <span className="text-[11px] text-muted-foreground">Mês atual</span>
           </div>
           <div className="mt-4">
-            <RankingTable rows={RANKING_SDR} kind="sdr" />
+            {RANKING_SDR.length ? (
+              <RankingTable rows={RANKING_SDR} kind="sdr" />
+            ) : (
+              <p className="rounded-md border border-dashed border-border/60 p-6 text-center text-xs text-muted-foreground">
+                Sem dados de SDRs ainda. Cadastre SDRs para ver o ranking.
+              </p>
+            )}
           </div>
         </div>
       </section>
