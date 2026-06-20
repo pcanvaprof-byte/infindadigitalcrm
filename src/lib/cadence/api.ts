@@ -1,4 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
+// Os tipos gerados (src/integrations/supabase/types.ts) ainda não conhecem
+// as tabelas/RPCs da Fase 6 — a migration precisa ser executada e os tipos
+// regerados. Até lá, usamos um cliente afrouxado APENAS para os novos pontos.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const sb = supabase as any;
 
 // ============================================================
 // Cadência comercial — Fase 6
@@ -120,7 +125,7 @@ async function uid(): Promise<string> {
 
 /** Lista touchpoints de um prospect (timeline). */
 export async function listTouchpoints(prospectId: string): Promise<Touchpoint[]> {
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from("prospect_touchpoints")
     .select("*")
     .eq("prospect_id", prospectId)
@@ -137,7 +142,7 @@ export async function addTouchpoint(input: {
   resultado: TouchpointResultado;
 }): Promise<Touchpoint> {
   const user_id = await uid();
-  const { data, error } = await supabase
+  const { data, error } = await sb
     .from("prospect_touchpoints")
     .insert({
       prospect_id: input.prospect_id,
@@ -153,19 +158,19 @@ export async function addTouchpoint(input: {
 }
 
 export async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
-  const { data, error } = await supabase.rpc("dashboard_metrics");
+  const { data, error } = await sb.rpc("dashboard_metrics");
   if (error) throw error;
   return data as unknown as DashboardMetrics;
 }
 
 export async function fetchAcoesHoje(limit = 100): Promise<AcaoHoje[]> {
-  const { data, error } = await supabase.rpc("acoes_hoje", { _limit: limit });
+  const { data, error } = await sb.rpc("acoes_hoje", { _limit: limit });
   if (error) throw error;
   return (data ?? []) as AcaoHoje[];
 }
 
 export async function snoozeProspect(prospectId: string, days: number): Promise<string> {
-  const { data, error } = await supabase.rpc("snooze_prospect", {
+  const { data, error } = await sb.rpc("snooze_prospect", {
     _prospect_id: prospectId,
     _days: days,
   });
@@ -193,7 +198,7 @@ export async function closeCadence(
   reason: CloseReason,
   note?: string,
 ): Promise<void> {
-  const { error } = await supabase.rpc("close_cadence", {
+  const { error } = await sb.rpc("close_cadence", {
     _prospect_id: prospectId,
     _reason: reason,
     _note: note ?? null,
