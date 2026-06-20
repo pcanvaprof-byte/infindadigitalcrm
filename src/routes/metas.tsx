@@ -70,22 +70,7 @@ const MY_METRICS: Metric[] = [
   { key: "contratos", label: "Contratos fechados", icon: CheckCircle2, current: 1, daily: 1, weekly: 5 },
 ];
 
-const EMPTY_DAILY = [
-  { d: "Seg", empresas: 0, conversas: 0, propostas: 0 },
-  { d: "Ter", empresas: 0, conversas: 0, propostas: 0 },
-  { d: "Qua", empresas: 0, conversas: 0, propostas: 0 },
-  { d: "Qui", empresas: 0, conversas: 0, propostas: 0 },
-  { d: "Sex", empresas: 0, conversas: 0, propostas: 0 },
-];
-
-const EMPTY_WEEKLY = [
-  { s: "S1", atingido: 0 },
-  { s: "S2", atingido: 0 },
-  { s: "S3", atingido: 0 },
-  { s: "S4", atingido: 0 },
-  { s: "S5", atingido: 0 },
-  { s: "S6", atingido: 0 },
-];
+const DAY_LABELS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
 const FUNNEL_FALLBACK: { label: string; value: number }[] = [];
 
