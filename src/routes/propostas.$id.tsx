@@ -10,7 +10,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  getProposal, listItems, listEvents, listVersions,
+  getProposal, listItems, listVersions,
   addItemFromCatalog, removeItem, updateItem, saveVersion,
   getCurrentVersion, updateProposal, registerSend,
   propostasKeys, buildPublicUrl,
