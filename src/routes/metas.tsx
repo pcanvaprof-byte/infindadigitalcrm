@@ -283,7 +283,8 @@ function MetasPage() {
     const prospects = prospectsQ.data ?? [];
     const deals = dealsQ.data ?? [];
     const stages = stagesQ.data ?? [];
-    const proposalStageIds = new Set(stages.filter((s) => s.is_proposal).map((s) => s.id));
+    const isProposal = (label: string) => /proposta/i.test(label);
+    const proposalStageIds = new Set(stages.filter((s) => isProposal(s.label)).map((s) => s.id));
     // Monday of current week
     const now = new Date();
     const day = now.getDay(); // 0 Dom ... 6 Sab
@@ -315,8 +316,8 @@ function MetasPage() {
     const deals = dealsQ.data ?? [];
     const stages = stagesQ.data ?? [];
     const wonIds = new Set(stages.filter((s) => s.is_won).map((s) => s.id));
-    const propIds = new Set(stages.filter((s) => s.is_proposal).map((s) => s.id));
-    const meetingIds = new Set(stages.filter((s) => s.is_meeting).map((s) => s.id));
+    const propIds = new Set(stages.filter((s) => /proposta/i.test(s.label)).map((s) => s.id));
+    const meetingIds = new Set(stages.filter((s) => /reuni/i.test(s.label)).map((s) => s.id));
     const goal = 5; // pontuação semanal alvo
     const now = new Date();
     const day = now.getDay();
