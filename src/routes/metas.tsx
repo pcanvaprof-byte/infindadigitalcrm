@@ -106,14 +106,17 @@ type Ranked = {
 const RANKING_SDR: Ranked[] = [];
 const RANKING_CONSULTORES: Ranked[] = [];
 
-const BADGES = [
-  { id: "100", icon: Trophy, label: "100 empresas", desc: "Visitou 100 empresas na semana", got: true, color: "text-amber-300" },
-  { id: "streak", icon: Flame, label: "Em chamas", desc: "7 dias batendo meta diária", got: true, color: "text-rose-300" },
-  { id: "closer", icon: Crown, label: "Closer", desc: "5 contratos fechados no mês", got: false, color: "text-violet-300" },
-  { id: "speed", icon: TrendingUp, label: "Foguete", desc: "+30% sobre a meta semanal", got: true, color: "text-sky-300" },
-  { id: "talker", icon: MessageSquare, label: "Negociador", desc: "60 conversas qualificadas", got: false, color: "text-emerald-300" },
-  { id: "star", icon: Star, label: "Top 3", desc: "Ranking entre os 3 melhores", got: true, color: "text-primary-glow" },
-];
+type Badge = { id: string; icon: typeof Trophy; label: string; desc: string; got: boolean; color: string };
+function buildBadges(k: { prospectsTotal: number; prospectsContacted: number; meetings: number; proposals: number; dealsWon: number }, score: number): Badge[] {
+  return [
+    { id: "100", icon: Trophy, label: "100 empresas", desc: "100 empresas na base", got: k.prospectsTotal >= 100, color: "text-amber-300" },
+    { id: "streak", icon: Flame, label: "Em chamas", desc: "7 dias batendo meta diária", got: false, color: "text-rose-300" },
+    { id: "closer", icon: Crown, label: "Closer", desc: "5 contratos fechados", got: k.dealsWon >= 5, color: "text-violet-300" },
+    { id: "speed", icon: TrendingUp, label: "Foguete", desc: "+30% sobre a meta semanal", got: score >= 30, color: "text-sky-300" },
+    { id: "talker", icon: MessageSquare, label: "Negociador", desc: "60 conversas qualificadas", got: k.prospectsContacted >= 60, color: "text-emerald-300" },
+    { id: "star", icon: Star, label: "Top 3", desc: "Ranking entre os 3 melhores", got: false, color: "text-primary-glow" },
+  ];
+}
 
 const tooltipStyle = {
   background: "oklch(0.2 0.014 250)",
@@ -292,6 +295,25 @@ function MetasPage() {
     return Math.round((total / Math.max(liveMetrics.length, 1)) * 100);
   }, [liveMetrics]);
 
+  const pontuacao = useMemo(() => {
+    if (!k) return 0;
+    return (
+      k.prospectsTotal * 10 +
+      k.prospectsContacted * 20 +
+      k.meetings * 50 +
+      k.proposals * 100 +
+      k.dealsWon * 300
+    );
+  }, [k]);
+
+  const badges = useMemo(
+    () => buildBadges(
+      k ?? { prospectsTotal: 0, prospectsContacted: 0, meetings: 0, proposals: 0, dealsWon: 0 },
+      myScore,
+    ),
+    [k, myScore],
+  );
+
   return (
     <AppShell
       title="Metas"
@@ -319,16 +341,16 @@ function MetasPage() {
             <div className="mt-4 flex flex-wrap gap-3">
               <div className="rounded-lg border border-border bg-card/60 px-3 py-2">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Pontuação</p>
-                <p className="text-lg font-bold">2.210</p>
+                <p className="text-lg font-bold">{pontuacao.toLocaleString("pt-BR")}</p>
               </div>
               <div className="rounded-lg border border-border bg-card/60 px-3 py-2">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Posição</p>
-                <p className="text-lg font-bold">#1 <span className="text-xs text-muted-foreground">consultor</span></p>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Empresas na base</p>
+                <p className="text-lg font-bold">{(k?.prospectsTotal ?? 0).toLocaleString("pt-BR")}</p>
               </div>
               <div className="rounded-lg border border-border bg-card/60 px-3 py-2">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Streak</p>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Contratos fechados</p>
                 <p className="flex items-center gap-1 text-lg font-bold">
-                  <Flame className="h-4 w-4 text-rose-300" /> 8 dias
+                  <CheckCircle2 className="h-4 w-4 text-emerald-300" /> {k?.dealsWon ?? 0}
                 </p>
               </div>
             </div>
@@ -340,11 +362,11 @@ function MetasPage() {
                 Medalhas conquistadas
               </p>
               <span className="text-[11px] text-muted-foreground">
-                {BADGES.filter((b) => b.got).length}/{BADGES.length}
+                {badges.filter((b) => b.got).length}/{badges.length}
               </span>
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6 lg:grid-cols-3 xl:grid-cols-6">
-              {BADGES.map((b) => {
+              {badges.map((b) => {
                 const Icon = b.icon;
                 return (
                   <div
