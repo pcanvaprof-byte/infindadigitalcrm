@@ -283,6 +283,14 @@ function EditorPage() {
               <Field label="Observações" value={content.observacoes ?? ""}
                      onChange={(v) => setContent({ ...content, observacoes: v })} />
             </div>
+
+            <CrescimentoEditor
+              value={content.crescimento}
+              fallbackTicket={500}
+              defaultMensal={p.valor_mensal}
+              onChange={(c) => setContent({ ...content, crescimento: c })}
+            />
+
             <p className="mt-2 text-[10px] text-muted-foreground">
               Clique em <strong>Salvar versão</strong> no topo para registrar uma nova V. Versões anteriores ficam preservadas no histórico.
             </p>
