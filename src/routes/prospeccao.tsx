@@ -1460,7 +1460,7 @@ function KanbanView({
 }
 
 function DetailDialog({
-  p, onWhats, onCall, onStatus, onConvert, onAddNote, onEnrich,
+  p, onWhats, onCall, onStatus, onConvert, onAddNote, onEnrich, onRegisterTouchpoint,
 }: {
   p: Prospect;
   onWhats: () => void;
@@ -1469,9 +1469,11 @@ function DetailDialog({
   onConvert: () => void;
   onAddNote: (text: string) => void;
   onEnrich: () => void;
+  onRegisterTouchpoint: () => void;
 }) {
   const [note, setNote] = useState("");
   const timeline = p.interactions ?? [];
+  const proxima = proximaAcaoLabel(p.nextContactAt ?? null);
   return (
     <DialogContent className="max-w-3xl">
       <DialogHeader>
@@ -1485,6 +1487,14 @@ function DetailDialog({
               <span className="opacity-50">·</span>
               <PotentialBadge p={p.potential} />
               <StatusBadge status={p.status} />
+              <span className="opacity-50">·</span>
+              <span className={
+                proxima.tone === "overdue" ? "text-rose-300" :
+                proxima.tone === "today"   ? "text-amber-300" :
+                "text-muted-foreground"
+              }>
+                Próxima ação: {proxima.text}
+              </span>
             </DialogDescription>
           </div>
           <Button size="sm" className="btn-gradient h-8 text-xs" onClick={onEnrich}>
@@ -1529,12 +1539,20 @@ function DetailDialog({
                 {STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
               </SelectContent>
             </Select>
+            <Button size="sm" className="btn-gradient h-9 w-full text-xs" onClick={onRegisterTouchpoint}>
+              <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Registrar contato (cadência)
+            </Button>
           </div>
         </div>
 
         {/* Timeline */}
         <div className="surface-card flex flex-col p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Timeline</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Timeline (Cadência)</p>
+          <div className="mt-3">
+            <ProspectTimeline prospectId={p.id} />
+          </div>
+          <div className="my-4 border-t border-border/60"></div>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Notas internas</p>
 
           <div className="mt-2 space-y-2">
             <Textarea value={note} onChange={(e) => setNote(e.target.value)}
