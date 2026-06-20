@@ -1,5 +1,5 @@
 import { createFileRoute, useParams } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,7 +11,8 @@ import {
   getProposalByToken, registerProposalView, submitProposalDecision,
 } from "@/lib/propostas/api";
 import type { PublicProposal } from "@/lib/propostas/types";
-import { formatBRL, COBRANCA_LABEL } from "@/lib/catalog/types";
+import { resolveFromPublic } from "@/lib/proposta/viewModel";
+import { ProposalRenderer } from "@/components/proposta/renderer/ProposalRenderer";
 import { CheckCircle2, Edit3, XCircle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -44,12 +45,6 @@ function PublicProposalPage() {
   if (loading) return <FullScreen><Loader2 className="h-6 w-6 animate-spin text-primary" /></FullScreen>;
   if (!data) return <FullScreen><p className="text-sm text-muted-foreground">Proposta não encontrada ou link inválido.</p></FullScreen>;
 
-  const empresa = data.cliente?.company || data.lead?.company || "Cliente";
-  const contato = data.cliente?.contact_name || data.lead?.owner || "";
-  const segmento = data.cliente?.segment || data.lead?.segment || "";
-  const conteudo = data.versao?.conteudo_json ?? {};
-  const total12 = data.valor_implantacao + data.valor_mensal * 12;
-
   // Guard atômico (defesa em profundidade — backend é a fonte da verdade)
   const isExpired =
     !!data.valid_until && new Date(data.valid_until).getTime() < Date.now();
@@ -77,132 +72,73 @@ function PublicProposalPage() {
     );
   }
 
+  return <PublicProposalView data={data} canDecide={canDecide} isExpired={isExpired} setDecisionOpen={setDecisionOpen} decisionOpen={decisionOpen} onSubmit={async (vals) => {
+    try {
+      const result = await submitProposalDecision({ token, decisao: decisionOpen!, ...vals });
+      toast.success("Decisão registrada");
+      setDone({ status: result.status, briefingToken: result.briefing_token });
+      setDecisionOpen(null);
+    } catch (e) {
+      toast.error((e as Error).message || "Não foi possível registrar a decisão.");
+      throw e;
+    }
+  }} />;
+}
+
+function PublicProposalView({
+  data, canDecide, isExpired, decisionOpen, setDecisionOpen, onSubmit,
+}: {
+  data: PublicProposal;
+  canDecide: boolean;
+  isExpired: boolean;
+  decisionOpen: null | "aprovada" | "ajustes" | "rejeitada";
+  setDecisionOpen: (v: null | "aprovada" | "ajustes" | "rejeitada") => void;
+  onSubmit: (vals: { nome: string; cargo?: string; documento?: string; mensagem?: string }) => Promise<void>;
+}) {
+  const vm = useMemo(() => resolveFromPublic(data, { mode: "web" }), [data]);
+
   return (
-    <div className="min-h-screen bg-background pb-20">
-      {/* Capa */}
-      <header className="border-b border-border bg-gradient-to-br from-primary/10 via-card to-background px-6 py-12 sm:px-12 sm:py-20">
-        <div className="mx-auto max-w-4xl">
-          <Logo />
-          <p className="mt-8 text-xs font-semibold uppercase tracking-[0.3em] text-primary">
-            Proposta Comercial · {data.numero}
-          </p>
-          <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-5xl">
-            {data.titulo}
-          </h1>
-          <p className="mt-3 text-lg text-muted-foreground">
-            Preparada para <span className="font-semibold text-foreground">{empresa}</span>
-            {contato && <> · {contato}</>}
-          </p>
-          {data.valid_until && (
-            <p className="mt-6 inline-block rounded-full bg-card px-4 py-2 text-xs text-muted-foreground">
-              Válida até {new Date(data.valid_until).toLocaleDateString("pt-BR")}
-            </p>
-          )}
-        </div>
-      </header>
+    <div className="min-h-screen bg-background pb-24">
+      <div className="border-b border-border bg-card/30 px-6 py-4 sm:px-10">
+        <div className="mx-auto max-w-5xl"><Logo /></div>
+      </div>
+      <main className="mx-auto max-w-5xl px-4 py-10 sm:px-8">
+        <ProposalRenderer vm={vm} />
 
-      <main className="mx-auto mt-10 max-w-4xl space-y-10 px-6 sm:px-12">
-        {/* Sobre */}
-        <Section title="Sobre a empresa">
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            {empresa}{segmento && <> · {segmento}</>}{data.cliente?.city && <> · {data.cliente.city}/{data.cliente.state}</>}
-          </p>
-        </Section>
-
-        {/* Diagnóstico */}
-        {conteudo.diagnostico && (
-          <Section title="Diagnóstico">
-            <Prose text={conteudo.diagnostico} />
-          </Section>
-        )}
-
-        {conteudo.problemas && conteudo.problemas.length > 0 && (
-          <Section title="Problemas identificados">
-            <ul className="space-y-2 text-sm">
-              {conteudo.problemas.map((p, i) => (
-                <li key={i} className="flex gap-2"><span className="text-rose-400">•</span><span>{p}</span></li>
-              ))}
-            </ul>
-          </Section>
-        )}
-
-        {/* Solução */}
-        {conteudo.solucao && (
-          <Section title="Solução proposta">
-            <Prose text={conteudo.solucao} />
-          </Section>
-        )}
-
-        {/* Escopo / Itens */}
-        <Section title="Escopo dos serviços">
-          <div className="surface-card overflow-hidden">
-            {data.items.length === 0 ? (
-              <p className="p-6 text-center text-sm text-muted-foreground">Sem itens vinculados.</p>
-            ) : (
-              <table className="w-full text-sm">
-                <thead className="bg-card/40 text-[10px] uppercase tracking-wider text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-2 text-left">Item</th>
-                    <th className="px-4 py-2 text-left">Cobrança</th>
-                    <th className="px-4 py-2 text-right">Qtd</th>
-                    <th className="px-4 py-2 text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.items.map((it) => (
-                    <tr key={it.id} className="border-t border-border/40">
-                      <td className="px-4 py-3">
-                        <p className="font-medium">{it.nome}</p>
-                        {it.descricao && <p className="text-[12px] text-muted-foreground">{it.descricao}</p>}
-                      </td>
-                      <td className="px-4 py-3 text-xs">{COBRANCA_LABEL[it.cobranca as keyof typeof COBRANCA_LABEL]}</td>
-                      <td className="px-4 py-3 text-right">{it.quantidade}</td>
-                      <td className="px-4 py-3 text-right font-semibold">{formatBRL(it.valor_total)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        </Section>
-
-        {/* Investimento */}
-        <Section title="Investimento">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Box label="Implantação (única)" value={formatBRL(data.valor_implantacao)} />
-            <Box label="Mensalidade" value={`${formatBRL(data.valor_mensal)}/mês`} />
-            <Box label="Total 12 meses" value={formatBRL(total12)} highlight />
-          </div>
-        </Section>
-
-        {/* Cronograma */}
-        {conteudo.cronograma && (
-          <Section title="Cronograma">
-            <Prose text={conteudo.cronograma} />
-          </Section>
-        )}
-
-        {/* Aprovação */}
-        <Section title="Aprovação">
+        <section className="mt-16">
+          <div className="text-xs uppercase tracking-[0.2em] text-primary-glow font-medium">Aprovação</div>
+          <h2 className="mt-2 text-3xl md:text-4xl font-bold tracking-tight">Pronto para começar?</h2>
           {canDecide ? (
             <>
-              <p className="mb-4 text-sm text-muted-foreground">
-                Pronto para começar? Aprove a proposta agora ou solicite ajustes — registramos sua decisão automaticamente.
+              <p className="mt-3 mb-6 text-sm text-muted-foreground max-w-2xl">
+                Aprove a proposta agora ou solicite ajustes — registramos sua decisão automaticamente.
               </p>
-              <div className="flex flex-wrap gap-3">
-                <Button className="btn-gradient" size="lg" onClick={() => setDecisionOpen("aprovada")}>
-                  <CheckCircle2 className="mr-2 h-4 w-4" /> Aprovar
+              <div className="grid gap-3 sm:grid-cols-3">
+                <Button className="btn-gradient h-auto py-5 justify-start text-left" onClick={() => setDecisionOpen("aprovada")}>
+                  <CheckCircle2 className="mr-3 h-5 w-5 shrink-0" />
+                  <span className="flex flex-col items-start">
+                    <span className="text-base font-bold">Aprovar proposta</span>
+                    <span className="text-xs opacity-80">Quero começar agora</span>
+                  </span>
                 </Button>
-                <Button variant="outline" size="lg" onClick={() => setDecisionOpen("ajustes")}>
-                  <Edit3 className="mr-2 h-4 w-4" /> Solicitar ajustes
+                <Button variant="outline" className="h-auto py-5 justify-start text-left" onClick={() => setDecisionOpen("ajustes")}>
+                  <Edit3 className="mr-3 h-5 w-5 shrink-0" />
+                  <span className="flex flex-col items-start">
+                    <span className="text-base font-bold">Solicitar ajustes</span>
+                    <span className="text-xs opacity-70">Quero personalizar</span>
+                  </span>
                 </Button>
-                <Button variant="outline" size="lg" onClick={() => setDecisionOpen("rejeitada")}>
-                  <XCircle className="mr-2 h-4 w-4" /> Rejeitar
+                <Button variant="outline" className="h-auto py-5 justify-start text-left" onClick={() => setDecisionOpen("rejeitada")}>
+                  <XCircle className="mr-3 h-5 w-5 shrink-0" />
+                  <span className="flex flex-col items-start">
+                    <span className="text-base font-bold">Rejeitar proposta</span>
+                    <span className="text-xs opacity-70">Não é o momento</span>
+                  </span>
                 </Button>
               </div>
             </>
           ) : (
-            <div className="surface-card p-6 text-sm text-muted-foreground">
+            <div className="mt-4 surface-card p-6 text-sm text-muted-foreground">
               {isExpired ? (
                 <>
                   <p className="font-semibold text-foreground">
@@ -224,52 +160,18 @@ function PublicProposalPage() {
               )}
             </div>
           )}
-        </Section>
+        </section>
       </main>
 
       <DecisionDialog
         open={decisionOpen}
         onClose={() => setDecisionOpen(null)}
-        onSubmit={async (vals) => {
-          try {
-            const result = await submitProposalDecision({
-              token,
-              decisao: decisionOpen!,
-              ...vals,
-            });
-            toast.success("Decisão registrada");
-            setDone({ status: result.status, briefingToken: result.briefing_token });
-            setDecisionOpen(null);
-          } catch (e) {
-            // Backend pode rejeitar (expirada / já finalizada). Repassa msg.
-            toast.error((e as Error).message || "Não foi possível registrar a decisão.");
-            throw e;
-          }
-        }}
+        onSubmit={onSubmit}
       />
     </div>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section>
-      <h2 className="mb-3 text-sm font-bold uppercase tracking-[0.2em] text-primary">{title}</h2>
-      {children}
-    </section>
-  );
-}
-function Prose({ text }: { text: string }) {
-  return <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">{text}</p>;
-}
-function Box({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
-  return (
-    <div className={`rounded-xl p-4 ${highlight ? "bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30" : "surface-card"}`}>
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className={`mt-1 text-xl font-bold ${highlight ? "text-primary" : ""}`}>{value}</p>
-    </div>
-  );
-}
 function FullScreen({ children }: { children: React.ReactNode }) {
   return <div className="grid min-h-screen place-items-center bg-background p-6">{children}</div>;
 }
