@@ -6,6 +6,10 @@ import { RequireAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -350,6 +354,105 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
     <div>
       <p className="text-[11px] font-semibold text-muted-foreground">{label}</p>
       <Textarea className="mt-1 min-h-[80px] text-sm" value={value} onChange={(e) => onChange(e.target.value)} />
+    </div>
+  );
+}
+
+type CrescimentoCfg = NonNullable<ProposalContent["crescimento"]>;
+
+function CrescimentoEditor({
+  value,
+  fallbackTicket,
+  defaultMensal,
+  onChange,
+}: {
+  value: CrescimentoCfg | undefined;
+  fallbackTicket: number;
+  defaultMensal: number;
+  onChange: (next: CrescimentoCfg | undefined) => void;
+}) {
+  const enabled = !!value?.enabled;
+
+  function patch(p: Partial<CrescimentoCfg>) {
+    const base: CrescimentoCfg = value ?? {
+      enabled: true,
+      nicho: "",
+      tipo_negocio: null,
+      ticket_medio: fallbackTicket,
+      maturidade: "media",
+    };
+    onChange({ ...base, ...p });
+  }
+
+  return (
+    <div className="mt-4 rounded border border-border/40 bg-card/30 p-3">
+      <label className="flex items-center gap-2 cursor-pointer">
+        <Checkbox
+          checked={enabled}
+          onCheckedChange={(v) => {
+            const on = v === true;
+            if (on) {
+              patch({ enabled: true });
+            } else if (value) {
+              onChange({ ...value, enabled: false });
+            }
+          }}
+        />
+        <span className="text-xs font-semibold">
+          Bloco <span className="text-primary-glow">“Potencial de Crescimento”</span>
+        </span>
+      </label>
+      <p className="mt-1 text-[10px] text-muted-foreground">
+        Projeção determinística de 90/180 dias em 3 cenários. Investimento mensal usado: {formatBRL(defaultMensal)}.
+      </p>
+
+      {enabled && (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="col-span-2 sm:col-span-1">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Nicho do cliente</p>
+            <Input
+              className="h-8 mt-1 text-xs"
+              placeholder="Ex: clínica odontológica"
+              value={value?.nicho ?? ""}
+              onChange={(e) => patch({ nicho: e.target.value })}
+            />
+          </div>
+          <div className="col-span-2 sm:col-span-1">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Tipo de negócio</p>
+            <Input
+              className="h-8 mt-1 text-xs"
+              placeholder="Ex: B2C local"
+              value={value?.tipo_negocio ?? ""}
+              onChange={(e) => patch({ tipo_negocio: e.target.value || null })}
+            />
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Ticket médio (R$)</p>
+            <Input
+              className="h-8 mt-1 text-xs"
+              type="number"
+              min={0}
+              step={1}
+              value={value?.ticket_medio ?? 0}
+              onChange={(e) => patch({ ticket_medio: Number(e.target.value) || 0 })}
+            />
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Maturidade digital</p>
+            <Select
+              value={value?.maturidade ?? "media"}
+              onValueChange={(v) => patch({ maturidade: v as CrescimentoCfg["maturidade"] })}
+            >
+              <SelectTrigger className="h-8 mt-1 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="baixa">Baixa</SelectItem>
+                <SelectItem value="media">Média</SelectItem>
+                <SelectItem value="alta">Alta</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
