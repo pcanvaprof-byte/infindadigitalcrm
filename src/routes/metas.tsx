@@ -365,6 +365,7 @@ function MetasPage() {
     const stages = stagesQ.data ?? [];
     const isProposal = (label: string) => /proposta/i.test(label);
     const proposalStageIds = new Set(stages.filter((s) => isProposal(s.label)).map((s) => s.id));
+    const dealProspectIds = new Set(deals.map((d) => d.prospect_id).filter(Boolean) as string[]);
     // Monday of current week
     const now = new Date();
     const day = now.getDay(); // 0 Dom ... 6 Sab
@@ -386,7 +387,14 @@ function MetasPage() {
         d: DAY_LABELS[start.getDay()],
         empresas: prospects.filter((p) => inDay(p.createdAt)).length,
         conversas: prospects.filter((p) => inDay((p as { lastContactAt?: string | null }).lastContactAt)).length,
-        propostas: deals.filter((d) => proposalStageIds.has(d.stage_id) && inDay(d.updated_at)).length,
+        propostas:
+          deals.filter((d) => proposalStageIds.has(d.stage_id) && inDay(d.updated_at)).length +
+          prospects.filter(
+            (p) =>
+              !dealProspectIds.has(p.id) &&
+              PROPOSAL_PIPELINE_STATUSES.has(prospectPipelineStatus(p) ?? "") &&
+              inDay(prospectActivityAt(p)),
+          ).length,
       };
     });
     return days;
