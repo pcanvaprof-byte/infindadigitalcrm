@@ -1467,7 +1467,7 @@ function KanbanView({
 }
 
 function DetailDialog({
-  p, onWhats, onCall, onStatus, onConvert, onAddNote, onEnrich, onRegisterTouchpoint,
+  p, onWhats, onCall, onStatus, onConvert, onAddNote, onEnrich, onRegisterTouchpoint, onCloseCadence,
 }: {
   p: Prospect;
   onWhats: () => void;
@@ -1477,6 +1477,7 @@ function DetailDialog({
   onAddNote: (text: string) => void;
   onEnrich: () => void;
   onRegisterTouchpoint: () => void;
+  onCloseCadence: () => void;
 }) {
   const [note, setNote] = useState("");
   const timeline = p.interactions ?? [];
