@@ -59,27 +59,40 @@ export function ProspectPicker({
   );
 
   const filtered = useMemo(() => {
-    const q = normalize(query);
-    const qDigits = onlyDigits(query);
-    if (!q && !qDigits) return prospects.slice(0, 200);
-    return prospects.filter((p) => {
-      const haystack = [
-        normalize(p.company ?? ""),
-        normalize(p.owner ?? ""),
-        normalize(p.email ?? ""),
-        normalize(p.segment ?? ""),
-      ].join(" ");
-      if (q && haystack.includes(q)) return true;
-      if (qDigits) {
-        const digitHaystack = [
-          onlyDigits(p.cnpj ?? ""),
-          onlyDigits(p.phone ?? ""),
-          onlyDigits(p.whatsapp ?? ""),
-        ].join(" ");
-        if (digitHaystack.includes(qDigits)) return true;
-      }
-      return false;
-    });
+    const raw = query.trim();
+    if (!raw) return prospects.slice(0, 200);
+
+    // tokens: split on whitespace; each token must match somewhere (AND)
+    const tokens = raw.split(/\s+/).filter(Boolean);
+
+    const scored = prospects
+      .map((p) => {
+        const text = normalize(
+          [p.company, p.owner, p.email, p.segment].filter(Boolean).join(" "),
+        );
+        const digits = [p.cnpj, p.phone, p.whatsapp]
+          .map((v) => onlyDigits(v ?? ""))
+          .join(" ");
+        const company = normalize(p.company ?? "");
+
+        let score = 0;
+        for (const t of tokens) {
+          const nt = normalize(t);
+          const dt = onlyDigits(t);
+          const textHit = nt && text.includes(nt);
+          const digitHit = dt && digits.includes(dt);
+          if (!textHit && !digitHit) return null; // AND match
+          if (nt && company.startsWith(nt)) score += 10;
+          else if (textHit) score += 3;
+          if (digitHit) score += 5;
+        }
+        return { p, score };
+      })
+      .filter((x): x is { p: typeof prospects[number]; score: number } => x !== null)
+      .sort((a, b) => b.score - a.score)
+      .map((x) => x.p);
+
+    return scored;
   }, [prospects, query]);
 
   return (
