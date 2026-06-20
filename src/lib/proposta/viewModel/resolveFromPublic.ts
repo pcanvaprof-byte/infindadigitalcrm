@@ -160,18 +160,30 @@ export function resolveFromPublic(
     descontoAplicado: 0,
   };
 
-  // ----- Crescimento (opt-in via conteudo_json.crescimento) -----
+  // ----- Crescimento -----
+  // Se houver configuração explícita, usa ela. Caso contrário, gera uma
+  // projeção default baseada em premissas conservadoras (ticket R$ 500,
+  // maturidade média, nicho = segmento do cliente ou "Geral"). Assim toda
+  // proposta já ativa exibe o bloco "Resultado que você pode esperar".
   const cresCfg = content.crescimento;
+  const investMensalRef =
+    raw.valor_mensal > 0 ? raw.valor_mensal : Math.max(1, raw.valor_implantacao / 6);
   const crescimento =
     cresCfg && cresCfg.enabled && cresCfg.nicho && Number(cresCfg.ticket_medio) > 0
       ? buildCrescimento({
           nicho: cresCfg.nicho,
           tipoNegocio: cresCfg.tipo_negocio ?? segmento ?? null,
           ticketMedio: Number(cresCfg.ticket_medio),
-          investimentoMensal: raw.valor_mensal > 0 ? raw.valor_mensal : Math.max(1, raw.valor_implantacao / 6),
+          investimentoMensal: investMensalRef,
           maturidade: cresCfg.maturidade ?? "media",
         })
-      : null;
+      : buildCrescimento({
+          nicho: segmento ?? "seu segmento",
+          tipoNegocio: segmento ?? null,
+          ticketMedio: 500,
+          investimentoMensal: investMensalRef,
+          maturidade: "media",
+        });
 
   // ----- Header -----
   const dias = daysUntil(raw.valid_until);
