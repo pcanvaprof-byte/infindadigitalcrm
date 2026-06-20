@@ -1353,6 +1353,25 @@ function DesktopProspectTable({
   );
 }
 
+function NextActionCell({
+  next,
+  status,
+}: {
+  next: string | null;
+  status?: "ativo" | "pausado" | "encerrado";
+}) {
+  if (status === "encerrado") return <span className="text-muted-foreground">Encerrada</span>;
+  if (status === "pausado") return <span className="text-muted-foreground">Pausada</span>;
+  const { text, tone } = proximaAcaoLabel(next);
+  const cls =
+    tone === "overdue" ? "text-rose-300" :
+    tone === "today" ? "text-amber-300" :
+    tone === "tomorrow" ? "text-amber-200/80" :
+    tone === "soon" ? "text-emerald-300/80" :
+    "text-muted-foreground";
+  return <span className={cls}>{text}</span>;
+}
+
 const RowActions = memo(function RowActions({
   p, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onOpen,
 }: {
