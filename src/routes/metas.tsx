@@ -20,8 +20,6 @@ import {
   Flame,
   MessageSquare,
   Medal,
-  Phone,
-  Star,
   Target,
   Trophy,
   TrendingUp,
@@ -57,18 +55,16 @@ type Metric = {
 };
 
 const TEAM_METRICS: Metric[] = [
-  { key: "empresas", label: "Empresas visitadas", icon: Building2, current: 112, daily: 25, weekly: 150 },
+  { key: "empresas", label: "Empresas na base", icon: Building2, current: 112, daily: 25, weekly: 150 },
   { key: "conversas", label: "Conversas qualificadas", icon: MessageSquare, current: 41, daily: 10, weekly: 60 },
-  { key: "apresentacoes", label: "Apresentações", icon: Phone, current: 22, daily: 5, weekly: 30 },
   { key: "reunioes", label: "Reuniões", icon: CalendarClock, current: 9, daily: 2, weekly: 12 },
   { key: "propostas", label: "Propostas", icon: FileText, current: 4, daily: 1, weekly: 6 },
   { key: "contratos", label: "Contratos fechados", icon: CheckCircle2, current: 3, daily: 1, weekly: 5 },
 ];
 
 const MY_METRICS: Metric[] = [
-  { key: "empresas", label: "Empresas visitadas", icon: Building2, current: 28, daily: 25, weekly: 150 },
+  { key: "empresas", label: "Empresas na base", icon: Building2, current: 28, daily: 25, weekly: 150 },
   { key: "conversas", label: "Conversas qualificadas", icon: MessageSquare, current: 12, daily: 10, weekly: 60 },
-  { key: "apresentacoes", label: "Apresentações", icon: Phone, current: 6, daily: 5, weekly: 30 },
   { key: "reunioes", label: "Reuniões", icon: CalendarClock, current: 3, daily: 2, weekly: 12 },
   { key: "propostas", label: "Propostas", icon: FileText, current: 2, daily: 1, weekly: 6 },
   { key: "contratos", label: "Contratos fechados", icon: CheckCircle2, current: 1, daily: 1, weekly: 5 },
@@ -110,11 +106,9 @@ type Badge = { id: string; icon: typeof Trophy; label: string; desc: string; got
 function buildBadges(k: { prospectsTotal: number; prospectsContacted: number; meetings: number; proposals: number; dealsWon: number }, score: number): Badge[] {
   return [
     { id: "100", icon: Trophy, label: "100 empresas", desc: "100 empresas na base", got: k.prospectsTotal >= 100, color: "text-amber-300" },
-    { id: "streak", icon: Flame, label: "Em chamas", desc: "7 dias batendo meta diária", got: false, color: "text-rose-300" },
     { id: "closer", icon: Crown, label: "Closer", desc: "5 contratos fechados", got: k.dealsWon >= 5, color: "text-violet-300" },
     { id: "speed", icon: TrendingUp, label: "Foguete", desc: "+30% sobre a meta semanal", got: score >= 30, color: "text-sky-300" },
     { id: "talker", icon: MessageSquare, label: "Negociador", desc: "60 conversas qualificadas", got: k.prospectsContacted >= 60, color: "text-emerald-300" },
-    { id: "star", icon: Star, label: "Top 3", desc: "Ranking entre os 3 melhores", got: false, color: "text-primary-glow" },
   ];
 }
 
@@ -274,7 +268,6 @@ function MetasPage() {
     const overrides: Record<string, number> = {
       empresas: k.prospectsTotal,
       conversas: k.prospectsContacted,
-      apresentacoes: k.meetings,
       reunioes: k.meetings,
       propostas: k.proposals,
       contratos: k.dealsWon,
@@ -284,11 +277,22 @@ function MetasPage() {
   const metrics = liveMetrics;
 
   const funnelData = useMemo(() => {
-    if (!dashMetrics.funnel.length) return FUNNEL_FALLBACK;
-    return dashMetrics.funnel
+    // Funil filtrado por janela semanal (deals com updated_at nos últimos 7 dias).
+    const stages = stagesQ.data ?? [];
+    const allDeals = dealsQ.data ?? [];
+    if (!stages.length) return FUNNEL_FALLBACK;
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const weekDeals = allDeals.filter((d) => {
+      const t = d.updated_at ? new Date(d.updated_at).getTime() : 0;
+      return t >= cutoff;
+    });
+    const counts = new Map<string, number>();
+    for (const d of weekDeals) counts.set(d.stage_id, (counts.get(d.stage_id) ?? 0) + 1);
+    return stages
       .filter((s) => !s.is_lost)
-      .map((s) => ({ label: s.label, value: s.count }));
-  }, [dashMetrics.funnel]);
+      .sort((a, b) => a.position - b.position)
+      .map((s) => ({ label: s.label, value: counts.get(s.id) ?? 0 }));
+  }, [dealsQ.data, stagesQ.data]);
 
   const myScore = useMemo(() => {
     const total = liveMetrics.reduce((acc, m) => acc + Math.min(m.current / Math.max(m.weekly, 1), 1), 0);
