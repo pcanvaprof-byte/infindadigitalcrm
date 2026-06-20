@@ -914,6 +914,37 @@ function ProspeccaoPage() {
         <StatCard icon={CalendarPlus} label="Agendadas" value={stats.agendadas} hint="Com reunião marcada" />
       </section>
 
+      {/* Cadência — chips de filtro server-side-shape e widget de ações de hoje */}
+      <section className="mt-6 surface-card p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {([
+            { k: "all",          label: "Todos" },
+            { k: "hoje",         label: "🔥 Hoje" },
+            { k: "atrasados",    label: "⚠️ Atrasados" },
+            { k: "sem_resposta", label: "📩 Sem resposta" },
+            { k: "responderam",  label: "💬 Responderam" },
+            { k: "interessados", label: "🎯 Interessados" },
+            { k: "clientes",     label: "✅ Clientes" },
+          ] as { k: typeof cadenceFilter; label: string }[]).map((c) => (
+            <button
+              key={c.k}
+              onClick={() => setCadenceFilter(c.k)}
+              className={`rounded-full border px-3 py-1 text-xs transition ${
+                cadenceFilter === c.k
+                  ? "border-primary bg-primary/15 text-primary-glow"
+                  : "border-border bg-card/60 text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <div className="mt-6">
+        <AcoesHojeWidget />
+      </div>
+
       {/* Toolbar */}
       <section className="mt-6 surface-card p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
