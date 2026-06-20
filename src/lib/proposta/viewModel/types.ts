@@ -131,6 +131,8 @@ export interface VMMeta {
   versionNumber: number | null;
 }
 
+export type ItemDecisionsState = "complete" | "partial" | "missing";
+
 export interface ProposalViewModel {
   id: string;
   header: VMHeader;
@@ -149,6 +151,13 @@ export interface ProposalViewModel {
   anexos: VMAnexo[];
   capabilities: VMCapabilities;
   meta: VMMeta;
+  /**
+   * Indica se as decisões por item foram resolvidas:
+   * - 'complete': todas conhecidas
+   * - 'partial': algumas vieram, outras assumidas pendentes
+   * - 'missing': nenhuma decisão consultada (CRM listagem rápida, por ex.)
+   */
+  itemDecisionsState: ItemDecisionsState;
 }
 
 /**
