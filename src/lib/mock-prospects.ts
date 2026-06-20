@@ -34,6 +34,7 @@ export interface Prospect {
   potential: ProspectPotential;
   status: ProspectStatus;
   createdAt: string;
+  updatedAt?: string | null;
   interactions?: Interaction[];
   // Cadência comercial (Fase 6) — populados após migration; opcionais até lá.
   cadenceStep?: number;            // 0..6
