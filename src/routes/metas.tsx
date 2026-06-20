@@ -407,6 +407,8 @@ function MetasPage() {
     const propIds = new Set(stages.filter((s) => /proposta/i.test(s.label)).map((s) => s.id));
     const meetingIds = new Set(stages.filter((s) => /reuni/i.test(s.label)).map((s) => s.id));
     const prospects = prospectsQ.data ?? [];
+    const dealProspectIds = new Set(deals.map((d) => d.prospect_id).filter(Boolean) as string[]);
+    const prospectsWithoutDeals = prospects.filter((p) => !dealProspectIds.has(p.id));
     const goalPts = 30; // pontuação semanal alvo (5 contatos*1 + 5 reun*2 + 5 prop*3 = 30)
     const now = new Date();
     const day = now.getDay();
@@ -432,7 +434,16 @@ function MetasPage() {
         return acc;
       }, 0);
       const contatos = prospects.filter((p) => inWeek((p as { lastContactAt?: string | null }).lastContactAt)).length;
-      const score = dealScore + contatos;
+      const prospectStageScore = prospectsWithoutDeals.reduce((acc, p) => {
+        if (!inWeek(prospectActivityAt(p))) return acc;
+        const status = prospectPipelineStatus(p) ?? "";
+        if (isClientProspect(p)) return acc + 5;
+        if (PROPOSAL_PIPELINE_STATUSES.has(status)) return acc + 3;
+        if (MEETING_PIPELINE_STATUSES.has(status)) return acc + 2;
+        if (QUALIFIED_PIPELINE_STATUSES.has(status)) return acc + 1;
+        return acc;
+      }, 0);
+      const score = dealScore + prospectStageScore + contatos;
       const label = i === 5 ? "Atual" : `S-${5 - i}`;
       return { s: label, atingido: Math.min(100, Math.round((score / goalPts) * 100)) };
     });
