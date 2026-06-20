@@ -1214,10 +1214,19 @@ function ProspeccaoPage() {
         <TouchpointModal
           open={!!touchpointTarget}
           onOpenChange={(v) => !v && setTouchpointTarget(null)}
-          prospectId={touchpointTarget.id}
-          company={touchpointTarget.company}
-          cadenceStep={(touchpointTarget.cadenceStep ?? 0) as 0|1|2|3|4|5|6}
+          prospectId={touchpointTarget.prospect.id}
+          company={touchpointTarget.prospect.company}
+          cadenceStep={(touchpointTarget.prospect.cadenceStep ?? 0) as 0|1|2|3|4|5|6}
+          defaultTipo={touchpointTarget.tipo}
           ownerName={user.name}
+        />
+      )}
+      {closeCadenceTarget && (
+        <CloseCadenceDialog
+          open={!!closeCadenceTarget}
+          onOpenChange={(v) => !v && setCloseCadenceTarget(null)}
+          prospectId={closeCadenceTarget.id}
+          company={closeCadenceTarget.company}
         />
       )}
     </AppShell>
