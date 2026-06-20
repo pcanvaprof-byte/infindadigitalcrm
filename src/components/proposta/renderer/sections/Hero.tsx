@@ -1,19 +1,20 @@
 import { Sparkles, Check } from "lucide-react";
-import type { VMCrescimento, VMHeader, VMROI } from "@/lib/proposta/viewModel";
+import type { VMHeader } from "@/lib/proposta/viewModel";
 
 interface Props {
   header: VMHeader;
-  crescimento?: VMCrescimento | null;
-  roi?: VMROI;
+  pilares?: string[];
+  servicosDetectados?: string[];
 }
 
-export function HeroSection({ header }: Props) {
-  const pilares = [
+export function HeroSection({ header, pilares, servicosDetectados }: Props) {
+  const PILARES_DEFAULT = [
     "Estratégia comercial estruturada",
     "Tecnologia, CRM e automação",
     "Marketing orientado por indicadores",
     "Governança contínua e mensuração",
   ];
+  const lista = (pilares && pilares.length > 0) ? pilares : PILARES_DEFAULT;
   return (
     <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/15 via-card to-card p-6 md:p-10 ring-1 ring-primary/20 shadow-2xl">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--color-primary-glow)_0%,_transparent_55%)] opacity-30" aria-hidden />
@@ -44,13 +45,19 @@ export function HeroSection({ header }: Props) {
 
         <div className="rounded-2xl bg-background/40 ring-1 ring-primary/30 p-6 md:p-7 backdrop-blur">
           <div className="text-[10px] uppercase tracking-[0.2em] text-primary-glow font-semibold">
-            Pilares deste projeto
+            Frentes deste projeto
           </div>
-          <p className="mt-2 text-lg md:text-xl font-semibold leading-snug text-foreground">
-            Construção de uma operação comercial digital integrada e mensurável.
-          </p>
+          {servicosDetectados && servicosDetectados.length > 0 ? (
+            <p className="mt-2 text-sm md:text-base text-foreground/90 leading-snug">
+              Escopo contratado: <span className="font-semibold text-foreground">{servicosDetectados.join(" · ")}</span>.
+            </p>
+          ) : (
+            <p className="mt-2 text-sm md:text-base text-foreground/90 leading-snug">
+              Operação comercial digital integrada, conduzida com método e indicadores.
+            </p>
+          )}
           <ul className="mt-5 space-y-2.5">
-            {pilares.map((p) => (
+            {lista.map((p) => (
               <li key={p} className="flex items-start gap-2 text-sm text-foreground/90">
                 <Check className="size-4 text-primary-glow mt-0.5 shrink-0" />
                 <span>{p}</span>
