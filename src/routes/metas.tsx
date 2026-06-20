@@ -262,17 +262,11 @@ function MetasPage() {
   const metrics = liveMetrics;
 
   const funnelData = useMemo(() => {
-    // Funil filtrado por janela semanal (deals com updated_at nos últimos 7 dias).
     const stages = stagesQ.data ?? [];
     const allDeals = dealsQ.data ?? [];
     if (!stages.length) return FUNNEL_FALLBACK;
-    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const weekDeals = allDeals.filter((d) => {
-      const t = d.updated_at ? new Date(d.updated_at).getTime() : 0;
-      return t >= cutoff;
-    });
     const counts = new Map<string, number>();
-    for (const d of weekDeals) counts.set(d.stage_id, (counts.get(d.stage_id) ?? 0) + 1);
+    for (const d of allDeals) counts.set(d.stage_id, (counts.get(d.stage_id) ?? 0) + 1);
     return stages
       .filter((s) => !s.is_lost)
       .sort((a, b) => a.position - b.position)
@@ -318,7 +312,8 @@ function MetasPage() {
     const wonIds = new Set(stages.filter((s) => s.is_won).map((s) => s.id));
     const propIds = new Set(stages.filter((s) => /proposta/i.test(s.label)).map((s) => s.id));
     const meetingIds = new Set(stages.filter((s) => /reuni/i.test(s.label)).map((s) => s.id));
-    const goal = 5; // pontuação semanal alvo
+    const prospects = prospectsQ.data ?? [];
+    const goalPts = 30; // pontuação semanal alvo (5 contatos*1 + 5 reun*2 + 5 prop*3 = 30)
     const now = new Date();
     const day = now.getDay();
     const diffToMon = (day + 6) % 7;
@@ -335,16 +330,19 @@ function MetasPage() {
         const t = new Date(iso).getTime();
         return t >= start.getTime() && t < end.getTime();
       };
-      const score = deals.reduce((acc, d) => {
+      const dealScore = deals.reduce((acc, d) => {
         if (!inWeek(d.updated_at)) return acc;
-        if (wonIds.has(d.stage_id)) return acc + 3;
-        if (propIds.has(d.stage_id)) return acc + 2;
-        if (meetingIds.has(d.stage_id)) return acc + 1;
+        if (wonIds.has(d.stage_id)) return acc + 5;
+        if (propIds.has(d.stage_id)) return acc + 3;
+        if (meetingIds.has(d.stage_id)) return acc + 2;
         return acc;
       }, 0);
-      return { s: `S${i + 1}`, atingido: Math.min(100, Math.round((score / goal) * 100)) };
+      const contatos = prospects.filter((p) => inWeek((p as { lastContactAt?: string | null }).lastContactAt)).length;
+      const score = dealScore + contatos;
+      const label = i === 5 ? "Atual" : `S-${5 - i}`;
+      return { s: label, atingido: Math.min(100, Math.round((score / goalPts) * 100)) };
     });
-  }, [dealsQ.data, stagesQ.data]);
+  }, [dealsQ.data, stagesQ.data, prospectsQ.data]);
 
   const myScore = useMemo(() => {
     const total = liveMetrics.reduce((acc, m) => acc + Math.min(m.current / Math.max(m.weekly, 1), 1), 0);
