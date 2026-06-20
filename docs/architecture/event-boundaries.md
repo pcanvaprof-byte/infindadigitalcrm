@@ -34,3 +34,17 @@ Daqui pra frente todo INSERT obrigatoriamente passa pelo helper `log_evt(propost
 `financeiro_previsto` é **INSERT-only** e carrega FK obrigatória `(proposta_id, proposta_versao_id)`. Aprovar por item, aplicar desconto ou alterar quantidade gera **nova versão** da proposta e **novo snapshot**. Snapshots antigos permanecem intactos — é assim que MRR/ARR ficam estáveis no tempo.
 
 View `vw_mrr_atual` resolve pela versão ativa. View `vw_mrr_historico` percorre snapshots por competência.
+
+## Enforcement (não é só documento)
+
+1. **DB-level** (`scripts/migrations/20260630_ebd_enforcement.sql`):
+   - `revoke insert on proposal_events from authenticated/anon` — único caminho de escrita é o helper `log_evt()` (SECURITY DEFINER).
+   - `check (tipo ~ '^evt_')` — constraint impede tipo sem prefixo.
+   - Triggers `tg_pe_append_only` e `tg_aud_append_only` bloqueiam UPDATE/DELETE em `proposal_events` e `audit_logs`.
+2. **Client-level** (`src/lib/proposta/events/logEvent.ts`):
+   - Única função autorizada a emitir eventos do front. Tipo forte (`ProposalEventType`).
+3. **Build-level** (`scripts/lint-ebd.mjs`, wired em `prebuild`):
+   - EBD-1: bloqueia `.from("proposal_events").insert(...)` fora do helper.
+   - EBD-2: bloqueia views SQL que referenciem `audit_logs`.
+   - EBD-3: bloqueia `aud_*` em chamadas a `logEvent`/`log_evt`.
+   - Build falha com exit code 1 se qualquer regra for violada.
