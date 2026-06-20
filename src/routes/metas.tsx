@@ -264,14 +264,38 @@ function MetasPage() {
   const funnelData = useMemo(() => {
     const stages = stagesQ.data ?? [];
     const allDeals = dealsQ.data ?? [];
-    if (!stages.length) return FUNNEL_FALLBACK;
+    const prospects = prospectsQ.data ?? [];
+
+    // Etapas de prospecção (vêm antes das etapas de deal)
+    const leads = prospects.length;
+    const contatados = prospects.filter((p) => (p as { lastContactAt?: string | null }).lastContactAt).length;
+    const responderam = prospects.filter((p) => {
+      const rs = (p as { responseStatus?: string | null; response_status?: string | null }).responseStatus
+        ?? (p as { response_status?: string | null }).response_status;
+      return rs && rs !== "sem_resposta";
+    }).length;
+    const interessados = prospects.filter((p) => {
+      const rs = (p as { responseStatus?: string | null; response_status?: string | null }).responseStatus
+        ?? (p as { response_status?: string | null }).response_status;
+      return rs === "interessado" || rs === "cliente";
+    }).length;
+
+    const prospectStages = [
+      { label: "Leads na base", value: leads },
+      { label: "Contato feito", value: contatados },
+      { label: "Responderam", value: responderam },
+      { label: "Interessados", value: interessados },
+    ];
+
     const counts = new Map<string, number>();
     for (const d of allDeals) counts.set(d.stage_id, (counts.get(d.stage_id) ?? 0) + 1);
-    return stages
+    const dealStages = stages
       .filter((s) => !s.is_lost)
       .sort((a, b) => a.position - b.position)
       .map((s) => ({ label: s.label, value: counts.get(s.id) ?? 0 }));
-  }, [dealsQ.data, stagesQ.data]);
+
+    return [...prospectStages, ...dealStages];
+  }, [dealsQ.data, stagesQ.data, prospectsQ.data]);
 
   const dailyData = useMemo(() => {
     const prospects = prospectsQ.data ?? [];
