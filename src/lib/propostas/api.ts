@@ -328,7 +328,7 @@ export function computeStats(items: Proposal[]): ProposalStats {
  * 2. Domínio atual quando NÃO é preview da Lovable (assim funciona no domínio publicado/custom)
  * 3. Fallback: domínio publicado padrão do projeto
  */
-const FALLBACK_PUBLIC_BASE = "https://infindadigitalcrm.lovable.app";
+const FALLBACK_PUBLIC_BASE = "https://infindadigital.space";
 
 export function getPublicBaseUrl(): string {
   const envBase = (import.meta.env.VITE_PUBLIC_SITE_URL as string | undefined)?.trim();
