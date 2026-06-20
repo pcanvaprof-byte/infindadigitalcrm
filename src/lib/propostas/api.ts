@@ -320,7 +320,28 @@ export function computeStats(items: Proposal[]): ProposalStats {
   };
 }
 
+/**
+ * URL base pública usada nos links de proposta enviados ao cliente.
+ *
+ * Ordem de precedência:
+ * 1. VITE_PUBLIC_SITE_URL (defina como o domínio customizado, ex: https://propostas.infinda.com.br)
+ * 2. Domínio atual quando NÃO é preview da Lovable (assim funciona no domínio publicado/custom)
+ * 3. Fallback: domínio publicado padrão do projeto
+ */
+const FALLBACK_PUBLIC_BASE = "https://infindadigitalcrm.lovable.app";
+
+export function getPublicBaseUrl(): string {
+  const envBase = (import.meta.env.VITE_PUBLIC_SITE_URL as string | undefined)?.trim();
+  if (envBase) return envBase.replace(/\/+$/, "");
+
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    const isPreview = host.includes("id-preview--") || host === "localhost" || host.startsWith("127.");
+    if (!isPreview) return window.location.origin;
+  }
+  return FALLBACK_PUBLIC_BASE;
+}
+
 export function buildPublicUrl(token: string): string {
-  if (typeof window === "undefined") return `/proposta/${token}`;
-  return `${window.location.origin}/proposta/${token}`;
+  return `${getPublicBaseUrl()}/proposta/${token}`;
 }
