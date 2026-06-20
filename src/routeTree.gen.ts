@@ -17,11 +17,13 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as KickoffRouteImport } from './routes/kickoff'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CrmRouteImport } from './routes/crm'
+import { Route as ContratosRouteImport } from './routes/contratos'
 import { Route as CatalogoRouteImport } from './routes/catalogo'
 import { Route as BriefingsRouteImport } from './routes/briefings'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PropostasIdRouteImport } from './routes/propostas.$id'
 import { Route as PropostaTokenRouteImport } from './routes/proposta.$token'
+import { Route as ContratosIdRouteImport } from './routes/contratos.$id'
 import { Route as CatalogoNovoRouteImport } from './routes/catalogo.novo'
 import { Route as CatalogoIdRouteImport } from './routes/catalogo.$id'
 import { Route as BriefingsIdRouteImport } from './routes/briefings.$id'
@@ -67,6 +69,11 @@ const CrmRoute = CrmRouteImport.update({
   path: '/crm',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ContratosRoute = ContratosRouteImport.update({
+  id: '/contratos',
+  path: '/contratos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CatalogoRoute = CatalogoRouteImport.update({
   id: '/catalogo',
   path: '/catalogo',
@@ -91,6 +98,11 @@ const PropostaTokenRoute = PropostaTokenRouteImport.update({
   id: '/proposta/$token',
   path: '/proposta/$token',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ContratosIdRoute = ContratosIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ContratosRoute,
 } as any)
 const CatalogoNovoRoute = CatalogoNovoRouteImport.update({
   id: '/novo',
@@ -117,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/briefings': typeof BriefingsRouteWithChildren
   '/catalogo': typeof CatalogoRouteWithChildren
+  '/contratos': typeof ContratosRouteWithChildren
   '/crm': typeof CrmRoute
   '/dashboard': typeof DashboardRoute
   '/kickoff': typeof KickoffRoute
@@ -129,6 +142,7 @@ export interface FileRoutesByFullPath {
   '/briefings/$id': typeof BriefingsIdRoute
   '/catalogo/$id': typeof CatalogoIdRoute
   '/catalogo/novo': typeof CatalogoNovoRoute
+  '/contratos/$id': typeof ContratosIdRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
 }
@@ -136,6 +150,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/briefings': typeof BriefingsRouteWithChildren
   '/catalogo': typeof CatalogoRouteWithChildren
+  '/contratos': typeof ContratosRouteWithChildren
   '/crm': typeof CrmRoute
   '/dashboard': typeof DashboardRoute
   '/kickoff': typeof KickoffRoute
@@ -148,6 +163,7 @@ export interface FileRoutesByTo {
   '/briefings/$id': typeof BriefingsIdRoute
   '/catalogo/$id': typeof CatalogoIdRoute
   '/catalogo/novo': typeof CatalogoNovoRoute
+  '/contratos/$id': typeof ContratosIdRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
 }
@@ -156,6 +172,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/briefings': typeof BriefingsRouteWithChildren
   '/catalogo': typeof CatalogoRouteWithChildren
+  '/contratos': typeof ContratosRouteWithChildren
   '/crm': typeof CrmRoute
   '/dashboard': typeof DashboardRoute
   '/kickoff': typeof KickoffRoute
@@ -168,6 +185,7 @@ export interface FileRoutesById {
   '/briefings/$id': typeof BriefingsIdRoute
   '/catalogo/$id': typeof CatalogoIdRoute
   '/catalogo/novo': typeof CatalogoNovoRoute
+  '/contratos/$id': typeof ContratosIdRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
 }
@@ -177,6 +195,7 @@ export interface FileRouteTypes {
     | '/'
     | '/briefings'
     | '/catalogo'
+    | '/contratos'
     | '/crm'
     | '/dashboard'
     | '/kickoff'
@@ -189,6 +208,7 @@ export interface FileRouteTypes {
     | '/briefings/$id'
     | '/catalogo/$id'
     | '/catalogo/novo'
+    | '/contratos/$id'
     | '/proposta/$token'
     | '/propostas/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -196,6 +216,7 @@ export interface FileRouteTypes {
     | '/'
     | '/briefings'
     | '/catalogo'
+    | '/contratos'
     | '/crm'
     | '/dashboard'
     | '/kickoff'
@@ -208,6 +229,7 @@ export interface FileRouteTypes {
     | '/briefings/$id'
     | '/catalogo/$id'
     | '/catalogo/novo'
+    | '/contratos/$id'
     | '/proposta/$token'
     | '/propostas/$id'
   id:
@@ -215,6 +237,7 @@ export interface FileRouteTypes {
     | '/'
     | '/briefings'
     | '/catalogo'
+    | '/contratos'
     | '/crm'
     | '/dashboard'
     | '/kickoff'
@@ -227,6 +250,7 @@ export interface FileRouteTypes {
     | '/briefings/$id'
     | '/catalogo/$id'
     | '/catalogo/novo'
+    | '/contratos/$id'
     | '/proposta/$token'
     | '/propostas/$id'
   fileRoutesById: FileRoutesById
@@ -235,6 +259,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BriefingsRoute: typeof BriefingsRouteWithChildren
   CatalogoRoute: typeof CatalogoRouteWithChildren
+  ContratosRoute: typeof ContratosRouteWithChildren
   CrmRoute: typeof CrmRoute
   DashboardRoute: typeof DashboardRoute
   KickoffRoute: typeof KickoffRoute
@@ -305,6 +330,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CrmRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/contratos': {
+      id: '/contratos'
+      path: '/contratos'
+      fullPath: '/contratos'
+      preLoaderRoute: typeof ContratosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/catalogo': {
       id: '/catalogo'
       path: '/catalogo'
@@ -339,6 +371,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/proposta/$token'
       preLoaderRoute: typeof PropostaTokenRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/contratos/$id': {
+      id: '/contratos/$id'
+      path: '/$id'
+      fullPath: '/contratos/$id'
+      preLoaderRoute: typeof ContratosIdRouteImport
+      parentRoute: typeof ContratosRoute
     }
     '/catalogo/novo': {
       id: '/catalogo/novo'
@@ -397,6 +436,18 @@ const CatalogoRouteWithChildren = CatalogoRoute._addFileChildren(
   CatalogoRouteChildren,
 )
 
+interface ContratosRouteChildren {
+  ContratosIdRoute: typeof ContratosIdRoute
+}
+
+const ContratosRouteChildren: ContratosRouteChildren = {
+  ContratosIdRoute: ContratosIdRoute,
+}
+
+const ContratosRouteWithChildren = ContratosRoute._addFileChildren(
+  ContratosRouteChildren,
+)
+
 interface PropostasRouteChildren {
   PropostasIdRoute: typeof PropostasIdRoute
 }
@@ -413,6 +464,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BriefingsRoute: BriefingsRouteWithChildren,
   CatalogoRoute: CatalogoRouteWithChildren,
+  ContratosRoute: ContratosRouteWithChildren,
   CrmRoute: CrmRoute,
   DashboardRoute: DashboardRoute,
   KickoffRoute: KickoffRoute,
@@ -427,13 +479,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
