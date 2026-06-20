@@ -12,9 +12,12 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  listProposals, computeStats, propostasKeys,
+  listProposals, propostasKeys,
   createProposalFromDeal, createProposalFromProspect,
 } from "@/lib/propostas/api";
+import {
+  biKeys, fetchProposalKPIs, fetchProposalConversion,
+} from "@/lib/propostas/bi";
 import {
   PROPOSAL_STATUS_LABEL, PROPOSAL_STATUS_TONE, type ProposalStatus,
 } from "@/lib/propostas/types";
@@ -41,7 +44,18 @@ function PropostasPage() {
 
   const q = useQuery({ queryKey: propostasKeys.all, queryFn: listProposals });
   const propostas = q.data ?? [];
-  const stats = useMemo(() => computeStats(propostas), [propostas]);
+  // BI vem do DB (vw_*). Frontend NÃO recalcula KPIs — Etapa 6 / EBD.
+  const kpisQ  = useQuery({ queryKey: biKeys.kpis,       queryFn: fetchProposalKPIs });
+  const convQ  = useQuery({ queryKey: biKeys.conversion, queryFn: fetchProposalConversion });
+  const stats  = kpisQ.data ?? {
+    total: 0, rascunho: 0, enviadas: 0, visualizadas: 0, aprovadas: 0,
+    rejeitadas: 0, expiradas: 0, valor_total_enviado: 0,
+    valor_total_aprovado: 0, valor_perdido: 0, ticket_medio: 0, taxa_aprovacao: 0,
+  };
+  const conv = convQ.data ?? {
+    enviadas: 0, visualizadas: 0, decididas: 0,
+    tempo_medio_visualizacao_h: 0, tempo_medio_decisao_h: 0,
+  };
 
   const filtered = useMemo(() => {
     return propostas.filter((p) => {
@@ -65,12 +79,12 @@ function PropostasPage() {
   ];
 
   const moneyKpis = [
-    { label: "Ticket médio", value: formatBRL(stats.ticketMedio) },
-    { label: "Valor enviado (12m)", value: formatBRL(stats.valorTotalEnviado) },
-    { label: "Valor aprovado (12m)", value: formatBRL(stats.valorTotalAprovado) },
-    { label: "Valor perdido", value: formatBRL(stats.valorPerdido) },
-    { label: "Taxa de aprovação", value: `${stats.taxaAprovacao.toFixed(0)}%` },
-    { label: "Tempo médio até visualização", value: `${stats.tempoMedioVisualizacaoH.toFixed(1)}h` },
+    { label: "Ticket médio", value: formatBRL(stats.ticket_medio) },
+    { label: "Valor enviado (12m)", value: formatBRL(stats.valor_total_enviado) },
+    { label: "Valor aprovado (12m)", value: formatBRL(stats.valor_total_aprovado) },
+    { label: "Valor perdido", value: formatBRL(stats.valor_perdido) },
+    { label: "Taxa de aprovação", value: `${stats.taxa_aprovacao.toFixed(0)}%` },
+    { label: "Tempo médio até visualização", value: `${conv.tempo_medio_visualizacao_h.toFixed(1)}h` },
   ];
 
   return (
