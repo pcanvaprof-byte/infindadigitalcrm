@@ -80,6 +80,7 @@ function fromRow(r: Row, ixs: IxRow[] = []): Prospect {
     status: (VALID_STATUSES.includes(r.status) ? r.status : "nao_contatado") as ProspectStatus,
     // Mantém ISO; formatação acontece apenas na UI.
     createdAt: r.created_at || new Date(0).toISOString(),
+    updatedAt: r.updated_at ?? null,
     cadenceStep: typeof r.cadence_step === "number" ? r.cadence_step : 0,
     cadenceStatus: (r.cadence_status as Prospect["cadenceStatus"]) ?? "ativo",
     responseStatus: (r.response_status as Prospect["responseStatus"]) ?? "sem_resposta",
