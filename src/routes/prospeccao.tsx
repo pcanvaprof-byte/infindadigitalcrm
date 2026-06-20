@@ -93,6 +93,10 @@ import { runEnrichment } from "@/lib/enrichment/api";
 import { Loader2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { convertProspectToClient, crmKeys, invalidateCrmCore } from "@/lib/crm/api";
+import { AcoesHojeWidget } from "@/components/cadence/AcoesHojeWidget";
+import { TouchpointModal } from "@/components/cadence/TouchpointModal";
+import { ProspectTimeline } from "@/components/cadence/ProspectTimeline";
+import { proximaAcaoLabel } from "@/lib/cadence/api";
 
 
 export const Route = createFileRoute("/prospeccao")({
