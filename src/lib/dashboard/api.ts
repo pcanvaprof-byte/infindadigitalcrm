@@ -106,8 +106,16 @@ export function deriveDashboardMetrics(input: Partial<DashboardInputs>): Dashboa
     const deal = dealByProspectId.get(p.id);
     return !deal || !wonIds.has(deal.stage_id);
   }).length;
-  const prospectProposalBonus = prospectsWithoutDeals.filter((p) => PROPOSAL_PIPELINE_STATUSES.has(p.status)).length;
-  const prospectMeetingBonus = prospectsWithoutDeals.filter((p) => MEETING_PIPELINE_STATUSES.has(p.status)).length;
+  const prospectProposalBonus = prospects.filter((p) => {
+    if (!PROPOSAL_PIPELINE_STATUSES.has(p.status)) return false;
+    const deal = dealByProspectId.get(p.id);
+    return !deal || deal.stage_id !== "proposta";
+  }).length;
+  const prospectMeetingBonus = prospects.filter((p) => {
+    if (!MEETING_PIPELINE_STATUSES.has(p.status)) return false;
+    const deal = dealByProspectId.get(p.id);
+    return !deal || (deal.stage_id !== "reuniao" && deal.stage_id !== "proposta" && !wonIds.has(deal.stage_id));
+  }).length;
   for (const d of deals) {
     const v = Number(d.value || 0);
     if (wonIds.has(d.stage_id)) { dealsWon++; revenueWon += v; }
