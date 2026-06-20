@@ -100,7 +100,6 @@ export function deriveDashboardMetrics(input: Partial<DashboardInputs>): Dashboa
   let meetings = 0, proposals = 0;
   const dealProspectIds = new Set(deals.map((d) => d.prospect_id).filter(Boolean) as string[]);
   const dealByProspectId = new Map(deals.filter((d) => d.prospect_id).map((d) => [d.prospect_id as string, d]));
-  const prospectsWithoutDeals = prospects.filter((p) => !dealProspectIds.has(p.id));
   const prospectWonBonus = prospects.filter((p) => {
     if (p.responseStatus !== "cliente" && !CLIENT_PIPELINE_STATUSES.has(p.status)) return false;
     const deal = dealByProspectId.get(p.id);
