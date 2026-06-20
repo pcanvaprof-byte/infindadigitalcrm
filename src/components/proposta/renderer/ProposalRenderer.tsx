@@ -16,6 +16,7 @@ import { DiagnosticoSection } from "./sections/Diagnostico";
 import { SolucaoSection } from "./sections/Solucao";
 import { BeneficiosSection } from "./sections/Beneficios";
 import { ROISection } from "./sections/ROI";
+import { CrescimentoSection } from "./sections/Crescimento";
 import { PorqueInfindaSection } from "./sections/PorqueInfinda";
 import { CasesSection } from "./sections/Cases";
 import { TimelineSection } from "./sections/Timeline";
@@ -42,6 +43,7 @@ export function ProposalRenderer({ vm, handlers = {} }: Props) {
       <SolucaoSection solucao={vm.solucao} />
       <BeneficiosSection beneficios={vm.beneficios} />
       <ROISection roi={vm.roi} />
+      {vm.crescimento && <CrescimentoSection crescimento={vm.crescimento} />}
       <PorqueInfindaSection pontos={vm.porqueInfinda} />
       <CasesSection cases={vm.cases} />
       <TimelineSection timeline={vm.timeline} />

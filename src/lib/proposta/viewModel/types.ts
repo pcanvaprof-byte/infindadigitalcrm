@@ -58,6 +58,31 @@ export interface VMROI {
   premissas: string[];
 }
 
+export type CrescimentoMaturidade = "baixa" | "media" | "alta";
+export type CrescimentoCenarioNome = "Conservador" | "Esperado" | "Agressivo";
+
+export interface VMCrescimentoCenario {
+  nome: CrescimentoCenarioNome;
+  faturamento90: number;
+  faturamento180: number;
+  roi90: number; // múltiplo (x)
+  roi180: number;
+  novosClientes90: number;
+  novosClientes180: number;
+  justificativa: string;
+}
+
+export interface VMCrescimento {
+  nicho: string;
+  tipoNegocio: string | null;
+  ticketMedio: number;
+  investimentoMensal: number;
+  maturidade: CrescimentoMaturidade;
+  cenarios: VMCrescimentoCenario[];
+  premissas: string[];
+  fechamento: string;
+}
+
 export interface VMTimelineEntrega {
   semana: string;
   titulo: string;
@@ -151,6 +176,8 @@ export interface ProposalViewModel {
   anexos: VMAnexo[];
   capabilities: VMCapabilities;
   meta: VMMeta;
+  /** Bloco opcional "Potencial de Crescimento". null = não exibir. */
+  crescimento: VMCrescimento | null;
   /**
    * Indica se as decisões por item foram resolvidas:
    * - 'complete': todas conhecidas

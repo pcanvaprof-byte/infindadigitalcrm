@@ -14,7 +14,7 @@ import {
 import {
   listProposals, propostasKeys,
   createProposalFromDeal, createProposalFromProspect, createProposalBlank,
-  addItemFromCatalog, updateProposal,
+  addItemFromCatalog, updateProposal, saveVersion,
 } from "@/lib/propostas/api";
 import {
   biKeys, fetchProposalKPIs, fetchProposalConversion,
@@ -301,6 +301,33 @@ function NovaPropostaDialog({
   const [avValor, setAvValor] = useState("");
   const [avCobranca, setAvCobranca] = useState<"implantacao" | "mensal" | "avulso">("implantacao");
 
+  // Bloco opcional "Potencial de Crescimento"
+  const [cresOn, setCresOn] = useState(false);
+  const [cresNicho, setCresNicho] = useState("");
+  const [cresTipoNeg, setCresTipoNeg] = useState("");
+  const [cresTicket, setCresTicket] = useState("");
+  const [cresMaturidade, setCresMaturidade] = useState<"baixa" | "media" | "alta">("media");
+
+  // Sugestão IA a partir do CRM/Prospect selecionado
+  const selectedCtx = useMemo(() => {
+    if (source === "client" && clientId) {
+      const c = (clientsQ.data ?? []).find((x) => x.id === clientId);
+      return c ? { nicho: c.segment ?? "", tipo: c.company ?? "" } : null;
+    }
+    if (source === "prospect" && prospectId) {
+      const p = (prospectsQ.data ?? []).find((x) => x.id === prospectId);
+      return p ? { nicho: p.segment ?? "", tipo: p.company ?? "" } : null;
+    }
+    return null;
+  }, [source, clientId, prospectId, clientsQ.data, prospectsQ.data]);
+
+  // Pré-preenche nicho/tipo quando o usuário abre o bloco e há contexto
+  function aplicarSugestao() {
+    if (selectedCtx?.nicho && !cresNicho) setCresNicho(selectedCtx.nicho);
+    if (selectedCtx?.tipo && !cresTipoNeg) setCresTipoNeg(selectedCtx.tipo);
+    if (!cresTicket) setCresTicket("500");
+  }
+
   const create = useMutation({
     mutationFn: async () => {
       let proposalId: string;
@@ -363,6 +390,19 @@ function NovaPropostaDialog({
           ordem: ordem++,
         });
         if (error) throw error;
+      }
+
+      // Persiste config do bloco "Potencial de Crescimento" como versão inicial
+      if (cresOn && cresNicho.trim() && Number(cresTicket.replace(",", ".")) > 0) {
+        await saveVersion(proposalId, {
+          crescimento: {
+            enabled: true,
+            nicho: cresNicho.trim(),
+            tipo_negocio: cresTipoNeg.trim() || null,
+            ticket_medio: Number(cresTicket.replace(",", ".")),
+            maturidade: cresMaturidade,
+          },
+        });
       }
       return proposalId;
     },
@@ -571,6 +611,75 @@ function NovaPropostaDialog({
             <div><div className="text-muted-foreground">Implantação</div><div className="font-semibold tabular-nums">{formatBRL(totals.impl)}</div></div>
             <div><div className="text-muted-foreground">Mensal</div><div className="font-semibold tabular-nums">{formatBRL(totals.mensal)}</div></div>
             <div><div className="text-muted-foreground">Avulso</div><div className="font-semibold tabular-nums">{formatBRL(totals.avulso)}</div></div>
+          </div>
+
+          {/* Bloco "Potencial de Crescimento" — opcional */}
+          <div className="rounded border border-border/40 bg-card/30 p-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={cresOn}
+                onCheckedChange={(v) => {
+                  const on = v === true;
+                  setCresOn(on);
+                  if (on) aplicarSugestao();
+                }}
+              />
+              <span className="text-xs font-semibold">
+                Incluir bloco <span className="text-primary-glow">“Potencial de Crescimento”</span> na proposta
+              </span>
+            </label>
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              Projeção determinística de faturamento em 90 e 180 dias por cenário (conservador / esperado / agressivo),
+              baseada em nicho, ticket médio e maturidade digital.
+            </p>
+
+            {cresOn && (
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Nicho do cliente</label>
+                  <Input
+                    className="h-8 mt-1 text-xs"
+                    placeholder="Ex: clínica odontológica"
+                    value={cresNicho}
+                    onChange={(e) => setCresNicho(e.target.value)}
+                  />
+                </div>
+                <div className="col-span-2 sm:col-span-1">
+                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Tipo de negócio</label>
+                  <Input
+                    className="h-8 mt-1 text-xs"
+                    placeholder="Ex: B2C local"
+                    value={cresTipoNeg}
+                    onChange={(e) => setCresTipoNeg(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Ticket médio (R$)</label>
+                  <Input
+                    className="h-8 mt-1 text-xs"
+                    inputMode="decimal"
+                    placeholder="500"
+                    value={cresTicket}
+                    onChange={(e) => setCresTicket(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-muted-foreground">Maturidade digital</label>
+                  <Select value={cresMaturidade} onValueChange={(v) => setCresMaturidade(v as typeof cresMaturidade)}>
+                    <SelectTrigger className="h-8 mt-1 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="baixa">Baixa — pouca presença digital</SelectItem>
+                      <SelectItem value="media">Média — alguns canais ativos</SelectItem>
+                      <SelectItem value="alta">Alta — canais e equipe estruturados</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="col-span-2 text-[10px] text-muted-foreground">
+                  💡 Investimento mensal de referência é o valor de cobrança mensal da proposta
+                  ({formatBRL(totals.mensal)}). Você pode editar e refinar este bloco depois no editor.
+                </p>
+              </div>
+            )}
           </div>
         </div>
         <DialogFooter>

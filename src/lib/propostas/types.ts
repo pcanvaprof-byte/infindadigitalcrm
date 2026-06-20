@@ -48,6 +48,17 @@ export interface ProposalContent {
   escopo?: string;
   cronograma?: string;
   observacoes?: string;
+  /**
+   * Configuração opcional do bloco "Potencial de Crescimento".
+   * Quando presente, ativa a renderização automática da seção.
+   */
+  crescimento?: {
+    enabled: boolean;
+    nicho: string;
+    tipo_negocio?: string | null;
+    ticket_medio: number;
+    maturidade: "baixa" | "media" | "alta";
+  };
 }
 
 export interface ProposalItem {
