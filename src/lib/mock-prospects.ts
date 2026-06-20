@@ -35,6 +35,17 @@ export interface Prospect {
   status: ProspectStatus;
   createdAt: string;
   interactions?: Interaction[];
+  // Cadência comercial (Fase 6) — populados após migration; opcionais até lá.
+  cadenceStep?: number;            // 0..6
+  cadenceStatus?: "ativo" | "pausado" | "encerrado";
+  responseStatus?:
+    | "sem_resposta"
+    | "respondeu"
+    | "interessado"
+    | "sem_interesse"
+    | "cliente";
+  lastContactAt?: string | null;
+  nextContactAt?: string | null;
 }
 
 export type InteractionKind =
