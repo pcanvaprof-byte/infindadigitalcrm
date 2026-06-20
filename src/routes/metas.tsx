@@ -320,7 +320,9 @@ function MetasPage() {
 
     // Etapas de prospecção (vêm antes das etapas de deal)
     const leads = prospects.length;
-    const contatados = prospects.filter((p) => (p as { lastContactAt?: string | null }).lastContactAt).length;
+    const contatados = prospects.filter(
+      (p) => (p as { lastContactAt?: string | null }).lastContactAt || prospectPipelineStatus(p) !== "nao_contatado",
+    ).length;
     const responderam = prospects.filter((p) => {
       const rs = prospectResponseStatus(p);
       return (rs && rs !== "sem_resposta") || isInterestedProspect(p);
@@ -378,7 +380,7 @@ function MetasPage() {
     const stages = stagesQ.data ?? [];
     const isProposal = (label: string) => /proposta/i.test(label);
     const proposalStageIds = new Set(stages.filter((s) => isProposal(s.label)).map((s) => s.id));
-    const dealProspectIds = new Set(deals.map((d) => d.prospect_id).filter(Boolean) as string[]);
+    const dealByProspectId = new Map(deals.filter((d) => d.prospect_id).map((d) => [d.prospect_id as string, d]));
     // Monday of current week
     const now = new Date();
     const day = now.getDay(); // 0 Dom ... 6 Sab
@@ -404,8 +406,8 @@ function MetasPage() {
           deals.filter((d) => proposalStageIds.has(d.stage_id) && inDay(d.updated_at)).length +
           prospects.filter(
             (p) =>
-              !dealProspectIds.has(p.id) &&
               PROPOSAL_PIPELINE_STATUSES.has(prospectPipelineStatus(p) ?? "") &&
+              !(dealByProspectId.get(p.id) && proposalStageIds.has(dealByProspectId.get(p.id)!.stage_id) && inDay(dealByProspectId.get(p.id)!.updated_at)) &&
               inDay(prospectActivityAt(p)),
           ).length,
       };
