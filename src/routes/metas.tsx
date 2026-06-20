@@ -74,31 +74,24 @@ const MY_METRICS: Metric[] = [
   { key: "contratos", label: "Contratos fechados", icon: CheckCircle2, current: 1, daily: 1, weekly: 5 },
 ];
 
-const DAILY_EVOLUTION = [
-  { d: "Seg", empresas: 22, conversas: 9, propostas: 1 },
-  { d: "Ter", empresas: 26, conversas: 11, propostas: 1 },
-  { d: "Qua", empresas: 19, conversas: 7, propostas: 0 },
-  { d: "Qui", empresas: 24, conversas: 10, propostas: 1 },
-  { d: "Sex", empresas: 21, conversas: 8, propostas: 1 },
+const EMPTY_DAILY = [
+  { d: "Seg", empresas: 0, conversas: 0, propostas: 0 },
+  { d: "Ter", empresas: 0, conversas: 0, propostas: 0 },
+  { d: "Qua", empresas: 0, conversas: 0, propostas: 0 },
+  { d: "Qui", empresas: 0, conversas: 0, propostas: 0 },
+  { d: "Sex", empresas: 0, conversas: 0, propostas: 0 },
 ];
 
-const WEEKLY_EVOLUTION = [
-  { s: "S1", atingido: 78 },
-  { s: "S2", atingido: 82 },
-  { s: "S3", atingido: 74 },
-  { s: "S4", atingido: 88 },
-  { s: "S5", atingido: 91 },
-  { s: "S6", atingido: 74 },
+const EMPTY_WEEKLY = [
+  { s: "S1", atingido: 0 },
+  { s: "S2", atingido: 0 },
+  { s: "S3", atingido: 0 },
+  { s: "S4", atingido: 0 },
+  { s: "S5", atingido: 0 },
+  { s: "S6", atingido: 0 },
 ];
 
-const FUNNEL_FALLBACK = [
-  { label: "Empresas", value: 112 },
-  { label: "Conversas", value: 41 },
-  { label: "Apresentações", value: 22 },
-  { label: "Reuniões", value: 9 },
-  { label: "Propostas", value: 4 },
-  { label: "Contratos", value: 3 },
-];
+const FUNNEL_FALLBACK: { label: string; value: number }[] = [];
 
 type Ranked = {
   id: string;
@@ -110,28 +103,20 @@ type Ranked = {
   streak: number;
 };
 
-const RANKING_SDR: Ranked[] = [
-  { id: "1", name: "Camila Rocha", points: 1840, contracts: 0, proposals: 0, meetings: 14, streak: 6 },
-  { id: "2", name: "Bruno Alves", points: 1610, contracts: 0, proposals: 0, meetings: 11, streak: 4 },
-  { id: "3", name: "Tatiane Lima", points: 1422, contracts: 0, proposals: 0, meetings: 9, streak: 5 },
-  { id: "4", name: "Diego Santos", points: 1180, contracts: 0, proposals: 0, meetings: 7, streak: 2 },
-];
+const RANKING_SDR: Ranked[] = [];
+const RANKING_CONSULTORES: Ranked[] = [];
 
-const RANKING_CONSULTORES: Ranked[] = [
-  { id: "1", name: "Valdinei", points: 2210, contracts: 4, proposals: 7, meetings: 10, streak: 8 },
-  { id: "2", name: "Ana Lopes", points: 1980, contracts: 3, proposals: 6, meetings: 9, streak: 5 },
-  { id: "3", name: "Pedro Martins", points: 1755, contracts: 3, proposals: 5, meetings: 8, streak: 3 },
-  { id: "4", name: "Lucas Pereira", points: 1480, contracts: 2, proposals: 5, meetings: 6, streak: 2 },
-];
-
-const BADGES = [
-  { id: "100", icon: Trophy, label: "100 empresas", desc: "Visitou 100 empresas na semana", got: true, color: "text-amber-300" },
-  { id: "streak", icon: Flame, label: "Em chamas", desc: "7 dias batendo meta diária", got: true, color: "text-rose-300" },
-  { id: "closer", icon: Crown, label: "Closer", desc: "5 contratos fechados no mês", got: false, color: "text-violet-300" },
-  { id: "speed", icon: TrendingUp, label: "Foguete", desc: "+30% sobre a meta semanal", got: true, color: "text-sky-300" },
-  { id: "talker", icon: MessageSquare, label: "Negociador", desc: "60 conversas qualificadas", got: false, color: "text-emerald-300" },
-  { id: "star", icon: Star, label: "Top 3", desc: "Ranking entre os 3 melhores", got: true, color: "text-primary-glow" },
-];
+type Badge = { id: string; icon: typeof Trophy; label: string; desc: string; got: boolean; color: string };
+function buildBadges(k: { prospectsTotal: number; prospectsContacted: number; meetings: number; proposals: number; dealsWon: number }, score: number): Badge[] {
+  return [
+    { id: "100", icon: Trophy, label: "100 empresas", desc: "100 empresas na base", got: k.prospectsTotal >= 100, color: "text-amber-300" },
+    { id: "streak", icon: Flame, label: "Em chamas", desc: "7 dias batendo meta diária", got: false, color: "text-rose-300" },
+    { id: "closer", icon: Crown, label: "Closer", desc: "5 contratos fechados", got: k.dealsWon >= 5, color: "text-violet-300" },
+    { id: "speed", icon: TrendingUp, label: "Foguete", desc: "+30% sobre a meta semanal", got: score >= 30, color: "text-sky-300" },
+    { id: "talker", icon: MessageSquare, label: "Negociador", desc: "60 conversas qualificadas", got: k.prospectsContacted >= 60, color: "text-emerald-300" },
+    { id: "star", icon: Star, label: "Top 3", desc: "Ranking entre os 3 melhores", got: false, color: "text-primary-glow" },
+  ];
+}
 
 const tooltipStyle = {
   background: "oklch(0.2 0.014 250)",
@@ -310,6 +295,25 @@ function MetasPage() {
     return Math.round((total / Math.max(liveMetrics.length, 1)) * 100);
   }, [liveMetrics]);
 
+  const pontuacao = useMemo(() => {
+    if (!k) return 0;
+    return (
+      k.prospectsTotal * 10 +
+      k.prospectsContacted * 20 +
+      k.meetings * 50 +
+      k.proposals * 100 +
+      k.dealsWon * 300
+    );
+  }, [k]);
+
+  const badges = useMemo(
+    () => buildBadges(
+      k ?? { prospectsTotal: 0, prospectsContacted: 0, meetings: 0, proposals: 0, dealsWon: 0 },
+      myScore,
+    ),
+    [k, myScore],
+  );
+
   return (
     <AppShell
       title="Metas"
@@ -337,16 +341,16 @@ function MetasPage() {
             <div className="mt-4 flex flex-wrap gap-3">
               <div className="rounded-lg border border-border bg-card/60 px-3 py-2">
                 <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Pontuação</p>
-                <p className="text-lg font-bold">2.210</p>
+                <p className="text-lg font-bold">{pontuacao.toLocaleString("pt-BR")}</p>
               </div>
               <div className="rounded-lg border border-border bg-card/60 px-3 py-2">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Posição</p>
-                <p className="text-lg font-bold">#1 <span className="text-xs text-muted-foreground">consultor</span></p>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Empresas na base</p>
+                <p className="text-lg font-bold">{(k?.prospectsTotal ?? 0).toLocaleString("pt-BR")}</p>
               </div>
               <div className="rounded-lg border border-border bg-card/60 px-3 py-2">
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Streak</p>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Contratos fechados</p>
                 <p className="flex items-center gap-1 text-lg font-bold">
-                  <Flame className="h-4 w-4 text-rose-300" /> 8 dias
+                  <CheckCircle2 className="h-4 w-4 text-emerald-300" /> {k?.dealsWon ?? 0}
                 </p>
               </div>
             </div>
@@ -358,11 +362,11 @@ function MetasPage() {
                 Medalhas conquistadas
               </p>
               <span className="text-[11px] text-muted-foreground">
-                {BADGES.filter((b) => b.got).length}/{BADGES.length}
+                {badges.filter((b) => b.got).length}/{badges.length}
               </span>
             </div>
             <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-6 lg:grid-cols-3 xl:grid-cols-6">
-              {BADGES.map((b) => {
+              {badges.map((b) => {
                 const Icon = b.icon;
                 return (
                   <div
@@ -418,7 +422,7 @@ function MetasPage() {
           <p className="text-xs text-muted-foreground">Atividades por dia da semana</p>
           <div className="mt-4 h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={DAILY_EVOLUTION}>
+              <BarChart data={EMPTY_DAILY}>
                 <CartesianGrid stroke="oklch(1 0 0 / 6%)" vertical={false} />
                 <XAxis dataKey="d" stroke="oklch(0.68 0.012 250)" fontSize={11} tickLine={false} axisLine={false} />
                 <YAxis stroke="oklch(0.68 0.012 250)" fontSize={11} tickLine={false} axisLine={false} />
@@ -441,7 +445,7 @@ function MetasPage() {
           <p className="text-xs text-muted-foreground">% de meta atingida</p>
           <div className="mt-4 h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={WEEKLY_EVOLUTION}>
+              <LineChart data={EMPTY_WEEKLY}>
                 <defs>
                   <linearGradient id="met" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="oklch(0.7 0.22 264)" stopOpacity={0.4} />
@@ -470,7 +474,13 @@ function MetasPage() {
           </span>
         </div>
         <div className="mt-4">
-          <FunnelChart data={funnelData} />
+          {funnelData.length ? (
+            <FunnelChart data={funnelData} />
+          ) : (
+            <p className="rounded-md border border-dashed border-border/60 p-6 text-center text-xs text-muted-foreground">
+              Sem dados de funil ainda.
+            </p>
+          )}
         </div>
       </section>
 
@@ -485,7 +495,13 @@ function MetasPage() {
             <span className="text-[11px] text-muted-foreground">Mês atual</span>
           </div>
           <div className="mt-4">
-            <RankingTable rows={RANKING_CONSULTORES} kind="consultor" />
+            {RANKING_CONSULTORES.length ? (
+              <RankingTable rows={RANKING_CONSULTORES} kind="consultor" />
+            ) : (
+              <p className="rounded-md border border-dashed border-border/60 p-6 text-center text-xs text-muted-foreground">
+                Sem dados de equipe ainda. Cadastre consultores para ver o ranking.
+              </p>
+            )}
           </div>
         </div>
 
@@ -498,7 +514,13 @@ function MetasPage() {
             <span className="text-[11px] text-muted-foreground">Mês atual</span>
           </div>
           <div className="mt-4">
-            <RankingTable rows={RANKING_SDR} kind="sdr" />
+            {RANKING_SDR.length ? (
+              <RankingTable rows={RANKING_SDR} kind="sdr" />
+            ) : (
+              <p className="rounded-md border border-dashed border-border/60 p-6 text-center text-xs text-muted-foreground">
+                Sem dados de SDRs ainda. Cadastre SDRs para ver o ranking.
+              </p>
+            )}
           </div>
         </div>
       </section>
