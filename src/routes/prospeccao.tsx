@@ -421,11 +421,38 @@ function ProspeccaoPage() {
         );
         if (!hasContact) return false;
       }
+      // Filtros de cadência (Fase 6) — só ativos quando migration aplicada e dados populados.
+      if (cadenceFilter !== "all") {
+        const now = Date.now();
+        const nx = p.nextContactAt ? new Date(p.nextContactAt).getTime() : null;
+        const today = new Date(); today.setHours(0,0,0,0);
+        const tomorrow = today.getTime() + 86400000;
+        switch (cadenceFilter) {
+          case "hoje":
+            if (!(p.cadenceStatus === "ativo" && nx !== null && nx >= today.getTime() && nx < tomorrow)) return false;
+            break;
+          case "atrasados":
+            if (!(p.cadenceStatus === "ativo" && nx !== null && nx < now)) return false;
+            break;
+          case "sem_resposta":
+            if (!(p.responseStatus === "sem_resposta" && p.lastContactAt)) return false;
+            break;
+          case "responderam":
+            if (!(p.responseStatus && ["respondeu","interessado","cliente"].includes(p.responseStatus))) return false;
+            break;
+          case "interessados":
+            if (p.responseStatus !== "interessado") return false;
+            break;
+          case "clientes":
+            if (p.responseStatus !== "cliente") return false;
+            break;
+        }
+      }
       if (!q) return true;
       return [p.company, p.segment, p.owner, p.email, p.whatsapp, p.phone, p.instagram, p.city, p.state, p.source]
         .join(" ").toLowerCase().includes(q);
     });
-  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact]);
+  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, cadenceFilter]);
 
   const availableSegments = useMemo(() => {
     const set = new Set<string>();
