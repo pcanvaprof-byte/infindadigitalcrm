@@ -14,6 +14,7 @@ const sb = supabase as any;
 
 export type TouchpointTipo = "whatsapp" | "ligacao" | "email" | "reuniao" | "nota";
 export type TouchpointResultado =
+  | "tentativa"
   | "enviado"
   | "respondido"
   | "interessado"
@@ -86,6 +87,11 @@ export interface DashboardMetrics {
     taxa_resposta: number;
     taxa_interesse: number;
     taxa_fechamento: number;
+  };
+  tentativas: {
+    hoje: number;
+    semana: number;
+    mes: number;
   };
   gargalos: {
     atrasados: number;

@@ -97,7 +97,12 @@ import { AcoesHojeWidget } from "@/components/cadence/AcoesHojeWidget";
 import { TouchpointModal } from "@/components/cadence/TouchpointModal";
 import { ProspectTimeline } from "@/components/cadence/ProspectTimeline";
 import { CloseCadenceDialog } from "@/components/cadence/CloseCadenceDialog";
-import { proximaAcaoLabel, type TouchpointTipo } from "@/lib/cadence/api";
+import {
+  addTouchpoint,
+  cadenceKeys,
+  proximaAcaoLabel,
+  type TouchpointTipo,
+} from "@/lib/cadence/api";
 
 
 export const Route = createFileRoute("/prospeccao")({
@@ -592,23 +597,40 @@ function ProspeccaoPage() {
     else setSelected(new Set(filtered.map((p) => p.id)));
   };
 
+  const logAttempt = async (prospect: Prospect, tipo: TouchpointTipo) => {
+    try {
+      await addTouchpoint({
+        prospect_id: prospect.id,
+        tipo,
+        resultado: "tentativa",
+        mensagem: "auto: clique na ação",
+      });
+      qc.invalidateQueries({ queryKey: cadenceKeys.dashboard });
+      qc.invalidateQueries({ queryKey: cadenceKeys.timeline(prospect.id) });
+    } catch {
+      /* não bloqueia o deep link */
+    }
+  };
+
   const openWhats = (p: Prospect) => {
     const d = onlyDigits(p.whatsapp);
     if (!d) return toast.error("WhatsApp não cadastrado");
     const msg = `Olá, vi que sua empresa foi aberta recentemente. Parabéns pela nova fase! 🎉\nPercebi que muitas empresas novas acabam perdendo oportunidades por ainda não terem uma presença profissional na internet.\n\nEu ajudo negócios a terem um site moderno que transmite confiança e gera contatos desde os primeiros meses de operação.\n\nPosso te mostrar alguns exemplos e fazer uma análise gratuita da sua presença digital?`;
     window.open(`https://wa.me/55${d}?text=${encodeURIComponent(msg)}`, "_blank");
-    // Abre o modal de cadência para registrar o touchpoint (avança o step no banco).
+    void logAttempt(p, "whatsapp");
     setTouchpointTarget({ prospect: p, tipo: "whatsapp" });
   };
   const callPhone = (p: Prospect) => {
     const d = onlyDigits(p.phone || p.whatsapp);
     if (!d) return toast.error("Telefone não cadastrado");
     window.open(`tel:+55${d}`);
+    void logAttempt(p, "ligacao");
     setTouchpointTarget({ prospect: p, tipo: "ligacao" });
   };
   const openEmail = (p: Prospect) => {
     if (!p.email) return toast.error("Email não cadastrado");
     window.open(`mailto:${p.email}`);
+    void logAttempt(p, "email");
     setTouchpointTarget({ prospect: p, tipo: "email" });
   };
 
