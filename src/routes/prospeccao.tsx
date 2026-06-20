@@ -93,6 +93,10 @@ import { runEnrichment } from "@/lib/enrichment/api";
 import { Loader2 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { convertProspectToClient, crmKeys, invalidateCrmCore } from "@/lib/crm/api";
+import { AcoesHojeWidget } from "@/components/cadence/AcoesHojeWidget";
+import { TouchpointModal } from "@/components/cadence/TouchpointModal";
+import { ProspectTimeline } from "@/components/cadence/ProspectTimeline";
+import { proximaAcaoLabel } from "@/lib/cadence/api";
 
 
 export const Route = createFileRoute("/prospeccao")({
@@ -351,6 +355,9 @@ function ProspeccaoPage() {
   const [stateFilter, setStateFilter] = useState<string>("all");
   const [potentialFilter, setPotentialFilter] = useState<ProspectPotential | "all">("all");
   const [onlyWithContact, setOnlyWithContact] = useState(false);
+  type CadenceChip = "all" | "hoje" | "atrasados" | "sem_resposta" | "responderam" | "interessados" | "clientes";
+  const [cadenceFilter, setCadenceFilter] = useState<CadenceChip>("all");
+  const [touchpointTarget, setTouchpointTarget] = useState<Prospect | null>(null);
   const [bulkEnriching, setBulkEnriching] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [view, setView] = useState<"table" | "kanban">("table");
@@ -414,11 +421,38 @@ function ProspeccaoPage() {
         );
         if (!hasContact) return false;
       }
+      // Filtros de cadência (Fase 6) — só ativos quando migration aplicada e dados populados.
+      if (cadenceFilter !== "all") {
+        const now = Date.now();
+        const nx = p.nextContactAt ? new Date(p.nextContactAt).getTime() : null;
+        const today = new Date(); today.setHours(0,0,0,0);
+        const tomorrow = today.getTime() + 86400000;
+        switch (cadenceFilter) {
+          case "hoje":
+            if (!(p.cadenceStatus === "ativo" && nx !== null && nx >= today.getTime() && nx < tomorrow)) return false;
+            break;
+          case "atrasados":
+            if (!(p.cadenceStatus === "ativo" && nx !== null && nx < now)) return false;
+            break;
+          case "sem_resposta":
+            if (!(p.responseStatus === "sem_resposta" && p.lastContactAt)) return false;
+            break;
+          case "responderam":
+            if (!(p.responseStatus && ["respondeu","interessado","cliente"].includes(p.responseStatus))) return false;
+            break;
+          case "interessados":
+            if (p.responseStatus !== "interessado") return false;
+            break;
+          case "clientes":
+            if (p.responseStatus !== "cliente") return false;
+            break;
+        }
+      }
       if (!q) return true;
       return [p.company, p.segment, p.owner, p.email, p.whatsapp, p.phone, p.instagram, p.city, p.state, p.source]
         .join(" ").toLowerCase().includes(q);
     });
-  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact]);
+  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, cadenceFilter]);
 
   const availableSegments = useMemo(() => {
     const set = new Set<string>();
@@ -880,6 +914,37 @@ function ProspeccaoPage() {
         <StatCard icon={CalendarPlus} label="Agendadas" value={stats.agendadas} hint="Com reunião marcada" />
       </section>
 
+      {/* Cadência — chips de filtro server-side-shape e widget de ações de hoje */}
+      <section className="mt-6 surface-card p-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {([
+            { k: "all",          label: "Todos" },
+            { k: "hoje",         label: "🔥 Hoje" },
+            { k: "atrasados",    label: "⚠️ Atrasados" },
+            { k: "sem_resposta", label: "📩 Sem resposta" },
+            { k: "responderam",  label: "💬 Responderam" },
+            { k: "interessados", label: "🎯 Interessados" },
+            { k: "clientes",     label: "✅ Clientes" },
+          ] as { k: typeof cadenceFilter; label: string }[]).map((c) => (
+            <button
+              key={c.k}
+              onClick={() => setCadenceFilter(c.k)}
+              className={`rounded-full border px-3 py-1 text-xs transition ${
+                cadenceFilter === c.k
+                  ? "border-primary bg-primary/15 text-primary-glow"
+                  : "border-border bg-card/60 text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <div className="mt-6">
+        <AcoesHojeWidget />
+      </div>
+
       {/* Toolbar */}
       <section className="mt-6 surface-card p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
@@ -1065,6 +1130,7 @@ function ProspeccaoPage() {
             onConvert={() => convertToLead(detail)}
             onAddNote={(text) => { addInteraction(detail.id, "nota", text); toast.success("Nota registrada"); }}
             onEnrich={() => setEnrichFor(detail)}
+            onRegisterTouchpoint={() => setTouchpointTarget(detail)}
           />
         )}
       </Dialog>
@@ -1142,6 +1208,16 @@ function ProspeccaoPage() {
           void invalidateCrmCore(qc);
         }}
       />
+      {touchpointTarget && (
+        <TouchpointModal
+          open={!!touchpointTarget}
+          onOpenChange={(v) => !v && setTouchpointTarget(null)}
+          prospectId={touchpointTarget.id}
+          company={touchpointTarget.company}
+          cadenceStep={(touchpointTarget.cadenceStep ?? 0) as 0|1|2|3|4|5|6}
+          ownerName={user.name}
+        />
+      )}
     </AppShell>
 
   );
@@ -1384,7 +1460,7 @@ function KanbanView({
 }
 
 function DetailDialog({
-  p, onWhats, onCall, onStatus, onConvert, onAddNote, onEnrich,
+  p, onWhats, onCall, onStatus, onConvert, onAddNote, onEnrich, onRegisterTouchpoint,
 }: {
   p: Prospect;
   onWhats: () => void;
@@ -1393,9 +1469,11 @@ function DetailDialog({
   onConvert: () => void;
   onAddNote: (text: string) => void;
   onEnrich: () => void;
+  onRegisterTouchpoint: () => void;
 }) {
   const [note, setNote] = useState("");
   const timeline = p.interactions ?? [];
+  const proxima = proximaAcaoLabel(p.nextContactAt ?? null);
   return (
     <DialogContent className="max-w-3xl">
       <DialogHeader>
@@ -1409,6 +1487,14 @@ function DetailDialog({
               <span className="opacity-50">·</span>
               <PotentialBadge p={p.potential} />
               <StatusBadge status={p.status} />
+              <span className="opacity-50">·</span>
+              <span className={
+                proxima.tone === "overdue" ? "text-rose-300" :
+                proxima.tone === "today"   ? "text-amber-300" :
+                "text-muted-foreground"
+              }>
+                Próxima ação: {proxima.text}
+              </span>
             </DialogDescription>
           </div>
           <Button size="sm" className="btn-gradient h-8 text-xs" onClick={onEnrich}>
@@ -1453,12 +1539,20 @@ function DetailDialog({
                 {STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
               </SelectContent>
             </Select>
+            <Button size="sm" className="btn-gradient h-9 w-full text-xs" onClick={onRegisterTouchpoint}>
+              <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Registrar contato (cadência)
+            </Button>
           </div>
         </div>
 
         {/* Timeline */}
         <div className="surface-card flex flex-col p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Timeline</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Timeline (Cadência)</p>
+          <div className="mt-3">
+            <ProspectTimeline prospectId={p.id} />
+          </div>
+          <div className="my-4 border-t border-border/60"></div>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Notas internas</p>
 
           <div className="mt-2 space-y-2">
             <Textarea value={note} onChange={(e) => setNote(e.target.value)}

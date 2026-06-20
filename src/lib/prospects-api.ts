@@ -24,6 +24,11 @@ type Row = {
   status: string;
   created_at: string;
   updated_at: string;
+  cadence_step?: number | null;
+  cadence_status?: string | null;
+  response_status?: string | null;
+  last_contact_at?: string | null;
+  next_contact_at?: string | null;
 };
 
 type IxRow = {
@@ -75,6 +80,11 @@ function fromRow(r: Row, ixs: IxRow[] = []): Prospect {
     status: (VALID_STATUSES.includes(r.status) ? r.status : "nao_contatado") as ProspectStatus,
     // Mantém ISO; formatação acontece apenas na UI.
     createdAt: r.created_at || new Date(0).toISOString(),
+    cadenceStep: typeof r.cadence_step === "number" ? r.cadence_step : 0,
+    cadenceStatus: (r.cadence_status as Prospect["cadenceStatus"]) ?? "ativo",
+    responseStatus: (r.response_status as Prospect["responseStatus"]) ?? "sem_resposta",
+    lastContactAt: r.last_contact_at ?? null,
+    nextContactAt: r.next_contact_at ?? null,
     interactions: interactions
       .filter((i) => i.prospect_id === r.id)
       .map((i) => ({
