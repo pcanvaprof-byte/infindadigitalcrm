@@ -311,16 +311,15 @@ function NovaPropostaDialog({
   // Sugestão IA a partir do CRM/Prospect selecionado
   const selectedCtx = useMemo(() => {
     if (source === "client" && clientId) {
-      const c = clients.find((x) => x.id === clientId);
+      const c = (clientsQ.data ?? []).find((x) => x.id === clientId);
       return c ? { nicho: c.segment ?? "", tipo: c.company ?? "" } : null;
     }
     if (source === "prospect" && prospectId) {
-      const p = prospects.find((x) => x.id === prospectId);
+      const p = (prospectsQ.data ?? []).find((x) => x.id === prospectId);
       return p ? { nicho: p.segment ?? "", tipo: p.company ?? "" } : null;
     }
     return null;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [source, clientId, prospectId, clients, prospects]);
+  }, [source, clientId, prospectId, clientsQ.data, prospectsQ.data]);
 
   // Pré-preenche nicho/tipo quando o usuário abre o bloco e há contexto
   function aplicarSugestao() {
