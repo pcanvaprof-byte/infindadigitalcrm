@@ -64,7 +64,7 @@ function kpisFromData(d?: DashboardKPIs): KpiItem[] {
     briefingsTotal: 0, tasksTotal: 0,
   };
   return [
-    { label: "Empresas Prospectadas", value: k.prospectsTotal, target: KPI_TARGETS.prospects, icon: Building2 },
+    { label: "Empresas na base", value: k.prospectsTotal, target: KPI_TARGETS.prospects, icon: Building2 },
     { label: "Contatos Realizados", value: k.prospectsContacted, target: KPI_TARGETS.contacted, icon: MessageSquare },
     { label: "Conversas Iniciadas", value: k.conversationsStarted, target: KPI_TARGETS.conversations, icon: MessageSquare },
     { label: "Reuniões", value: k.meetings, target: KPI_TARGETS.meetings, icon: CalendarClock },
