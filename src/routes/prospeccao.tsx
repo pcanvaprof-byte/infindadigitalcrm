@@ -96,7 +96,8 @@ import { convertProspectToClient, crmKeys, invalidateCrmCore } from "@/lib/crm/a
 import { AcoesHojeWidget } from "@/components/cadence/AcoesHojeWidget";
 import { TouchpointModal } from "@/components/cadence/TouchpointModal";
 import { ProspectTimeline } from "@/components/cadence/ProspectTimeline";
-import { proximaAcaoLabel } from "@/lib/cadence/api";
+import { CloseCadenceDialog } from "@/components/cadence/CloseCadenceDialog";
+import { proximaAcaoLabel, type TouchpointTipo } from "@/lib/cadence/api";
 
 
 export const Route = createFileRoute("/prospeccao")({
