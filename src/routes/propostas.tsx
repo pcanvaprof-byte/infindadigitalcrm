@@ -506,18 +506,48 @@ function NovaPropostaDialog({
                 </Select>
               )}
               {source === "prospect" && (
-                <Select value={prospectId} onValueChange={setProspectId}>
-                  <SelectTrigger className="h-9 mt-1">
-                    <SelectValue placeholder={prospects.length ? "Selecione um prospect…" : "Nenhum prospect"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {prospects.slice(0, 200).map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.company}{p.owner ? ` — ${p.owner}` : ""}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <>
+                  <Select
+                    value={prospectId}
+                    onValueChange={setProspectId}
+                    disabled={prospectsQ.isLoading || !prospects.length}
+                  >
+                    <SelectTrigger className="h-9 mt-1">
+                      <SelectValue
+                        placeholder={
+                          prospectsQ.isLoading
+                            ? "Carregando prospects…"
+                            : prospectsQ.isError
+                              ? "Erro ao carregar prospects"
+                              : prospects.length
+                                ? "Selecione um prospect…"
+                                : "Nenhum prospect cadastrado"
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {prospects.slice(0, 200).map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.company}{p.owner ? ` — ${p.owner}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {prospectsQ.isError && (
+                    <p className="mt-1 text-[11px] text-destructive">
+                      {(prospectsQ.error as Error)?.message ?? "Erro desconhecido"}
+                    </p>
+                  )}
+                  {!prospectsQ.isLoading && !prospectsQ.isError && !prospects.length && (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Cadastre prospects em{" "}
+                      <Link to="/prospeccao" className="text-primary underline">
+                        Prospecção
+                      </Link>
+                      .
+                    </p>
+                  )}
+                </>
               )}
               {source === "blank" && (
                 <Input disabled className="h-9 mt-1" placeholder="Sem vínculo" />
