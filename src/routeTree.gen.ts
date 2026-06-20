@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TarefasRouteImport } from './routes/tarefas'
 import { Route as ProspeccaoRouteImport } from './routes/prospeccao'
+import { Route as PropostasRouteImport } from './routes/propostas'
 import { Route as MetasRouteImport } from './routes/metas'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as KickoffRouteImport } from './routes/kickoff'
@@ -32,6 +33,11 @@ const TarefasRoute = TarefasRouteImport.update({
 const ProspeccaoRoute = ProspeccaoRouteImport.update({
   id: '/prospeccao',
   path: '/prospeccao',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PropostasRoute = PropostasRouteImport.update({
+  id: '/propostas',
+  path: '/propostas',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MetasRoute = MetasRouteImport.update({
@@ -104,6 +110,7 @@ export interface FileRoutesByFullPath {
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
+  '/propostas': typeof PropostasRoute
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
   '/briefing/$token': typeof BriefingTokenRoute
@@ -120,6 +127,7 @@ export interface FileRoutesByTo {
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
+  '/propostas': typeof PropostasRoute
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
   '/briefing/$token': typeof BriefingTokenRoute
@@ -137,6 +145,7 @@ export interface FileRoutesById {
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
+  '/propostas': typeof PropostasRoute
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
   '/briefing/$token': typeof BriefingTokenRoute
@@ -155,6 +164,7 @@ export interface FileRouteTypes {
     | '/kickoff'
     | '/login'
     | '/metas'
+    | '/propostas'
     | '/prospeccao'
     | '/tarefas'
     | '/briefing/$token'
@@ -171,6 +181,7 @@ export interface FileRouteTypes {
     | '/kickoff'
     | '/login'
     | '/metas'
+    | '/propostas'
     | '/prospeccao'
     | '/tarefas'
     | '/briefing/$token'
@@ -187,6 +198,7 @@ export interface FileRouteTypes {
     | '/kickoff'
     | '/login'
     | '/metas'
+    | '/propostas'
     | '/prospeccao'
     | '/tarefas'
     | '/briefing/$token'
@@ -204,6 +216,7 @@ export interface RootRouteChildren {
   KickoffRoute: typeof KickoffRoute
   LoginRoute: typeof LoginRoute
   MetasRoute: typeof MetasRoute
+  PropostasRoute: typeof PropostasRoute
   ProspeccaoRoute: typeof ProspeccaoRoute
   TarefasRoute: typeof TarefasRoute
   BriefingTokenRoute: typeof BriefingTokenRoute
@@ -223,6 +236,13 @@ declare module '@tanstack/react-router' {
       path: '/prospeccao'
       fullPath: '/prospeccao'
       preLoaderRoute: typeof ProspeccaoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/propostas': {
+      id: '/propostas'
+      path: '/propostas'
+      fullPath: '/propostas'
+      preLoaderRoute: typeof PropostasRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/metas': {
@@ -347,6 +367,7 @@ const rootRouteChildren: RootRouteChildren = {
   KickoffRoute: KickoffRoute,
   LoginRoute: LoginRoute,
   MetasRoute: MetasRoute,
+  PropostasRoute: PropostasRoute,
   ProspeccaoRoute: ProspeccaoRoute,
   TarefasRoute: TarefasRoute,
   BriefingTokenRoute: BriefingTokenRoute,
