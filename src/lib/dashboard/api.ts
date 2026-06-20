@@ -102,16 +102,19 @@ export function deriveDashboardMetrics(input: Partial<DashboardInputs>): Dashboa
   const dealByProspectId = new Map(deals.filter((d) => d.prospect_id).map((d) => [d.prospect_id as string, d]));
   const prospectById = new Map(prospects.map((p) => [p.id, p]));
   const prospectWonBonus = prospects.filter((p) => {
+    if (dealProspectIds.has(p.id)) return false;
     if (p.responseStatus !== "cliente" && !CLIENT_PIPELINE_STATUSES.has(p.status)) return false;
     const deal = dealByProspectId.get(p.id);
     return !deal || !wonIds.has(deal.stage_id);
   }).length;
   const prospectProposalBonus = prospects.filter((p) => {
+    if (dealProspectIds.has(p.id)) return false;
     if (!PROPOSAL_PIPELINE_STATUSES.has(p.status)) return false;
     const deal = dealByProspectId.get(p.id);
     return !deal || deal.stage_id !== "proposta";
   }).length;
   const prospectMeetingBonus = prospects.filter((p) => {
+    if (dealProspectIds.has(p.id)) return false;
     if (!MEETING_PIPELINE_STATUSES.has(p.status)) return false;
     const deal = dealByProspectId.get(p.id);
     return !deal || (deal.stage_id !== "reuniao" && deal.stage_id !== "proposta" && !wonIds.has(deal.stage_id));
