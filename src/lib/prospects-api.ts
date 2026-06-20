@@ -111,8 +111,8 @@ export async function loadAllProspects(): Promise<Prospect[]> {
       .order("created_at", { ascending: false })
       .range(from, from + PAGE - 1);
     if (error) {
-      console.warn("loadAllProspects prospects error", error);
-      return [];
+      console.error("loadAllProspects prospects error", error);
+      throw new Error(`Falha ao carregar prospects: ${error.message}`);
     }
     const batch = (data ?? []) as Row[];
     rows.push(...batch);
