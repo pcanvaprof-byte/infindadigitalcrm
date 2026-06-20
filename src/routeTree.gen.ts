@@ -20,6 +20,8 @@ import { Route as CrmRouteImport } from './routes/crm'
 import { Route as CatalogoRouteImport } from './routes/catalogo'
 import { Route as BriefingsRouteImport } from './routes/briefings'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PropostasIdRouteImport } from './routes/propostas.$id'
+import { Route as PropostaTokenRouteImport } from './routes/proposta.$token'
 import { Route as CatalogoNovoRouteImport } from './routes/catalogo.novo'
 import { Route as CatalogoIdRouteImport } from './routes/catalogo.$id'
 import { Route as BriefingsIdRouteImport } from './routes/briefings.$id'
@@ -80,6 +82,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PropostasIdRoute = PropostasIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => PropostasRoute,
+} as any)
+const PropostaTokenRoute = PropostaTokenRouteImport.update({
+  id: '/proposta/$token',
+  path: '/proposta/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CatalogoNovoRoute = CatalogoNovoRouteImport.update({
   id: '/novo',
   path: '/novo',
@@ -110,13 +122,15 @@ export interface FileRoutesByFullPath {
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
-  '/propostas': typeof PropostasRoute
+  '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
   '/briefing/$token': typeof BriefingTokenRoute
   '/briefings/$id': typeof BriefingsIdRoute
   '/catalogo/$id': typeof CatalogoIdRoute
   '/catalogo/novo': typeof CatalogoNovoRoute
+  '/proposta/$token': typeof PropostaTokenRoute
+  '/propostas/$id': typeof PropostasIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -127,13 +141,15 @@ export interface FileRoutesByTo {
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
-  '/propostas': typeof PropostasRoute
+  '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
   '/briefing/$token': typeof BriefingTokenRoute
   '/briefings/$id': typeof BriefingsIdRoute
   '/catalogo/$id': typeof CatalogoIdRoute
   '/catalogo/novo': typeof CatalogoNovoRoute
+  '/proposta/$token': typeof PropostaTokenRoute
+  '/propostas/$id': typeof PropostasIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -145,13 +161,15 @@ export interface FileRoutesById {
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
-  '/propostas': typeof PropostasRoute
+  '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
   '/briefing/$token': typeof BriefingTokenRoute
   '/briefings/$id': typeof BriefingsIdRoute
   '/catalogo/$id': typeof CatalogoIdRoute
   '/catalogo/novo': typeof CatalogoNovoRoute
+  '/proposta/$token': typeof PropostaTokenRoute
+  '/propostas/$id': typeof PropostasIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -171,6 +189,8 @@ export interface FileRouteTypes {
     | '/briefings/$id'
     | '/catalogo/$id'
     | '/catalogo/novo'
+    | '/proposta/$token'
+    | '/propostas/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -188,6 +208,8 @@ export interface FileRouteTypes {
     | '/briefings/$id'
     | '/catalogo/$id'
     | '/catalogo/novo'
+    | '/proposta/$token'
+    | '/propostas/$id'
   id:
     | '__root__'
     | '/'
@@ -205,6 +227,8 @@ export interface FileRouteTypes {
     | '/briefings/$id'
     | '/catalogo/$id'
     | '/catalogo/novo'
+    | '/proposta/$token'
+    | '/propostas/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -216,10 +240,11 @@ export interface RootRouteChildren {
   KickoffRoute: typeof KickoffRoute
   LoginRoute: typeof LoginRoute
   MetasRoute: typeof MetasRoute
-  PropostasRoute: typeof PropostasRoute
+  PropostasRoute: typeof PropostasRouteWithChildren
   ProspeccaoRoute: typeof ProspeccaoRoute
   TarefasRoute: typeof TarefasRoute
   BriefingTokenRoute: typeof BriefingTokenRoute
+  PropostaTokenRoute: typeof PropostaTokenRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -301,6 +326,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/propostas/$id': {
+      id: '/propostas/$id'
+      path: '/$id'
+      fullPath: '/propostas/$id'
+      preLoaderRoute: typeof PropostasIdRouteImport
+      parentRoute: typeof PropostasRoute
+    }
+    '/proposta/$token': {
+      id: '/proposta/$token'
+      path: '/proposta/$token'
+      fullPath: '/proposta/$token'
+      preLoaderRoute: typeof PropostaTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/catalogo/novo': {
       id: '/catalogo/novo'
       path: '/novo'
@@ -358,6 +397,18 @@ const CatalogoRouteWithChildren = CatalogoRoute._addFileChildren(
   CatalogoRouteChildren,
 )
 
+interface PropostasRouteChildren {
+  PropostasIdRoute: typeof PropostasIdRoute
+}
+
+const PropostasRouteChildren: PropostasRouteChildren = {
+  PropostasIdRoute: PropostasIdRoute,
+}
+
+const PropostasRouteWithChildren = PropostasRoute._addFileChildren(
+  PropostasRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BriefingsRoute: BriefingsRouteWithChildren,
@@ -367,10 +418,11 @@ const rootRouteChildren: RootRouteChildren = {
   KickoffRoute: KickoffRoute,
   LoginRoute: LoginRoute,
   MetasRoute: MetasRoute,
-  PropostasRoute: PropostasRoute,
+  PropostasRoute: PropostasRouteWithChildren,
   ProspeccaoRoute: ProspeccaoRoute,
   TarefasRoute: TarefasRoute,
   BriefingTokenRoute: BriefingTokenRoute,
+  PropostaTokenRoute: PropostaTokenRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

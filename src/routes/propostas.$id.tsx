@@ -1,4 +1,4 @@
-import { createFileRoute, useParams, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
@@ -10,9 +10,6 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from "@/components/ui/select";
-import {
   getProposal, listItems, listEvents, listVersions,
   addItemFromCatalog, removeItem, updateItem, saveVersion,
   getCurrentVersion, updateProposal, registerSend,
@@ -23,7 +20,7 @@ import { listItems as listCatalogItems, listCategorias } from "@/lib/catalog/api
 import { COBRANCA_LABEL, formatBRL } from "@/lib/catalog/types";
 import {
   Copy, ExternalLink, Plus, Save, Send, Trash2,
-  History, FileText, MessageCircle, Mail, Link as LinkIcon, CheckCheck,
+  History, FileText, MessageCircle, Mail, Link as LinkIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -39,7 +36,6 @@ export const Route = createFileRoute("/propostas/$id")({
 function EditorPage() {
   const { id } = useParams({ from: "/propostas/$id" });
   const qc = useQueryClient();
-  const nav = useNavigate();
 
   const propQ = useQuery({ queryKey: propostasKeys.one(id), queryFn: () => getProposal(id) });
   const itemsQ = useQuery({ queryKey: propostasKeys.items(id), queryFn: () => listItems(id) });
