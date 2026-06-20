@@ -355,6 +355,9 @@ function ProspeccaoPage() {
   const [stateFilter, setStateFilter] = useState<string>("all");
   const [potentialFilter, setPotentialFilter] = useState<ProspectPotential | "all">("all");
   const [onlyWithContact, setOnlyWithContact] = useState(false);
+  type CadenceChip = "all" | "hoje" | "atrasados" | "sem_resposta" | "responderam" | "interessados" | "clientes";
+  const [cadenceFilter, setCadenceFilter] = useState<CadenceChip>("all");
+  const [touchpointTarget, setTouchpointTarget] = useState<Prospect | null>(null);
   const [bulkEnriching, setBulkEnriching] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [view, setView] = useState<"table" | "kanban">("table");
