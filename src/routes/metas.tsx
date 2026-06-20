@@ -119,6 +119,18 @@ const PROPOSAL_PIPELINE_STATUSES = new Set([
   ...CLIENT_PIPELINE_STATUSES,
 ]);
 
+const MEETING_PIPELINE_STATUSES = new Set([
+  "agendado",
+  "briefing_enviado",
+  "diagnostico_pendente",
+  ...PROPOSAL_PIPELINE_STATUSES,
+]);
+
+const QUALIFIED_PIPELINE_STATUSES = new Set([
+  "qualificado",
+  ...MEETING_PIPELINE_STATUSES,
+]);
+
 function prospectResponseStatus(p: unknown) {
   return (p as { responseStatus?: string | null; response_status?: string | null }).responseStatus
     ?? (p as { response_status?: string | null }).response_status
@@ -127,6 +139,13 @@ function prospectResponseStatus(p: unknown) {
 
 function prospectPipelineStatus(p: unknown) {
   return (p as { status?: string | null }).status ?? null;
+}
+
+function prospectActivityAt(p: unknown) {
+  return (p as { updatedAt?: string | null; updated_at?: string | null; createdAt?: string | null }).updatedAt
+    ?? (p as { updated_at?: string | null }).updated_at
+    ?? (p as { createdAt?: string | null }).createdAt
+    ?? null;
 }
 
 function isClientProspect(p: unknown) {
