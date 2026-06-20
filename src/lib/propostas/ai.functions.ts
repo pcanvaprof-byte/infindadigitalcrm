@@ -28,9 +28,10 @@ export const gerarConteudoProposta = createServerFn({ method: "POST" })
     const groqKey = process.env.GROQ_API_KEY;
     if (!groqKey) throw new Error("GROQ_API_KEY ausente");
 
-    const { supabase } = context;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = context.supabase as any;
 
-    const { data: prop, error: pErr } = await supabase
+    const { data: prop, error: pErr } = await sb
       .from("proposals")
       .select("id, titulo, valor_implantacao, valor_mensal, valor_avulso, validade_dias, client_id, lead_id, deal_id")
       .eq("id", data.proposalId)
@@ -38,7 +39,7 @@ export const gerarConteudoProposta = createServerFn({ method: "POST" })
     if (pErr) throw pErr;
     if (!prop) throw new Error("Proposta não encontrada");
 
-    const { data: items } = await supabase
+    const { data: items } = await sb
       .from("proposal_items")
       .select("nome, descricao, categoria, area, cobranca, quantidade, valor_unitario, valor_total, prazo_dias, entregaveis")
       .eq("proposal_id", data.proposalId)
@@ -46,7 +47,7 @@ export const gerarConteudoProposta = createServerFn({ method: "POST" })
 
     let cliente: Record<string, unknown> | null = null;
     if (prop.client_id) {
-      const { data: c } = await supabase
+      const { data: c } = await sb
         .from("clients")
         .select("company, contact_name, segment, city, state, notes")
         .eq("id", prop.client_id)
@@ -55,7 +56,7 @@ export const gerarConteudoProposta = createServerFn({ method: "POST" })
     }
     let lead: Record<string, unknown> | null = null;
     if (!cliente && prop.lead_id) {
-      const { data: l } = await supabase
+      const { data: l } = await sb
         .from("prospects")
         .select("company, owner, segment, notes")
         .eq("id", prop.lead_id)
@@ -64,9 +65,9 @@ export const gerarConteudoProposta = createServerFn({ method: "POST" })
     }
 
     const ctxAlvo = cliente ?? lead ?? {};
-    const itensTxt = (items ?? [])
+    const itensTxt = ((items ?? []) as Array<Record<string, unknown>>)
       .map(
-        (it) =>
+        (it: Record<string, unknown>) =>
           `- ${it.nome} (${it.cobranca}, qtd ${it.quantidade}, R$ ${Number(it.valor_total).toFixed(2)})${
             it.descricao ? ` — ${it.descricao}` : ""
           }`,
