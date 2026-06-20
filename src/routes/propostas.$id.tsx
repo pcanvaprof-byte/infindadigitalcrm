@@ -57,8 +57,16 @@ function EditorPage() {
     mutationFn: async () =>
       gerarFn({ data: { proposalId: id, contexto: aiContext || undefined } }),
     onSuccess: (out) => {
-      setContent({ ...content, ...out });
-      toast.success("Conteúdo gerado. Revise e clique em Salvar versão.");
+      setContent({ ...content, ...out.content });
+      if (out.source === "fallback") {
+        toast.warning(
+          `Conteúdo gerado por modelo determinístico (motivo: ${out.rejected_reason ?? "—"}). Revise antes de salvar.`,
+        );
+      } else {
+        toast.success(
+          `Conteúdo gerado pela IA (${out.attempts} tentativa${out.attempts > 1 ? "s" : ""}). Revise e clique em Salvar versão.`,
+        );
+      }
     },
     onError: (e) => toast.error((e as Error).message),
   });
