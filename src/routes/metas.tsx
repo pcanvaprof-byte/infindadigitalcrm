@@ -104,6 +104,58 @@ const tooltipStyle = {
   fontSize: 12,
 };
 
+const CLIENT_PIPELINE_STATUSES = new Set([
+  "fechado_ganho",
+  "aguardando_kickoff",
+  "aguardando_producao",
+  "em_producao",
+  "entregue",
+  "cliente",
+]);
+
+const PROPOSAL_PIPELINE_STATUSES = new Set([
+  "proposta_pendente",
+  "proposta_enviada",
+  ...CLIENT_PIPELINE_STATUSES,
+]);
+
+const MEETING_PIPELINE_STATUSES = new Set([
+  "agendado",
+  "briefing_enviado",
+  "diagnostico_pendente",
+  ...PROPOSAL_PIPELINE_STATUSES,
+]);
+
+const QUALIFIED_PIPELINE_STATUSES = new Set([
+  "qualificado",
+  ...MEETING_PIPELINE_STATUSES,
+]);
+
+function prospectResponseStatus(p: unknown) {
+  return (p as { responseStatus?: string | null; response_status?: string | null }).responseStatus
+    ?? (p as { response_status?: string | null }).response_status
+    ?? null;
+}
+
+function prospectPipelineStatus(p: unknown) {
+  return (p as { status?: string | null }).status ?? null;
+}
+
+function prospectActivityAt(p: unknown) {
+  return (p as { updatedAt?: string | null; updated_at?: string | null; createdAt?: string | null }).updatedAt
+    ?? (p as { updated_at?: string | null }).updated_at
+    ?? (p as { createdAt?: string | null }).createdAt
+    ?? null;
+}
+
+function isClientProspect(p: unknown) {
+  return prospectResponseStatus(p) === "cliente" || CLIENT_PIPELINE_STATUSES.has(prospectPipelineStatus(p) ?? "");
+}
+
+function isInterestedProspect(p: unknown) {
+  return prospectResponseStatus(p) === "interessado" || isClientProspect(p);
+}
+
 function MetricCard({ m, period }: { m: Metric; period: "daily" | "weekly" }) {
   const Icon = m.icon;
   const target = period === "daily" ? m.daily : m.weekly;
@@ -268,17 +320,14 @@ function MetasPage() {
 
     // Etapas de prospecção (vêm antes das etapas de deal)
     const leads = prospects.length;
-    const contatados = prospects.filter((p) => (p as { lastContactAt?: string | null }).lastContactAt).length;
+    const contatados = prospects.filter(
+      (p) => (p as { lastContactAt?: string | null }).lastContactAt || prospectPipelineStatus(p) !== "nao_contatado",
+    ).length;
     const responderam = prospects.filter((p) => {
-      const rs = (p as { responseStatus?: string | null; response_status?: string | null }).responseStatus
-        ?? (p as { response_status?: string | null }).response_status;
-      return rs && rs !== "sem_resposta";
+      const rs = prospectResponseStatus(p);
+      return (rs && rs !== "sem_resposta") || isInterestedProspect(p);
     }).length;
-    const interessados = prospects.filter((p) => {
-      const rs = (p as { responseStatus?: string | null; response_status?: string | null }).responseStatus
-        ?? (p as { response_status?: string | null }).response_status;
-      return rs === "interessado" || rs === "cliente";
-    }).length;
+    const interessados = prospects.filter(isInterestedProspect).length;
 
     const prospectStages = [
       { label: "Leads na base", value: leads },
@@ -287,29 +336,38 @@ function MetasPage() {
       { label: "Interessados", value: interessados },
     ];
 
-    const counts = new Map<string, number>();
-    for (const d of allDeals) counts.set(d.stage_id, (counts.get(d.stage_id) ?? 0) + 1);
     // Funil cumulativo: um deal em "proposta" também conta em "qualificado", "reunião" etc.
-    // Prospects marcados como 'cliente' que não tenham deal são contados como fechados.
+    // Se o prospect avançou para cliente/em produção, isso sobrepõe deal antigo parado em Lead.
     const dealProspectIds = new Set(allDeals.map((d) => d.prospect_id).filter(Boolean) as string[]);
-    const clientes = prospects.filter((p) => {
-      const rs = (p as { responseStatus?: string | null; response_status?: string | null }).responseStatus
-        ?? (p as { response_status?: string | null }).response_status;
-      return rs === "cliente";
-    });
-    const clientesSemDeal = clientes.filter((c) => !dealProspectIds.has(c.id)).length;
+    const prospectById = new Map(prospects.map((p) => [p.id, p]));
     const sortedStages = stages
       .filter((s) => !s.is_lost)
       .sort((a, b) => a.position - b.position);
     const wonPosition = sortedStages.find((s) => s.is_won)?.position ?? Infinity;
+    const proposalPosition = sortedStages.find((s) => /proposta/i.test(s.label))?.position ?? wonPosition;
+    const meetingPosition = sortedStages.find((s) => /reuni|apresent/i.test(s.label))?.position ?? proposalPosition;
+    const qualifiedPosition = sortedStages.find((s) => /qualificado/i.test(s.label))?.position ?? meetingPosition;
     const stagePos = new Map(sortedStages.map((s) => [s.id, s.position]));
+    const prospectEffectivePosition = (p: unknown) => {
+      const status = prospectPipelineStatus(p) ?? "";
+      if (isClientProspect(p)) return wonPosition;
+      if (PROPOSAL_PIPELINE_STATUSES.has(status)) return proposalPosition;
+      if (MEETING_PIPELINE_STATUSES.has(status)) return meetingPosition;
+      if (QUALIFIED_PIPELINE_STATUSES.has(status)) return qualifiedPosition;
+      return undefined;
+    };
     const dealStages = sortedStages.map((s) => {
       const cum = allDeals.reduce((acc, d) => {
         const pos = stagePos.get(d.stage_id);
+        const prospectPos = d.prospect_id ? prospectEffectivePosition(prospectById.get(d.prospect_id)) : undefined;
+        const effectivePos = Math.max(pos ?? 0, prospectPos ?? 0);
+        return effectivePos >= s.position ? acc + 1 : acc;
+      }, 0);
+      const bonus = prospects.reduce((acc, p) => {
+        if (dealProspectIds.has(p.id)) return acc;
+        const pos = prospectEffectivePosition(p);
         return pos !== undefined && pos >= s.position ? acc + 1 : acc;
       }, 0);
-      // soma clientes-sem-deal em todas as etapas até "Fechado" inclusive
-      const bonus = s.position <= wonPosition ? clientesSemDeal : 0;
       return { label: s.label, value: cum + bonus };
     });
 
@@ -322,6 +380,7 @@ function MetasPage() {
     const stages = stagesQ.data ?? [];
     const isProposal = (label: string) => /proposta/i.test(label);
     const proposalStageIds = new Set(stages.filter((s) => isProposal(s.label)).map((s) => s.id));
+    const dealByProspectId = new Map(deals.filter((d) => d.prospect_id).map((d) => [d.prospect_id as string, d]));
     // Monday of current week
     const now = new Date();
     const day = now.getDay(); // 0 Dom ... 6 Sab
@@ -343,7 +402,14 @@ function MetasPage() {
         d: DAY_LABELS[start.getDay()],
         empresas: prospects.filter((p) => inDay(p.createdAt)).length,
         conversas: prospects.filter((p) => inDay((p as { lastContactAt?: string | null }).lastContactAt)).length,
-        propostas: deals.filter((d) => proposalStageIds.has(d.stage_id) && inDay(d.updated_at)).length,
+        propostas:
+          deals.filter((d) => proposalStageIds.has(d.stage_id) && inDay(d.updated_at)).length +
+          prospects.filter(
+            (p) =>
+              PROPOSAL_PIPELINE_STATUSES.has(prospectPipelineStatus(p) ?? "") &&
+              !(dealByProspectId.get(p.id) && proposalStageIds.has(dealByProspectId.get(p.id)!.stage_id) && inDay(dealByProspectId.get(p.id)!.updated_at)) &&
+              inDay(prospectActivityAt(p)),
+          ).length,
       };
     });
     return days;
@@ -356,6 +422,8 @@ function MetasPage() {
     const propIds = new Set(stages.filter((s) => /proposta/i.test(s.label)).map((s) => s.id));
     const meetingIds = new Set(stages.filter((s) => /reuni/i.test(s.label)).map((s) => s.id));
     const prospects = prospectsQ.data ?? [];
+    const dealProspectIds = new Set(deals.map((d) => d.prospect_id).filter(Boolean) as string[]);
+    const prospectsWithoutDeals = prospects.filter((p) => !dealProspectIds.has(p.id));
     const goalPts = 30; // pontuação semanal alvo (5 contatos*1 + 5 reun*2 + 5 prop*3 = 30)
     const now = new Date();
     const day = now.getDay();
@@ -381,7 +449,16 @@ function MetasPage() {
         return acc;
       }, 0);
       const contatos = prospects.filter((p) => inWeek((p as { lastContactAt?: string | null }).lastContactAt)).length;
-      const score = dealScore + contatos;
+      const prospectStageScore = prospectsWithoutDeals.reduce((acc, p) => {
+        if (!inWeek(prospectActivityAt(p))) return acc;
+        const status = prospectPipelineStatus(p) ?? "";
+        if (isClientProspect(p)) return acc + 5;
+        if (PROPOSAL_PIPELINE_STATUSES.has(status)) return acc + 3;
+        if (MEETING_PIPELINE_STATUSES.has(status)) return acc + 2;
+        if (QUALIFIED_PIPELINE_STATUSES.has(status)) return acc + 1;
+        return acc;
+      }, 0);
+      const score = dealScore + prospectStageScore + contatos;
       const label = i === 5 ? "Atual" : `S-${5 - i}`;
       return { s: label, atingido: Math.min(100, Math.round((score / goalPts) * 100)) };
     });
