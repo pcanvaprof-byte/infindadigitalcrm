@@ -290,16 +290,27 @@ function MetasPage() {
     const counts = new Map<string, number>();
     for (const d of allDeals) counts.set(d.stage_id, (counts.get(d.stage_id) ?? 0) + 1);
     // Funil cumulativo: um deal em "proposta" também conta em "qualificado", "reunião" etc.
+    // Prospects marcados como 'cliente' que não tenham deal são contados como fechados.
+    const dealProspectIds = new Set(allDeals.map((d) => d.prospect_id).filter(Boolean) as string[]);
+    const clientes = prospects.filter((p) => {
+      const rs = (p as { responseStatus?: string | null; response_status?: string | null }).responseStatus
+        ?? (p as { response_status?: string | null }).response_status;
+      return rs === "cliente";
+    });
+    const clientesSemDeal = clientes.filter((c) => !dealProspectIds.has(c.id)).length;
     const sortedStages = stages
       .filter((s) => !s.is_lost)
       .sort((a, b) => a.position - b.position);
+    const wonPosition = sortedStages.find((s) => s.is_won)?.position ?? Infinity;
     const stagePos = new Map(sortedStages.map((s) => [s.id, s.position]));
     const dealStages = sortedStages.map((s) => {
       const cum = allDeals.reduce((acc, d) => {
         const pos = stagePos.get(d.stage_id);
         return pos !== undefined && pos >= s.position ? acc + 1 : acc;
       }, 0);
-      return { label: s.label, value: cum };
+      // soma clientes-sem-deal em todas as etapas até "Fechado" inclusive
+      const bonus = s.position <= wonPosition ? clientesSemDeal : 0;
+      return { label: s.label, value: cum + bonus };
     });
 
     return [...prospectStages, ...dealStages];
