@@ -1207,6 +1207,16 @@ function ProspeccaoPage() {
           void invalidateCrmCore(qc);
         }}
       />
+      {touchpointTarget && (
+        <TouchpointModal
+          open={!!touchpointTarget}
+          onOpenChange={(v) => !v && setTouchpointTarget(null)}
+          prospectId={touchpointTarget.id}
+          company={touchpointTarget.company}
+          cadenceStep={(touchpointTarget.cadenceStep ?? 0) as 0|1|2|3|4|5|6}
+          ownerName={user.name}
+        />
+      )}
     </AppShell>
 
   );
