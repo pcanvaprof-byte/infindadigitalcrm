@@ -1,5 +1,5 @@
-import { Sparkles, DollarSign, TrendingUp, Target } from "lucide-react";
-import { brl, type VMCrescimento, type VMHeader, type VMROI } from "@/lib/proposta/viewModel";
+import { Sparkles, Check } from "lucide-react";
+import type { VMCrescimento, VMHeader, VMROI } from "@/lib/proposta/viewModel";
 
 interface Props {
   header: VMHeader;
@@ -7,12 +7,13 @@ interface Props {
   roi?: VMROI;
 }
 
-export function HeroSection({ header, crescimento, roi }: Props) {
-  const esperado = crescimento?.cenarios.find((c) => c.nome === "Esperado") ?? crescimento?.cenarios[1];
-  const receitaPotencial = esperado?.faturamento180 ?? roi?.faturamentoAdicional ?? null;
-  const novosClientes = esperado?.novosClientes180 ?? null;
-  const roiX = esperado?.roi180 ?? null;
-
+export function HeroSection({ header }: Props) {
+  const pilares = [
+    "Estratégia comercial estruturada",
+    "Tecnologia, CRM e automação",
+    "Marketing orientado por indicadores",
+    "Governança contínua e mensuração",
+  ];
   return (
     <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/15 via-card to-card p-6 md:p-10 ring-1 ring-primary/20 shadow-2xl">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_var(--color-primary-glow)_0%,_transparent_55%)] opacity-30" aria-hidden />
@@ -23,11 +24,12 @@ export function HeroSection({ header, crescimento, roi }: Props) {
             Proposta comercial · {header.numero}
           </div>
           <h1 className="mt-4 text-4xl md:text-5xl xl:text-6xl font-bold tracking-tight text-foreground leading-[1.05]">
-            Transformamos estratégia em <span className="text-primary-glow">crescimento</span> previsível.
+            Crescimento estruturado através de <span className="text-primary-glow">estratégia, tecnologia e execução</span>.
           </h1>
           <p className="mt-4 text-base md:text-lg text-muted-foreground max-w-xl leading-relaxed">
-            Soluções completas em tecnologia, marketing e automação para gerar mais oportunidades,
-            vendas e resultados reais.
+            Esta proposta apresenta nossa visão para estruturar uma operação comercial mais
+            eficiente e previsível, utilizando tecnologia, marketing e processos orientados
+            por indicadores.
           </p>
           <p className="mt-6 text-sm md:text-base">
             Preparada para <span className="text-foreground font-semibold">{header.cliente.nome}</span>
@@ -42,53 +44,25 @@ export function HeroSection({ header, crescimento, roi }: Props) {
 
         <div className="rounded-2xl bg-background/40 ring-1 ring-primary/30 p-6 md:p-7 backdrop-blur">
           <div className="text-[10px] uppercase tracking-[0.2em] text-primary-glow font-semibold">
-            Resultado que você pode esperar
+            Pilares deste projeto
           </div>
-          <p className="mt-2 text-2xl md:text-3xl font-bold leading-tight">
-            Mais visibilidade.<br />Mais leads. Mais vendas.
+          <p className="mt-2 text-lg md:text-xl font-semibold leading-snug text-foreground">
+            Construção de uma operação comercial digital integrada e mensurável.
           </p>
-
-          <div className="mt-6 grid grid-cols-3 gap-3">
-            <StatPill
-              icon={<DollarSign className="size-4" />}
-              label="Receita potencial"
-              value={receitaPotencial ? `+ ${brl(receitaPotencial)}` : "+ alto"}
-              sub="em 6 meses"
-            />
-            <StatPill
-              icon={<TrendingUp className="size-4" />}
-              label="Leads qualificados"
-              value={novosClientes ? `~ ${novosClientes}` : "+ 350%"}
-              sub={novosClientes ? "novos clientes" : "em geração"}
-            />
-            <StatPill
-              icon={<Target className="size-4" />}
-              label="Retorno projetado"
-              value={roiX ? `${roiX.toFixed(1)}x` : "+ 2,5x"}
-              sub="média esperada"
-            />
-          </div>
-
-          <p className="mt-4 text-[10px] text-muted-foreground/80">
-            *Projeção baseada em empresas do mesmo segmento. Não constitui garantia de resultado.
+          <ul className="mt-5 space-y-2.5">
+            {pilares.map((p) => (
+              <li key={p} className="flex items-start gap-2 text-sm text-foreground/90">
+                <Check className="size-4 text-primary-glow mt-0.5 shrink-0" />
+                <span>{p}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-5 text-[11px] leading-relaxed text-muted-foreground/80">
+            Documento comercial preparado para apresentação executiva. O conteúdo descreve
+            método, escopo e governança — não constitui promessa de resultado.
           </p>
         </div>
       </div>
     </section>
-  );
-}
-
-function StatPill({
-  icon, label, value, sub,
-}: { icon: React.ReactNode; label: string; value: string; sub: string }) {
-  return (
-    <div className="text-center">
-      <div className="mx-auto flex size-10 items-center justify-center rounded-full bg-primary/20 text-primary-glow ring-1 ring-primary/40">
-        {icon}
-      </div>
-      <div className="mt-2 text-[9px] uppercase tracking-wider text-primary-glow font-semibold">{label}</div>
-      <div className="mt-1 text-base md:text-lg font-bold tracking-tight">{value}</div>
-      <div className="text-[10px] text-muted-foreground">{sub}</div>
-    </div>
   );
 }

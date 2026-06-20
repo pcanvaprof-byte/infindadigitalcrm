@@ -22,7 +22,7 @@ export function BeneficiosSection({ beneficios }: Props) {
     <section className="space-y-6">
       <div>
         <div className="text-xs uppercase tracking-[0.2em] text-primary-glow font-medium">03 · Benefícios</div>
-        <h2 className="mt-2 text-3xl md:text-4xl font-bold tracking-tight">O que muda no seu negócio</h2>
+        <h2 className="mt-2 text-3xl md:text-4xl font-bold tracking-tight">Benefícios estruturais do projeto</h2>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {beneficios.map((b, i) => {
