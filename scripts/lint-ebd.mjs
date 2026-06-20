@@ -33,8 +33,12 @@ function walk(dir, out = []) {
 const files = walk(ROOT);
 const HELPER_PATH = "src/lib/proposta/events/";
 
-// Regra 1: insert direto em proposal_events
-const insertRegex = /\.from\(\s*["'`]proposal_events["'`]\s*\)\s*\.insert\b/;
+// Regra 1: qualquer mutação direta em proposal_events fora do helper.
+// Cobre insert/upsert/update/delete + rpc("log_evt"/"log_aud") chamados de fora.
+const directMutationRegex =
+  /\.from\(\s*["'`]proposal_events["'`]\s*\)\s*\.(insert|upsert|update|delete)\b/;
+const directRpcRegex =
+  /\.rpc\(\s*["'`](log_evt|log_aud)["'`]/;
 for (const f of files) {
   const ext = extname(f);
   if (![".ts", ".tsx", ".js", ".mjs"].includes(ext)) continue;
@@ -42,8 +46,11 @@ for (const f of files) {
   if (rel.startsWith(HELPER_PATH)) continue;
   if (rel.startsWith("scripts/")) continue;
   const src = readFileSync(f, "utf8");
-  if (insertRegex.test(src)) {
-    violations.push(`[EBD-1] ${rel}: INSERT direto em proposal_events. Use logEvent() de @/lib/proposta/events.`);
+  if (directMutationRegex.test(src)) {
+    violations.push(`[EBD-1] ${rel}: mutação direta em proposal_events (insert/upsert/update/delete). Use logEvent() de @/lib/proposta/events.`);
+  }
+  if (directRpcRegex.test(src)) {
+    violations.push(`[EBD-1b] ${rel}: rpc("log_evt"/"log_aud") chamado fora do helper. Use logEvent() de @/lib/proposta/events.`);
   }
   // Regra 3 (TS): aud_ não pode aparecer em chamadas a logEvent / log_evt
   const audInEvt = /log_?[eE]vt[^)]*aud_/m;
