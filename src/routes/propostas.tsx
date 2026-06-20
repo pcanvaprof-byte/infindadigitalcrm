@@ -14,7 +14,7 @@ import {
 import {
   listProposals, propostasKeys,
   createProposalFromDeal, createProposalFromProspect, createProposalBlank,
-  addItemFromCatalog, updateProposal,
+  addItemFromCatalog, updateProposal, saveVersion,
 } from "@/lib/propostas/api";
 import {
   biKeys, fetchProposalKPIs, fetchProposalConversion,
@@ -301,6 +301,34 @@ function NovaPropostaDialog({
   const [avValor, setAvValor] = useState("");
   const [avCobranca, setAvCobranca] = useState<"implantacao" | "mensal" | "avulso">("implantacao");
 
+  // Bloco opcional "Potencial de Crescimento"
+  const [cresOn, setCresOn] = useState(false);
+  const [cresNicho, setCresNicho] = useState("");
+  const [cresTipoNeg, setCresTipoNeg] = useState("");
+  const [cresTicket, setCresTicket] = useState("");
+  const [cresMaturidade, setCresMaturidade] = useState<"baixa" | "media" | "alta">("media");
+
+  // Sugestão IA a partir do CRM/Prospect selecionado
+  const selectedCtx = useMemo(() => {
+    if (source === "client" && clientId) {
+      const c = clients.find((x) => x.id === clientId);
+      return c ? { nicho: c.segment ?? "", tipo: c.company ?? "" } : null;
+    }
+    if (source === "prospect" && prospectId) {
+      const p = prospects.find((x) => x.id === prospectId);
+      return p ? { nicho: p.segment ?? "", tipo: p.company ?? "" } : null;
+    }
+    return null;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source, clientId, prospectId, clients, prospects]);
+
+  // Pré-preenche nicho/tipo quando o usuário abre o bloco e há contexto
+  function aplicarSugestao() {
+    if (selectedCtx?.nicho && !cresNicho) setCresNicho(selectedCtx.nicho);
+    if (selectedCtx?.tipo && !cresTipoNeg) setCresTipoNeg(selectedCtx.tipo);
+    if (!cresTicket) setCresTicket("500");
+  }
+
   const create = useMutation({
     mutationFn: async () => {
       let proposalId: string;
@@ -363,6 +391,19 @@ function NovaPropostaDialog({
           ordem: ordem++,
         });
         if (error) throw error;
+      }
+
+      // Persiste config do bloco "Potencial de Crescimento" como versão inicial
+      if (cresOn && cresNicho.trim() && Number(cresTicket.replace(",", ".")) > 0) {
+        await saveVersion(proposalId, {
+          crescimento: {
+            enabled: true,
+            nicho: cresNicho.trim(),
+            tipo_negocio: cresTipoNeg.trim() || null,
+            ticket_medio: Number(cresTicket.replace(",", ".")),
+            maturidade: cresMaturidade,
+          },
+        });
       }
       return proposalId;
     },
