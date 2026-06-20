@@ -96,7 +96,8 @@ import { convertProspectToClient, crmKeys, invalidateCrmCore } from "@/lib/crm/a
 import { AcoesHojeWidget } from "@/components/cadence/AcoesHojeWidget";
 import { TouchpointModal } from "@/components/cadence/TouchpointModal";
 import { ProspectTimeline } from "@/components/cadence/ProspectTimeline";
-import { proximaAcaoLabel } from "@/lib/cadence/api";
+import { CloseCadenceDialog } from "@/components/cadence/CloseCadenceDialog";
+import { proximaAcaoLabel, type TouchpointTipo } from "@/lib/cadence/api";
 
 
 export const Route = createFileRoute("/prospeccao")({
@@ -357,7 +358,8 @@ function ProspeccaoPage() {
   const [onlyWithContact, setOnlyWithContact] = useState(false);
   type CadenceChip = "all" | "hoje" | "atrasados" | "sem_resposta" | "responderam" | "interessados" | "clientes";
   const [cadenceFilter, setCadenceFilter] = useState<CadenceChip>("all");
-  const [touchpointTarget, setTouchpointTarget] = useState<Prospect | null>(null);
+  const [touchpointTarget, setTouchpointTarget] = useState<{ prospect: Prospect; tipo: TouchpointTipo } | null>(null);
+  const [closeCadenceTarget, setCloseCadenceTarget] = useState<Prospect | null>(null);
   const [bulkEnriching, setBulkEnriching] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [view, setView] = useState<"table" | "kanban">("table");
@@ -593,26 +595,21 @@ function ProspeccaoPage() {
   const openWhats = (p: Prospect) => {
     const d = onlyDigits(p.whatsapp);
     if (!d) return toast.error("WhatsApp não cadastrado");
-    addInteraction(p.id, "whatsapp", "Abriu conversa no WhatsApp");
     const msg = `Olá, vi que sua empresa foi aberta recentemente. Parabéns pela nova fase! 🎉\nPercebi que muitas empresas novas acabam perdendo oportunidades por ainda não terem uma presença profissional na internet.\n\nEu ajudo negócios a terem um site moderno que transmite confiança e gera contatos desde os primeiros meses de operação.\n\nPosso te mostrar alguns exemplos e fazer uma análise gratuita da sua presença digital?`;
     window.open(`https://wa.me/55${d}?text=${encodeURIComponent(msg)}`, "_blank");
-    // Ao voltar à aba, se ainda estava "não contatado", perguntar
-    // se o primeiro contato foi feito para avançar o status do card.
-    if (p.status === "nao_contatado") {
-      const askOnReturn = () => {
-        if (document.visibilityState !== "visible") return;
-        document.removeEventListener("visibilitychange", askOnReturn);
-        // Pequeno atraso para evitar abrir antes da aba estar realmente focada.
-        setTimeout(() => setWhatsConfirm({ id: p.id, company: p.company }), 250);
-      };
-      document.addEventListener("visibilitychange", askOnReturn);
-    }
+    // Abre o modal de cadência para registrar o touchpoint (avança o step no banco).
+    setTouchpointTarget({ prospect: p, tipo: "whatsapp" });
   };
   const callPhone = (p: Prospect) => {
     const d = onlyDigits(p.phone || p.whatsapp);
     if (!d) return toast.error("Telefone não cadastrado");
-    addInteraction(p.id, "ligacao", "Iniciou ligação");
     window.open(`tel:+55${d}`);
+    setTouchpointTarget({ prospect: p, tipo: "ligacao" });
+  };
+  const openEmail = (p: Prospect) => {
+    if (!p.email) return toast.error("Email não cadastrado");
+    window.open(`mailto:${p.email}`);
+    setTouchpointTarget({ prospect: p, tipo: "email" });
   };
 
   const convertToLead = async (p: Prospect) => {
@@ -1130,7 +1127,8 @@ function ProspeccaoPage() {
             onConvert={() => convertToLead(detail)}
             onAddNote={(text) => { addInteraction(detail.id, "nota", text); toast.success("Nota registrada"); }}
             onEnrich={() => setEnrichFor(detail)}
-            onRegisterTouchpoint={() => setTouchpointTarget(detail)}
+            onRegisterTouchpoint={() => setTouchpointTarget({ prospect: detail, tipo: "whatsapp" })}
+            onCloseCadence={() => setCloseCadenceTarget(detail)}
           />
         )}
       </Dialog>
@@ -1212,10 +1210,19 @@ function ProspeccaoPage() {
         <TouchpointModal
           open={!!touchpointTarget}
           onOpenChange={(v) => !v && setTouchpointTarget(null)}
-          prospectId={touchpointTarget.id}
-          company={touchpointTarget.company}
-          cadenceStep={(touchpointTarget.cadenceStep ?? 0) as 0|1|2|3|4|5|6}
+          prospectId={touchpointTarget.prospect.id}
+          company={touchpointTarget.prospect.company}
+          cadenceStep={(touchpointTarget.prospect.cadenceStep ?? 0) as 0|1|2|3|4|5|6}
+          defaultTipo={touchpointTarget.tipo}
           ownerName={user.name}
+        />
+      )}
+      {closeCadenceTarget && (
+        <CloseCadenceDialog
+          open={!!closeCadenceTarget}
+          onOpenChange={(v) => !v && setCloseCadenceTarget(null)}
+          prospectId={closeCadenceTarget.id}
+          company={closeCadenceTarget.company}
         />
       )}
     </AppShell>
@@ -1260,8 +1267,8 @@ function DesktopProspectTable({
 
   return (
     <div className="hidden overflow-x-auto md:block">
-      <div className="min-w-[980px] text-sm">
-        <div className="grid grid-cols-[52px_minmax(220px,1.5fr)_minmax(170px,1fr)_minmax(130px,0.8fr)_minmax(110px,0.7fr)_110px_130px_220px] bg-accent/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
+      <div className="min-w-[1120px] text-sm">
+        <div className="grid grid-cols-[52px_minmax(220px,1.5fr)_minmax(170px,1fr)_minmax(130px,0.8fr)_minmax(110px,0.7fr)_110px_130px_140px_220px] bg-accent/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
           <div className="px-3 py-3">
             <NativeCheckbox checked={allVisibleSelected} onChange={onToggleSelectAll} ariaLabel="Selecionar todos" />
           </div>
@@ -1271,6 +1278,7 @@ function DesktopProspectTable({
           <div className="px-4 py-3">Origem</div>
           <div className="px-4 py-3">Potencial</div>
           <div className="px-4 py-3">Status</div>
+          <div className="px-4 py-3">Próxima ação</div>
           <div className="px-4 py-3 text-right">Ações</div>
         </div>
 
@@ -1287,7 +1295,7 @@ function DesktopProspectTable({
                 <div
                   key={p.id}
                   data-index={vi.index}
-                  className={`absolute left-0 right-0 grid grid-cols-[52px_minmax(220px,1.5fr)_minmax(170px,1fr)_minmax(130px,0.8fr)_minmax(110px,0.7fr)_110px_130px_220px] border-t border-border/60 hover:bg-accent/30 ${selected.has(p.id) ? "bg-primary/5" : ""}`}
+                  className={`absolute left-0 right-0 grid grid-cols-[52px_minmax(220px,1.5fr)_minmax(170px,1fr)_minmax(130px,0.8fr)_minmax(110px,0.7fr)_110px_130px_140px_220px] border-t border-border/60 hover:bg-accent/30 ${selected.has(p.id) ? "bg-primary/5" : ""}`}
                   style={{ transform: `translateY(${vi.start - virtualizer.options.scrollMargin}px)` }}
                 >
                   <div className="px-3 py-3">
@@ -1307,6 +1315,9 @@ function DesktopProspectTable({
                   <div className="px-4 py-3 text-xs">{p.source}</div>
                   <div className="px-4 py-3"><PotentialBadge p={p.potential} /></div>
                   <div className="px-4 py-3"><StatusBadge status={p.status} /></div>
+                  <div className="px-4 py-3 text-xs">
+                    <NextActionCell next={p.nextContactAt ?? null} status={p.cadenceStatus} />
+                  </div>
                   <div className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
                       <RowActions
@@ -1340,6 +1351,25 @@ function DesktopProspectTable({
       </div>
     </div>
   );
+}
+
+function NextActionCell({
+  next,
+  status,
+}: {
+  next: string | null;
+  status?: "ativo" | "pausado" | "encerrado";
+}) {
+  if (status === "encerrado") return <span className="text-muted-foreground">Encerrada</span>;
+  if (status === "pausado") return <span className="text-muted-foreground">Pausada</span>;
+  const { text, tone } = proximaAcaoLabel(next);
+  const cls =
+    tone === "overdue" ? "text-rose-300" :
+    tone === "today" ? "text-amber-300" :
+    tone === "tomorrow" ? "text-amber-200/80" :
+    tone === "soon" ? "text-emerald-300/80" :
+    "text-muted-foreground";
+  return <span className={cls}>{text}</span>;
 }
 
 const RowActions = memo(function RowActions({
@@ -1460,7 +1490,7 @@ function KanbanView({
 }
 
 function DetailDialog({
-  p, onWhats, onCall, onStatus, onConvert, onAddNote, onEnrich, onRegisterTouchpoint,
+  p, onWhats, onCall, onStatus, onConvert, onAddNote, onEnrich, onRegisterTouchpoint, onCloseCadence,
 }: {
   p: Prospect;
   onWhats: () => void;
@@ -1470,6 +1500,7 @@ function DetailDialog({
   onAddNote: (text: string) => void;
   onEnrich: () => void;
   onRegisterTouchpoint: () => void;
+  onCloseCadence: () => void;
 }) {
   const [note, setNote] = useState("");
   const timeline = p.interactions ?? [];
@@ -1542,6 +1573,16 @@ function DetailDialog({
             <Button size="sm" className="btn-gradient h-9 w-full text-xs" onClick={onRegisterTouchpoint}>
               <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Registrar contato (cadência)
             </Button>
+            {p.cadenceStatus !== "encerrado" && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-9 w-full text-xs border-rose-500/40 text-rose-300 hover:bg-rose-500/10 hover:text-rose-200"
+                onClick={onCloseCadence}
+              >
+                <X className="mr-1.5 h-3.5 w-3.5" /> Encerrar cadência
+              </Button>
+            )}
           </div>
         </div>
 
