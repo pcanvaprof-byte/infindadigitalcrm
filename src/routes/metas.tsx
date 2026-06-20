@@ -400,7 +400,7 @@ function MetasPage() {
           <p className="text-xs text-muted-foreground">Atividades por dia da semana</p>
           <div className="mt-4 h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={DAILY_EVOLUTION}>
+              <BarChart data={EMPTY_DAILY}>
                 <CartesianGrid stroke="oklch(1 0 0 / 6%)" vertical={false} />
                 <XAxis dataKey="d" stroke="oklch(0.68 0.012 250)" fontSize={11} tickLine={false} axisLine={false} />
                 <YAxis stroke="oklch(0.68 0.012 250)" fontSize={11} tickLine={false} axisLine={false} />
@@ -423,7 +423,7 @@ function MetasPage() {
           <p className="text-xs text-muted-foreground">% de meta atingida</p>
           <div className="mt-4 h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={WEEKLY_EVOLUTION}>
+              <LineChart data={EMPTY_WEEKLY}>
                 <defs>
                   <linearGradient id="met" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="0%" stopColor="oklch(0.7 0.22 264)" stopOpacity={0.4} />
