@@ -280,7 +280,7 @@ function NovaPropostaDialog({
   });
   const catalogQ = useQuery({
     queryKey: ["catalog", "items", "ativo"],
-    queryFn: () => listCatalogItems({ apenas_ativos: true }),
+    queryFn: () => listCatalogItems({ apenasAtivos: true }),
     enabled: open,
   });
   const categoriasQ = useQuery({
@@ -352,7 +352,7 @@ function NovaPropostaDialog({
       }
       // Inserir avulsos
       for (const av of avulsos) {
-        const { error } = await sbClient.from("proposal_items").insert({
+        const { error } = await (sbClient as unknown as { from: (t: string) => { insert: (v: unknown) => Promise<{ error: { message: string } | null }> } }).from("proposal_items").insert({
           proposal_id: proposalId,
           catalog_item_id: null,
           nome: av.nome,
