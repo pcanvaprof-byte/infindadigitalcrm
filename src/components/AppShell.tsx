@@ -16,6 +16,7 @@ import {
   LogOut,
   Menu,
   Package,
+  FileSignature,
 } from "lucide-react";
 import { Logo } from "./Logo";
 import { useAuth, ROLE_LABEL } from "@/lib/auth-context";
@@ -41,6 +42,7 @@ const NAV = [
   { to: "/catalogo", label: "Catálogo Comercial", icon: Package, enabled: true },
   { to: "/kickoff", label: "Kickoff Produção", icon: Rocket, enabled: true },
   { to: "/propostas", label: "Propostas", icon: FileText, enabled: true },
+  { to: "/contratos", label: "Contratos", icon: FileSignature, enabled: true },
   { to: "/indicacoes", label: "Indicações", icon: Share2, enabled: false },
   { to: "/ia", label: "IA Comercial", icon: Bot, enabled: false },
   { to: "/configuracoes", label: "Configurações", icon: Settings, enabled: false },
