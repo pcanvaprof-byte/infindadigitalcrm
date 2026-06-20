@@ -100,6 +100,7 @@ export function deriveDashboardMetrics(input: Partial<DashboardInputs>): Dashboa
   let meetings = 0, proposals = 0;
   const dealProspectIds = new Set(deals.map((d) => d.prospect_id).filter(Boolean) as string[]);
   const dealByProspectId = new Map(deals.filter((d) => d.prospect_id).map((d) => [d.prospect_id as string, d]));
+  const prospectById = new Map(prospects.map((p) => [p.id, p]));
   const prospectWonBonus = prospects.filter((p) => {
     if (p.responseStatus !== "cliente" && !CLIENT_PIPELINE_STATUSES.has(p.status)) return false;
     const deal = dealByProspectId.get(p.id);
@@ -117,11 +118,19 @@ export function deriveDashboardMetrics(input: Partial<DashboardInputs>): Dashboa
   }).length;
   for (const d of deals) {
     const v = Number(d.value || 0);
-    if (wonIds.has(d.stage_id)) { dealsWon++; revenueWon += v; }
-    else if (lostIds.has(d.stage_id)) { dealsLost++; }
-    else { dealsOpen++; pipelineValue += v; }
-    if (d.stage_id === "reuniao") meetings++;
-    if (d.stage_id === "proposta") proposals++;
+    const prospect = d.prospect_id ? prospectById.get(d.prospect_id) : undefined;
+    const prospectWon = prospect ? prospect.responseStatus === "cliente" || CLIENT_PIPELINE_STATUSES.has(prospect.status) : false;
+    if (wonIds.has(d.stage_id) || prospectWon) {
+      dealsWon++;
+      revenueWon += v;
+    } else if (lostIds.has(d.stage_id)) {
+      dealsLost++;
+    } else {
+      dealsOpen++;
+      pipelineValue += v;
+    }
+    if (d.stage_id === "reuniao" || (prospect && MEETING_PIPELINE_STATUSES.has(prospect.status))) meetings++;
+    if (d.stage_id === "proposta" || (prospect && PROPOSAL_PIPELINE_STATUSES.has(prospect.status))) proposals++;
   }
   dealsWon += prospectWonBonus;
   meetings += prospectMeetingBonus;
