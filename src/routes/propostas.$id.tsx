@@ -43,7 +43,6 @@ function EditorPage() {
   const propQ = useQuery({ queryKey: propostasKeys.one(id), queryFn: () => getProposal(id) });
   const itemsQ = useQuery({ queryKey: propostasKeys.items(id), queryFn: () => listItems(id) });
   const versionQ = useQuery({ queryKey: ["propostas", id, "current-version"], queryFn: () => getCurrentVersion(id) });
-  const eventsQ = useQuery({ queryKey: propostasKeys.events(id), queryFn: () => listEvents(id) });
   const versionsQ = useQuery({ queryKey: propostasKeys.versions(id), queryFn: () => listVersions(id) });
 
   const [content, setContent] = useState<ProposalContent>({});
