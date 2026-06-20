@@ -24,6 +24,7 @@ import {
 } from "@/lib/propostas/types";
 import { listDeals, listClients } from "@/lib/crm/api";
 import { loadAllProspects } from "@/lib/prospects-api";
+import { ProspectPicker } from "@/components/proposta/ProspectPicker";
 import { listItems as listCatalogItems, listCategorias } from "@/lib/catalog/api";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase as sbClient } from "@/integrations/supabase/client";
@@ -507,32 +508,21 @@ function NovaPropostaDialog({
               )}
               {source === "prospect" && (
                 <>
-                  <Select
+                  <ProspectPicker
+                    prospects={prospects}
                     value={prospectId}
-                    onValueChange={setProspectId}
+                    onChange={setProspectId}
                     disabled={prospectsQ.isLoading || !prospects.length}
-                  >
-                    <SelectTrigger className="h-9 mt-1">
-                      <SelectValue
-                        placeholder={
-                          prospectsQ.isLoading
-                            ? "Carregando prospects…"
-                            : prospectsQ.isError
-                              ? "Erro ao carregar prospects"
-                              : prospects.length
-                                ? "Selecione um prospect…"
-                                : "Nenhum prospect cadastrado"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {prospects.slice(0, 200).map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.company}{p.owner ? ` — ${p.owner}` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder={
+                      prospectsQ.isLoading
+                        ? "Carregando prospects…"
+                        : prospectsQ.isError
+                          ? "Erro ao carregar prospects"
+                          : prospects.length
+                            ? "Buscar por nome, CNPJ ou telefone…"
+                            : "Nenhum prospect cadastrado"
+                    }
+                  />
                   {prospectsQ.isError && (
                     <p className="mt-1 text-[11px] text-destructive">
                       {(prospectsQ.error as Error)?.message ?? "Erro desconhecido"}
