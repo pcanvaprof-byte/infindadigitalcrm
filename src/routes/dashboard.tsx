@@ -138,6 +138,14 @@ function DashboardPage() {
         <Kpi label="Taxa fechamento" value={m?.cadencia.taxa_fechamento ?? 0} suffix="%" icon={CheckCircle2} tone="ok" />
       </section>
 
+      {/* Tentativas de contato (cliques) */}
+      <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tentativas de contato</h3>
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <Kpi label="Tentativas hoje"   value={m?.tentativas?.hoje   ?? 0} icon={MessageSquare} tone="warn" />
+        <Kpi label="Tentativas semana" value={m?.tentativas?.semana ?? 0} icon={MessageSquare} tone="warn" />
+        <Kpi label="Tentativas mês"    value={m?.tentativas?.mes    ?? 0} icon={MessageSquare} tone="warn" />
+      </section>
+
       {/* Gargalos */}
       <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gargalos</h3>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
