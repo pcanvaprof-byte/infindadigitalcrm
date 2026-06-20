@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { Logo } from "./Logo";
 import { useAuth, ROLE_LABEL } from "@/lib/auth-context";
+import { APP_VERSION_LABEL } from "@/lib/version";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -107,7 +108,12 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       </div>
       <div className="border-t border-sidebar-border p-4">
         <div className="surface-card p-3">
-          <p className="text-xs font-semibold">Plano Pro</p>
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold">Plano Pro</p>
+            <span className="rounded-full border border-border bg-background/40 px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
+              {APP_VERSION_LABEL}
+            </span>
+          </div>
           <p className="mt-1 text-[11px] text-muted-foreground">
             Multi-tenant · IA inclusa · Suporte premium
           </p>
