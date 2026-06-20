@@ -9,6 +9,8 @@
     "build:dev": "vite build --mode development",
     "preview": "vite preview",
     "lint": "eslint .",
+    "lint:ebd": "node scripts/lint-ebd.mjs",
+    "prebuild": "node scripts/lint-ebd.mjs",
     "format": "prettier --write ."
   },
   "dependencies": {
