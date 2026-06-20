@@ -273,6 +273,11 @@ export interface ProposalStats {
   tempoMedioAprovacaoH: number;
 }
 
+/**
+ * @deprecated Etapa 6 — KPIs vivem em `vw_proposal_kpis` / `vw_proposal_conversion`.
+ * Use `fetchProposalKPIs()` de `@/lib/propostas/bi`. Mantido só como fallback
+ * de leitura local em telas sem acesso a view (ex.: relatórios exportados).
+ */
 export function computeStats(items: Proposal[]): ProposalStats {
   const total = items.length;
   const by = (s: string) => items.filter((p) => p.status === s);
