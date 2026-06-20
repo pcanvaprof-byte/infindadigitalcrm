@@ -23,17 +23,17 @@ export function buildFallbackDiagnostico(ctx: FallbackContext): VMDiagnostico {
   const seg = ctx.segmento?.trim() || "seu segmento";
   const cidade = ctx.cidade ? ` em ${ctx.cidade}` : "";
   return {
-    texto: `Empresas de ${seg}${cidade} enfrentam um cenário em que a presença digital deixou de ser diferencial e virou requisito mínimo de competitividade. ${ctx.cliente} está num momento decisivo para estruturar processos comerciais previsíveis e construir uma operação de marketing que gere demanda qualificada de forma recorrente.`,
+    texto: `Com base nas informações levantadas sobre ${ctx.cliente} e o segmento de ${seg}${cidade}, identificamos oportunidades para fortalecer a presença digital, estruturar processos comerciais e aumentar a previsibilidade da geração de oportunidades.`,
     riscosAtuais: [
-      "Dependência de indicação e canais orgânicos sem previsibilidade",
-      "Concorrentes investindo em mídia paga e ganhando market share",
-      "Marca pouco lembrada no momento da decisão de compra",
-      "Vendas reativas em vez de processo comercial ativo",
+      "Aquisição comercial concentrada em poucos canais",
+      "Baixa estruturação de processos e indicadores",
+      "Presença digital ainda em fase de consolidação",
+      "Mensuração limitada do retorno por iniciativa",
     ],
     oportunidadesPerdidas: [
-      "Leads que pesquisam soluções e fecham com o concorrente que aparece primeiro",
-      "Reativação de base inativa sem campanha estruturada",
-      "Upsell e cross-sell sem jornada definida",
+      "Estruturar canais digitais de aquisição contínua",
+      "Implantar CRM e cadência comercial padronizada",
+      "Mensurar resultados por canal e otimizar investimento",
     ],
   };
 }
@@ -41,32 +41,33 @@ export function buildFallbackDiagnostico(ctx: FallbackContext): VMDiagnostico {
 export function buildFallbackSolucao(ctx: FallbackContext): VMSolucao {
   return {
     problemas: [
-      "Falta de previsibilidade no funil comercial",
-      "Marca com baixa autoridade no digital",
-      "Inexistência de processo claro de aquisição de clientes",
+      "Estruturação de processos comerciais e funil",
+      "Consolidação da presença digital da marca",
+      "Implantação de tecnologia, CRM e automação",
     ],
-    solucao: `Implementamos uma operação completa de marketing e vendas para ${ctx.cliente}: estratégia, execução, governança e mensuração. Não é uma agência terceirizando tarefas — é um time integrado entregando resultado mês a mês.`,
+    solucao: `A INFINDA atua como parceira estratégica de ${ctx.cliente} na construção de uma operação comercial digital, integrando marketing, tecnologia, automação e inteligência de dados. O trabalho é conduzido com metodologia própria, governança contínua e indicadores compartilhados.`,
     diferenciaisCompetitivos: [
-      "Time sênior dedicado, não estagiário com cartilha",
-      "Squad multidisciplinar (estratégia, mídia, criação, dados, CRM)",
-      "Governança semanal com indicadores comerciais reais — não apenas vaidade",
-      "Integração com seu time de vendas, não substituição",
+      "Metodologia consultiva integrando estratégia, tecnologia e execução",
+      "Squad multidisciplinar dedicado (estratégia, mídia, dados, CRM)",
+      "Governança contínua com indicadores e revisões estratégicas",
+      "Integração com o time interno do cliente",
     ],
     ganhosEsperados: [
-      "Pipeline previsível e mensurável",
-      "Custo por lead qualificado decrescente trimestre a trimestre",
-      "Marca presente nos canais onde sua decisão de compra acontece",
-      "Time interno liberado para focar no que entrega receita",
+      "Maior organização comercial e clareza de processo",
+      "Melhor aproveitamento dos leads gerados",
+      "Redução de desperdícios em campanhas",
+      "Maior capacidade de mensuração e tomada de decisão",
+      "Processos escaláveis e replicáveis",
     ],
   };
 }
 
 export function buildFallbackBeneficios(): VMBeneficio[] {
   return [
-    { titulo: "Previsibilidade comercial", descricao: "Pipeline mensurável com forecast confiável.", icone: "chart" },
-    { titulo: "Time sênior dedicado", descricao: "Estratégia executada por quem entende do seu negócio.", icone: "users" },
-    { titulo: "Governança semanal", descricao: "Reuniões com indicadores reais, não relatórios de vaidade.", icone: "calendar" },
-    { titulo: "ROI rastreável", descricao: "Cada real investido conectado a resultado comercial.", icone: "target" },
+    { titulo: "Governança contínua", descricao: "Reuniões periódicas para acompanhamento dos indicadores, definição de prioridades e evolução contínua da operação.", icone: "calendar" },
+    { titulo: "Squad multidisciplinar", descricao: "Time sênior dedicado integrando estratégia, mídia, tecnologia e dados.", icone: "users" },
+    { titulo: "Indicadores e dados", descricao: "Mensuração estruturada de cada frente, com decisões orientadas por dados.", icone: "chart" },
+    { titulo: "Método e processo", descricao: "Metodologia própria aplicada a cada etapa do projeto, com previsibilidade de entrega.", icone: "target" },
   ];
 }
 
@@ -76,45 +77,55 @@ export function buildFallbackROI(): VMROI {
     faturamentoAdicional: null,
     paybackMeses: null,
     premissas: [
-      "ROI estimado conservadoramente a partir do ticket médio informado pelo cliente",
-      "Curva de maturação típica: 60-90 dias para primeiros leads qualificados",
-      "Performance varia conforme orçamento de mídia e ciclo de venda do segmento",
+      "Resultados dependem do investimento em mídia, ciclo de venda e maturidade digital atual",
+      "Curva de maturação típica de 60 a 90 dias para os primeiros aprendizados consistentes",
+      "Indicadores são acompanhados em governança periódica e ajustados ao longo do projeto",
     ],
   };
 }
 
 export function buildFallbackTimeline(): VMTimelineEntrega[] {
   return [
-    { semana: "Semana 1-2", titulo: "Kickoff e diagnóstico", entregas: ["Imersão com seu time", "Mapeamento de jornada e ICP", "Plano de ação 90 dias"] },
-    { semana: "Semana 3-4", titulo: "Estruturação", entregas: ["Identidade e narrativa de marca", "Setup de canais e CRM", "Briefing de campanhas iniciais"] },
-    { semana: "Mês 2", titulo: "Execução", entregas: ["Campanhas no ar", "Conteúdo recorrente", "Otimização semanal"] },
-    { semana: "Mês 3", titulo: "Otimização e escala", entregas: ["Análise de resultados", "Realocação de budget por performance", "Plano do próximo ciclo"] },
+    { semana: "Semana 1-2", titulo: "Kickoff e imersão", entregas: ["Imersão com o time do cliente", "Mapeamento de jornada e ICP", "Plano de ação dos primeiros 90 dias"] },
+    { semana: "Semana 3-4", titulo: "Estruturação", entregas: ["Configuração de canais, CRM e mensuração", "Definição de indicadores e linha de base", "Preparação das campanhas iniciais"] },
+    { semana: "Mês 2", titulo: "Execução e otimização", entregas: ["Campanhas e cadência em operação", "Refinamento contínuo de mensagem e funil", "Governança periódica de resultados"] },
+    { semana: "Mês 3", titulo: "Consolidação", entregas: ["Análise dos indicadores consolidados", "Realocação de investimento por performance", "Planejamento do próximo ciclo"] },
   ];
 }
 
 export function buildFallbackCases(ctx: FallbackContext): VMCase[] {
   const seg = ctx.segmento?.trim() || "B2B";
   return [
-    { cliente: "Cliente confidencial", segmento: seg, desafio: "Pipeline imprevisível e dependência de indicação", resultado: "3x leads qualificados em 90 dias" },
-    { cliente: "Cliente confidencial", segmento: seg, desafio: "Marca pouco presente no digital", resultado: "Aumento de 180% em buscas pela marca em 6 meses" },
+    {
+      cliente: "Projeto confidencial",
+      segmento: seg,
+      desafio: "Baixa geração de oportunidades qualificadas e ausência de processo comercial estruturado.",
+      resultado: "Estruturação da operação comercial digital, implantação de CRM e campanhas segmentadas com mensuração contínua.",
+    },
+    {
+      cliente: "Projeto confidencial",
+      segmento: seg,
+      desafio: "Presença digital fragmentada e dificuldade de mensurar o retorno por canal.",
+      resultado: "Consolidação da estratégia de marketing, governança por indicadores e integração entre marketing e vendas.",
+    },
   ];
 }
 
 export function buildFallbackPorqueInfinda(): string[] {
   return [
-    "Mais de uma década estruturando operações comerciais de empresas em crescimento",
-    "Squad sênior multidisciplinar — sem terceirização escondida",
-    "Modelo de governança baseado em indicadores comerciais reais",
-    "Compromisso contratual com entrega e mensuração",
+    "Atuação consultiva integrando estratégia, tecnologia e execução",
+    "Squad multidisciplinar sênior dedicado a cada projeto",
+    "Metodologia própria com governança contínua e indicadores compartilhados",
+    "Foco em crescimento sustentável e operação previsível",
   ];
 }
 
 export function buildFallbackProximosPassos(): string[] {
   return [
-    "Aprovação desta proposta",
-    "Assinatura do contrato e emissão da primeira nota",
-    "Kickoff agendado em até 5 dias úteis",
-    "Briefing comercial conduzido pelo seu consultor",
-    "Plano de ação dos primeiros 90 dias",
+    "Aprovação da proposta",
+    "Formalização contratual",
+    "Reunião de kickoff",
+    "Imersão estratégica com o time do cliente",
+    "Início da implementação e estruturação",
   ];
 }
