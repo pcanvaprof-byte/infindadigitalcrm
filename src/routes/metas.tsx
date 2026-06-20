@@ -303,15 +303,10 @@ function MetasPage() {
     const leads = prospects.length;
     const contatados = prospects.filter((p) => (p as { lastContactAt?: string | null }).lastContactAt).length;
     const responderam = prospects.filter((p) => {
-      const rs = (p as { responseStatus?: string | null; response_status?: string | null }).responseStatus
-        ?? (p as { response_status?: string | null }).response_status;
-      return rs && rs !== "sem_resposta";
+      const rs = prospectResponseStatus(p);
+      return (rs && rs !== "sem_resposta") || isInterestedProspect(p);
     }).length;
-    const interessados = prospects.filter((p) => {
-      const rs = (p as { responseStatus?: string | null; response_status?: string | null }).responseStatus
-        ?? (p as { response_status?: string | null }).response_status;
-      return rs === "interessado" || rs === "cliente";
-    }).length;
+    const interessados = prospects.filter(isInterestedProspect).length;
 
     const prospectStages = [
       { label: "Leads na base", value: leads },
@@ -325,11 +320,7 @@ function MetasPage() {
     // Funil cumulativo: um deal em "proposta" também conta em "qualificado", "reunião" etc.
     // Prospects marcados como 'cliente' que não tenham deal são contados como fechados.
     const dealProspectIds = new Set(allDeals.map((d) => d.prospect_id).filter(Boolean) as string[]);
-    const clientes = prospects.filter((p) => {
-      const rs = (p as { responseStatus?: string | null; response_status?: string | null }).responseStatus
-        ?? (p as { response_status?: string | null }).response_status;
-      return rs === "cliente";
-    });
+    const clientes = prospects.filter(isClientProspect);
     const clientesSemDeal = clientes.filter((c) => !dealProspectIds.has(c.id)).length;
     const sortedStages = stages
       .filter((s) => !s.is_lost)
