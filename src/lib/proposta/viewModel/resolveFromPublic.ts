@@ -19,6 +19,7 @@ import type {
   VMItem,
   VMTimelineEntrega,
 } from "./types";
+import { buildCrescimento } from "./crescimento";
 
 /**
  * Conteúdo IA estendido — schema novo. Campos opcionais para tolerar
@@ -159,6 +160,19 @@ export function resolveFromPublic(
     descontoAplicado: 0,
   };
 
+  // ----- Crescimento (opt-in via conteudo_json.crescimento) -----
+  const cresCfg = content.crescimento;
+  const crescimento =
+    cresCfg && cresCfg.enabled && cresCfg.nicho && Number(cresCfg.ticket_medio) > 0
+      ? buildCrescimento({
+          nicho: cresCfg.nicho,
+          tipoNegocio: cresCfg.tipo_negocio ?? segmento ?? null,
+          ticketMedio: Number(cresCfg.ticket_medio),
+          investimentoMensal: raw.valor_mensal > 0 ? raw.valor_mensal : Math.max(1, raw.valor_implantacao / 6),
+          maturidade: cresCfg.maturidade ?? "media",
+        })
+      : null;
+
   // ----- Header -----
   const dias = daysUntil(raw.valid_until);
   const expirada = raw.status === "expirada" || (dias !== null && dias < 0);
@@ -198,6 +212,7 @@ export function resolveFromPublic(
     proximosPassos: arr(content.proximos_passos).length ? arr(content.proximos_passos) : buildFallbackProximosPassos(),
     observacoes: isNonEmpty(content.observacoes) ? content.observacoes! : null,
     anexos: opts.anexos ?? [],
+    crescimento,
     capabilities: {
       canApproveProposal: podeDecidir,
       canApproveItems: podeDecidir && itens.length > 1,
