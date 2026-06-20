@@ -8,7 +8,7 @@ import {
   Building2,
   CheckCircle2,
   Clock,
-  HandshakeIcon,
+  Handshake,
   MessageSquare,
   Plus,
   TrendingUp,
@@ -123,7 +123,7 @@ function DashboardPage() {
         <Kpi label="Empresas na base"     value={m?.operacao.base         ?? 0} icon={Building2} />
         <Kpi label="Contatadas"           value={m?.operacao.contatadas   ?? 0} icon={MessageSquare} />
         <Kpi label="Sem resposta"         value={m?.operacao.sem_resposta ?? 0} icon={Clock} tone="warn" />
-        <Kpi label="Interessadas"         value={m?.operacao.interessadas ?? 0} icon={HandshakeIcon} tone="ok" />
+        <Kpi label="Interessadas"         value={m?.operacao.interessadas ?? 0} icon={Handshake} tone="ok" />
         <Kpi label="Clientes fechados"    value={m?.operacao.clientes     ?? 0} icon={CheckCircle2} tone="ok" />
       </section>
 
