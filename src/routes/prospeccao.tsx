@@ -1550,6 +1550,16 @@ function DetailDialog({
             <Button size="sm" className="btn-gradient h-9 w-full text-xs" onClick={onRegisterTouchpoint}>
               <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> Registrar contato (cadência)
             </Button>
+            {p.cadenceStatus !== "encerrado" && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-9 w-full text-xs border-rose-500/40 text-rose-300 hover:bg-rose-500/10 hover:text-rose-200"
+                onClick={onCloseCadence}
+              >
+                <X className="mr-1.5 h-3.5 w-3.5" /> Encerrar cadência
+              </Button>
+            )}
           </div>
         </div>
 
