@@ -3,9 +3,10 @@ import type { VMROI } from "@/lib/proposta/viewModel";
 
 interface Props {
   roi: VMROI;
+  resultados?: string[];
 }
 
-const RESULTADOS_QUALITATIVOS = [
+const RESULTADOS_DEFAULT = [
   "Fortalecimento da presença digital",
   "Aumento da geração de oportunidades qualificadas",
   "Melhoria na conversão comercial",
@@ -13,7 +14,8 @@ const RESULTADOS_QUALITATIVOS = [
   "Integração entre marketing e vendas",
 ];
 
-export function ROISection({ roi }: Props) {
+export function ROISection({ roi, resultados }: Props) {
+  const lista = resultados && resultados.length > 0 ? resultados : RESULTADOS_DEFAULT;
   return (
     <section className="space-y-6">
       <div>
@@ -26,7 +28,7 @@ export function ROISection({ roi }: Props) {
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
-        {RESULTADOS_QUALITATIVOS.map((r) => (
+        {lista.map((r) => (
           <div key={r} className="flex items-start gap-3 rounded-2xl bg-card ring-1 ring-border p-5">
             <Check className="size-5 text-primary-glow mt-0.5 shrink-0" />
             <span className="text-sm text-foreground/90 leading-relaxed">{r}</span>

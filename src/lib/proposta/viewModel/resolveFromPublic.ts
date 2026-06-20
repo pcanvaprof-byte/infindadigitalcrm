@@ -20,6 +20,7 @@ import type {
   VMTimelineEntrega,
 } from "./types";
 import { buildCrescimento } from "./crescimento";
+import { buildDynamicCopy, detectServices } from "./serviceProfile";
 
 /**
  * Conteúdo IA estendido — schema novo. Campos opcionais para tolerar
@@ -80,31 +81,59 @@ export function resolveFromPublic(
     observacoesVendedor: content.observacoes ?? null,
   };
 
+  // ----- Itens (necessário antes da copy dinâmica) -----
+  const itens: VMItem[] = raw.items.map((it) => ({
+    id: it.id,
+    nome: it.nome,
+    descricao: it.descricao,
+    categoria: it.categoria,
+    cobranca: it.cobranca,
+    quantidade: it.quantidade,
+    valorUnitario: it.valor_unitario,
+    valorTotal: it.valor_total,
+    prazoDias: it.prazo_dias,
+    entregaveis: it.entregaveis,
+    obrigatorio: false,
+    decisao: opts.itemDecisions?.[it.id] ?? "pendente",
+  }));
+
+  // ----- Perfil de serviços + copy dinâmica -----
+  const profile = detectServices(itens);
+  const dyn = buildDynamicCopy(profile);
+
   // ----- Diagnóstico -----
   const fbDiag = buildFallbackDiagnostico(fallbackCtx);
+  const dynDiagTexto = dyn.diagnosticoTexto(clienteNome, segmento ?? "");
   const diagnostico = {
-    texto: isNonEmpty(content.diagnostico) ? content.diagnostico! : fbDiag.texto,
-    riscosAtuais: arr(content.riscos_atuais).length ? arr(content.riscos_atuais) : fbDiag.riscosAtuais,
+    texto: isNonEmpty(content.diagnostico) ? content.diagnostico! : dynDiagTexto || fbDiag.texto,
+    riscosAtuais: arr(content.riscos_atuais).length
+      ? arr(content.riscos_atuais)
+      : dyn.riscosAtuais.length ? dyn.riscosAtuais : fbDiag.riscosAtuais,
     oportunidadesPerdidas: arr(content.oportunidades_perdidas).length
       ? arr(content.oportunidades_perdidas)
-      : fbDiag.oportunidadesPerdidas,
+      : dyn.oportunidades.length ? dyn.oportunidades : fbDiag.oportunidadesPerdidas,
   };
 
   // ----- Solução -----
   const fbSol = buildFallbackSolucao(fallbackCtx);
+  const dynSolTexto = dyn.solucaoTexto(clienteNome);
   const solucao = {
-    problemas: arr(content.problemas).length ? arr(content.problemas) : fbSol.problemas,
-    solucao: isNonEmpty(content.solucao) ? content.solucao! : fbSol.solucao,
+    problemas: arr(content.problemas).length
+      ? arr(content.problemas)
+      : dyn.problemas.length ? dyn.problemas : fbSol.problemas,
+    solucao: isNonEmpty(content.solucao) ? content.solucao! : dynSolTexto || fbSol.solucao,
     diferenciaisCompetitivos: arr(content.diferenciais_competitivos).length
       ? arr(content.diferenciais_competitivos)
-      : fbSol.diferenciaisCompetitivos,
-    ganhosEsperados: arr(content.ganhos_esperados).length ? arr(content.ganhos_esperados) : fbSol.ganhosEsperados,
+      : dyn.diferenciais.length ? dyn.diferenciais : fbSol.diferenciaisCompetitivos,
+    ganhosEsperados: arr(content.ganhos_esperados).length
+      ? arr(content.ganhos_esperados)
+      : dyn.ganhosEsperados.length ? dyn.ganhosEsperados : fbSol.ganhosEsperados,
   };
 
   // ----- Benefícios -----
   const beneficios: VMBeneficio[] = content.beneficios?.length
     ? content.beneficios.map((b) => ({ titulo: b.titulo, descricao: b.descricao, icone: b.icone }))
-    : buildFallbackBeneficios();
+    : (dyn.beneficios.length ? dyn.beneficios : buildFallbackBeneficios());
 
   // ----- ROI -----
   const fbRoi = buildFallbackROI();
@@ -128,23 +157,14 @@ export function resolveFromPublic(
         desafio: c.desafio,
         resultado: c.resultado,
       }))
-    : buildFallbackCases(fallbackCtx);
-
-  // ----- Itens + decisões -----
-  const itens: VMItem[] = raw.items.map((it) => ({
-    id: it.id,
-    nome: it.nome,
-    descricao: it.descricao,
-    categoria: it.categoria,
-    cobranca: it.cobranca,
-    quantidade: it.quantidade,
-    valorUnitario: it.valor_unitario,
-    valorTotal: it.valor_total,
-    prazoDias: it.prazo_dias,
-    entregaveis: it.entregaveis,
-    obrigatorio: false,
-    decisao: opts.itemDecisions?.[it.id] ?? "pendente",
-  }));
+    : (dyn.cases.length
+        ? dyn.cases.map((c) => ({
+            cliente: "Projeto confidencial",
+            segmento,
+            desafio: c.desafio,
+            resultado: c.solucao,
+          }))
+        : buildFallbackCases(fallbackCtx));
 
   // ----- Pacotes (derivados quando há > 1 categoria) -----
   const pacotes = buildPacotesFromItens(itens);
@@ -221,10 +241,16 @@ export function resolveFromPublic(
     investimento,
     timeline,
     cases,
-    proximosPassos: arr(content.proximos_passos).length ? arr(content.proximos_passos) : buildFallbackProximosPassos(),
+    proximosPassos: arr(content.proximos_passos).length
+      ? arr(content.proximos_passos)
+      : (dyn.proximosPassos.length ? dyn.proximosPassos : buildFallbackProximosPassos()),
     observacoes: isNonEmpty(content.observacoes) ? content.observacoes! : null,
     anexos: opts.anexos ?? [],
     crescimento,
+    pilares: dyn.pilares,
+    resultadosQualitativos: dyn.resultadosQualitativos,
+    fases: dyn.fases,
+    servicosDetectados: profile.rotulos,
     capabilities: {
       canApproveProposal: podeDecidir,
       canApproveItems: podeDecidir && itens.length > 1,

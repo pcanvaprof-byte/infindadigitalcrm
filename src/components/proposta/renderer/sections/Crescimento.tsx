@@ -3,9 +3,10 @@ import type { VMCrescimento } from "@/lib/proposta/viewModel";
 
 interface Props {
   crescimento: VMCrescimento;
+  fases?: { periodo: string; titulo: string; entregas: string[] }[];
 }
 
-const FASES = [
+const FASES_DEFAULT = [
   {
     periodo: "30 dias",
     titulo: "Estruturação",
@@ -44,7 +45,8 @@ const FASES = [
   },
 ];
 
-export function CrescimentoSection({ crescimento }: Props) {
+export function CrescimentoSection({ fases }: Props) {
+  const lista = fases && fases.length > 0 ? fases : FASES_DEFAULT;
   return (
     <section className="space-y-6">
       <div>
@@ -60,7 +62,7 @@ export function CrescimentoSection({ crescimento }: Props) {
       </div>
 
       <ol className="relative grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {FASES.map((f, i) => (
+        {lista.map((f, i) => (
           <li
             key={f.periodo}
             className="rounded-2xl bg-card ring-1 ring-border p-6 relative"

@@ -36,14 +36,14 @@ export function ProposalRenderer({ vm, handlers = {} }: Props) {
     <div className="space-y-16 md:space-y-24">
       <header className="space-y-4">
         <ValidadeBadge header={vm.header} />
-        <HeroSection header={vm.header} crescimento={vm.crescimento} roi={vm.roi} />
+        <HeroSection header={vm.header} pilares={vm.pilares} servicosDetectados={vm.servicosDetectados} />
       </header>
 
       <DiagnosticoSection diagnostico={vm.diagnostico} header={vm.header} />
       <SolucaoSection solucao={vm.solucao} />
       <BeneficiosSection beneficios={vm.beneficios} />
-      <ROISection roi={vm.roi} />
-      {vm.crescimento && <CrescimentoSection crescimento={vm.crescimento} />}
+      <ROISection roi={vm.roi} resultados={vm.resultadosQualitativos} />
+      {vm.crescimento && <CrescimentoSection crescimento={vm.crescimento} fases={vm.fases} />}
       <PorqueInfindaSection pontos={vm.porqueInfinda} />
       <CasesSection cases={vm.cases} />
       <TimelineSection timeline={vm.timeline} />

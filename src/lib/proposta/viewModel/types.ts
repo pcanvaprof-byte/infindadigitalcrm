@@ -178,6 +178,14 @@ export interface ProposalViewModel {
   meta: VMMeta;
   /** Bloco opcional "Potencial de Crescimento". null = não exibir. */
   crescimento: VMCrescimento | null;
+  /** Pilares dinâmicos exibidos no Hero — derivados do escopo contratado. */
+  pilares: string[];
+  /** Resultados qualitativos (sem números) exibidos na seção de resultados. */
+  resultadosQualitativos: string[];
+  /** Fases dinâmicas exibidas na seção de evolução do projeto. */
+  fases: { periodo: string; titulo: string; entregas: string[] }[];
+  /** Rótulos das frentes detectadas (Tráfego pago, CRM, ...). */
+  servicosDetectados: string[];
   /**
    * Indica se as decisões por item foram resolvidas:
    * - 'complete': todas conhecidas
