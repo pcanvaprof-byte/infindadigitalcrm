@@ -289,10 +289,18 @@ function MetasPage() {
 
     const counts = new Map<string, number>();
     for (const d of allDeals) counts.set(d.stage_id, (counts.get(d.stage_id) ?? 0) + 1);
-    const dealStages = stages
+    // Funil cumulativo: um deal em "proposta" também conta em "qualificado", "reunião" etc.
+    const sortedStages = stages
       .filter((s) => !s.is_lost)
-      .sort((a, b) => a.position - b.position)
-      .map((s) => ({ label: s.label, value: counts.get(s.id) ?? 0 }));
+      .sort((a, b) => a.position - b.position);
+    const stagePos = new Map(sortedStages.map((s) => [s.id, s.position]));
+    const dealStages = sortedStages.map((s) => {
+      const cum = allDeals.reduce((acc, d) => {
+        const pos = stagePos.get(d.stage_id);
+        return pos !== undefined && pos >= s.position ? acc + 1 : acc;
+      }, 0);
+      return { label: s.label, value: cum };
+    });
 
     return [...prospectStages, ...dealStages];
   }, [dealsQ.data, stagesQ.data, prospectsQ.data]);
