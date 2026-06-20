@@ -58,6 +58,28 @@ const EMPTY_KPIS: DashboardKPIs = {
   meetings: 0, proposals: 0, briefingsTotal: 0, tasksTotal: 0,
 };
 
+const CLIENT_PIPELINE_STATUSES = new Set<Prospect["status"]>([
+  "fechado_ganho",
+  "aguardando_kickoff",
+  "aguardando_producao",
+  "em_producao",
+  "entregue",
+  "cliente",
+]);
+
+const PROPOSAL_PIPELINE_STATUSES = new Set<Prospect["status"]>([
+  "proposta_pendente",
+  "proposta_enviada",
+  ...CLIENT_PIPELINE_STATUSES,
+]);
+
+const MEETING_PIPELINE_STATUSES = new Set<Prospect["status"]>([
+  "agendado",
+  "briefing_enviado",
+  "diagnostico_pendente",
+  ...PROPOSAL_PIPELINE_STATUSES,
+]);
+
 /**
  * Pura — deriva todos os indicadores do dashboard a partir das queries
  * centrais do CRM (deals, prospects, clients, tasks, briefings, stages).
@@ -76,6 +98,11 @@ export function deriveDashboardMetrics(input: Partial<DashboardInputs>): Dashboa
 
   let revenueWon = 0, pipelineValue = 0, dealsOpen = 0, dealsWon = 0, dealsLost = 0;
   let meetings = 0, proposals = 0;
+  const dealProspectIds = new Set(deals.map((d) => d.prospect_id).filter(Boolean) as string[]);
+  const prospectsWithoutDeals = prospects.filter((p) => !dealProspectIds.has(p.id));
+  const prospectWonBonus = prospectsWithoutDeals.filter((p) => p.responseStatus === "cliente" || CLIENT_PIPELINE_STATUSES.has(p.status)).length;
+  const prospectProposalBonus = prospectsWithoutDeals.filter((p) => PROPOSAL_PIPELINE_STATUSES.has(p.status)).length;
+  const prospectMeetingBonus = prospectsWithoutDeals.filter((p) => MEETING_PIPELINE_STATUSES.has(p.status)).length;
   for (const d of deals) {
     const v = Number(d.value || 0);
     if (wonIds.has(d.stage_id)) { dealsWon++; revenueWon += v; }
@@ -84,6 +111,9 @@ export function deriveDashboardMetrics(input: Partial<DashboardInputs>): Dashboa
     if (d.stage_id === "reuniao") meetings++;
     if (d.stage_id === "proposta") proposals++;
   }
+  dealsWon += prospectWonBonus;
+  meetings += prospectMeetingBonus;
+  proposals += prospectProposalBonus;
 
   const prospectsContacted = prospects.filter((p) => p.status !== "nao_contatado").length;
   let conversationsStarted = 0;
