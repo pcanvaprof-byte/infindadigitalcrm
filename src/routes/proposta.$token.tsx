@@ -50,6 +50,14 @@ function PublicProposalPage() {
   const conteudo = data.versao?.conteudo_json ?? {};
   const total12 = data.valor_implantacao + data.valor_mensal * 12;
 
+  // Guard atômico (defesa em profundidade — backend é a fonte da verdade)
+  const isExpired =
+    !!data.valid_until && new Date(data.valid_until).getTime() < Date.now();
+  const isFinalized = ["aprovada", "rejeitada", "expirada", "convertida"].includes(
+    String(data.status)
+  );
+  const canDecide = !isExpired && !isFinalized;
+
   if (done) {
     return (
       <FullScreen>
@@ -176,20 +184,46 @@ function PublicProposalPage() {
 
         {/* Aprovação */}
         <Section title="Aprovação">
-          <p className="mb-4 text-sm text-muted-foreground">
-            Pronto para começar? Aprove a proposta agora ou solicite ajustes — registramos sua decisão automaticamente.
-          </p>
-          <div className="flex flex-wrap gap-3">
-            <Button className="btn-gradient" size="lg" onClick={() => setDecisionOpen("aprovada")}>
-              <CheckCircle2 className="mr-2 h-4 w-4" /> Aprovar
-            </Button>
-            <Button variant="outline" size="lg" onClick={() => setDecisionOpen("ajustes")}>
-              <Edit3 className="mr-2 h-4 w-4" /> Solicitar ajustes
-            </Button>
-            <Button variant="outline" size="lg" onClick={() => setDecisionOpen("rejeitada")}>
-              <XCircle className="mr-2 h-4 w-4" /> Rejeitar
-            </Button>
-          </div>
+          {canDecide ? (
+            <>
+              <p className="mb-4 text-sm text-muted-foreground">
+                Pronto para começar? Aprove a proposta agora ou solicite ajustes — registramos sua decisão automaticamente.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Button className="btn-gradient" size="lg" onClick={() => setDecisionOpen("aprovada")}>
+                  <CheckCircle2 className="mr-2 h-4 w-4" /> Aprovar
+                </Button>
+                <Button variant="outline" size="lg" onClick={() => setDecisionOpen("ajustes")}>
+                  <Edit3 className="mr-2 h-4 w-4" /> Solicitar ajustes
+                </Button>
+                <Button variant="outline" size="lg" onClick={() => setDecisionOpen("rejeitada")}>
+                  <XCircle className="mr-2 h-4 w-4" /> Rejeitar
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="surface-card p-6 text-sm text-muted-foreground">
+              {isExpired ? (
+                <>
+                  <p className="font-semibold text-foreground">
+                    Esta proposta expirou em {new Date(data.valid_until!).toLocaleDateString("pt-BR")}.
+                  </p>
+                  <p className="mt-2">
+                    Entre em contato com nosso time comercial para receber uma nova versão atualizada.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="font-semibold text-foreground">
+                    Esta proposta já foi finalizada (status: {data.status}).
+                  </p>
+                  <p className="mt-2">
+                    Se precisar revisitar a decisão, fale com o time comercial.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
         </Section>
       </main>
 
@@ -197,14 +231,20 @@ function PublicProposalPage() {
         open={decisionOpen}
         onClose={() => setDecisionOpen(null)}
         onSubmit={async (vals) => {
-          const result = await submitProposalDecision({
-            token,
-            decisao: decisionOpen!,
-            ...vals,
-          });
-          toast.success("Decisão registrada");
-          setDone({ status: result.status, briefingToken: result.briefing_token });
-          setDecisionOpen(null);
+          try {
+            const result = await submitProposalDecision({
+              token,
+              decisao: decisionOpen!,
+              ...vals,
+            });
+            toast.success("Decisão registrada");
+            setDone({ status: result.status, briefingToken: result.briefing_token });
+            setDecisionOpen(null);
+          } catch (e) {
+            // Backend pode rejeitar (expirada / já finalizada). Repassa msg.
+            toast.error((e as Error).message || "Não foi possível registrar a decisão.");
+            throw e;
+          }
         }}
       />
     </div>
