@@ -14,6 +14,7 @@ import {
 import {
   listProposals, propostasKeys,
   createProposalFromDeal, createProposalFromProspect, createProposalBlank,
+  addItemFromCatalog, updateProposal,
 } from "@/lib/propostas/api";
 import {
   biKeys, fetchProposalKPIs, fetchProposalConversion,
@@ -21,8 +22,11 @@ import {
 import {
   PROPOSAL_STATUS_LABEL, PROPOSAL_STATUS_TONE, type ProposalStatus,
 } from "@/lib/propostas/types";
-import { listDeals } from "@/lib/crm/api";
+import { listDeals, listClients } from "@/lib/crm/api";
 import { loadAllProspects } from "@/lib/prospects-api";
+import { listItems as listCatalogItems, listCategorias } from "@/lib/catalog/api";
+import { Checkbox } from "@/components/ui/checkbox";
+import { supabase as sbClient } from "@/integrations/supabase/client";
 import { formatBRL } from "@/lib/catalog/types";
 import { FileText, Plus, Search, TrendingUp, Eye, CheckCircle2, XCircle, Clock, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
