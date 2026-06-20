@@ -36,7 +36,7 @@ export function ProposalRenderer({ vm, handlers = {} }: Props) {
     <div className="space-y-16 md:space-y-24">
       <header className="space-y-4">
         <ValidadeBadge header={vm.header} />
-        <HeroSection header={vm.header} />
+        <HeroSection header={vm.header} crescimento={vm.crescimento} roi={vm.roi} />
       </header>
 
       <DiagnosticoSection diagnostico={vm.diagnostico} header={vm.header} />
@@ -54,7 +54,7 @@ export function ProposalRenderer({ vm, handlers = {} }: Props) {
         onAccept={handlers.onApproveItem ? (id) => void handlers.onApproveItem?.(id, { nome: "", email: "" }) : undefined}
         onReject={handlers.onRejectItem ? (id) => void handlers.onRejectItem?.(id) : undefined}
       />
-      <InvestimentoSection investimento={vm.investimento} />
+      <InvestimentoSection investimento={vm.investimento} crescimento={vm.crescimento} itens={vm.itens} />
       <ProximosPassosSection passos={vm.proximosPassos} />
       <AnexosSection anexos={vm.anexos} />
 
