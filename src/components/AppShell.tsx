@@ -40,7 +40,7 @@ const NAV = [
   { to: "/briefings", label: "Briefings Comerciais", icon: FileText, enabled: true },
   { to: "/catalogo", label: "Catálogo Comercial", icon: Package, enabled: true },
   { to: "/kickoff", label: "Kickoff Produção", icon: Rocket, enabled: true },
-  { to: "/propostas", label: "Propostas", icon: FileText, enabled: false },
+  { to: "/propostas", label: "Propostas", icon: FileText, enabled: true },
   { to: "/indicacoes", label: "Indicações", icon: Share2, enabled: false },
   { to: "/ia", label: "IA Comercial", icon: Bot, enabled: false },
   { to: "/configuracoes", label: "Configurações", icon: Settings, enabled: false },
