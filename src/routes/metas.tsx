@@ -74,31 +74,24 @@ const MY_METRICS: Metric[] = [
   { key: "contratos", label: "Contratos fechados", icon: CheckCircle2, current: 1, daily: 1, weekly: 5 },
 ];
 
-const DAILY_EVOLUTION = [
-  { d: "Seg", empresas: 22, conversas: 9, propostas: 1 },
-  { d: "Ter", empresas: 26, conversas: 11, propostas: 1 },
-  { d: "Qua", empresas: 19, conversas: 7, propostas: 0 },
-  { d: "Qui", empresas: 24, conversas: 10, propostas: 1 },
-  { d: "Sex", empresas: 21, conversas: 8, propostas: 1 },
+const EMPTY_DAILY = [
+  { d: "Seg", empresas: 0, conversas: 0, propostas: 0 },
+  { d: "Ter", empresas: 0, conversas: 0, propostas: 0 },
+  { d: "Qua", empresas: 0, conversas: 0, propostas: 0 },
+  { d: "Qui", empresas: 0, conversas: 0, propostas: 0 },
+  { d: "Sex", empresas: 0, conversas: 0, propostas: 0 },
 ];
 
-const WEEKLY_EVOLUTION = [
-  { s: "S1", atingido: 78 },
-  { s: "S2", atingido: 82 },
-  { s: "S3", atingido: 74 },
-  { s: "S4", atingido: 88 },
-  { s: "S5", atingido: 91 },
-  { s: "S6", atingido: 74 },
+const EMPTY_WEEKLY = [
+  { s: "S1", atingido: 0 },
+  { s: "S2", atingido: 0 },
+  { s: "S3", atingido: 0 },
+  { s: "S4", atingido: 0 },
+  { s: "S5", atingido: 0 },
+  { s: "S6", atingido: 0 },
 ];
 
-const FUNNEL_FALLBACK = [
-  { label: "Empresas", value: 112 },
-  { label: "Conversas", value: 41 },
-  { label: "Apresentações", value: 22 },
-  { label: "Reuniões", value: 9 },
-  { label: "Propostas", value: 4 },
-  { label: "Contratos", value: 3 },
-];
+const FUNNEL_FALLBACK: { label: string; value: number }[] = [];
 
 type Ranked = {
   id: string;
@@ -110,19 +103,8 @@ type Ranked = {
   streak: number;
 };
 
-const RANKING_SDR: Ranked[] = [
-  { id: "1", name: "Camila Rocha", points: 1840, contracts: 0, proposals: 0, meetings: 14, streak: 6 },
-  { id: "2", name: "Bruno Alves", points: 1610, contracts: 0, proposals: 0, meetings: 11, streak: 4 },
-  { id: "3", name: "Tatiane Lima", points: 1422, contracts: 0, proposals: 0, meetings: 9, streak: 5 },
-  { id: "4", name: "Diego Santos", points: 1180, contracts: 0, proposals: 0, meetings: 7, streak: 2 },
-];
-
-const RANKING_CONSULTORES: Ranked[] = [
-  { id: "1", name: "Valdinei", points: 2210, contracts: 4, proposals: 7, meetings: 10, streak: 8 },
-  { id: "2", name: "Ana Lopes", points: 1980, contracts: 3, proposals: 6, meetings: 9, streak: 5 },
-  { id: "3", name: "Pedro Martins", points: 1755, contracts: 3, proposals: 5, meetings: 8, streak: 3 },
-  { id: "4", name: "Lucas Pereira", points: 1480, contracts: 2, proposals: 5, meetings: 6, streak: 2 },
-];
+const RANKING_SDR: Ranked[] = [];
+const RANKING_CONSULTORES: Ranked[] = [];
 
 const BADGES = [
   { id: "100", icon: Trophy, label: "100 empresas", desc: "Visitou 100 empresas na semana", got: true, color: "text-amber-300" },
