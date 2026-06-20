@@ -1,4 +1,4 @@
-import { ShieldCheck, Star, FileBarChart, Megaphone } from "lucide-react";
+import { CalendarClock, FileBarChart, Megaphone, ScrollText } from "lucide-react";
 import { brl, type VMCrescimento, type VMInvestimento, type VMItem } from "@/lib/proposta/viewModel";
 
 interface Props {
@@ -7,15 +7,10 @@ interface Props {
   itens?: VMItem[];
 }
 
-export function InvestimentoSection({ investimento, crescimento, itens }: Props) {
+export function InvestimentoSection({ investimento, itens }: Props) {
   const hasMensal = investimento.mensal > 0;
   const hasImpl = investimento.implantacao > 0;
   const hasAvulso = investimento.avulso > 0;
-
-  const roiX =
-    crescimento?.cenarios.find((c) => c.nome === "Esperado")?.roi180 ??
-    crescimento?.cenarios[1]?.roi180 ??
-    null;
 
   const hasTrafego = (itens ?? []).some((it) => {
     const hay = `${it.nome} ${it.categoria ?? ""} ${it.descricao ?? ""}`.toLowerCase();
@@ -26,11 +21,10 @@ export function InvestimentoSection({ investimento, crescimento, itens }: Props)
     <section className="space-y-6" id="investimento">
       <div>
         <div className="text-xs uppercase tracking-[0.2em] text-primary-glow font-medium">08 · Investimento</div>
-        <h2 className="mt-2 text-3xl md:text-4xl font-bold tracking-tight">Seu investimento</h2>
+        <h2 className="mt-2 text-3xl md:text-4xl font-bold tracking-tight">Investimento</h2>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr]">
-        <div className="rounded-3xl bg-gradient-to-br from-primary/25 via-card to-card ring-1 ring-primary/40 p-6 md:p-8 shadow-2xl shadow-primary/10">
+      <div className="rounded-3xl bg-gradient-to-br from-primary/25 via-card to-card ring-1 ring-primary/40 p-6 md:p-8 shadow-2xl shadow-primary/10">
         <div className="grid gap-6 lg:grid-cols-[1fr_auto] items-end">
           <div className="space-y-4">
             {hasImpl && (
@@ -73,17 +67,23 @@ export function InvestimentoSection({ investimento, crescimento, itens }: Props)
             </div>
           </div>
         )}
-        </div>
+      </div>
 
-        <div className="rounded-3xl bg-gradient-to-br from-primary/30 to-primary/10 ring-1 ring-primary/40 p-6 md:p-8 flex flex-col justify-center">
+      <div className="rounded-2xl bg-gradient-to-br from-primary/15 to-primary/5 ring-1 ring-primary/30 p-6 flex items-start gap-4">
+        <CalendarClock className="size-6 text-primary-glow shrink-0 mt-0.5" />
+        <div className="space-y-2">
           <div className="text-[10px] uppercase tracking-[0.2em] text-primary-glow font-semibold">
-            ROI projetado
+            Vigência contratual
           </div>
-          <div className="mt-2 text-5xl md:text-6xl font-bold tracking-tight text-foreground">
-            {roiX ? `${roiX.toFixed(1)}x` : "6,5x"}
-          </div>
-          <p className="mt-3 text-xs md:text-sm text-muted-foreground leading-relaxed">
-            Retorno estimado sobre o investimento em 12 meses, com base no cenário esperado para o seu segmento.
+          <p className="text-base md:text-lg font-semibold text-foreground">
+            Contrato mínimo de 3 meses.
+          </p>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Os primeiros meses são destinados à estruturação, coleta de dados, otimização e
+            validação das estratégias. Este período é essencial para gerar informações
+            consistentes que permitam a evolução contínua da operação. Após o período mínimo,
+            o contrato passa à renovação mensal, podendo ser encerrado mediante aviso
+            contratual.
           </p>
         </div>
       </div>
@@ -92,11 +92,12 @@ export function InvestimentoSection({ investimento, crescimento, itens }: Props)
         <div className="rounded-2xl bg-amber-500/10 ring-1 ring-amber-500/30 p-5 flex items-start gap-3">
           <Megaphone className="size-5 text-amber-400 shrink-0 mt-0.5" />
           <div className="text-sm leading-relaxed">
-            <strong className="text-foreground">Investimento mínimo em mídia paga: R$ 1.000,00/mês</strong>{" "}
+            <strong className="text-foreground">Investimento mínimo em mídia paga: R$ 1.000,00/mês.</strong>{" "}
             <span className="text-muted-foreground">
-              — verba destinada ao gerenciador de anúncios (Google Ads / Meta Ads), paga
-              diretamente à plataforma. Não está inclusa na mensalidade de gestão acima e é
-              requisito mínimo para gerar volume suficiente de leads qualificados.
+              O investimento em mídia paga é realizado diretamente nas plataformas
+              (Google Ads e Meta Ads) e não está incluso na mensalidade de gestão acima.
+              Este patamar mínimo é necessário para gerar volume estatístico suficiente
+              para otimização das campanhas.
             </span>
           </div>
         </div>
@@ -104,19 +105,19 @@ export function InvestimentoSection({ investimento, crescimento, itens }: Props)
 
       <div className="grid gap-3 md:grid-cols-3">
         <TrustCard
-          icon={<ShieldCheck className="size-5" />}
-          title="Sem fidelidade"
-          text="Cancele quando quiser, sem burocracia."
+          icon={<ScrollText className="size-5" />}
+          title="Contrato mínimo de 3 meses"
+          text="Após esse período, renovação mensal podendo ser encerrado mediante aviso contratual."
         />
         <TrustCard
-          icon={<Star className="size-5" />}
-          title="Resultados reais"
-          text="Foco em métricas que importam para o seu negócio."
+          icon={<FileBarChart className="size-5" />}
+          title="Governança por indicadores"
+          text="Acompanhamento periódico com indicadores comerciais e revisão estratégica."
         />
         <TrustCard
           icon={<FileBarChart className="size-5" />}
           title="Transparência total"
-          text="Relatórios claros e acesso a todas as informações."
+          text="Acesso aos relatórios, dashboards e dados gerados pela operação."
         />
       </div>
     </section>

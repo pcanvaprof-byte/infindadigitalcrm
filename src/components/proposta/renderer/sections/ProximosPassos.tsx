@@ -5,8 +5,8 @@ export function ProximosPassosSection({ passos }: Props) {
   return (
     <section className="space-y-6">
       <div>
-        <div className="text-xs uppercase tracking-[0.2em] text-primary-glow font-medium">09 · Como começar</div>
-        <h2 className="mt-2 text-3xl md:text-4xl font-bold tracking-tight">Os próximos passos</h2>
+        <div className="text-xs uppercase tracking-[0.2em] text-primary-glow font-medium">09 · Próximos passos</div>
+        <h2 className="mt-2 text-3xl md:text-4xl font-bold tracking-tight">Próximos passos</h2>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         {passos.map((p, i) => (
