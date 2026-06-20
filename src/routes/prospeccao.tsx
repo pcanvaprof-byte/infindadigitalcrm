@@ -1267,8 +1267,8 @@ function DesktopProspectTable({
 
   return (
     <div className="hidden overflow-x-auto md:block">
-      <div className="min-w-[980px] text-sm">
-        <div className="grid grid-cols-[52px_minmax(220px,1.5fr)_minmax(170px,1fr)_minmax(130px,0.8fr)_minmax(110px,0.7fr)_110px_130px_220px] bg-accent/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
+      <div className="min-w-[1120px] text-sm">
+        <div className="grid grid-cols-[52px_minmax(220px,1.5fr)_minmax(170px,1fr)_minmax(130px,0.8fr)_minmax(110px,0.7fr)_110px_130px_140px_220px] bg-accent/40 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
           <div className="px-3 py-3">
             <NativeCheckbox checked={allVisibleSelected} onChange={onToggleSelectAll} ariaLabel="Selecionar todos" />
           </div>
@@ -1278,6 +1278,7 @@ function DesktopProspectTable({
           <div className="px-4 py-3">Origem</div>
           <div className="px-4 py-3">Potencial</div>
           <div className="px-4 py-3">Status</div>
+          <div className="px-4 py-3">Próxima ação</div>
           <div className="px-4 py-3 text-right">Ações</div>
         </div>
 
@@ -1294,7 +1295,7 @@ function DesktopProspectTable({
                 <div
                   key={p.id}
                   data-index={vi.index}
-                  className={`absolute left-0 right-0 grid grid-cols-[52px_minmax(220px,1.5fr)_minmax(170px,1fr)_minmax(130px,0.8fr)_minmax(110px,0.7fr)_110px_130px_220px] border-t border-border/60 hover:bg-accent/30 ${selected.has(p.id) ? "bg-primary/5" : ""}`}
+                  className={`absolute left-0 right-0 grid grid-cols-[52px_minmax(220px,1.5fr)_minmax(170px,1fr)_minmax(130px,0.8fr)_minmax(110px,0.7fr)_110px_130px_140px_220px] border-t border-border/60 hover:bg-accent/30 ${selected.has(p.id) ? "bg-primary/5" : ""}`}
                   style={{ transform: `translateY(${vi.start - virtualizer.options.scrollMargin}px)` }}
                 >
                   <div className="px-3 py-3">
@@ -1314,6 +1315,9 @@ function DesktopProspectTable({
                   <div className="px-4 py-3 text-xs">{p.source}</div>
                   <div className="px-4 py-3"><PotentialBadge p={p.potential} /></div>
                   <div className="px-4 py-3"><StatusBadge status={p.status} /></div>
+                  <div className="px-4 py-3 text-xs">
+                    <NextActionCell next={p.nextContactAt ?? null} status={p.cadenceStatus} />
+                  </div>
                   <div className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1">
                       <RowActions
