@@ -599,27 +599,36 @@ function ProspeccaoPage() {
 
   const logAttempt = async (prospect: Prospect, tipo: TouchpointTipo) => {
     try {
+      console.log("[prosp] logAttempt:start", { prospectId: prospect.id, tipo });
       await addTouchpoint({
         prospect_id: prospect.id,
         tipo,
         resultado: "tentativa",
         mensagem: "auto: clique na ação",
       });
+      console.log("[prosp] logAttempt:ok", { prospectId: prospect.id, tipo });
       qc.invalidateQueries({ queryKey: cadenceKeys.dashboard });
       qc.invalidateQueries({ queryKey: cadenceKeys.timeline(prospect.id) });
-    } catch {
+    } catch (e) {
+      console.error("[prosp] logAttempt:error", { prospectId: prospect.id, tipo, error: e });
       /* não bloqueia o deep link */
     }
   };
 
   const openWhats = (p: Prospect) => {
+    console.log("[prosp] openWhats:click", { id: p.id, company: p.company, whatsapp: p.whatsapp });
     const d = onlyDigits(p.whatsapp);
-    if (!d) return toast.error("WhatsApp não cadastrado");
+    if (!d) {
+      console.warn("[prosp] openWhats:abort:no-whatsapp", { id: p.id });
+      return toast.error("WhatsApp não cadastrado");
+    }
     const msg = `Olá, vi que sua empresa foi aberta recentemente. Parabéns pela nova fase! 🎉\nPercebi que muitas empresas novas acabam perdendo oportunidades por ainda não terem uma presença profissional na internet.\n\nEu ajudo negócios a terem um site moderno que transmite confiança e gera contatos desde os primeiros meses de operação.\n\nPosso te mostrar alguns exemplos e fazer uma análise gratuita da sua presença digital?`;
     // Define o confirm ANTES de abrir o WhatsApp para garantir que o estado
     // esteja commitado caso o navegador móvel saia da aba para o app.
+    console.log("[prosp] openWhats:setConfirm", { id: p.id, company: p.company });
     setWhatsConfirm({ id: p.id, company: p.company });
     void logAttempt(p, "whatsapp");
+    console.log("[prosp] openWhats:window.open", { url: `https://wa.me/55${d}` });
     window.open(`https://wa.me/55${d}?text=${encodeURIComponent(msg)}`, "_blank");
   };
   const callPhone = (p: Prospect) => {
