@@ -1189,7 +1189,13 @@ function ProspeccaoPage() {
       </Dialog>
 
       {/* Confirmação pós-WhatsApp: avança status para "Primeiro contato" */}
-      <Dialog open={!!whatsConfirm} onOpenChange={(o) => !o && setWhatsConfirm(null)}>
+      <Dialog
+        open={!!whatsConfirm}
+        onOpenChange={(o) => {
+          console.log("[prosp] whatsConfirm:dialog", { open: o, target: whatsConfirm });
+          if (!o) setWhatsConfirm(null);
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Foi feito o primeiro contato?</DialogTitle>
@@ -1200,12 +1206,16 @@ function ProspeccaoPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-2">
-            <Button variant="ghost" onClick={() => setWhatsConfirm(null)}>
+            <Button variant="ghost" onClick={() => {
+              console.log("[prosp] whatsConfirm:dismiss", { target: whatsConfirm });
+              setWhatsConfirm(null);
+            }}>
               Ainda não
             </Button>
             <Button
               className="btn-gradient"
               onClick={() => {
+                console.log("[prosp] whatsConfirm:confirm", { target: whatsConfirm });
                 if (whatsConfirm) updateStatus(whatsConfirm.id, "primeiro_contato");
                 setWhatsConfirm(null);
               }}
