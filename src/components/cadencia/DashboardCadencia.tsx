@@ -32,6 +32,8 @@ export function DashboardCadencia() {
         <KPI label="Interessados" value={by.interessado ?? 0} />
         <KPI label="Reuniões Agendadas" value={by.reuniao_agendada ?? 0} />
         <KPI label="Propostas Enviadas" value={by.proposta_enviada ?? 0} />
+        <KPI label="Negociação" value={by.negociacao ?? 0} />
+        <KPI label="Fechados" value={by.fechado ?? 0} />
         <KPI label="Perdidos" value={by.perdido ?? 0} />
         <KPI label="Taxa de Resposta" value={`${m?.taxa_resposta ?? 0}%`} />
         <KPI label="Taxa de Conversão" value={`${m?.taxa_conversao ?? 0}%`} />
