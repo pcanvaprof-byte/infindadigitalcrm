@@ -1,0 +1,159 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AppShell } from "@/components/AppShell";
+import { RequireAuth } from "@/lib/auth-context";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { toast } from "sonner";
+import { Plus, RefreshCw, Download } from "lucide-react";
+import { DashboardCadencia } from "@/components/cadencia/DashboardCadencia";
+import { CadenciaKanban } from "@/components/cadencia/CadenciaKanban";
+import { LeadDrawer } from "@/components/cadencia/LeadDrawer";
+import { SendMessageDialog } from "@/components/cadencia/SendMessageDialog";
+import { TemplatesPanel } from "@/components/cadencia/TemplatesPanel";
+import { listLeads, createLead, importFromProspects } from "@/lib/cadencia/api";
+import type { CadLead } from "@/lib/cadencia/types";
+
+export const Route = createFileRoute("/cadencia")({
+  ssr: false,
+  head: () => ({ meta: [{ title: "Cadência — INFINDA" }] }),
+  component: () => (
+    <RequireAuth>
+      <CadenciaPage />
+    </RequireAuth>
+  ),
+});
+
+function CadenciaPage() {
+  const qc = useQueryClient();
+  const [tab, setTab] = useState<"dashboard" | "pipeline" | "templates">("dashboard");
+  const [search, setSearch] = useState("");
+  const [openNew, setOpenNew] = useState(false);
+  const [newL, setNewL] = useState({ empresa: "", responsavel: "", cargo: "", telefone: "", whatsapp: "", email: "" });
+
+  const [drawerLead, setDrawerLead] = useState<CadLead | null>(null);
+  const [sendLead, setSendLead] = useState<CadLead | null>(null);
+
+  const leadsQ = useQuery({ queryKey: ["cad-leads"], queryFn: listLeads });
+  const leads = useMemo(() => {
+    const all = leadsQ.data ?? [];
+    if (!search.trim()) return all;
+    const s = search.toLowerCase();
+    return all.filter((l) =>
+      [l.empresa, l.responsavel, l.telefone, l.whatsapp].some((v) => (v || "").toLowerCase().includes(s)),
+    );
+  }, [leadsQ.data, search]);
+
+  const invalidateAll = () => {
+    qc.invalidateQueries({ queryKey: ["cad-leads"] });
+    qc.invalidateQueries({ queryKey: ["cad-metrics"] });
+  };
+
+  const createM = useMutation({
+    mutationFn: () => createLead({ ...newL, empresa: newL.empresa.trim() }),
+    onSuccess: () => {
+      invalidateAll();
+      setOpenNew(false);
+      setNewL({ empresa: "", responsavel: "", cargo: "", telefone: "", whatsapp: "", email: "" });
+      toast.success("Lead criado");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const importM = useMutation({
+    mutationFn: importFromProspects,
+    onSuccess: (n) => { invalidateAll(); toast.success(`${n} lead(s) importado(s) da Prospecção`); },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  return (
+    <AppShell title="Cadência Comercial">
+      <div className="p-4 space-y-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-xl font-semibold text-foreground">Cadência</h1>
+          <div className="ml-auto flex items-center gap-2">
+            <Input
+              placeholder="Buscar empresa, responsável..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-64"
+            />
+            <Button variant="outline" onClick={() => importM.mutate()} disabled={importM.isPending}>
+              <Download className="h-4 w-4 mr-2" /> Importar de Prospecção
+            </Button>
+            <Button variant="outline" onClick={invalidateAll}>
+              <RefreshCw className="h-4 w-4 mr-2" /> Atualizar
+            </Button>
+            <Button onClick={() => setOpenNew(true)}>
+              <Plus className="h-4 w-4 mr-2" /> Novo lead
+            </Button>
+          </div>
+        </div>
+
+        <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
+          <TabsList>
+            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+            <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
+            <TabsTrigger value="templates">Templates</TabsTrigger>
+          </TabsList>
+          <TabsContent value="dashboard" className="mt-4">
+            <DashboardCadencia />
+          </TabsContent>
+          <TabsContent value="pipeline" className="mt-4">
+            {leadsQ.isLoading ? (
+              <div className="text-sm text-muted-foreground">Carregando...</div>
+            ) : leads.length === 0 ? (
+              <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+                Nenhum lead em cadência. Use "Importar de Prospecção" ou "Novo lead".
+              </div>
+            ) : (
+              <CadenciaKanban
+                leads={leads}
+                onOpen={setDrawerLead}
+                onSend={setSendLead}
+              />
+            )}
+          </TabsContent>
+          <TabsContent value="templates" className="mt-4">
+            <TemplatesPanel />
+          </TabsContent>
+        </Tabs>
+
+        <LeadDrawer
+          lead={drawerLead}
+          open={!!drawerLead}
+          onOpenChange={(o) => !o && setDrawerLead(null)}
+          onSend={() => { if (drawerLead) setSendLead(drawerLead); }}
+        />
+        <SendMessageDialog
+          lead={sendLead}
+          open={!!sendLead}
+          onOpenChange={(o) => !o && setSendLead(null)}
+        />
+
+        <Dialog open={openNew} onOpenChange={setOpenNew}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Novo lead</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Input placeholder="Empresa *" value={newL.empresa} onChange={(e) => setNewL({ ...newL, empresa: e.target.value })} />
+              <Input placeholder="Responsável" value={newL.responsavel} onChange={(e) => setNewL({ ...newL, responsavel: e.target.value })} />
+              <Input placeholder="Cargo" value={newL.cargo} onChange={(e) => setNewL({ ...newL, cargo: e.target.value })} />
+              <Input placeholder="Telefone" value={newL.telefone} onChange={(e) => setNewL({ ...newL, telefone: e.target.value })} />
+              <Input placeholder="WhatsApp" value={newL.whatsapp} onChange={(e) => setNewL({ ...newL, whatsapp: e.target.value })} />
+              <Input placeholder="Email" value={newL.email} onChange={(e) => setNewL({ ...newL, email: e.target.value })} />
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpenNew(false)}>Cancelar</Button>
+              <Button onClick={() => createM.mutate()} disabled={!newL.empresa.trim() || createM.isPending}>Criar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </AppShell>
+  );
+}
