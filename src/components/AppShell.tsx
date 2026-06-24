@@ -12,7 +12,6 @@ import {
   Bot,
   Rocket,
   Settings,
-  Bell,
   LogOut,
   Menu,
   Package,
@@ -34,6 +33,7 @@ import {
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
 import { MobileNav } from "./MobileNav";
 import { OrgSwitcher } from "./org/OrgSwitcher";
+import { NotificationsBell } from "./cadencia/NotificationsBell";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, enabled: true },
@@ -192,10 +192,7 @@ export function AppShell({
             <div className="hidden sm:block">
               <OrgSwitcher />
             </div>
-            <Button variant="ghost" size="icon" className="tap-target relative" aria-label="Notificações">
-              <Bell className="h-4 w-4" />
-              <span className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-primary-glow" />
-            </Button>
+            <NotificationsBell />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button

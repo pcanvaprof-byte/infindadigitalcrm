@@ -100,3 +100,50 @@ export async function importFromProspects(): Promise<number> {
   if (error) throw new Error(error.message);
   return (data as number) ?? 0;
 }
+
+// ----- Notificações -----
+export type CadNotifKind = "overdue" | "last_attempt" | "response_pending";
+
+export type CadNotification = {
+  id: string;
+  lead_id: string;
+  kind: CadNotifKind;
+  payload: Record<string, unknown>;
+  created_at: string;
+  handled_at: string | null;
+  empresa: string;
+  responsavel: string | null;
+  telefone: string | null;
+  whatsapp: string | null;
+  stage: string;
+  next_action_at: string | null;
+  last_response_at: string | null;
+  temperatura: string;
+};
+
+export async function refreshNotifications(): Promise<number> {
+  const { data, error } = await db.rpc("cad_refresh_notifications");
+  if (error) throw new Error(error.message);
+  return (data as number) ?? 0;
+}
+
+export async function listNotifications(): Promise<CadNotification[]> {
+  const { data, error } = await db
+    .from("cad_notifications_v")
+    .select("*")
+    .is("handled_at", null)
+    .order("created_at", { ascending: false });
+  if (error) throw new Error(error.message);
+  return (data ?? []) as CadNotification[];
+}
+
+export async function markNotificationHandled(id: string): Promise<void> {
+  const { error } = await db.rpc("cad_mark_notification_handled", { p_id: id });
+  if (error) throw new Error(error.message);
+}
+
+export async function markAllNotificationsHandled(): Promise<number> {
+  const { data, error } = await db.rpc("cad_mark_all_notifications_handled");
+  if (error) throw new Error(error.message);
+  return (data as number) ?? 0;
+}
