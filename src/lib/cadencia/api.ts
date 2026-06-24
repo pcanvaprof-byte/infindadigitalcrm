@@ -47,6 +47,7 @@ export async function listLeads(): Promise<CadLead[]> {
     const { data, error } = await db
       .from("cad_leads")
       .select("*")
+      .not("last_contact_at", "is", null)
       .order("updated_at", { ascending: false })
       .range(from, from + pageSize - 1);
     if (error) throw new Error(error.message);
