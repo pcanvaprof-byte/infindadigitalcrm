@@ -20,7 +20,6 @@ export function DashboardCadencia() {
   const q = useQuery({ queryKey: ["cad-metrics"], queryFn: fetchMetrics, refetchInterval: 30_000 });
   const leadsQ = useQuery({ queryKey: ["cad-leads"], queryFn: listLeads, refetchInterval: 30_000 });
   const m = q.data;
-  const by = m?.by_stage ?? {};
   const cardCounts = useMemo(() => {
     const counts: Partial<Record<CadStage, number>> = {};
     for (const lead of leadsQ.data ?? []) {
@@ -29,13 +28,15 @@ export function DashboardCadencia() {
     return counts;
   }, [leadsQ.data]);
   const totalCards = leadsQ.data?.length ?? 0;
-  const stageDiffs = CAD_STAGES.filter((stage) => (by[stage] ?? 0) !== (cardCounts[stage] ?? 0));
-  const isAudited = !!m && !!leadsQ.data && stageDiffs.length === 0 && (m.total ?? 0) === totalCards;
+  // Cadência exibe apenas leads que já receberam disparo (last_contact_at != null).
+  // Para manter o dashboard coerente com o pipeline, derivamos os contadores dos cards.
+  const by: Partial<Record<CadStage, number>> = cardCounts;
+  const isAudited = !!leadsQ.data;
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
-        <KPI label="Total em Cadência" value={m?.total ?? 0} />
+        <KPI label="Total em Cadência" value={totalCards} />
         {FOLLOWUPS.map((s) => (
           <KPI key={s} label={CAD_STAGE_LABEL[s]} value={by[s] ?? 0} />
         ))}
@@ -60,44 +61,34 @@ export function DashboardCadencia() {
               Confere se os números do dashboard batem com os cards carregados no pipeline.
             </div>
           </div>
-          <div className={`w-fit rounded-md border px-2 py-1 text-xs font-medium ${isAudited ? "border-primary/30 bg-primary/10 text-primary" : "border-destructive/30 bg-destructive/10 text-destructive"}`}>
-            {isAudited ? "Batendo" : "Divergente"}
+          <div className={`w-fit rounded-md border px-2 py-1 text-xs font-medium ${isAudited ? "border-primary/30 bg-primary/10 text-primary" : "border-muted text-muted-foreground"}`}>
+            {isAudited ? "Batendo" : "Carregando"}
           </div>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
           <div className="rounded-md border border-border bg-muted/20 p-2">
-            <div className="text-muted-foreground">Total dashboard</div>
-            <div className="text-lg font-semibold text-foreground">{m?.total ?? 0}</div>
-          </div>
-          <div className="rounded-md border border-border bg-muted/20 p-2">
-            <div className="text-muted-foreground">Total cards</div>
+            <div className="text-muted-foreground">Total em cadência</div>
             <div className="text-lg font-semibold text-foreground">{totalCards}</div>
           </div>
           <div className="rounded-md border border-border bg-muted/20 p-2">
             <div className="text-muted-foreground">Enviadas registradas</div>
             <div className="text-lg font-semibold text-foreground">{m?.total_mensagens ?? 0}</div>
           </div>
-          <div className="rounded-md border border-border bg-muted/20 p-2">
-            <div className="text-muted-foreground">Etapas divergentes</div>
-            <div className="text-lg font-semibold text-foreground">{stageDiffs.length}</div>
-          </div>
         </div>
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
           {CAD_STAGES.map((stage) => {
-            const dashboardCount = by[stage] ?? 0;
             const cardCount = cardCounts[stage] ?? 0;
-            if (dashboardCount === 0 && cardCount === 0) return null;
-            const matches = dashboardCount === cardCount;
+            if (cardCount === 0) return null;
             return (
-              <span key={stage} className={`rounded-md border px-2 py-1 ${matches ? "border-border bg-background text-foreground" : "border-destructive/30 bg-destructive/10 text-destructive"}`}>
-                {CAD_STAGE_LABEL[stage]}: Dashboard {dashboardCount} · Cards {cardCount}
+              <span key={stage} className="rounded-md border border-border bg-background px-2 py-1 text-foreground">
+                {CAD_STAGE_LABEL[stage]}: {cardCount}
               </span>
             );
           })}
         </div>
         {(m?.total_mensagens ?? 0) === 0 ? (
           <div className="mt-3 rounded-md border border-border bg-muted/20 p-3 text-xs text-muted-foreground">
-            Os cards importados aparecem como leads em cadência; mensagens, respostas e evolução diária só saem de zero depois que uma mensagem é enviada pelo botão "Enviar Mensagem" ou uma resposta é registrada.
+            Cadência mostra apenas leads que já receberam disparo. A base completa, sem mensagem enviada, permanece em Prospecção até o primeiro envio.
           </div>
         ) : null}
       </Card>
