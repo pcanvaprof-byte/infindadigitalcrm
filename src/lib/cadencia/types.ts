@@ -1,0 +1,112 @@
+export const CAD_STAGES = [
+  "followup_1","followup_2","followup_3","followup_4",
+  "followup_5","followup_6","followup_7",
+  "interessado","reuniao_agendada","proposta_enviada",
+  "negociacao","fechado","perdido",
+] as const;
+
+export type CadStage = typeof CAD_STAGES[number];
+
+export const CAD_STAGE_LABEL: Record<CadStage, string> = {
+  followup_1: "Follow-up 1",
+  followup_2: "Follow-up 2",
+  followup_3: "Follow-up 3",
+  followup_4: "Follow-up 4",
+  followup_5: "Follow-up 5",
+  followup_6: "Follow-up 6",
+  followup_7: "Follow-up 7",
+  interessado: "Interessado",
+  reuniao_agendada: "Reunião Agendada",
+  proposta_enviada: "Proposta Enviada",
+  negociacao: "Negociação",
+  fechado: "Fechado",
+  perdido: "Perdido",
+};
+
+export const CAD_FOLLOWUP_DAYS: Partial<Record<CadStage, number>> = {
+  followup_1: 3,
+  followup_2: 7,
+  followup_3: 10,
+  followup_4: 14,
+  followup_5: 18,
+  followup_6: 24,
+  followup_7: 30,
+};
+
+export type CadTemp = "quente" | "morno" | "frio";
+export const CAD_TEMP_LABEL: Record<CadTemp, string> = {
+  quente: "🔥 Quente",
+  morno: "🟡 Morno",
+  frio: "❄️ Frio",
+};
+
+export type CadMsgTipo = "whatsapp" | "email" | "ligacao" | "nota" | "sistema";
+export type CadMsgDirection = "out" | "in" | "system";
+
+export type CadLead = {
+  id: string;
+  organization_id: string;
+  owner_id: string;
+  prospect_id: string | null;
+  empresa: string;
+  responsavel: string | null;
+  cargo: string | null;
+  telefone: string | null;
+  whatsapp: string | null;
+  email: string | null;
+  stage: CadStage;
+  temperatura: CadTemp;
+  primeira_abordagem_at: string;
+  last_contact_at: string | null;
+  next_action_at: string | null;
+  last_response_at: string | null;
+  closed_at: string | null;
+  closed_reason: string | null;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CadMessage = {
+  id: string;
+  lead_id: string;
+  organization_id: string;
+  author_id: string | null;
+  tipo: CadMsgTipo;
+  direction: CadMsgDirection;
+  stage_at_send: CadStage | null;
+  mensagem: string | null;
+  status: string;
+  created_at: string;
+};
+
+export type CadTemplate = {
+  id: string;
+  organization_id: string;
+  stage: CadStage;
+  titulo: string;
+  corpo: string;
+  updated_at: string;
+};
+
+export type CadMetrics = {
+  total: number;
+  by_stage: Partial<Record<CadStage, number>>;
+  taxa_resposta: number;
+  taxa_conversao: number;
+  total_mensagens: number;
+  serie_30d: Array<{ dia: string; enviadas: number; respostas: number }>;
+};
+
+export function renderTemplate(corpo: string, lead: Pick<CadLead, "empresa" | "responsavel">): string {
+  return (corpo || "")
+    .replaceAll("{{empresa}}", lead.empresa || "")
+    .replaceAll("{{responsavel}}", lead.responsavel || "");
+}
+
+export function diasSemResposta(lead: Pick<CadLead, "last_response_at" | "primeira_abordagem_at">): number {
+  const base = lead.last_response_at ?? lead.primeira_abordagem_at;
+  if (!base) return 0;
+  const ms = Date.now() - new Date(base).getTime();
+  return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
+}

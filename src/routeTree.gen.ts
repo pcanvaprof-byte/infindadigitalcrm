@@ -19,6 +19,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CrmRouteImport } from './routes/crm'
 import { Route as ContratosRouteImport } from './routes/contratos'
 import { Route as CatalogoRouteImport } from './routes/catalogo'
+import { Route as CadenciaRouteImport } from './routes/cadencia'
 import { Route as BriefingsRouteImport } from './routes/briefings'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PropostasIdRouteImport } from './routes/propostas.$id'
@@ -79,6 +80,11 @@ const CatalogoRoute = CatalogoRouteImport.update({
   path: '/catalogo',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CadenciaRoute = CadenciaRouteImport.update({
+  id: '/cadencia',
+  path: '/cadencia',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BriefingsRoute = BriefingsRouteImport.update({
   id: '/briefings',
   path: '/briefings',
@@ -128,6 +134,7 @@ const BriefingTokenRoute = BriefingTokenRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/briefings': typeof BriefingsRouteWithChildren
+  '/cadencia': typeof CadenciaRoute
   '/catalogo': typeof CatalogoRouteWithChildren
   '/contratos': typeof ContratosRouteWithChildren
   '/crm': typeof CrmRoute
@@ -149,6 +156,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/briefings': typeof BriefingsRouteWithChildren
+  '/cadencia': typeof CadenciaRoute
   '/catalogo': typeof CatalogoRouteWithChildren
   '/contratos': typeof ContratosRouteWithChildren
   '/crm': typeof CrmRoute
@@ -171,6 +179,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/briefings': typeof BriefingsRouteWithChildren
+  '/cadencia': typeof CadenciaRoute
   '/catalogo': typeof CatalogoRouteWithChildren
   '/contratos': typeof ContratosRouteWithChildren
   '/crm': typeof CrmRoute
@@ -194,6 +203,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/briefings'
+    | '/cadencia'
     | '/catalogo'
     | '/contratos'
     | '/crm'
@@ -215,6 +225,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/briefings'
+    | '/cadencia'
     | '/catalogo'
     | '/contratos'
     | '/crm'
@@ -236,6 +247,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/briefings'
+    | '/cadencia'
     | '/catalogo'
     | '/contratos'
     | '/crm'
@@ -258,6 +270,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   BriefingsRoute: typeof BriefingsRouteWithChildren
+  CadenciaRoute: typeof CadenciaRoute
   CatalogoRoute: typeof CatalogoRouteWithChildren
   ContratosRoute: typeof ContratosRouteWithChildren
   CrmRoute: typeof CrmRoute
@@ -342,6 +355,13 @@ declare module '@tanstack/react-router' {
       path: '/catalogo'
       fullPath: '/catalogo'
       preLoaderRoute: typeof CatalogoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cadencia': {
+      id: '/cadencia'
+      path: '/cadencia'
+      fullPath: '/cadencia'
+      preLoaderRoute: typeof CadenciaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/briefings': {
@@ -463,6 +483,7 @@ const PropostasRouteWithChildren = PropostasRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   BriefingsRoute: BriefingsRouteWithChildren,
+  CadenciaRoute: CadenciaRoute,
   CatalogoRoute: CatalogoRouteWithChildren,
   ContratosRoute: ContratosRouteWithChildren,
   CrmRoute: CrmRoute,
@@ -479,13 +500,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
