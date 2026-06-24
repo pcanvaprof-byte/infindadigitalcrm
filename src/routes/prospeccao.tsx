@@ -798,7 +798,7 @@ function ProspeccaoPage() {
           company: rawCompany ? toTitleCase(rawCompany) : "",
           cnpj: cnpjRaw || undefined,
           segment: segRaw ? segRaw.charAt(0).toUpperCase() + segRaw.slice(1).toLowerCase() : "Outros",
-          owner: (f.responsavel >= 0 ? cleanQuadroSocietario(c[f.responsavel] || "") : "") || user.name,
+          owner: f.responsavel >= 0 ? cleanQuadroSocietario(c[f.responsavel] || "") : "",
           whatsapp,
           phone,
           email: f.email >= 0 ? c[f.email] || "" : "",
