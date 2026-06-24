@@ -147,6 +147,7 @@ export async function addTouchpoint(input: {
   mensagem?: string | null;
   resultado: TouchpointResultado;
 }): Promise<Touchpoint> {
+  console.log("[cadence-api] addTouchpoint:start", input);
   const user_id = await uid();
   const { data, error } = await sb
     .from("prospect_touchpoints")
@@ -159,7 +160,11 @@ export async function addTouchpoint(input: {
     })
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    console.error("[cadence-api] addTouchpoint:error", { input, error });
+    throw error;
+  }
+  console.log("[cadence-api] addTouchpoint:ok", { id: (data as Touchpoint)?.id });
   return data as Touchpoint;
 }
 
