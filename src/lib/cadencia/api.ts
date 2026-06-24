@@ -174,6 +174,7 @@ export async function syncLeadStagesFromProspects(): Promise<number> {
   const idsByStage = new Map<CadStage, string[]>();
   for (const lead of leads) {
     if (!lead.prospect_id) continue;
+    if (!statusByProspectId.has(lead.prospect_id)) continue;
     const targetStage = prospectStatusToCadStage(statusByProspectId.get(lead.prospect_id));
     if (targetStage === lead.stage) continue;
     idsByStage.set(targetStage, [...(idsByStage.get(targetStage) ?? []), lead.id]);
