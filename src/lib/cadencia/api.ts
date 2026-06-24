@@ -223,9 +223,9 @@ export async function fetchMetrics(): Promise<CadMetrics> {
   const { data, error } = await db.rpc("cad_dashboard_metrics");
   if (error) throw new Error(error.message);
   const base = (data ?? {}) as Partial<CadMetrics>;
-  // O RPC nem sempre devolve a série; calculamos a partir de cad_messages
-  // para garantir o gráfico "Evolução (últimos 30 dias)".
-  const serie = base.serie_30d && base.serie_30d.length ? base.serie_30d : await fetchSerie30d();
+  // Fonte confiável do gráfico: sempre recalcula por dia direto de cad_messages,
+  // porque o RPC pode devolver serie_30d presente porém zerada/desatualizada.
+  const serie = await fetchSerie30d();
   return {
     total: base.total ?? 0,
     by_stage: base.by_stage ?? {},
@@ -239,29 +239,49 @@ export async function fetchMetrics(): Promise<CadMetrics> {
 async function fetchSerie30d(): Promise<CadMetrics["serie_30d"]> {
   const since = new Date(Date.now() - 29 * 24 * 60 * 60 * 1000);
   since.setHours(0, 0, 0, 0);
-  const { data, error } = await db
-    .from("cad_messages")
-    .select("created_at,direction")
-    .gte("created_at", since.toISOString());
-  if (error) {
-    console.warn("[cadencia] fetchSerie30d", error.message);
-    return buildEmptySerie(since);
+  const rows: Array<{ created_at: string; direction: string | null }> = [];
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await db
+      .from("cad_messages")
+      .select("created_at,direction")
+      .gte("created_at", since.toISOString())
+      .order("created_at", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) {
+      console.warn("[cadencia] fetchSerie30d", error.message);
+      return buildEmptySerie(since);
+    }
+    const page = (data ?? []) as Array<{ created_at: string; direction: string | null }>;
+    rows.push(...page);
+    if (page.length < pageSize) break;
   }
-  const rows = (data ?? []) as { created_at: string; direction: string | null }[];
   const acc = new Map<string, { enviadas: number; respostas: number }>();
   for (let i = 0; i < 30; i++) {
     const d = new Date(since);
     d.setDate(since.getDate() + i);
-    acc.set(dayKey(d), { enviadas: 0, respostas: 0 });
+    acc.set(isoDayKey(d), { enviadas: 0, respostas: 0 });
   }
   for (const r of rows) {
-    const key = dayKey(new Date(r.created_at));
+    const key = isoDayKey(new Date(r.created_at));
     const slot = acc.get(key);
     if (!slot) continue;
     if (r.direction === "in") slot.respostas++;
     else slot.enviadas++;
   }
-  return Array.from(acc.entries()).map(([dia, v]) => ({ dia, ...v }));
+  return Array.from(acc.entries()).map(([key, v]) => ({ dia: formatIsoDayKey(key), ...v }));
+}
+
+function isoDayKey(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function formatIsoDayKey(key: string): string {
+  const [, mm, dd] = key.split("-");
+  return `${dd}/${mm}`;
 }
 
 function dayKey(d: Date): string {
