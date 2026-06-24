@@ -72,24 +72,30 @@ function CadenciaPage() {
   return (
     <AppShell title="Cadência Comercial">
       <div className="p-4 space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <h1 className="text-xl font-semibold text-foreground">Cadência</h1>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:ml-auto sm:flex-row sm:items-center">
             <Input
               placeholder="Buscar empresa, responsável..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-64"
+              className="w-full sm:w-64"
             />
-            <Button variant="outline" onClick={() => importM.mutate()} disabled={importM.isPending}>
-              <Download className="h-4 w-4 mr-2" /> Importar de Prospecção
-            </Button>
-            <Button variant="outline" onClick={invalidateAll}>
-              <RefreshCw className="h-4 w-4 mr-2" /> Atualizar
-            </Button>
-            <Button onClick={() => setOpenNew(true)}>
-              <Plus className="h-4 w-4 mr-2" /> Novo lead
-            </Button>
+            <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center">
+              <Button variant="outline" size="sm" onClick={() => importM.mutate()} disabled={importM.isPending} className="w-full sm:w-auto">
+                <Download className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Importar de Prospecção</span>
+                <span className="ml-1 sm:hidden">Importar</span>
+              </Button>
+              <Button variant="outline" size="sm" onClick={invalidateAll} className="w-full sm:w-auto">
+                <RefreshCw className="h-4 w-4 sm:mr-2" />
+                <span className="ml-1 sm:ml-0">Atualizar</span>
+              </Button>
+              <Button size="sm" onClick={() => setOpenNew(true)} className="w-full sm:w-auto">
+                <Plus className="h-4 w-4 sm:mr-2" />
+                <span className="ml-1 sm:ml-0">Novo lead</span>
+              </Button>
+            </div>
           </div>
         </div>
 
