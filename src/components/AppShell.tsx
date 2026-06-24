@@ -12,7 +12,6 @@ import {
   Bot,
   Rocket,
   Settings,
-  Bell,
   LogOut,
   Menu,
   Package,
