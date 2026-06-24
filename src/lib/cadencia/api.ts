@@ -7,6 +7,39 @@ const db = supabase as unknown as {
   rpc: (n: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
 };
 
+type ProspectStatusRow = { id: string; status: string | null };
+type CadLeadStageRow = Pick<CadLead, "id" | "prospect_id" | "stage">;
+
+const PROSPECT_STATUS_TO_CAD_STAGE: Record<string, CadStage> = {
+  nao_contatado: "followup_1",
+  primeiro_contato: "followup_2",
+  qualificado: "interessado",
+  briefing_enviado: "interessado",
+  diagnostico_pendente: "interessado",
+  agendado: "reuniao_agendada",
+  proposta_enviada: "proposta_enviada",
+  proposta_pendente: "negociacao",
+  em_negociacao: "negociacao",
+  fechado_ganho: "fechado",
+  cliente: "fechado",
+  aguardando_kickoff: "fechado",
+  aguardando_producao: "fechado",
+  em_producao: "fechado",
+  entregue: "fechado",
+  perdido: "perdido",
+};
+
+function prospectStatusToCadStage(status: string | null | undefined): CadStage {
+  if (status?.startsWith("aguardando_")) return "fechado";
+  return PROSPECT_STATUS_TO_CAD_STAGE[status ?? ""] ?? "followup_1";
+}
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
+}
+
 export async function listLeads(): Promise<CadLead[]> {
   const pageSize = 1000;
   const all: CadLead[] = [];
@@ -106,10 +139,63 @@ export async function fetchMetrics(): Promise<CadMetrics> {
   return data as CadMetrics;
 }
 
-export async function importFromProspects(): Promise<number> {
+export async function syncLeadStagesFromProspects(): Promise<number> {
+  const pageSize = 1000;
+  const prospects: ProspectStatusRow[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await db
+      .from("prospects")
+      .select("id,status")
+      .order("created_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as ProspectStatusRow[];
+    prospects.push(...rows);
+    if (rows.length < pageSize) break;
+  }
+
+  const statusByProspectId = new Map(prospects.map((p) => [p.id, p.status]));
+  if (statusByProspectId.size === 0) return 0;
+
+  const leads: CadLeadStageRow[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await db
+      .from("cad_leads")
+      .select("id,prospect_id,stage")
+      .not("prospect_id", "is", null)
+      .order("updated_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as CadLeadStageRow[];
+    leads.push(...rows);
+    if (rows.length < pageSize) break;
+  }
+
+  const idsByStage = new Map<CadStage, string[]>();
+  for (const lead of leads) {
+    if (!lead.prospect_id) continue;
+    if (!statusByProspectId.has(lead.prospect_id)) continue;
+    const targetStage = prospectStatusToCadStage(statusByProspectId.get(lead.prospect_id));
+    if (targetStage === lead.stage) continue;
+    idsByStage.set(targetStage, [...(idsByStage.get(targetStage) ?? []), lead.id]);
+  }
+
+  let updated = 0;
+  for (const [stage, ids] of idsByStage) {
+    for (const batch of chunk(ids, 200)) {
+      const { error } = await db.from("cad_leads").update({ stage }).in("id", batch);
+      if (error) throw new Error(error.message);
+      updated += batch.length;
+    }
+  }
+  return updated;
+}
+
+export async function importFromProspects(): Promise<{ imported: number; updated: number }> {
   const { data, error } = await db.rpc("cad_import_from_prospects", { p_ids: null });
   if (error) throw new Error(error.message);
-  return (data as number) ?? 0;
+  const updated = await syncLeadStagesFromProspects();
+  return { imported: (data as number) ?? 0, updated };
 }
 
 // ----- Notificações -----
