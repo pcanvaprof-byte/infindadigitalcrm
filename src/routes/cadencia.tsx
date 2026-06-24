@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, RefreshCw, Download } from "lucide-react";
+import { Plus, RefreshCw, Download, Eraser } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { cleanupOwnerFallback } from "@/lib/prospects/cleanup.functions";
 import { DashboardCadencia } from "@/components/cadencia/DashboardCadencia";
 import { CadenciaKanban } from "@/components/cadencia/CadenciaKanban";
 import { LeadDrawer } from "@/components/cadencia/LeadDrawer";
@@ -89,6 +91,21 @@ function CadenciaPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const cleanupFn = useServerFn(cleanupOwnerFallback);
+  const cleanupM = useMutation({
+    mutationFn: () => cleanupFn({ data: undefined as never }),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["prospects"] });
+      qc.invalidateQueries({ queryKey: ["cad-leads"] });
+      toast.success(
+        r.cleared > 0
+          ? `${r.cleared} responsável(is) limpo(s)`
+          : "Nenhum responsável precisava ser limpo",
+      );
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <AppShell title="Cadência Comercial">
       <div className="p-4 space-y-4">
@@ -110,6 +127,10 @@ function CadenciaPage() {
               <Button variant="outline" size="sm" onClick={() => refreshM.mutate()} disabled={refreshM.isPending} className="w-full sm:w-auto">
                 <RefreshCw className="h-4 w-4 sm:mr-2" />
                 <span className="ml-1 sm:ml-0">Atualizar</span>
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => cleanupM.mutate()} disabled={cleanupM.isPending} className="w-full sm:w-auto" title="Limpa o responsável dos prospects que receberam o seu nome automaticamente">
+                <Eraser className="h-4 w-4 sm:mr-2" />
+                <span className="ml-1 sm:ml-0">Limpar responsáveis</span>
               </Button>
               <Button size="sm" onClick={() => setOpenNew(true)} className="w-full sm:w-auto">
                 <Plus className="h-4 w-4 sm:mr-2" />
