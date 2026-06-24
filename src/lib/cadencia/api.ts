@@ -8,9 +8,20 @@ const db = supabase as unknown as {
 };
 
 export async function listLeads(): Promise<CadLead[]> {
-  const { data, error } = await db.from("cad_leads").select("*").order("updated_at", { ascending: false });
-  if (error) throw new Error(error.message);
-  return (data ?? []) as CadLead[];
+  const pageSize = 1000;
+  const all: CadLead[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await db
+      .from("cad_leads")
+      .select("*")
+      .order("updated_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as CadLead[];
+    all.push(...rows);
+    if (rows.length < pageSize) break;
+  }
+  return all;
 }
 
 export async function getLead(id: string): Promise<CadLead | null> {
