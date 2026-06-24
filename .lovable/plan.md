@@ -1,93 +1,112 @@
-## Módulo de Formalização Contratual — INFINDA
 
-Transformar propostas aprovadas em contratos formais por meio de um wizard premium de 8 etapas, com automações pós-assinatura, dashboard, histórico e central de documentos.
+## Módulo Cadência Comercial (independente)
 
-Como o escopo é muito grande, proponho entregar em **4 fases incrementais**, todas no mesmo padrão visual (dark, premium, cards elegantes, animações discretas) já adotado nas propostas.
+Sem tocar em `/prospeccao` nem `/crm`. Nova rota `/cadencia` com persistência real (sem mocks).
 
----
+### 1. Banco de dados — nova migration `scripts/migrations/20260708_cadencia_module.sql`
 
-### Fase 1 — Fundação (banco + fluxo base)
+Tabelas novas (isoladas, prefixadas `cad_`):
 
-**Banco (migration)**
-- `contracts` — vínculo 1:1 com `proposals`, status, número (`CTR-YYYY-NNNN`), valores espelhados, datas, owner.
-- `contract_parties` — PF/PJ, todos os campos do contratante, endereço.
-- `contract_financials` — método de pagamento, vencimento, parcelamento, dados bancários.
-- `contract_scope_items` — derivado dos itens da proposta + entregáveis dinâmicos por tipo de serviço.
-- `contract_acceptances` — checkboxes + IP/data/hora/user.
-- `contract_signatures` — tipo (desenhada/digitada/email), payload, IP, hora.
-- `contract_documents` — uploads (Storage bucket privado `contracts`).
-- `contract_events` — histórico (criado, editado, assinado, etc).
-- Status enum: `aguardando_formalizacao | em_preenchimento | aguardando_assinatura | assinado | pendente_financeiro | ativo | cancelado | encerrado`.
-- GRANTs + RLS por role (admin, comercial, financeiro, producao, cliente via token).
-- Trigger: ao aprovar proposta → cria `contracts` em `aguardando_formalizacao`.
+- `cad_leads` — leads em cadência
+  - `id uuid pk`, `org_id`, `owner_id` (auth.users), `prospect_id` (fk opcional para `prospects`, somente leitura — nunca grava de volta)
+  - `empresa text`, `responsavel text`, `cargo text`, `telefone text`, `whatsapp text`, `email text`
+  - `stage cad_stage not null default 'followup_1'`
+  - `temperatura cad_temp not null default 'morno'` (`quente|morno|frio`)
+  - `primeira_abordagem_at timestamptz not null default now()`
+  - `last_contact_at timestamptz`, `next_action_at timestamptz`
+  - `last_response_at timestamptz` (preenchido quando registra resposta)
+  - `closed_at`, `closed_reason text` (`ganho|perdido|sem_interesse|...`)
+  - timestamps padrão
+- `cad_messages` — histórico
+  - `id`, `lead_id fk`, `org_id`, `author_id`
+  - `tipo` (`whatsapp|email|ligacao|nota|sistema`)
+  - `direction` (`out|in|system`)
+  - `stage_at_send cad_stage` (etapa no momento)
+  - `mensagem text`, `status` (`pendente|enviada|respondida`)
+  - `created_at`
+- `cad_templates` — mensagens padrão por etapa (org-scoped, editáveis)
+  - `id`, `org_id`, `stage`, `titulo`, `corpo text` (com `{{empresa}}`, `{{responsavel}}`)
+  - seed default com os 7 textos especificados + interessado/reunião
 
-**Bucket**
-- `contracts` (privado) para documentos do cliente e PDF final.
+Enums:
+- `cad_stage`: `followup_1..7`, `interessado`, `reuniao_agendada`, `proposta_enviada`, `negociacao`, `fechado`, `perdido`
+- `cad_temp`: `quente|morno|frio`
 
-**Rota e CTA**
-- Botão "Formalizar Contrato" na proposta quando status = aprovada.
-- Nova rota `/_authenticated/contratos/$id` (wizard) e `/_authenticated/contratos` (lista).
+RPC:
+- `cad_dashboard_metrics()` → jsonb com totais por etapa, interessados, reuniões, propostas, perdidos, taxa_resposta, taxa_conversao, série diária dos últimos 30 dias.
+- `cad_advance_stage(lead_id, new_stage)` (registra system message)
+- `cad_register_message(lead_id, tipo, mensagem, mark_sent boolean)` — insere `cad_messages`, atualiza `last_contact_at`, agenda `next_action_at` conforme cronograma (D+3, +7, +10, +14, +18, +24, +30).
+- `cad_register_response(lead_id, mensagem)` — marca `last_response_at`, esfria/esquenta lead, insere mensagem `direction=in`.
 
----
+RLS por `org_id` + `owner_id`. GRANTs para `authenticated` e `service_role`. Triggers de `updated_at` e auto-schedule de `next_action_at`.
 
-### Fase 2 — Wizard de 8 etapas
+Seed de `cad_templates` por org via trigger `after insert on organizations` (e backfill no script).
 
-Componente `ContractWizard` com header sticky (nº proposta, cliente, consultor, implantação, mensalidade, status, data) e stepper horizontal.
+### 2. Frontend
 
-1. **Informações Gerais** — resumo read-only puxado da proposta.
-2. **Contratante** — toggle PF/PJ + formulário com validação Zod, máscara CPF/CNPJ/CEP, lookup CEP automático, uploads (preview).
-3. **Financeiro** — método, vencimento, parcelamento, dados bancários condicionais.
-4. **Escopo** — leitura dos itens da proposta + entregáveis dinâmicos baseados em `serviceProfile.ts` (tráfego, CRM, IA, site, landing).
-5. **Condições** — resumo gerado + botão "Visualizar Contrato Completo" (PDF).
-6. **Aceites** — 4 checkboxes obrigatórios, bloqueio de avanço.
-7. **Assinatura** — canvas (desenhada), input (digitada), envio por e-mail (placeholder para Clicksign/DocuSign), registro de IP/hora.
-8. **Conclusão** — animação de sucesso, número do contrato, botões (PDF, e-mail, download, ir para Kickoff).
+**API client** `src/lib/cadencia/api.ts`
+- `listLeads({ stage?, search? })`, `getLead(id)`, `createLead(input)`, `updateLead(id, patch)`
+- `moveStage(id, stage)`, `setTemperatura(id, temp)`
+- `listMessages(leadId)`, `sendMessage({leadId, tipo, mensagem, markSent})`, `registerResponse(...)`
+- `listTemplates()`, `updateTemplate(stage, corpo)`
+- `fetchMetrics()` (RPC)
+- `renderTemplate(corpo, lead)` — substitui variáveis
 
-Persistência incremental: cada etapa salva via server function (`saveContractStep`) com middleware `requireSupabaseAuth`. Auto-save discreto.
+**Types** `src/lib/cadencia/types.ts` — enums TS + labels + cronograma de dias.
 
----
+**Rota** `src/routes/cadencia.tsx`
+- Header com tabs: **Dashboard** | **Pipeline** | **Templates**
+- Dashboard: cards de KPIs (todos os indicadores listados) + LineChart (recharts já no projeto) de envios/respostas por dia (30d).
+- Pipeline: Kanban horizontal com 13 colunas (`STAGES`). Cada coluna mostra contagem + botão "Enviar Mensagem" no topo (abre dialog em batch opcional — V1 abre por card). Card mostra: empresa, responsável, cargo, telefone, primeira abordagem, último contato, próxima ação (badge colorido por atraso), dias sem resposta, ícone de temperatura.
+- Drag-and-drop entre colunas via `@dnd-kit/core` (já instalado? verificar; se não, adicionar) — fallback: menu "Mover para…".
+- Drawer ao clicar no card: dados completos + Timeline + ações (Enviar, Copiar, Editar, Marcar enviado, Agendar próximo, Mover, Interessado, Perdido).
+- Templates: lista editável dos 7+ textos com preview de variáveis.
 
-### Fase 3 — Automações pós-assinatura
+**Componentes** em `src/components/cadencia/`:
+- `CadenciaKanban.tsx`
+- `LeadCard.tsx`
+- `LeadDrawer.tsx`
+- `LeadTimeline.tsx`
+- `SendMessageDialog.tsx` (preenche template, permite editar antes de enviar, abre WhatsApp `wa.me/<phone>?text=`)
+- `DashboardCadencia.tsx`
+- `TemplatesPanel.tsx`
+- `TemperaturaBadge.tsx`, `StageBadge.tsx`
 
-Server function `finalizeContract` (transação):
-- Status proposta → `contrato_formalizado`.
-- Cria/vincula `client` no CRM.
-- Cria projeto + cronograma + kickoff (reaproveita `briefings` existente).
-- Cria registro financeiro + primeira cobrança.
-- Gera tarefas internas padrão.
-- Cria pasta lógica de documentos.
-- Dispara e-mail + WhatsApp (placeholder com link `wa.me`).
-- Registra evento em `contract_events` e `proposal_events`.
+**Nav**: adicionar item "Cadência" no `AppShell`/sidebar.
 
-PDF do contrato gerado server-side com template consultivo (mesma linguagem premium das propostas).
+### 3. Integração com Prospecção (somente leitura, não invasiva)
 
----
+Em `/cadencia` há botão **"Importar de Prospecção"** que lista prospects do usuário ainda não importados (left join contra `cad_leads.prospect_id`) e cria `cad_leads` com `stage=followup_1`, `next_action_at = now()+3d`. Prospecção continua intocada.
 
-### Fase 4 — Dashboard, histórico e documentos
+### 4. Cronograma de follow-up (canônico)
+```
+followup_1: +3d
+followup_2: +7d  (a partir de followup_1)
+followup_3: +10d
+followup_4: +14d
+followup_5: +18d
+followup_6: +24d
+followup_7: +30d
+```
+Calculado em SQL no `cad_register_message`.
 
-- `/_authenticated/contratos` com:
-  - KPIs: ativos, pendentes, assinados, cancelados, tempo médio assinatura, MRR, ARR, ticket médio, conversão proposta→contrato.
-  - Tabela com filtros por status, consultor, período.
-- Drawer/aba **Histórico** no contrato (timeline de `contract_events`).
-- Drawer/aba **Documentos** (lista + upload + preview + download + versionamento simples).
-- Permissões aplicadas via `has_role` em todas as queries/mutations.
+### 5. Regras
+- 100% persistido, sem mocks/hardcode.
+- KPIs vêm da RPC `cad_dashboard_metrics()`.
+- Mensagens reais via `cad_messages`.
+- Multi-tenant via `org_id` (segue padrão do projeto).
+- Cores/tokens: usar `src/styles.css` (sem cores hardcoded em componentes).
 
----
+### 6. Ordem de execução
+1. Criar migration + aplicar.
+2. `types.ts` + `api.ts`.
+3. Rota + tabs vazias.
+4. Dashboard.
+5. Kanban + card + drawer + timeline.
+6. SendMessageDialog + integração WhatsApp.
+7. Templates editor.
+8. Botão importar de Prospecção.
+9. Nav link.
 
-### Detalhes técnicos
-
-- **Stack**: TanStack Start + server functions + Supabase (Lovable Cloud) + Tailwind v4 + shadcn.
-- **Validação**: Zod schemas compartilhados em `src/lib/contratos/schema.ts`.
-- **API**: `src/lib/contratos/api.ts` (client), `src/lib/contratos/*.functions.ts` (server), `src/lib/contratos/pdf.ts` (geração).
-- **UI**: `src/components/contratos/` (Wizard, Stepper, StepHeader, steps/*, dialogs/*).
-- **Design tokens**: mantém paleta atual; nenhum hardcoded color.
-- **Arquitetura preparada** para Clicksign/DocuSign/Asaas/Stripe (interfaces tipadas em `src/lib/contratos/integrations/`).
-- **Eventos**: reaproveita padrão `logEvent` já existente.
-
----
-
-### Confirmações antes de começar
-
-1. Posso começar pela **Fase 1 + Fase 2** (fundação + wizard funcional ponta a ponta com persistência), entregando Fases 3 e 4 nas próximas iterações? Isso garante algo navegável já no primeiro turno, sem 30+ arquivos quebrados ao mesmo tempo.
-2. Para assinatura eletrônica nesta primeira versão: assinatura **desenhada (canvas) + digitada** já cobre o MVP — Clicksign/DocuSign ficam como interface preparada, ativadas depois quando você quiser conectar as contas. OK?
-3. PDF do contrato: gero com template consultivo próprio (mesma linguagem das propostas refatoradas), OK?
+### Aviso
+Módulo grande. Vou implementar em uma única passada, mas validações visuais finas (drag-and-drop, responsividade extrema) ficarão para um ajuste seguinte conforme feedback.
