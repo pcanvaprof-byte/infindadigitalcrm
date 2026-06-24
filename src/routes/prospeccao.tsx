@@ -616,9 +616,11 @@ function ProspeccaoPage() {
     const d = onlyDigits(p.whatsapp);
     if (!d) return toast.error("WhatsApp não cadastrado");
     const msg = `Olá, vi que sua empresa foi aberta recentemente. Parabéns pela nova fase! 🎉\nPercebi que muitas empresas novas acabam perdendo oportunidades por ainda não terem uma presença profissional na internet.\n\nEu ajudo negócios a terem um site moderno que transmite confiança e gera contatos desde os primeiros meses de operação.\n\nPosso te mostrar alguns exemplos e fazer uma análise gratuita da sua presença digital?`;
-    window.open(`https://wa.me/55${d}?text=${encodeURIComponent(msg)}`, "_blank");
+    // Define o confirm ANTES de abrir o WhatsApp para garantir que o estado
+    // esteja commitado caso o navegador móvel saia da aba para o app.
+    setWhatsConfirm({ id: p.id, company: p.company });
     void logAttempt(p, "whatsapp");
-    setTouchpointTarget({ prospect: p, tipo: "whatsapp" });
+    window.open(`https://wa.me/55${d}?text=${encodeURIComponent(msg)}`, "_blank");
   };
   const callPhone = (p: Prospect) => {
     const d = onlyDigits(p.phone || p.whatsapp);
