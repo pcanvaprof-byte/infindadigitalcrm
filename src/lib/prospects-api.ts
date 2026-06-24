@@ -212,6 +212,7 @@ export async function insertProspect(p: Omit<Prospect, "id" | "createdAt" | "int
 }
 
 export async function updateProspect(id: string, patch: Partial<Prospect>) {
+  console.log("[prospects-api] updateProspect:start", { id, patch });
   await requireUserId();
   const map: Record<string, unknown> = {};
   if (patch.company !== undefined) map.company = patch.company;
@@ -228,7 +229,11 @@ export async function updateProspect(id: string, patch: Partial<Prospect>) {
   if (patch.potential !== undefined) map.potential = patch.potential;
   if (patch.status !== undefined) map.status = patch.status;
   const { error } = await supabase.from("prospects").update(map as never).eq("id", id);
-  if (error) throw error;
+  if (error) {
+    console.error("[prospects-api] updateProspect:error", { id, patch, error });
+    throw error;
+  }
+  console.log("[prospects-api] updateProspect:ok", { id, fields: Object.keys(map) });
 }
 
 export async function deleteProspects(ids: string[]) {

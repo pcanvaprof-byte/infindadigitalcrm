@@ -512,10 +512,17 @@ function ProspeccaoPage() {
   };
 
   const updateStatus = (id: string, status: ProspectStatus) => {
+    console.log("[prosp] updateStatus:start", { id, status });
     setCache((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)));
     updateProspect(id, { status })
-      .then(() => invalidateCrmCore(qc))
-      .catch((e) => toast.error(`Erro: ${e.message ?? e}`));
+      .then(() => {
+        console.log("[prosp] updateStatus:ok", { id, status });
+        return invalidateCrmCore(qc);
+      })
+      .catch((e) => {
+        console.error("[prosp] updateStatus:error", { id, status, error: e });
+        toast.error(`Erro: ${e.message ?? e}`);
+      });
     addInteraction(id, "status", `Status alterado para "${STATUS_LABEL[status]}"`);
     toast.success(`Status: ${STATUS_LABEL[status]}`);
   };
@@ -599,27 +606,36 @@ function ProspeccaoPage() {
 
   const logAttempt = async (prospect: Prospect, tipo: TouchpointTipo) => {
     try {
+      console.log("[prosp] logAttempt:start", { prospectId: prospect.id, tipo });
       await addTouchpoint({
         prospect_id: prospect.id,
         tipo,
         resultado: "tentativa",
         mensagem: "auto: clique na ação",
       });
+      console.log("[prosp] logAttempt:ok", { prospectId: prospect.id, tipo });
       qc.invalidateQueries({ queryKey: cadenceKeys.dashboard });
       qc.invalidateQueries({ queryKey: cadenceKeys.timeline(prospect.id) });
-    } catch {
+    } catch (e) {
+      console.error("[prosp] logAttempt:error", { prospectId: prospect.id, tipo, error: e });
       /* não bloqueia o deep link */
     }
   };
 
   const openWhats = (p: Prospect) => {
+    console.log("[prosp] openWhats:click", { id: p.id, company: p.company, whatsapp: p.whatsapp });
     const d = onlyDigits(p.whatsapp);
-    if (!d) return toast.error("WhatsApp não cadastrado");
+    if (!d) {
+      console.warn("[prosp] openWhats:abort:no-whatsapp", { id: p.id });
+      return toast.error("WhatsApp não cadastrado");
+    }
     const msg = `Olá, vi que sua empresa foi aberta recentemente. Parabéns pela nova fase! 🎉\nPercebi que muitas empresas novas acabam perdendo oportunidades por ainda não terem uma presença profissional na internet.\n\nEu ajudo negócios a terem um site moderno que transmite confiança e gera contatos desde os primeiros meses de operação.\n\nPosso te mostrar alguns exemplos e fazer uma análise gratuita da sua presença digital?`;
     // Define o confirm ANTES de abrir o WhatsApp para garantir que o estado
     // esteja commitado caso o navegador móvel saia da aba para o app.
+    console.log("[prosp] openWhats:setConfirm", { id: p.id, company: p.company });
     setWhatsConfirm({ id: p.id, company: p.company });
     void logAttempt(p, "whatsapp");
+    console.log("[prosp] openWhats:window.open", { url: `https://wa.me/55${d}` });
     window.open(`https://wa.me/55${d}?text=${encodeURIComponent(msg)}`, "_blank");
   };
   const callPhone = (p: Prospect) => {
@@ -1173,7 +1189,13 @@ function ProspeccaoPage() {
       </Dialog>
 
       {/* Confirmação pós-WhatsApp: avança status para "Primeiro contato" */}
-      <Dialog open={!!whatsConfirm} onOpenChange={(o) => !o && setWhatsConfirm(null)}>
+      <Dialog
+        open={!!whatsConfirm}
+        onOpenChange={(o) => {
+          console.log("[prosp] whatsConfirm:dialog", { open: o, target: whatsConfirm });
+          if (!o) setWhatsConfirm(null);
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>Foi feito o primeiro contato?</DialogTitle>
@@ -1184,12 +1206,16 @@ function ProspeccaoPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-2">
-            <Button variant="ghost" onClick={() => setWhatsConfirm(null)}>
+            <Button variant="ghost" onClick={() => {
+              console.log("[prosp] whatsConfirm:dismiss", { target: whatsConfirm });
+              setWhatsConfirm(null);
+            }}>
               Ainda não
             </Button>
             <Button
               className="btn-gradient"
               onClick={() => {
+                console.log("[prosp] whatsConfirm:confirm", { target: whatsConfirm });
                 if (whatsConfirm) updateStatus(whatsConfirm.id, "primeiro_contato");
                 setWhatsConfirm(null);
               }}
