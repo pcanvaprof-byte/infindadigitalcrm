@@ -14,7 +14,7 @@ import { CadenciaKanban } from "@/components/cadencia/CadenciaKanban";
 import { LeadDrawer } from "@/components/cadencia/LeadDrawer";
 import { SendMessageDialog } from "@/components/cadencia/SendMessageDialog";
 import { TemplatesPanel } from "@/components/cadencia/TemplatesPanel";
-import { listLeads, createLead, importFromProspects } from "@/lib/cadencia/api";
+import { listLeads, createLead, importFromProspects, syncLeadStagesFromProspects } from "@/lib/cadencia/api";
 import type { CadLead } from "@/lib/cadencia/types";
 
 export const Route = createFileRoute("/cadencia")({
@@ -65,7 +65,19 @@ function CadenciaPage() {
 
   const importM = useMutation({
     mutationFn: importFromProspects,
-    onSuccess: (n) => { invalidateAll(); toast.success(`${n} lead(s) importado(s) da Prospecção`); },
+    onSuccess: ({ imported, updated }) => {
+      invalidateAll();
+      toast.success(`${imported} importado(s) · ${updated} estágio(s) atualizado(s)`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const refreshM = useMutation({
+    mutationFn: syncLeadStagesFromProspects,
+    onSuccess: (updated) => {
+      invalidateAll();
+      toast.success(updated > 0 ? `${updated} estágio(s) atualizado(s)` : "Dashboard atualizado");
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
@@ -87,7 +99,7 @@ function CadenciaPage() {
                 <span className="hidden sm:inline">Importar de Prospecção</span>
                 <span className="ml-1 sm:hidden">Importar</span>
               </Button>
-              <Button variant="outline" size="sm" onClick={invalidateAll} className="w-full sm:w-auto">
+              <Button variant="outline" size="sm" onClick={() => refreshM.mutate()} disabled={refreshM.isPending} className="w-full sm:w-auto">
                 <RefreshCw className="h-4 w-4 sm:mr-2" />
                 <span className="ml-1 sm:ml-0">Atualizar</span>
               </Button>
