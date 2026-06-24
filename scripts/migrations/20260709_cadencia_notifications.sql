@@ -46,6 +46,7 @@ returns int language plpgsql security definer set search_path = public as $$
 declare
   v_org uuid := public.current_org_id();
   v_count int := 0;
+  v_added int := 0;
 begin
   if v_org is null then return 0; end if;
 
@@ -68,7 +69,7 @@ begin
       select 1 from public.cad_notifications n
       where n.lead_id = l.id and n.kind = 'overdue' and n.handled_at is null
     );
-  get diagnostics v_count = v_count + row_count;
+  get diagnostics v_added = row_count; v_count := v_count + v_added;
 
   -- 2) última tentativa (followup_7) vencida
   insert into public.cad_notifications (organization_id, lead_id, kind, payload)
@@ -86,7 +87,7 @@ begin
       select 1 from public.cad_notifications n
       where n.lead_id = l.id and n.kind = 'last_attempt' and n.handled_at is null
     );
-  get diagnostics v_count = v_count + row_count;
+  get diagnostics v_added = row_count; v_count := v_count + v_added;
 
   -- 3) lead respondeu e ainda não houve registro de resposta tratada
   --    (resposta recente sem nenhuma mensagem out posterior)
@@ -110,7 +111,7 @@ begin
       select 1 from public.cad_notifications n
       where n.lead_id = l.id and n.kind = 'response_pending' and n.handled_at is null
     );
-  get diagnostics v_count = v_count + row_count;
+  get diagnostics v_added = row_count; v_count := v_count + v_added;
 
   return v_count;
 end $$;
