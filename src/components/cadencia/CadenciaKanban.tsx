@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { DndContext, useDraggable, useDroppable, type DragEndEvent } from "@dnd-kit/core";
+import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CAD_STAGES, CAD_STAGE_LABEL, type CadLead, type CadStage, type CadTemplate } from "@/lib/cadencia/types";
@@ -47,6 +47,7 @@ export function CadenciaKanban({
   leads, onOpen, onSend,
 }: { leads: CadLead[]; onOpen: (l: CadLead) => void; onSend: (l: CadLead) => void }) {
   const qc = useQueryClient();
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const tplQ = useQuery({ queryKey: ["cad-templates"], queryFn: listTemplates });
   const tplByStage = useMemo(() => {
     const m = new Map<CadStage, CadTemplate>();
@@ -82,7 +83,7 @@ export function CadenciaKanban({
   }
 
   return (
-    <DndContext onDragEnd={onDragEnd}>
+    <DndContext sensors={sensors} onDragEnd={onDragEnd}>
       <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/20 p-2 text-xs">
         <span className="font-semibold text-foreground">Total: {leads.length}</span>
         <span className="text-muted-foreground">·</span>
