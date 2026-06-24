@@ -65,9 +65,11 @@ function CadenciaPage() {
 
   const importM = useMutation({
     mutationFn: importFromProspects,
-    onSuccess: ({ imported, updated }) => {
+    onSuccess: ({ imported, updated, skipped, cleaned }) => {
       invalidateAll();
-      toast.success(`${imported} importado(s) · ${updated} estágio(s) atualizado(s)`);
+      toast.success(
+        `${imported} importado(s) · ${updated} estágio(s) atualizado(s) · ${skipped} não contatado(s) permanecem em Prospecção${cleaned ? ` · ${cleaned} card(s) sem disparo removido(s)` : ""}`,
+      );
     },
     onError: (e: Error) => toast.error(e.message),
   });
