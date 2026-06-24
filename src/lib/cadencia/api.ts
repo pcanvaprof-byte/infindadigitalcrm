@@ -11,7 +11,6 @@ type ProspectStatusRow = { id: string; status: string | null };
 type CadLeadStageRow = Pick<CadLead, "id" | "prospect_id" | "stage">;
 
 const PROSPECT_STATUS_TO_CAD_STAGE: Record<string, CadStage> = {
-  nao_contatado: "followup_1",
   primeiro_contato: "followup_2",
   qualificado: "interessado",
   briefing_enviado: "interessado",
