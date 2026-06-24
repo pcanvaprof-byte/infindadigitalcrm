@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Send } from "lucide-react";
 import { diasSemResposta, type CadLead } from "@/lib/cadencia/types";
 import { TemperaturaBadge } from "./TemperaturaBadge";
+import { StageBadge } from "./StageBadge";
 
 function fmt(iso: string | null | undefined) {
   if (!iso) return "—";
@@ -33,6 +34,9 @@ export function LeadCard({
           )}
         </button>
         <TemperaturaBadge temp={lead.temperatura} />
+      </div>
+      <div className="mt-2">
+        <StageBadge stage={lead.stage} />
       </div>
       {lead.telefone && (
         <div className="mt-1 text-[11px] text-muted-foreground">{lead.telefone}</div>
