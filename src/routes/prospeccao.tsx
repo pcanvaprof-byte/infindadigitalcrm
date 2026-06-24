@@ -512,10 +512,17 @@ function ProspeccaoPage() {
   };
 
   const updateStatus = (id: string, status: ProspectStatus) => {
+    console.log("[prosp] updateStatus:start", { id, status });
     setCache((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)));
     updateProspect(id, { status })
-      .then(() => invalidateCrmCore(qc))
-      .catch((e) => toast.error(`Erro: ${e.message ?? e}`));
+      .then(() => {
+        console.log("[prosp] updateStatus:ok", { id, status });
+        return invalidateCrmCore(qc);
+      })
+      .catch((e) => {
+        console.error("[prosp] updateStatus:error", { id, status, error: e });
+        toast.error(`Erro: ${e.message ?? e}`);
+      });
     addInteraction(id, "status", `Status alterado para "${STATUS_LABEL[status]}"`);
     toast.success(`Status: ${STATUS_LABEL[status]}`);
   };
