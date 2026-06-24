@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ export function SendMessageDialog({
   const qc = useQueryClient();
   const tpls = useQuery({ queryKey: ["cad-templates"], queryFn: listTemplates, enabled: open });
   const [msg, setMsg] = useState("");
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     if (!lead || !open) return;
@@ -33,47 +34,52 @@ export function SendMessageDialog({
     else setMsg("");
   }, [lead, open, tpls.data]);
 
-  const sendM = useMutation({
-    mutationFn: async (waWindow: Window | null) => {
-      if (!lead) return;
-      const phone = waPhone(lead.whatsapp || lead.telefone || "");
+  function isMobile() {
+    if (typeof navigator === "undefined") return false;
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  }
+
+  function handleSend() {
+    if (!lead || !msg.trim() || sending) return;
+    const phone = waPhone(lead.whatsapp || lead.telefone || "");
+    if (!phone) {
+      toast.warning("Lead sem telefone/WhatsApp.");
+      return;
+    }
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+    setSending(true);
+
+    // 1) Abre o WhatsApp IMEDIATAMENTE dentro do gesto do usuário.
+    //    No mobile usa navegação direta (popups são bloqueados); no desktop nova aba.
+    if (isMobile()) {
+      // Dispara antes de qualquer await para não perder o gesto.
+      window.location.href = url;
+    } else {
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+
+    // 2) Registra em background — não bloqueia a navegação.
+    (async () => {
       try {
         await registerSend({ leadId: lead.id, tipo: "whatsapp", mensagem: msg, advance: true });
-        // Sincroniza CRM: prospect sai de "nao_contatado" assim que o disparo é registrado.
         try {
           await markProspectContactedFromLead(lead.id);
         } catch (syncErr) {
-          // não bloqueia o fluxo do WhatsApp; só avisa.
           console.warn("Falha ao sincronizar status do prospect:", syncErr);
         }
+        toast.success("Mensagem registrada");
+        qc.invalidateQueries({ queryKey: ["cad-leads"] });
+        qc.invalidateQueries({ queryKey: ["cad-messages"] });
+        qc.invalidateQueries({ queryKey: ["cad-metrics"] });
+        qc.invalidateQueries({ queryKey: ["prospects"] });
       } catch (e) {
-        // Fecha a aba pré-aberta para não deixar wa.me em branco se o registro falhou
-        if (waWindow && !waWindow.closed) waWindow.close();
-        throw e;
+        toast.error((e as Error).message);
+      } finally {
+        setSending(false);
+        onOpenChange(false);
       }
-      if (phone) {
-        const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
-        if (waWindow && !waWindow.closed) {
-          waWindow.location.href = url;
-        } else {
-          // Fallback: navega na mesma aba se o popup foi bloqueado
-          window.location.href = url;
-        }
-      } else {
-        if (waWindow && !waWindow.closed) waWindow.close();
-        toast.warning("Lead sem telefone/WhatsApp — mensagem registrada, mas não foi possível abrir o WhatsApp.");
-      }
-    },
-    onSuccess: () => {
-      toast.success("Mensagem registrada");
-      qc.invalidateQueries({ queryKey: ["cad-leads"] });
-      qc.invalidateQueries({ queryKey: ["cad-messages"] });
-      qc.invalidateQueries({ queryKey: ["cad-metrics"] });
-      qc.invalidateQueries({ queryKey: ["prospects"] });
-      onOpenChange(false);
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
+    })();
+  }
 
   function copy() {
     navigator.clipboard.writeText(msg).then(() => toast.success("Copiado"));
@@ -89,13 +95,8 @@ export function SendMessageDialog({
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={copy}><Copy className="h-4 w-4 mr-2" /> Copiar</Button>
           <Button
-            onClick={() => {
-              // Abre a aba do WhatsApp SÍNCRONAMENTE dentro do gesto do usuário
-              // para escapar do bloqueador de pop-ups; navegamos depois do registro.
-              const w = window.open("about:blank", "_blank");
-              sendM.mutate(w);
-            }}
-            disabled={sendM.isPending || !msg.trim()}
+            onClick={handleSend}
+            disabled={sending || !msg.trim()}
           >
             <Send className="h-4 w-4 mr-2" /> Enviar via WhatsApp
           </Button>
