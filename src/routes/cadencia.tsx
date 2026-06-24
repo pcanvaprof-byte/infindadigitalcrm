@@ -93,7 +93,7 @@ function CadenciaPage() {
 
   const cleanupFn = useServerFn(cleanupOwnerFallback);
   const cleanupM = useMutation({
-    mutationFn: () => cleanupFn({ data: undefined as never }),
+    mutationFn: () => cleanupFn(),
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ["prospects"] });
       qc.invalidateQueries({ queryKey: ["cad-leads"] });
