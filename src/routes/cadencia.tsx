@@ -15,7 +15,9 @@ import { LeadDrawer } from "@/components/cadencia/LeadDrawer";
 import { SendMessageDialog } from "@/components/cadencia/SendMessageDialog";
 import { TemplatesPanel } from "@/components/cadencia/TemplatesPanel";
 import { listLeads, createLead, importFromProspects, syncLeadStagesFromProspects } from "@/lib/cadencia/api";
-import type { CadLead } from "@/lib/cadencia/types";
+import type { CadLead, CadStage } from "@/lib/cadencia/types";
+import { CAD_STAGE_LABEL } from "@/lib/cadencia/types";
+import { X } from "lucide-react";
 
 export const Route = createFileRoute("/cadencia")({
   ssr: false,
@@ -31,6 +33,7 @@ function CadenciaPage() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<"dashboard" | "pipeline" | "templates">("dashboard");
   const [search, setSearch] = useState("");
+  const [stageFilter, setStageFilter] = useState<CadStage | null>(null);
   const [openNew, setOpenNew] = useState(false);
   const [newL, setNewL] = useState({ empresa: "", responsavel: "", cargo: "", telefone: "", whatsapp: "", email: "" });
 
@@ -39,13 +42,16 @@ function CadenciaPage() {
 
   const leadsQ = useQuery({ queryKey: ["cad-leads"], queryFn: listLeads });
   const leads = useMemo(() => {
-    const all = leadsQ.data ?? [];
-    if (!search.trim()) return all;
-    const s = search.toLowerCase();
-    return all.filter((l) =>
-      [l.empresa, l.responsavel, l.telefone, l.whatsapp].some((v) => (v || "").toLowerCase().includes(s)),
-    );
-  }, [leadsQ.data, search]);
+    let all = leadsQ.data ?? [];
+    if (stageFilter) all = all.filter((l) => l.stage === stageFilter);
+    if (search.trim()) {
+      const s = search.toLowerCase();
+      all = all.filter((l) =>
+        [l.empresa, l.responsavel, l.telefone, l.whatsapp].some((v) => (v || "").toLowerCase().includes(s)),
+      );
+    }
+    return all;
+  }, [leadsQ.data, search, stageFilter]);
 
   const invalidateAll = () => {
     qc.invalidateQueries({ queryKey: ["cad-leads"] });
@@ -120,9 +126,29 @@ function CadenciaPage() {
             <TabsTrigger value="templates">Templates</TabsTrigger>
           </TabsList>
           <TabsContent value="dashboard" className="mt-4">
-            <DashboardCadencia />
+            <DashboardCadencia
+              onStageSelect={(s) => {
+                setStageFilter(s);
+                setTab("pipeline");
+              }}
+            />
           </TabsContent>
           <TabsContent value="pipeline" className="mt-4">
+            {stageFilter && (
+              <div className="mb-3 flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-sm">
+                <span className="text-foreground">
+                  Filtrando por etapa: <strong>{CAD_STAGE_LABEL[stageFilter]}</strong> · {leads.length} lead(s)
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-auto h-7"
+                  onClick={() => setStageFilter(null)}
+                >
+                  <X className="h-3 w-3 mr-1" /> Limpar filtro
+                </Button>
+              </div>
+            )}
             {leadsQ.isLoading ? (
               <div className="text-sm text-muted-foreground">Carregando...</div>
             ) : leads.length === 0 ? (
