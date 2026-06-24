@@ -20,12 +20,29 @@ export const cleanupOwnerFallback = createServerFn({ method: "POST" })
     for (const v of [fullName, name, local]) if (v) candidates.add(v);
     if (candidates.size === 0) return { cleared: 0, matched: [] as string[] };
 
+    const list = Array.from(candidates);
     const { data, error } = await supabase
       .from("prospects")
       .update({ owner_name: "" })
       .eq("user_id", userId)
-      .in("owner_name", Array.from(candidates))
+      .in("owner_name", list)
       .select("id");
     if (error) throw new Error(error.message);
-    return { cleared: data?.length ?? 0, matched: Array.from(candidates) };
+
+    // Limpa também os cards de cadência (cad_leads.responsavel) afetados
+    // pelo mesmo resíduo do antigo fallback.
+    let clearedLeads = 0;
+    const { data: leadData, error: leadErr } = await supabase
+      .from("cad_leads")
+      .update({ responsavel: null })
+      .in("responsavel", list)
+      .select("id");
+    if (leadErr) throw new Error(leadErr.message);
+    clearedLeads = leadData?.length ?? 0;
+
+    return {
+      cleared: data?.length ?? 0,
+      clearedLeads,
+      matched: list,
+    };
   });
