@@ -65,6 +65,7 @@ export function CadenciaKanban({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["cad-leads"] });
       qc.invalidateQueries({ queryKey: ["cad-metrics"] });
+      qc.invalidateQueries({ queryKey: ["prospects"] });
       toast.success("Lead movido");
     },
     onError: (e: Error) => toast.error(e.message),
