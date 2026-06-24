@@ -34,13 +34,27 @@ export function SendMessageDialog({
   }, [lead, open, tpls.data]);
 
   const sendM = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (waWindow: Window | null) => {
       if (!lead) return;
-      await registerSend({ leadId: lead.id, tipo: "whatsapp", mensagem: msg, advance: true });
       const phone = waPhone(lead.whatsapp || lead.telefone || "");
+      try {
+        await registerSend({ leadId: lead.id, tipo: "whatsapp", mensagem: msg, advance: true });
+      } catch (e) {
+        // Fecha a aba pré-aberta para não deixar wa.me em branco se o registro falhou
+        if (waWindow && !waWindow.closed) waWindow.close();
+        throw e;
+      }
       if (phone) {
         const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
-        window.open(url, "_blank");
+        if (waWindow && !waWindow.closed) {
+          waWindow.location.href = url;
+        } else {
+          // Fallback: navega na mesma aba se o popup foi bloqueado
+          window.location.href = url;
+        }
+      } else {
+        if (waWindow && !waWindow.closed) waWindow.close();
+        toast.warning("Lead sem telefone/WhatsApp — mensagem registrada, mas não foi possível abrir o WhatsApp.");
       }
     },
     onSuccess: () => {
@@ -66,7 +80,15 @@ export function SendMessageDialog({
         <Textarea rows={10} value={msg} onChange={(e) => setMsg(e.target.value)} />
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={copy}><Copy className="h-4 w-4 mr-2" /> Copiar</Button>
-          <Button onClick={() => sendM.mutate()} disabled={sendM.isPending || !msg.trim()}>
+          <Button
+            onClick={() => {
+              // Abre a aba do WhatsApp SÍNCRONAMENTE dentro do gesto do usuário
+              // para escapar do bloqueador de pop-ups; navegamos depois do registro.
+              const w = window.open("about:blank", "_blank");
+              sendM.mutate(w);
+            }}
+            disabled={sendM.isPending || !msg.trim()}
+          >
             <Send className="h-4 w-4 mr-2" /> Enviar via WhatsApp
           </Button>
         </DialogFooter>
