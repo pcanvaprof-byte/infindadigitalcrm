@@ -191,11 +191,53 @@ export async function syncLeadStagesFromProspects(): Promise<number> {
   return updated;
 }
 
-export async function importFromProspects(): Promise<{ imported: number; updated: number }> {
-  const { data, error } = await db.rpc("cad_import_from_prospects", { p_ids: null });
-  if (error) throw new Error(error.message);
+/**
+ * Cadência só recebe leads que JÁ tiveram disparo/contato.
+ * Prospects com status `nao_contatado` (ou sem status) permanecem em Prospecção
+ * para serem selecionados no momento do disparo.
+ */
+export async function importFromProspects(): Promise<{ imported: number; updated: number; skipped: number; cleaned: number }> {
+  const pageSize = 1000;
+  const eligibleIds: string[] = [];
+  const naoContatadoIds: string[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await db
+      .from("prospects")
+      .select("id,status")
+      .order("created_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as ProspectStatusRow[];
+    for (const r of rows) {
+      if (!r.status || r.status === "nao_contatado") naoContatadoIds.push(r.id);
+      else eligibleIds.push(r.id);
+    }
+    if (rows.length < pageSize) break;
+  }
+
+  let imported = 0;
+  for (const batch of chunk(eligibleIds, 500)) {
+    const { data, error } = await db.rpc("cad_import_from_prospects", { p_ids: batch });
+    if (error) throw new Error(error.message);
+    imported += (data as number) ?? 0;
+  }
+
+  // Limpa cards que entraram antes dessa regra: remove leads vinculados a prospects
+  // ainda `nao_contatado` e SEM nenhum disparo registrado (preserva histórico real).
+  let cleaned = 0;
+  for (const batch of chunk(naoContatadoIds, 200)) {
+    const { data, error } = await db
+      .from("cad_leads")
+      .delete()
+      .in("prospect_id", batch)
+      .is("last_contact_at", null)
+      .select("id");
+    if (error) throw new Error(error.message);
+    cleaned += ((data ?? []) as { id: string }[]).length;
+  }
+
   const updated = await syncLeadStagesFromProspects();
-  return { imported: (data as number) ?? 0, updated };
+  return { imported, updated, skipped: naoContatadoIds.length, cleaned };
 }
 
 // ----- Notificações -----
