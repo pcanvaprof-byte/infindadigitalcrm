@@ -28,9 +28,57 @@ const PROSPECT_STATUS_TO_CAD_STAGE: Record<string, CadStage> = {
   perdido: "perdido",
 };
 
+/** Mapeamento reverso: stage de cadência → status de prospect (CRM). */
+const CAD_STAGE_TO_PROSPECT_STATUS: Record<CadStage, string> = {
+  followup_1: "primeiro_contato",
+  followup_2: "primeiro_contato",
+  followup_3: "primeiro_contato",
+  followup_4: "primeiro_contato",
+  followup_5: "primeiro_contato",
+  followup_6: "primeiro_contato",
+  followup_7: "primeiro_contato",
+  interessado: "qualificado",
+  reuniao_agendada: "agendado",
+  proposta_enviada: "proposta_enviada",
+  negociacao: "em_negociacao",
+  fechado: "fechado_ganho",
+  perdido: "perdido",
+};
+
 function prospectStatusToCadStage(status: string | null | undefined): CadStage {
   if (status?.startsWith("aguardando_")) return "fechado";
   return PROSPECT_STATUS_TO_CAD_STAGE[status ?? ""] ?? "followup_1";
+}
+
+/**
+ * Propaga uma mudança de stage da cadência para o status do prospect (CRM),
+ * mantendo Prospecção, CRM e Cadência sempre coerentes.
+ * - Só atualiza se o status atual NÃO mapeia para o stage destino.
+ * - Preserva "cliente" e variantes "aguardando_*"/"em_producao"/"entregue" quando
+ *   o destino é `fechado` (não regride status pós-venda).
+ */
+async function propagateStageToProspect(leadId: string, stage: CadStage): Promise<void> {
+  const { data: leadRow, error: leadErr } = await db
+    .from("cad_leads").select("prospect_id").eq("id", leadId).maybeSingle();
+  if (leadErr) return;
+  const prospectId = (leadRow as { prospect_id: string | null } | null)?.prospect_id;
+  if (!prospectId) return;
+
+  const { data: pRow, error: pErr } = await db
+    .from("prospects").select("status").eq("id", prospectId).maybeSingle();
+  if (pErr) return;
+  const current = (pRow as { status: string | null } | null)?.status ?? null;
+
+  // Se o status atual já mapeia para o stage destino, não faz nada.
+  if (current && prospectStatusToCadStage(current) === stage) return;
+
+  // Preserva status pós-venda quando o destino é `fechado`.
+  const postSale = new Set(["cliente", "aguardando_kickoff", "aguardando_producao", "em_producao", "entregue"]);
+  if (stage === "fechado" && current && postSale.has(current)) return;
+
+  const targetStatus = CAD_STAGE_TO_PROSPECT_STATUS[stage];
+  if (!targetStatus) return;
+  await db.from("prospects").update({ status: targetStatus }).eq("id", prospectId);
 }
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -82,6 +130,12 @@ export async function deleteLead(id: string): Promise<void> {
 export async function moveStage(leadId: string, stage: CadStage): Promise<void> {
   const { error } = await db.rpc("cad_move_stage", { p_lead: leadId, p_stage: stage });
   if (error) throw new Error(error.message);
+  // Sincroniza CRM/Prospecção automaticamente.
+  try {
+    await propagateStageToProspect(leadId, stage);
+  } catch (e) {
+    console.warn("Falha ao propagar stage para prospect:", e);
+  }
 }
 
 export async function setTemperatura(id: string, temp: CadTemp): Promise<void> {

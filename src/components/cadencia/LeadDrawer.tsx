@@ -21,6 +21,7 @@ export function LeadDrawer({
     qc.invalidateQueries({ queryKey: ["cad-leads"] });
     qc.invalidateQueries({ queryKey: ["cad-messages"] });
     qc.invalidateQueries({ queryKey: ["cad-metrics"] });
+    qc.invalidateQueries({ queryKey: ["prospects"] });
   };
 
   const moveM = useMutation({
