@@ -32,7 +32,16 @@ export const cleanupOwnerFallback = createServerFn({ method: "POST" })
     // Limpa também os cards de cadência (cad_leads.responsavel) afetados
     // pelo mesmo resíduo do antigo fallback.
     let clearedLeads = 0;
-    const { data: leadData, error: leadErr } = await supabase
+    const sb = supabase as unknown as {
+      from: (t: string) => {
+        update: (p: Record<string, unknown>) => {
+          in: (col: string, vals: string[]) => {
+            select: (c: string) => Promise<{ data: { id: string }[] | null; error: { message: string } | null }>;
+          };
+        };
+      };
+    };
+    const { data: leadData, error: leadErr } = await sb
       .from("cad_leads")
       .update({ responsavel: null })
       .in("responsavel", list)
