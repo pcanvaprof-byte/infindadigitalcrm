@@ -9,6 +9,15 @@ import { listTemplates, registerSend } from "@/lib/cadencia/api";
 import { renderTemplate, type CadLead } from "@/lib/cadencia/types";
 
 function onlyDigits(s: string) { return (s || "").replace(/\D+/g, ""); }
+/** Normaliza telefone BR para E.164 sem sinal, garantindo DDI 55. */
+function waPhone(raw: string): string {
+  const d = onlyDigits(raw);
+  if (!d) return "";
+  if (d.startsWith("55") && d.length >= 12) return d;
+  // BR sem DDI (10 ou 11 dígitos: DDD + número)
+  if (d.length === 10 || d.length === 11) return "55" + d;
+  return d;
+}
 
 export function SendMessageDialog({
   lead, open, onOpenChange,
@@ -28,7 +37,7 @@ export function SendMessageDialog({
     mutationFn: async () => {
       if (!lead) return;
       await registerSend({ leadId: lead.id, tipo: "whatsapp", mensagem: msg, advance: true });
-      const phone = onlyDigits(lead.whatsapp || lead.telefone || "");
+      const phone = waPhone(lead.whatsapp || lead.telefone || "");
       if (phone) {
         const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
         window.open(url, "_blank");
