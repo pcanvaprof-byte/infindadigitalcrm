@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Copy, Send } from "lucide-react";
 import { toast } from "sonner";
-import { listTemplates, registerSend } from "@/lib/cadencia/api";
+import { listTemplates, registerSend, markProspectContactedFromLead } from "@/lib/cadencia/api";
 import { renderTemplate, type CadLead } from "@/lib/cadencia/types";
 
 function onlyDigits(s: string) { return (s || "").replace(/\D+/g, ""); }
@@ -39,6 +39,13 @@ export function SendMessageDialog({
       const phone = waPhone(lead.whatsapp || lead.telefone || "");
       try {
         await registerSend({ leadId: lead.id, tipo: "whatsapp", mensagem: msg, advance: true });
+        // Sincroniza CRM: prospect sai de "nao_contatado" assim que o disparo é registrado.
+        try {
+          await markProspectContactedFromLead(lead.id);
+        } catch (syncErr) {
+          // não bloqueia o fluxo do WhatsApp; só avisa.
+          console.warn("Falha ao sincronizar status do prospect:", syncErr);
+        }
       } catch (e) {
         // Fecha a aba pré-aberta para não deixar wa.me em branco se o registro falhou
         if (waWindow && !waWindow.closed) waWindow.close();
@@ -62,6 +69,7 @@ export function SendMessageDialog({
       qc.invalidateQueries({ queryKey: ["cad-leads"] });
       qc.invalidateQueries({ queryKey: ["cad-messages"] });
       qc.invalidateQueries({ queryKey: ["cad-metrics"] });
+      qc.invalidateQueries({ queryKey: ["prospects"] });
       onOpenChange(false);
     },
     onError: (e: Error) => toast.error(e.message),

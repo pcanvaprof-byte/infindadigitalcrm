@@ -112,6 +112,39 @@ export async function registerSend(params: {
   return data as string;
 }
 
+/**
+ * Após um disparo via cadência, promove o prospect vinculado de
+ * `nao_contatado` (ou sem status) para `primeiro_contato`, removendo-o
+ * da lista de não contatados em Prospecção.
+ * Não regride status mais avançados (qualificado, agendado, etc.).
+ */
+export async function markProspectContactedFromLead(leadId: string): Promise<boolean> {
+  const { data: leadRow, error: leadErr } = await db
+    .from("cad_leads")
+    .select("prospect_id")
+    .eq("id", leadId)
+    .maybeSingle();
+  if (leadErr) throw new Error(leadErr.message);
+  const prospectId = (leadRow as { prospect_id: string | null } | null)?.prospect_id;
+  if (!prospectId) return false;
+
+  const { data: prospectRow, error: pErr } = await db
+    .from("prospects")
+    .select("status")
+    .eq("id", prospectId)
+    .maybeSingle();
+  if (pErr) throw new Error(pErr.message);
+  const status = (prospectRow as { status: string | null } | null)?.status ?? null;
+  if (status && status !== "nao_contatado") return false;
+
+  const { error: updErr } = await db
+    .from("prospects")
+    .update({ status: "primeiro_contato" })
+    .eq("id", prospectId);
+  if (updErr) throw new Error(updErr.message);
+  return true;
+}
+
 export async function registerResponse(leadId: string, mensagem: string): Promise<void> {
   const { error } = await db.rpc("cad_register_response", { p_lead: leadId, p_mensagem: mensagem });
   if (error) throw new Error(error.message);
