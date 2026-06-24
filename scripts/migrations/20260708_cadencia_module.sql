@@ -376,19 +376,19 @@ begin
     primeira_abordagem_at, stage, next_action_at
   )
   select
-    coalesce(p.organization_id, public.current_org_id()),
+    public.current_org_id(),
     auth.uid(),
     p.id,
-    coalesce(p.nome_empresa, p.razao_social, 'Sem nome'),
-    p.responsavel,
-    p.cargo,
-    p.telefone,
+    coalesce(p.company, 'Sem nome'),
+    p.owner_name,
+    null::text,
+    p.phone,
     p.whatsapp,
     coalesce(p.created_at, now()),
     'followup_1',
     now() + interval '3 days'
   from public.prospects p
-  where p.organization_id = public.current_org_id()
+  where (p.organization_id is null or p.organization_id = public.current_org_id())
     and (p_ids is null or p.id = any(p_ids))
     and not exists (select 1 from public.cad_leads cl where cl.prospect_id = p.id);
 
