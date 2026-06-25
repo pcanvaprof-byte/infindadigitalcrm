@@ -31,7 +31,12 @@ export function TemplatesPanel() {
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        Variáveis disponíveis: <code>{`{{empresa}}`}</code>, <code>{`{{responsavel}}`}</code>
+        Variáveis: <code>{`{{empresa}}`}</code>, <code>{`{{empresa_curta}}`}</code>,{" "}
+        <code>{`{{responsavel}}`}</code>, <code>{`{{primeiro_nome}}`}</code>
+        <span className="block mt-1 opacity-80">
+          Use <code>{`{{empresa_curta}}`}</code> para versões enxutas (remove LTDA/ME/S.A. e mantém até 2 palavras) e{" "}
+          <code>{`{{primeiro_nome}}`}</code> para tratar o responsável pelo primeiro nome.
+        </span>
       </p>
       {(q.data ?? []).map((t) => {
         const cur = edit[t.stage] ?? { titulo: t.titulo, corpo: t.corpo };
