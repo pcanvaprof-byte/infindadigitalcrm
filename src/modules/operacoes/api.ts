@@ -73,15 +73,28 @@ function pickPessoa(p: Record<string, unknown> | null | undefined) {
   return { nome, empresa, email, telefone, whatsapp };
 }
 
+// Status do CRM considerados "fechados" / clientes ativos.
+const STATUS_FECHADOS = [
+  "fechado_ganho",
+  "cliente",
+  "aguardando_kickoff",
+  "aguardando_producao",
+  "em_producao",
+  "entregue",
+];
+
 export async function importClientesFromContratos(): Promise<ImportContratoResult> {
-  // status considerados "fechados" / ativos comerciais
-  const statusFechados = ["assinado", "ativo", "pendente_financeiro"];
-  const { data: contratos, error } = await db
+  // Fonte: prospects (CRM) com status fechado. Inclui contratos como reforço.
+  const { data: prospects, error: errP } = await db
+    .from("prospects")
+    .select("id, company, owner_name, email, phone, whatsapp, status")
+    .in("status", STATUS_FECHADOS);
+  if (errP) throw new Error(errP.message);
+
+  const { data: contratos } = await db
     .from("contratos")
-    .select("id, status, tipo_pessoa, dados_pessoa, valor_mensal, valor_implantacao")
-    .in("status", statusFechados);
-  if (error) throw new Error(error.message);
-  const lista = (contratos ?? []) as Array<Record<string, unknown>>;
+    .select("id, status, dados_pessoa, valor_mensal")
+    .in("status", ["assinado", "ativo", "fechado", "pendente_financeiro"]);
 
   const existentes = await listClientes();
   const idx = new Set(
@@ -94,19 +107,37 @@ export async function importClientesFromContratos(): Promise<ImportContratoResul
 
   let importados = 0;
   let ignorados = 0;
-  for (const c of lista) {
+  const total = (prospects?.length ?? 0) + (contratos?.length ?? 0);
+
+  // 1) Prospects fechados
+  for (const p of (prospects ?? []) as Array<Record<string, unknown>>) {
+    const empresa = (p.company as string) || "";
+    const nome = (p.owner_name as string) || empresa;
+    if (!nome) { ignorados++; continue; }
+    const email = (p.email as string) || "";
+    const chave = (email || nome || empresa).toLowerCase().trim();
+    if (idx.has(chave)) { ignorados++; continue; }
+    await upsertCliente({
+      nome,
+      empresa: empresa || undefined,
+      email: email || undefined,
+      telefone: (p.phone as string) || undefined,
+      whatsapp: (p.whatsapp as string) || undefined,
+      status: "ativo",
+      observacoes: `Importado do CRM (status ${String(p.status)})`,
+    });
+    idx.add(chave);
+    importados++;
+  }
+
+  // 2) Contratos como fallback
+  for (const c of (contratos ?? []) as Array<Record<string, unknown>>) {
     const { nome, empresa, email, telefone, whatsapp } = pickPessoa(
       c.dados_pessoa as Record<string, unknown> | null,
     );
-    if (!nome) {
-      ignorados++;
-      continue;
-    }
+    if (!nome) { ignorados++; continue; }
     const chave = (email || nome || empresa).toLowerCase().trim();
-    if (idx.has(chave)) {
-      ignorados++;
-      continue;
-    }
+    if (idx.has(chave)) { ignorados++; continue; }
     const obs = `Importado do contrato ${String(c.id).slice(0, 8)} · MRR ${Number(c.valor_mensal ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`;
     await upsertCliente({
       nome,
@@ -120,7 +151,8 @@ export async function importClientesFromContratos(): Promise<ImportContratoResul
     idx.add(chave);
     importados++;
   }
-  return { importados, ignorados, total: lista.length };
+
+  return { importados, ignorados, total };
 }
 
 // ---------- Tráfego: contas ------------------------------------------------
