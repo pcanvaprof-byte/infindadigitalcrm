@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { getTimeline } from "@/modules/lifecycle/api";
 
-export const Route = createFileRoute("/clients/$id/historico")({
+export const Route = createFileRoute("/operacoes/clientes/$id/historico")({
   ssr: false,
   component: HistoricoPage,
 });

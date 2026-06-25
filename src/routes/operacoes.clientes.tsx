@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Pencil, Plus, Trash2 } from "lucide-react";
@@ -12,6 +12,8 @@ import { OperacoesLayout } from "@/modules/operacoes/components/OperacoesLayout"
 import { ClienteFormDialog } from "@/modules/operacoes/components/ClienteFormDialog";
 import { deleteCliente, importClientesFromContratos, listClientes } from "@/modules/operacoes/api";
 import { OP_CLIENTE_STATUS_LABEL, type OpCliente } from "@/modules/operacoes/types";
+import { listClients as listLifecycleClients } from "@/modules/lifecycle/api";
+import { STAGE_LABEL, STAGE_TONE } from "@/modules/lifecycle/types";
 
 export const Route = createFileRoute("/operacoes/clientes")({
   ssr: false,
@@ -39,6 +41,18 @@ function ClientesPage() {
   const [creating, setCreating] = useState(false);
 
   const q = useQuery({ queryKey: ["op-clientes"], queryFn: listClientes });
+  const lc = useQuery({ queryKey: ["lc-clients"], queryFn: () => listLifecycleClients() });
+
+  // mapa source_ref(op_cliente.id) -> lifecycle client (para estágio + link 360)
+  const lcBySource = useMemo(() => {
+    const m = new Map<string, { id: string; stage: keyof typeof STAGE_LABEL; locked: boolean }>();
+    for (const c of lc.data ?? []) {
+      if (c.created_from === "operacoes" && c.source_ref) {
+        m.set(c.source_ref, { id: c.id, stage: c.pipeline_stage, locked: c.operations_locked });
+      }
+    }
+    return m;
+  }, [lc.data]);
 
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
@@ -107,6 +121,7 @@ function ClientesPage() {
                 <th className="px-3 py-2 text-left">Cliente</th>
                 <th className="px-3 py-2 text-left">Empresa</th>
                 <th className="px-3 py-2 text-left">Contato</th>
+                <th className="px-3 py-2 text-left">Estágio</th>
                 <th className="px-3 py-2 text-left">Status</th>
                 <th className="px-3 py-2" />
               </tr>
@@ -114,25 +129,47 @@ function ClientesPage() {
             <tbody>
               {q.isLoading && (
                 <tr>
-                  <td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
                     Carregando…
                   </td>
                 </tr>
               )}
               {!q.isLoading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-3 py-8 text-center text-muted-foreground">
+                  <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
                     Nenhum cliente encontrado.
                   </td>
                 </tr>
               )}
-              {filtered.map((c) => (
+              {filtered.map((c) => {
+                const lcRef = lcBySource.get(c.id);
+                const NameCell = lcRef ? (
+                  <Link
+                    to="/operacoes/clientes/$id"
+                    params={{ id: lcRef.id }}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    {c.nome}
+                  </Link>
+                ) : (
+                  <span className="font-medium text-foreground">{c.nome}</span>
+                );
+                return (
                 <tr key={c.id} className="border-t border-border/60 hover:bg-background/30">
-                  <td className="px-3 py-2 font-medium text-foreground">{c.nome}</td>
+                  <td className="px-3 py-2">{NameCell}</td>
                   <td className="px-3 py-2 text-muted-foreground">{c.empresa ?? "—"}</td>
                   <td className="px-3 py-2 text-muted-foreground">
                     <div>{c.email ?? "—"}</div>
                     <div className="text-[11px]">{c.whatsapp ?? c.telefone ?? ""}</div>
+                  </td>
+                  <td className="px-3 py-2">
+                    {lcRef ? (
+                      <span className={`rounded px-2 py-0.5 text-[10px] font-semibold ${STAGE_TONE[lcRef.stage]}`}>
+                        {STAGE_LABEL[lcRef.stage]}
+                      </span>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground">—</span>
+                    )}
                   </td>
                   <td className="px-3 py-2">
                     <span
@@ -157,7 +194,8 @@ function ClientesPage() {
                     </Button>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

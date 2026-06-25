@@ -19,7 +19,7 @@ import {
   type PipelineStage,
 } from "@/modules/lifecycle/types";
 
-export const Route = createFileRoute("/clients/$id")({
+export const Route = createFileRoute("/operacoes/clientes/$id")({
   ssr: false,
   head: () => ({ meta: [{ title: "Cliente · INFINDA" }] }),
   component: () => (
@@ -99,10 +99,10 @@ function ClientDetail() {
 
       <div className="flex gap-1 overflow-x-auto border-b border-border/40">
         {TABS.map((t) => {
-          const target = t.to ? `/clients/${id}/${t.to}` : `/clients/${id}`;
+          const target = t.to ? `/operacoes/clientes/${id}/${t.to}` : `/operacoes/clientes/${id}`;
           const active = t.to
             ? pathname.endsWith(`/${t.to}`)
-            : pathname === `/clients/${id}` || pathname === `/clients/${id}/`;
+            : pathname === `/operacoes/clientes/${id}` || pathname === `/operacoes/clientes/${id}/`;
           return (
             <Link
               key={t.to || "resumo"}

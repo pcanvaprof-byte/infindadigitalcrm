@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { getClient } from "@/modules/lifecycle/api";
 import { STAGE_LABEL } from "@/modules/lifecycle/types";
 
-export const Route = createFileRoute("/clients/$id/")({
+export const Route = createFileRoute("/operacoes/clientes/$id/")({
   ssr: false,
   component: ResumoPage,
 });
