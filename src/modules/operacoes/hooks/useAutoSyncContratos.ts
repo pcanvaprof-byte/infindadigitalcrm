@@ -35,8 +35,8 @@ export function useAutoSyncContratos() {
         writeLast(now);
         setLastSync(now);
         if (res.importados > 0) {
-          qc.invalidateQueries({ queryKey: ["op_clientes"] });
-          qc.invalidateQueries({ queryKey: ["op_dashboard"] });
+          qc.invalidateQueries({ queryKey: ["op-clientes"] });
+          qc.invalidateQueries({ queryKey: ["op-dashboard"] });
         }
         console.info("[operacoes] auto-sync contratos", res);
       } catch (e) {
