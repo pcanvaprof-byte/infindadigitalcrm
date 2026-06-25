@@ -30,5 +30,17 @@ export const getRouter = () => {
     defaultPreloadStaleTime: 0,
   });
 
+  if (typeof window !== "undefined") {
+    router.subscribe("onBeforeNavigate", (e) => {
+      console.log("[nav] →", e.toLocation.pathname, { from: e.fromLocation?.pathname });
+    });
+    router.subscribe("onResolved", (e) => {
+      console.log("[nav] ✓ resolved", e.toLocation.pathname);
+    });
+    router.subscribe("onBeforeLoad", (e) => {
+      console.log("[nav] beforeLoad", e.toLocation.pathname);
+    });
+  }
+
   return router;
 };
