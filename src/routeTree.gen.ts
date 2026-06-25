@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TarefasRouteImport } from './routes/tarefas'
 import { Route as ProspeccaoRouteImport } from './routes/prospeccao'
 import { Route as PropostasRouteImport } from './routes/propostas'
+import { Route as OperacoesRouteImport } from './routes/operacoes'
 import { Route as MetasRouteImport } from './routes/metas'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as KickoffRouteImport } from './routes/kickoff'
@@ -43,6 +44,11 @@ const ProspeccaoRoute = ProspeccaoRouteImport.update({
 const PropostasRoute = PropostasRouteImport.update({
   id: '/propostas',
   path: '/propostas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OperacoesRoute = OperacoesRouteImport.update({
+  id: '/operacoes',
+  path: '/operacoes',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MetasRoute = MetasRouteImport.update({
@@ -142,6 +148,7 @@ export interface FileRoutesByFullPath {
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
+  '/operacoes': typeof OperacoesRoute
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
@@ -164,6 +171,7 @@ export interface FileRoutesByTo {
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
+  '/operacoes': typeof OperacoesRoute
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
@@ -187,6 +195,7 @@ export interface FileRoutesById {
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
+  '/operacoes': typeof OperacoesRoute
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
@@ -211,6 +220,7 @@ export interface FileRouteTypes {
     | '/kickoff'
     | '/login'
     | '/metas'
+    | '/operacoes'
     | '/propostas'
     | '/prospeccao'
     | '/tarefas'
@@ -233,6 +243,7 @@ export interface FileRouteTypes {
     | '/kickoff'
     | '/login'
     | '/metas'
+    | '/operacoes'
     | '/propostas'
     | '/prospeccao'
     | '/tarefas'
@@ -255,6 +266,7 @@ export interface FileRouteTypes {
     | '/kickoff'
     | '/login'
     | '/metas'
+    | '/operacoes'
     | '/propostas'
     | '/prospeccao'
     | '/tarefas'
@@ -278,6 +290,7 @@ export interface RootRouteChildren {
   KickoffRoute: typeof KickoffRoute
   LoginRoute: typeof LoginRoute
   MetasRoute: typeof MetasRoute
+  OperacoesRoute: typeof OperacoesRoute
   PropostasRoute: typeof PropostasRouteWithChildren
   ProspeccaoRoute: typeof ProspeccaoRoute
   TarefasRoute: typeof TarefasRoute
@@ -306,6 +319,13 @@ declare module '@tanstack/react-router' {
       path: '/propostas'
       fullPath: '/propostas'
       preLoaderRoute: typeof PropostasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/operacoes': {
+      id: '/operacoes'
+      path: '/operacoes'
+      fullPath: '/operacoes'
+      preLoaderRoute: typeof OperacoesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/metas': {
@@ -491,6 +511,7 @@ const rootRouteChildren: RootRouteChildren = {
   KickoffRoute: KickoffRoute,
   LoginRoute: LoginRoute,
   MetasRoute: MetasRoute,
+  OperacoesRoute: OperacoesRoute,
   PropostasRoute: PropostasRouteWithChildren,
   ProspeccaoRoute: ProspeccaoRoute,
   TarefasRoute: TarefasRoute,
