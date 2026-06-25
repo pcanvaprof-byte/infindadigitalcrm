@@ -25,7 +25,7 @@ export function MobileNav({ onOpenMenu }: { onOpenMenu: () => void }) {
     { to: "/dashboard", label: "Início", icon: LayoutDashboard },
     { to: "/crm", label: "CRM", icon: Users },
     { to: "/prospeccao", label: "Prospec.", icon: Search },
-    { to: "/tarefas", label: "Tarefas", icon: ListChecks },
+    { to: "/briefings", label: "Briefings", icon: ListChecks },
     { label: "Mais", icon: MenuIcon, action: onOpenMenu },
   ];
 
