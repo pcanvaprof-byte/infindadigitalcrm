@@ -1,112 +1,94 @@
+# Plano — Módulo Operações
 
-## Módulo Cadência Comercial (independente)
+Novo módulo nativo da INFINDA acessível pela sidebar (mesmo layout, tema, componentes e contexto global). Estrutura preparada para crescer sem mexer no resto do app.
 
-Sem tocar em `/prospeccao` nem `/crm`. Nova rota `/cadencia` com persistência real (sem mocks).
+## Navegação
 
-### 1. Banco de dados — nova migration `scripts/migrations/20260708_cadencia_module.sql`
+- Novo item **Operações** (ícone `Briefcase`) no `NAV` de `src/components/AppShell.tsx`, posicionado após "Kickoff Produção".
+- Rota raiz `/operacoes` é layout com `<Outlet />` e uma barra de tabs horizontal sticky no topo da página (componente `OperacoesTabs`) listando as 8 sub-seções.
+- Cada sub-seção é uma rota filha real, com URL própria:
+  - `/operacoes` → redireciona para `/operacoes/dashboard`
+  - `/operacoes/dashboard`
+  - `/operacoes/clientes`
+  - `/operacoes/trafego`
+  - `/operacoes/kanban`
+  - `/operacoes/credenciais` (placeholder "Em breve")
+  - `/operacoes/financeiro` (placeholder "Em breve")
+  - `/operacoes/agenda` (placeholder "Em breve")
+  - `/operacoes/relatorios` (placeholder "Em breve")
+- `MobileNav` não muda (continua com 5 ícones); acesso a Operações via "Mais".
 
-Tabelas novas (isoladas, prefixadas `cad_`):
+## Banco de dados (Lovable Cloud)
 
-- `cad_leads` — leads em cadência
-  - `id uuid pk`, `org_id`, `owner_id` (auth.users), `prospect_id` (fk opcional para `prospects`, somente leitura — nunca grava de volta)
-  - `empresa text`, `responsavel text`, `cargo text`, `telefone text`, `whatsapp text`, `email text`
-  - `stage cad_stage not null default 'followup_1'`
-  - `temperatura cad_temp not null default 'morno'` (`quente|morno|frio`)
-  - `primeira_abordagem_at timestamptz not null default now()`
-  - `last_contact_at timestamptz`, `next_action_at timestamptz`
-  - `last_response_at timestamptz` (preenchido quando registra resposta)
-  - `closed_at`, `closed_reason text` (`ganho|perdido|sem_interesse|...`)
-  - timestamps padrão
-- `cad_messages` — histórico
-  - `id`, `lead_id fk`, `org_id`, `author_id`
-  - `tipo` (`whatsapp|email|ligacao|nota|sistema`)
-  - `direction` (`out|in|system`)
-  - `stage_at_send cad_stage` (etapa no momento)
-  - `mensagem text`, `status` (`pendente|enviada|respondida`)
-  - `created_at`
-- `cad_templates` — mensagens padrão por etapa (org-scoped, editáveis)
-  - `id`, `org_id`, `stage`, `titulo`, `corpo text` (com `{{empresa}}`, `{{responsavel}}`)
-  - seed default com os 7 textos especificados + interessado/reunião
+Migration `scripts/migrations/20260712_operacoes_core.sql`, sem `org_id` (compartilhado entre usuários autenticados), seguindo o padrão de GRANTs e RLS já adotado.
 
-Enums:
-- `cad_stage`: `followup_1..7`, `interessado`, `reuniao_agendada`, `proposta_enviada`, `negociacao`, `fechado`, `perdido`
-- `cad_temp`: `quente|morno|frio`
+Tabelas:
 
-RPC:
-- `cad_dashboard_metrics()` → jsonb com totais por etapa, interessados, reuniões, propostas, perdidos, taxa_resposta, taxa_conversao, série diária dos últimos 30 dias.
-- `cad_advance_stage(lead_id, new_stage)` (registra system message)
-- `cad_register_message(lead_id, tipo, mensagem, mark_sent boolean)` — insere `cad_messages`, atualiza `last_contact_at`, agenda `next_action_at` conforme cronograma (D+3, +7, +10, +14, +18, +24, +30).
-- `cad_register_response(lead_id, mensagem)` — marca `last_response_at`, esfria/esquenta lead, insere mensagem `direction=in`.
+- `op_clientes` — id, nome, empresa, contato (email, telefone, whatsapp), status (`ativo|pausado|offboarding|encerrado`), responsavel_id, observacoes, criado_em, atualizado_em.
+- `op_trafego_contas` — vincula cliente a contas de mídia (`plataforma` enum: meta_ads, google_ads, tiktok_ads, linkedin_ads; `conta_id_externa`, `nome_conta`, `verba_mensal`, `objetivo`, `status`).
+- `op_trafego_campanhas` — cliente_id, plataforma, nome, status, verba, gasto, impressoes, cliques, conversoes, cpa, roas, periodo_inicio, periodo_fim, ultima_sync.
+- `op_entregas` — id, cliente_id, titulo, tipo (`criativo|relatorio|otimizacao|reuniao|outro`), responsavel_id, status (`backlog|em_andamento|revisao|entregue`), prazo, descricao, ordem.
 
-RLS por `org_id` + `owner_id`. GRANTs para `authenticated` e `service_role`. Triggers de `updated_at` e auto-schedule de `next_action_at`.
+Todas com:
+- `GRANT SELECT, INSERT, UPDATE, DELETE … TO authenticated;`
+- `GRANT ALL … TO service_role;`
+- RLS habilitada com policy `authenticated` (qualquer usuário logado lê/escreve).
+- Triggers `updated_at`.
 
-Seed de `cad_templates` por org via trigger `after insert on organizations` (e backfill no script).
+## Telas funcionais
 
-### 2. Frontend
+**`/operacoes/dashboard`**
+- KPIs: clientes ativos, verba mensal total, gasto no mês, ROAS médio, entregas em atraso.
+- Lista "Entregas com prazo nos próximos 7 dias" e "Campanhas pausadas".
+- Tudo via `useSuspenseQuery` em `src/lib/operacoes/api.ts`.
 
-**API client** `src/lib/cadencia/api.ts`
-- `listLeads({ stage?, search? })`, `getLead(id)`, `createLead(input)`, `updateLead(id, patch)`
-- `moveStage(id, stage)`, `setTemperatura(id, temp)`
-- `listMessages(leadId)`, `sendMessage({leadId, tipo, mensagem, markSent})`, `registerResponse(...)`
-- `listTemplates()`, `updateTemplate(stage, corpo)`
-- `fetchMetrics()` (RPC)
-- `renderTemplate(corpo, lead)` — substitui variáveis
+**`/operacoes/clientes`**
+- Tabela (shadcn `Table`) com busca, filtro por status e botão "Novo cliente".
+- Drawer (`Sheet`) lateral para criar/editar com `react-hook-form` + zod.
+- Ação rápida: abrir cliente exibe abas internas com contas vinculadas e entregas recentes.
 
-**Types** `src/lib/cadencia/types.ts` — enums TS + labels + cronograma de dias.
+**`/operacoes/trafego`**
+- Seletor de cliente no topo.
+- Lista de contas vinculadas (cards) e tabela de campanhas com métricas.
+- CRUD de contas e campanhas via dialogs. Não integra APIs externas nesta v1 (apenas registro manual / preparado para sync futuro).
 
-**Rota** `src/routes/cadencia.tsx`
-- Header com tabs: **Dashboard** | **Pipeline** | **Templates**
-- Dashboard: cards de KPIs (todos os indicadores listados) + LineChart (recharts já no projeto) de envios/respostas por dia (30d).
-- Pipeline: Kanban horizontal com 13 colunas (`STAGES`). Cada coluna mostra contagem + botão "Enviar Mensagem" no topo (abre dialog em batch opcional — V1 abre por card). Card mostra: empresa, responsável, cargo, telefone, primeira abordagem, último contato, próxima ação (badge colorido por atraso), dias sem resposta, ícone de temperatura.
-- Drag-and-drop entre colunas via `@dnd-kit/core` (já instalado? verificar; se não, adicionar) — fallback: menu "Mover para…".
-- Drawer ao clicar no card: dados completos + Timeline + ações (Enviar, Copiar, Editar, Marcar enviado, Agendar próximo, Mover, Interessado, Perdido).
-- Templates: lista editável dos 7+ textos com preview de variáveis.
+**`/operacoes/kanban`**
+- 4 colunas (`backlog`, `em_andamento`, `revisao`, `entregue`) usando `@dnd-kit/core` (já estilo dos componentes existentes — se não instalado, usar drag nativo HTML5 simples).
+- Cards de `op_entregas` com cliente, prazo, responsável; drag-and-drop atualiza `status`. Dialog para criar/editar entrega.
 
-**Componentes** em `src/components/cadencia/`:
-- `CadenciaKanban.tsx`
-- `LeadCard.tsx`
-- `LeadDrawer.tsx`
-- `LeadTimeline.tsx`
-- `SendMessageDialog.tsx` (preenche template, permite editar antes de enviar, abre WhatsApp `wa.me/<phone>?text=`)
-- `DashboardCadencia.tsx`
-- `TemplatesPanel.tsx`
-- `TemperaturaBadge.tsx`, `StageBadge.tsx`
+## Telas placeholder (`/operacoes/credenciais`, `/financeiro`, `/agenda`, `/relatorios`)
 
-**Nav**: adicionar item "Cadência" no `AppShell`/sidebar.
+Página padronizada com `AppShell`/card central, ícone + título + descrição curta + selo "Em breve". Mesmo estilo das features desabilitadas atuais.
 
-### 3. Integração com Prospecção (somente leitura, não invasiva)
+## Estrutura de código
 
-Em `/cadencia` há botão **"Importar de Prospecção"** que lista prospects do usuário ainda não importados (left join contra `cad_leads.prospect_id`) e cria `cad_leads` com `stage=followup_1`, `next_action_at = now()+3d`. Prospecção continua intocada.
+Módulo isolado em `src/modules/operacoes/`:
 
-### 4. Cronograma de follow-up (canônico)
+```text
+src/modules/operacoes/
+  components/
+    OperacoesTabs.tsx
+    ClienteForm.tsx
+    EntregaCard.tsx
+    KanbanBoard.tsx
+    CampanhaTable.tsx
+    Placeholder.tsx
+  api/
+    clientes.functions.ts
+    trafego.functions.ts
+    entregas.functions.ts
+    dashboard.functions.ts
+  types.ts
+  query-keys.ts
 ```
-followup_1: +3d
-followup_2: +7d  (a partir de followup_1)
-followup_3: +10d
-followup_4: +14d
-followup_5: +18d
-followup_6: +24d
-followup_7: +30d
-```
-Calculado em SQL no `cad_register_message`.
 
-### 5. Regras
-- 100% persistido, sem mocks/hardcode.
-- KPIs vêm da RPC `cad_dashboard_metrics()`.
-- Mensagens reais via `cad_messages`.
-- Multi-tenant via `org_id` (segue padrão do projeto).
-- Cores/tokens: usar `src/styles.css` (sem cores hardcoded em componentes).
+Rotas em `src/routes/operacoes.tsx` (layout) + `src/routes/operacoes.dashboard.tsx`, `operacoes.clientes.tsx`, `operacoes.trafego.tsx`, `operacoes.kanban.tsx`, `operacoes.credenciais.tsx`, `operacoes.financeiro.tsx`, `operacoes.agenda.tsx`, `operacoes.relatorios.tsx`, `operacoes.index.tsx` (redirect).
 
-### 6. Ordem de execução
-1. Criar migration + aplicar.
-2. `types.ts` + `api.ts`.
-3. Rota + tabs vazias.
-4. Dashboard.
-5. Kanban + card + drawer + timeline.
-6. SendMessageDialog + integração WhatsApp.
-7. Templates editor.
-8. Botão importar de Prospecção.
-9. Nav link.
+Server functions seguem o padrão existente (`createServerFn` + `requireSupabaseAuth` + zod). Reaproveitam `AppShell`, `Card`, `Button`, `Sheet`, `Dialog`, `Badge`, `Table`, design tokens e `NotificationsBell` — nada novo no design system.
 
-### Aviso
-Módulo grande. Vou implementar em uma única passada, mas validações visuais finas (drag-and-drop, responsividade extrema) ficarão para um ajuste seguinte conforme feedback.
+## Fora do escopo desta v1
+
+- Integrações reais com Meta/Google Ads API (apenas modelo de dados pronto).
+- Permissões por papel dentro de Operações (todos autenticados acessam tudo).
+- Multi-tenant por `org_id` (pode ser adicionado depois sem quebrar dados, via migration aditiva).
+- Conteúdo funcional de Credenciais, Financeiro, Agenda e Relatórios.
