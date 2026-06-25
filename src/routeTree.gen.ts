@@ -25,6 +25,7 @@ import { Route as BriefingsRouteImport } from './routes/briefings'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PropostasIdRouteImport } from './routes/propostas.$id'
 import { Route as PropostaTokenRouteImport } from './routes/proposta.$token'
+import { Route as OperacoesTrafegoRouteImport } from './routes/operacoes.trafego'
 import { Route as OperacoesDashboardRouteImport } from './routes/operacoes.dashboard'
 import { Route as OperacoesClientesRouteImport } from './routes/operacoes.clientes'
 import { Route as ContratosIdRouteImport } from './routes/contratos.$id'
@@ -113,6 +114,11 @@ const PropostaTokenRoute = PropostaTokenRouteImport.update({
   path: '/proposta/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OperacoesTrafegoRoute = OperacoesTrafegoRouteImport.update({
+  id: '/trafego',
+  path: '/trafego',
+  getParentRoute: () => OperacoesRoute,
+} as any)
 const OperacoesDashboardRoute = OperacoesDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -171,6 +177,7 @@ export interface FileRoutesByFullPath {
   '/contratos/$id': typeof ContratosIdRoute
   '/operacoes/clientes': typeof OperacoesClientesRoute
   '/operacoes/dashboard': typeof OperacoesDashboardRoute
+  '/operacoes/trafego': typeof OperacoesTrafegoRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
 }
@@ -196,6 +203,7 @@ export interface FileRoutesByTo {
   '/contratos/$id': typeof ContratosIdRoute
   '/operacoes/clientes': typeof OperacoesClientesRoute
   '/operacoes/dashboard': typeof OperacoesDashboardRoute
+  '/operacoes/trafego': typeof OperacoesTrafegoRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
 }
@@ -222,6 +230,7 @@ export interface FileRoutesById {
   '/contratos/$id': typeof ContratosIdRoute
   '/operacoes/clientes': typeof OperacoesClientesRoute
   '/operacoes/dashboard': typeof OperacoesDashboardRoute
+  '/operacoes/trafego': typeof OperacoesTrafegoRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
 }
@@ -249,6 +258,7 @@ export interface FileRouteTypes {
     | '/contratos/$id'
     | '/operacoes/clientes'
     | '/operacoes/dashboard'
+    | '/operacoes/trafego'
     | '/proposta/$token'
     | '/propostas/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -274,6 +284,7 @@ export interface FileRouteTypes {
     | '/contratos/$id'
     | '/operacoes/clientes'
     | '/operacoes/dashboard'
+    | '/operacoes/trafego'
     | '/proposta/$token'
     | '/propostas/$id'
   id:
@@ -299,6 +310,7 @@ export interface FileRouteTypes {
     | '/contratos/$id'
     | '/operacoes/clientes'
     | '/operacoes/dashboard'
+    | '/operacoes/trafego'
     | '/proposta/$token'
     | '/propostas/$id'
   fileRoutesById: FileRoutesById
@@ -436,6 +448,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PropostaTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/operacoes/trafego': {
+      id: '/operacoes/trafego'
+      path: '/trafego'
+      fullPath: '/operacoes/trafego'
+      preLoaderRoute: typeof OperacoesTrafegoRouteImport
+      parentRoute: typeof OperacoesRoute
+    }
     '/operacoes/dashboard': {
       id: '/operacoes/dashboard'
       path: '/dashboard'
@@ -529,11 +548,13 @@ const ContratosRouteWithChildren = ContratosRoute._addFileChildren(
 interface OperacoesRouteChildren {
   OperacoesClientesRoute: typeof OperacoesClientesRoute
   OperacoesDashboardRoute: typeof OperacoesDashboardRoute
+  OperacoesTrafegoRoute: typeof OperacoesTrafegoRoute
 }
 
 const OperacoesRouteChildren: OperacoesRouteChildren = {
   OperacoesClientesRoute: OperacoesClientesRoute,
   OperacoesDashboardRoute: OperacoesDashboardRoute,
+  OperacoesTrafegoRoute: OperacoesTrafegoRoute,
 }
 
 const OperacoesRouteWithChildren = OperacoesRoute._addFileChildren(
