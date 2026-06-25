@@ -1,104 +1,192 @@
-# Plano Revisado — Operações Fase 2 (Dados Reais)
+# Plano: Client Lifecycle Engine (interno agora, SaaS-ready)
 
-Expandir `/operacoes` com 6 áreas novas, persistidas no Supabase. Incorpora os 9 ajustes solicitados.
+Substitui módulos desconectados (Prospecção / Cadência / Implantação / Operações / Financeiro) por **um único motor de pipeline** com cliente como entidade central, máquina de estados, eventos e automações. UI fica como **views** diferentes da mesma base.
 
-## 1. Migration (`scripts/migrations/20260714_operacoes_fase2.sql`)
+## 1. Entidade central: `clients`
 
-Toda tabela nova inclui:
-```sql
-owner_id uuid not null references auth.users(id) default auth.uid()
+Toda a vida do cliente vive aqui. Status não é um campo só — é um agregado:
+
+```text
+clients
+├─ id, organization_id, owner_id
+├─ name, empresa, cnpj, contato (telefone, email)
+├─ created_from           -- prospeccao | cadencia | manual
+├─ source_ref             -- id do prospect/lead original
+├─ pipeline_stage         -- enum (máquina de estados)
+├─ financial_status       -- pendente | confirmado | inadimplente | recorrente
+├─ contract_status        -- nao_gerado | enviado | assinado
+├─ onboarding_status      -- pendente | em_andamento | concluido
+├─ current_step           -- texto livre: próxima ação visível
+├─ next_action_date       -- p/ filtros e agenda
+├─ activated_at, churned_at
+└─ timestamps
 ```
-Policies por tabela:
-```sql
-USING (owner_id = auth.uid()) WITH CHECK (owner_id = auth.uid())
+
+`pipeline_stage` enum:
+
+```text
+PROSPECCAO → CADENCIA → FECHADO → REUNIAO_INICIAL → PROPOSTA →
+CONTRATO → ASSINATURA → PAGAMENTO_CONFIRMADO → IMPLANTACAO → ATIVO
+(+ CHURNED, PERDIDO)
 ```
-+ GRANTs (`authenticated`, `service_role`) + `ENABLE RLS` + trigger `updated_at`.
 
-### Tabelas
+## 2. Máquina de estados + eventos + automações
 
-**`op_onboarding`** (1:1 com cliente)
-- Campos do enunciado, sem `progress`.
-- Booleans de integração + redes + `goal_type` + `status`.
+Três tabelas de suporte:
 
-**`op_deployments`**
-- + `priority text check in ('Baixa','Normal','Alta','Crítica') default 'Normal'`.
+```text
+client_events
+  id, client_id, type, payload jsonb, actor_id, created_at
 
-**`op_campaigns`**
-- + `monthly_budget`, `investment_to_date`, `results_count`, `cost_per_result` (numeric).
+client_transitions   -- log auditável de cada mudança de estado
+  id, client_id, from_stage, to_stage, reason, created_at, actor_id
 
-**`op_client_interactions`**
-- + `next_followup_at timestamptz`.
+client_automations   -- regras declarativas (futuro override por org)
+  id, organization_id, trigger_event, condition jsonb, action jsonb, enabled
+```
 
-**`op_contract_renewals`**
-- Sem trigger. Cálculo de `days_to_expire` e status via view.
+**Transições disparam eventos via trigger SQL** `clients_on_stage_change`. Cada evento conhecido executa ações:
 
-### Views (não armazenam estado derivado)
+| Transição                   | Ações automáticas                                                  |
+| --------------------------- | ------------------------------------------------------------------- |
+| `* → FECHADO`               | criar tarefa "Agendar reunião inicial", abrir onboarding draft     |
+| `FECHADO → REUNIAO_INICIAL` | criar `commercial_plans` draft com sugestões de investimento        |
+| `REUNIAO_INICIAL → PROPOSTA`| gerar proposta em `proposals` a partir do plano comercial           |
+| `PROPOSTA → CONTRATO`       | criar `contratos` vinculado, trava operação (`operations_locked=true`) |
+| `CONTRATO → ASSINATURA`     | criar tarefa "Aguardar assinatura", marcar `contract_status=enviado` |
+| `ASSINATURA → PAGAMENTO_CONFIRMADO` | libera `financial_status=confirmado`, cria cobrança recorrente |
+| `PAGAMENTO_CONFIRMADO → IMPLANTACAO` | aplica template de plano (campanhas + entregas), cria kickoff |
+| `IMPLANTACAO → ATIVO`       | libera Operações (`ativacao_liberada=true`), agenda reuniões a cada 15 dias |
 
-**`op_onboarding_progress`** — calcula `progress` (%) a partir dos booleans.
+Implementação: triggers SQL para o caminho crítico (criação de entidades, locks). Automações flexíveis (templates, agendamento) ficam em funções de aplicação chamadas pela API ao salvar a transição — assim ficam testáveis e plugáveis.
 
-**`op_renewals_status`** — calcula `days_to_expire` e status (`Vencido` / `Urgente` / `Próximo Vencimento` / `Ativo`) via `CASE` sobre `CURRENT_DATE`. Respeita `renewal_status` quando `Renovado` ou `Cancelado`.
+## 3. Guard rails
 
-**`op_dashboard_exec_metrics`** — view (não RPC) com colunas tipadas:
-- `total_clientes`, `clientes_ativos`, `clientes_inativos`
-- `onboarding_pendente`, `onboarding_em_configuracao`, `onboarding_concluido`
-- `deployments_total`, `deployments_concluidos`, `deployments_andamento`
-- `campanhas_ativas`, `campanhas_pausadas`, `campanhas_encerradas`
-- `interacoes_30d`
-- **Saúde Operacional**: `clientes_sem_onboarding`, `clientes_sem_campanha_ativa`, `clientes_com_implantacao_pendente`, `contratos_vencendo_30d`
+- `clients.operations_locked boolean default true` — APIs de campanhas/entregas/reuniões verificam essa flag.
+- Função `clients_can_advance(client_id, target_stage)` valida pré-requisitos (não dá pra ir de FECHADO → ATIVO pulando contrato).
+- Reuniões recorrentes só agendam quando `pipeline_stage = 'ATIVO'`.
 
-Todas as views com `security_invoker=on` para respeitar RLS do usuário.
+## 4. UI: uma base, múltiplas views
 
-## 2. Types & API (`src/modules/operacoes/`)
+Tudo lê de `clients` + joins. Cada rota é uma **lente** sobre o mesmo cliente.
 
-- Estender `types.ts` com as 5 interfaces + interfaces das views.
-- Estender `api.ts` com CRUDs tipados:
-  - Onboarding: `list`, `getByClient`, `upsert`, `listProgress`
-  - Deployments: `list(filters)`, `create`, `update`, `delete`
-  - Campaigns: `list(filters)`, `create`, `update`, `delete`
-  - Interactions: `list(clientId?)`, `create`, `listPendingFollowups`
-  - Renewals: `list` (via view de status), `upsert`
-  - Dashboard: `getExecutiveMetrics()` lê a view diretamente
+```text
+/pipeline       -- Kanban global (todas as etapas, drag entre estágios)
+/clients/$id    -- visão 360 (header + tabs)
+  ├─ Resumo
+  ├─ Comercial   (reunião inicial, plano comercial, proposta)
+  ├─ Documentos  (contrato, assinatura)
+  ├─ Operações   (campanhas, entregas, reuniões) — bloqueado até ATIVO
+  ├─ Financeiro  (cobranças, recorrência, inadimplência)
+  └─ Histórico   (timeline única de client_events + client_transitions)
+```
 
-Sempre injeta `owner_id = auth.uid()` no insert.
+Rotas atuais (`/prospeccao`, `/cadencia`, `/propostas`, `/contratos`, `/operacoes`, `/implantacao`) continuam existindo como **filtros pré-aplicados sobre `/pipeline`** (`?stage=PROSPECCAO` etc.) para preservar muscle memory. Internamente todas mostram dados de `clients`.
 
-## 3. Rotas novas (`src/routes/`, sob `_authenticated`)
+## 5. Integração com o que já existe
 
-- `operacoes.onboarding.tsx`
-- `operacoes.implantacao.tsx`
-- `operacoes.campanhas.tsx` (não confunde com `operacoes.trafego.tsx`)
-- `operacoes.relacionamento.tsx`
-- `operacoes.renovacoes.tsx`
-- Atualiza `operacoes.dashboard.tsx` p/ consumir `op_dashboard_exec_metrics`.
+| Atual               | Como entra no motor                                                            |
+| ------------------- | ------------------------------------------------------------------------------ |
+| `prospects`         | Continua tabela de captura; ao virar lead/qualificado → cria `clients` com stage `CADENCIA` (link via `source_ref`). |
+| `cad_leads`         | Mantém pipeline da cadência; ao fechar → `clients.pipeline_stage='FECHADO'`. |
+| `proposals`         | Ganha `client_id`. Geração disparada pelo motor.                               |
+| `contratos`         | Ganha `client_id`. Assinatura atualiza `clients.contract_status`.              |
+| `op_clientes`       | Vira **view** de `clients WHERE pipeline_stage='ATIVO'` (sem perder histórico). |
+| `op_campaigns/deliveries/meetings` | Ganham `client_id` direto (em vez de `op_cliente_id`).         |
+| `briefings`         | Ganha `client_id`; aparece na aba Comercial.                                   |
+| `kickoff`           | Disparado na transição IMPLANTACAO → ATIVO.                                    |
 
-Adiciona abas em `OperacoesTabs.tsx`.
+## 6. Backfill automático
 
-## 4. Componentes (`src/modules/operacoes/components/`)
+Migration popula `clients` a partir do que já existe, mapeando o estado atual:
 
-- `OnboardingList.tsx` + `OnboardingFormDialog.tsx` (barra de progresso a partir da view)
-- `DeploymentsBoard.tsx` + `DeploymentFormDialog.tsx` (badge de prioridade, filtros cliente/categoria/status/prioridade, busca)
-- `CampanhasOpsList.tsx` + `CampanhaOpsFormDialog.tsx` (campos financeiros novos)
-- `RelacionamentoTimeline.tsx` + `InteractionFormDialog.tsx` (`next_followup_at`, seção "Follow-ups pendentes")
-- `RenovacoesList.tsx` + `RenovacaoFormDialog.tsx` (badge automático)
-- `ExecutiveDashboard.tsx` — grid KPIs + bloco "Saúde Operacional"
+```text
+op_clientes ativos                              → ATIVO (operations_locked=false)
+contratos assinados sem cliente em op_clientes  → IMPLANTACAO
+contratos enviados não assinados                → ASSINATURA
+propostas aprovadas sem contrato                → PROPOSTA
+propostas enviadas                              → PROPOSTA
+prospects/leads em status de fechamento         → FECHADO
+cad_leads ativos                                → CADENCIA
+prospects sem cadência                          → PROSPECCAO
+```
 
-Usa shadcn `Card`/`Table`/`Dialog`/`Badge`/`Tabs` já presentes; sem alterar visual atual.
+Cada `client` criado no backfill recebe `client_transitions` com `reason='backfill'` para preservar auditoria.
 
-## 5. Garantias
+## 7. SaaS-ready desde já
 
-- Sem mocks, sem localStorage, sem fallback fake.
-- Todas as leituras vão a `useQuery` → Supabase real.
-- Loaders nas rotas só fazem `ensureQueryData`; rotas vivem sob `_authenticated`.
-- CRM, Prospecção e Cadência intocados.
+Já garantido sem custo extra:
 
-## 6. Execução & Entrega (não apenas descrição)
+- **Multi-tenant**: tudo tem `organization_id`, RLS por org (reusa `current_org_id()` já existente).
+- **Owner scoping**: tudo tem `owner_id`.
+- **Automações como dados**: `client_automations` permite, no futuro, customizar regras por organização sem deploy.
+- **Eventos auditáveis**: `client_events` + `client_transitions` viram base para webhooks, analytics, billing por uso.
+- **Templates de plano** (`plan_templates`) já versionados por org.
+- **API isolada por feature** (`src/modules/lifecycle/`) para evoluir sem mexer no resto.
 
-Ao final, listar concretamente:
-1. Arquivos criados.
-2. Arquivos modificados.
-3. SQL da migration (incluído no repo).
-4. Services implementados (caminhos).
-5. Rotas registradas (TanStack regen).
-6. Componentes renderizados (caminhos).
-7. Evidência de consultas reais (snippets `from('op_*')`).
+O que NÃO entra agora (mas o schema permite plugar depois): billing automático, painel admin de orgs, limites de plano, webhooks externos.
 
-A implementação fica de fato no código — não apenas descrita.
+---
+
+## Implementação técnica
+
+### Migration `scripts/migrations/20260716_lifecycle_engine.sql`
+
+1. `create type pipeline_stage as enum (...)`, `client_financial_status`, `client_contract_status`, `client_onboarding_status`.
+2. Tabela `clients` + índices (stage, owner, org, next_action_date).
+3. `client_events`, `client_transitions`, `client_automations`, `plan_templates` (com seeds 600/1200/2000), `commercial_plans`.
+4. FK `client_id` adicionada a: `proposals`, `contratos`, `briefings`, `op_campaigns`, `op_deliveries` (ou cria estas), `op_meetings`, `op_tasks`, `op_contract_renewals`.
+5. Trigger `clients_log_transition` — registra mudanças em `client_transitions` e dispara função `clients_apply_automations` para o caminho crítico (criar tarefa, abrir plano, travar/destravar operação).
+6. Função `clients_can_advance` (validação de pré-requisitos).
+7. **Backfill** em DO block: insere `clients` a partir de `op_clientes`/`contratos`/`proposals`/`cad_leads`/`prospects` na ordem acima, evitando duplicatas por `(source_ref, created_from)`.
+8. View `op_clientes_compat` (substitui leitura antiga) e view `client_timeline` (UNION de eventos + transições).
+9. RLS por `organization_id` + `owner_id`. GRANTs `authenticated` + `service_role`.
+
+### Código
+
+```text
+src/modules/lifecycle/
+├─ types.ts                     -- enums + tipos do cliente/evento/transição
+├─ api.ts                       -- listClients, getClient, advanceStage, logEvent, getTimeline
+├─ stateMachine.ts              -- mapa de transições permitidas + ações por evento
+├─ automations/
+│   ├─ index.ts                 -- runAutomations(event, ctx) → chama handlers
+│   ├─ createMeetingTask.ts
+│   ├─ openCommercialPlan.ts
+│   ├─ generateProposal.ts      -- reusa src/lib/propostas/api.ts
+│   ├─ generateContract.ts      -- reusa src/lib/contratos/api.ts
+│   ├─ applyPlanTemplate.ts
+│   └─ activateOperations.ts
+└─ hooks/
+    ├─ useClient.ts
+    └─ useClientTimeline.ts
+```
+
+### Rotas
+
+- `src/routes/pipeline.tsx` (kanban global)
+- `src/routes/clients.tsx` (lista filtrável — substitui visão geral)
+- `src/routes/clients.$id.tsx` (layout abas com `<Outlet />`)
+- `src/routes/clients.$id.index.tsx` (Resumo)
+- `src/routes/clients.$id.comercial.tsx`
+- `src/routes/clients.$id.documentos.tsx`
+- `src/routes/clients.$id.operacoes.tsx`
+- `src/routes/clients.$id.financeiro.tsx`
+- `src/routes/clients.$id.historico.tsx`
+- Rotas antigas viram redirects/filtros: `/operacoes/clientes` → `/clients?stage=ATIVO`, `/implantacao` → `/pipeline?stage_in=FECHADO,REUNIAO_INICIAL,PROPOSTA,CONTRATO,ASSINATURA`.
+- Menu lateral: **Pipeline | Clientes | Financeiro | Catálogo | Configurações** (Operações vira aba dentro do cliente).
+
+### Compatibilidade
+
+- Telas antigas continuam funcionando lendo das views de compatibilidade (`op_clientes_compat`) durante a transição.
+- Trava anti-disparo, multi-tenant, sync de contratos: **intactos**.
+
+---
+
+## Entrega proposta (2 ondas)
+
+**Onda 1 (agora):** migration completa + backfill + `src/modules/lifecycle/*` + rotas `/pipeline` e `/clients/$id` com todas as abas + automações críticas (criar tarefa, abrir plano, gerar proposta/contrato, ativar operações) + guard rails. Telas antigas continuam funcionando via views de compatibilidade.
+
+**Onda 2 (depois):** kanban com drag-and-drop entre estágios, automações configuráveis por org pela UI, dashboard executivo do lifecycle (tempo médio por etapa, gargalos, conversão).
+
+Confirma a Onda 1 e eu sigo direto.
