@@ -13,7 +13,10 @@ export type Organization = {
   slug: string | null;
   role: string;
   is_active: boolean;
+  plan?: OrgPlan;
 };
+
+export type OrgPlan = "start" | "growth" | "scale";
 
 export async function listMyOrganizations(): Promise<Organization[]> {
   const { data, error } = await rpc("my_organizations");
