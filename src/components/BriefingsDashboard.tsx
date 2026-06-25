@@ -41,7 +41,7 @@ function publicUrl(token: string) {
   return `${window.location.origin}/briefing/${token}`;
 }
 
-export function BriefingsDashboard({ tipo }: { tipo: BriefingTipo }) {
+export function BriefingsDashboard({ tipo, embedded = false }: { tipo: BriefingTipo; embedded?: boolean }) {
   const isKickoff = tipo === "kickoff_producao";
   const qc = useQueryClient();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("todos");
@@ -87,28 +87,27 @@ export function BriefingsDashboard({ tipo }: { tipo: BriefingTipo }) {
     return { total, concluidos, taxa };
   }, [items]);
 
-  return (
-    <AppShell
-      title={isKickoff ? "Kickoff de Produção" : "Briefings Comerciais"}
-      subtitle={isKickoff
-        ? "Coleta de acessos, materiais e metas após o fechamento."
-        : "Gere, compartilhe e acompanhe briefings de pré-venda."}
-      actions={
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm"><Plus className="mr-2 h-4 w-4" /> {isKickoff ? "Criar Kickoff" : "Novo Briefing"}</Button>
-          </DialogTrigger>
-          <CreateDialog
-            tipo={tipo}
-            onCreated={(b) => {
-              setCreateOpen(false);
-              setShareTarget(b);
-              void invalidateCrmCore(qc);
-            }}
-          />
-        </Dialog>
-      }
-    >
+  const actions = (
+    <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm"><Plus className="mr-2 h-4 w-4" /> {isKickoff ? "Criar Kickoff" : "Novo Briefing"}</Button>
+      </DialogTrigger>
+      <CreateDialog
+        tipo={tipo}
+        onCreated={(b) => {
+          setCreateOpen(false);
+          setShareTarget(b);
+          void invalidateCrmCore(qc);
+        }}
+      />
+    </Dialog>
+  );
+
+  const body = (
+    <>
+      {embedded && (
+        <div className="mb-3 flex items-center justify-end">{actions}</div>
+      )}
       <div className="grid gap-3 sm:grid-cols-3">
         <KpiCard label={isKickoff ? "Kickoffs criados" : "Briefings criados"} value={kpis.total} />
         <KpiCard label="Concluídos" value={kpis.concluidos} />
@@ -175,6 +174,20 @@ export function BriefingsDashboard({ tipo }: { tipo: BriefingTipo }) {
       </div>
 
       <ShareDialog briefing={shareTarget} onClose={() => setShareTarget(null)} />
+    </>
+  );
+
+  if (embedded) return body;
+
+  return (
+    <AppShell
+      title={isKickoff ? "Kickoff de Produção" : "Briefings Comerciais"}
+      subtitle={isKickoff
+        ? "Coleta de acessos, materiais e metas após o fechamento."
+        : "Gere, compartilhe e acompanhe briefings de pré-venda."}
+      actions={actions}
+    >
+      {body}
     </AppShell>
   );
 }
