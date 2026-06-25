@@ -12,14 +12,12 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TarefasRouteImport } from './routes/tarefas'
 import { Route as ProspeccaoRouteImport } from './routes/prospeccao'
 import { Route as PropostasRouteImport } from './routes/propostas'
-import { Route as PipelineRouteImport } from './routes/pipeline'
 import { Route as MetasRouteImport } from './routes/metas'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as KickoffRouteImport } from './routes/kickoff'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CrmRouteImport } from './routes/crm'
 import { Route as ContratosRouteImport } from './routes/contratos'
-import { Route as ClientsRouteImport } from './routes/clients'
 import { Route as CatalogoRouteImport } from './routes/catalogo'
 import { Route as CadenciaRouteImport } from './routes/cadencia'
 import { Route as BriefingsRouteImport } from './routes/briefings'
@@ -41,18 +39,11 @@ import { Route as OperacoesClientesRouteImport } from './routes/operacoes.client
 import { Route as OperacoesCampanhasRouteImport } from './routes/operacoes.campanhas'
 import { Route as OperacoesAgendaRouteImport } from './routes/operacoes.agenda'
 import { Route as ContratosIdRouteImport } from './routes/contratos.$id'
-import { Route as ClientsIdRouteImport } from './routes/clients.$id'
 import { Route as CatalogoNovoRouteImport } from './routes/catalogo.novo'
 import { Route as CatalogoIdRouteImport } from './routes/catalogo.$id'
 import { Route as BriefingsIdRouteImport } from './routes/briefings.$id'
 import { Route as BriefingTokenRouteImport } from './routes/briefing.$token'
-import { Route as ClientsIdIndexRouteImport } from './routes/clients.$id.index'
 import { Route as OperacoesClientesIdRouteImport } from './routes/operacoes.clientes.$id'
-import { Route as ClientsIdOperacoesRouteImport } from './routes/clients.$id.operacoes'
-import { Route as ClientsIdHistoricoRouteImport } from './routes/clients.$id.historico'
-import { Route as ClientsIdFinanceiroRouteImport } from './routes/clients.$id.financeiro'
-import { Route as ClientsIdDocumentosRouteImport } from './routes/clients.$id.documentos'
-import { Route as ClientsIdComercialRouteImport } from './routes/clients.$id.comercial'
 import { Route as OperacoesClientesIdIndexRouteImport } from './routes/operacoes.clientes.$id.index'
 import { Route as OperacoesClientesIdOperacoesRouteImport } from './routes/operacoes.clientes.$id.operacoes'
 import { Route as OperacoesClientesIdHistoricoRouteImport } from './routes/operacoes.clientes.$id.historico'
@@ -73,11 +64,6 @@ const ProspeccaoRoute = ProspeccaoRouteImport.update({
 const PropostasRoute = PropostasRouteImport.update({
   id: '/propostas',
   path: '/propostas',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PipelineRoute = PipelineRouteImport.update({
-  id: '/pipeline',
-  path: '/pipeline',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MetasRoute = MetasRouteImport.update({
@@ -108,11 +94,6 @@ const CrmRoute = CrmRouteImport.update({
 const ContratosRoute = ContratosRouteImport.update({
   id: '/contratos',
   path: '/contratos',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ClientsRoute = ClientsRouteImport.update({
-  id: '/clients',
-  path: '/clients',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CatalogoRoute = CatalogoRouteImport.update({
@@ -220,11 +201,6 @@ const ContratosIdRoute = ContratosIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ContratosRoute,
 } as any)
-const ClientsIdRoute = ClientsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => ClientsRoute,
-} as any)
 const CatalogoNovoRoute = CatalogoNovoRouteImport.update({
   id: '/novo',
   path: '/novo',
@@ -245,40 +221,10 @@ const BriefingTokenRoute = BriefingTokenRouteImport.update({
   path: '/briefing/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ClientsIdIndexRoute = ClientsIdIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => ClientsIdRoute,
-} as any)
 const OperacoesClientesIdRoute = OperacoesClientesIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => OperacoesClientesRoute,
-} as any)
-const ClientsIdOperacoesRoute = ClientsIdOperacoesRouteImport.update({
-  id: '/operacoes',
-  path: '/operacoes',
-  getParentRoute: () => ClientsIdRoute,
-} as any)
-const ClientsIdHistoricoRoute = ClientsIdHistoricoRouteImport.update({
-  id: '/historico',
-  path: '/historico',
-  getParentRoute: () => ClientsIdRoute,
-} as any)
-const ClientsIdFinanceiroRoute = ClientsIdFinanceiroRouteImport.update({
-  id: '/financeiro',
-  path: '/financeiro',
-  getParentRoute: () => ClientsIdRoute,
-} as any)
-const ClientsIdDocumentosRoute = ClientsIdDocumentosRouteImport.update({
-  id: '/documentos',
-  path: '/documentos',
-  getParentRoute: () => ClientsIdRoute,
-} as any)
-const ClientsIdComercialRoute = ClientsIdComercialRouteImport.update({
-  id: '/comercial',
-  path: '/comercial',
-  getParentRoute: () => ClientsIdRoute,
 } as any)
 const OperacoesClientesIdIndexRoute =
   OperacoesClientesIdIndexRouteImport.update({
@@ -322,14 +268,12 @@ export interface FileRoutesByFullPath {
   '/briefings': typeof BriefingsRouteWithChildren
   '/cadencia': typeof CadenciaRoute
   '/catalogo': typeof CatalogoRouteWithChildren
-  '/clients': typeof ClientsRouteWithChildren
   '/contratos': typeof ContratosRouteWithChildren
   '/crm': typeof CrmRoute
   '/dashboard': typeof DashboardRoute
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
-  '/pipeline': typeof PipelineRoute
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
@@ -337,7 +281,6 @@ export interface FileRoutesByFullPath {
   '/briefings/$id': typeof BriefingsIdRoute
   '/catalogo/$id': typeof CatalogoIdRoute
   '/catalogo/novo': typeof CatalogoNovoRoute
-  '/clients/$id': typeof ClientsIdRouteWithChildren
   '/contratos/$id': typeof ContratosIdRoute
   '/operacoes/agenda': typeof OperacoesAgendaRoute
   '/operacoes/campanhas': typeof OperacoesCampanhasRoute
@@ -355,13 +298,7 @@ export interface FileRoutesByFullPath {
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
   '/operacoes/': typeof OperacoesIndexRoute
-  '/clients/$id/comercial': typeof ClientsIdComercialRoute
-  '/clients/$id/documentos': typeof ClientsIdDocumentosRoute
-  '/clients/$id/financeiro': typeof ClientsIdFinanceiroRoute
-  '/clients/$id/historico': typeof ClientsIdHistoricoRoute
-  '/clients/$id/operacoes': typeof ClientsIdOperacoesRoute
   '/operacoes/clientes/$id': typeof OperacoesClientesIdRouteWithChildren
-  '/clients/$id/': typeof ClientsIdIndexRoute
   '/operacoes/clientes/$id/comercial': typeof OperacoesClientesIdComercialRoute
   '/operacoes/clientes/$id/documentos': typeof OperacoesClientesIdDocumentosRoute
   '/operacoes/clientes/$id/financeiro': typeof OperacoesClientesIdFinanceiroRoute
@@ -374,14 +311,12 @@ export interface FileRoutesByTo {
   '/briefings': typeof BriefingsRouteWithChildren
   '/cadencia': typeof CadenciaRoute
   '/catalogo': typeof CatalogoRouteWithChildren
-  '/clients': typeof ClientsRouteWithChildren
   '/contratos': typeof ContratosRouteWithChildren
   '/crm': typeof CrmRoute
   '/dashboard': typeof DashboardRoute
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
-  '/pipeline': typeof PipelineRoute
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
@@ -406,12 +341,6 @@ export interface FileRoutesByTo {
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
   '/operacoes': typeof OperacoesIndexRoute
-  '/clients/$id/comercial': typeof ClientsIdComercialRoute
-  '/clients/$id/documentos': typeof ClientsIdDocumentosRoute
-  '/clients/$id/financeiro': typeof ClientsIdFinanceiroRoute
-  '/clients/$id/historico': typeof ClientsIdHistoricoRoute
-  '/clients/$id/operacoes': typeof ClientsIdOperacoesRoute
-  '/clients/$id': typeof ClientsIdIndexRoute
   '/operacoes/clientes/$id/comercial': typeof OperacoesClientesIdComercialRoute
   '/operacoes/clientes/$id/documentos': typeof OperacoesClientesIdDocumentosRoute
   '/operacoes/clientes/$id/financeiro': typeof OperacoesClientesIdFinanceiroRoute
@@ -425,14 +354,12 @@ export interface FileRoutesById {
   '/briefings': typeof BriefingsRouteWithChildren
   '/cadencia': typeof CadenciaRoute
   '/catalogo': typeof CatalogoRouteWithChildren
-  '/clients': typeof ClientsRouteWithChildren
   '/contratos': typeof ContratosRouteWithChildren
   '/crm': typeof CrmRoute
   '/dashboard': typeof DashboardRoute
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
-  '/pipeline': typeof PipelineRoute
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
@@ -440,7 +367,6 @@ export interface FileRoutesById {
   '/briefings/$id': typeof BriefingsIdRoute
   '/catalogo/$id': typeof CatalogoIdRoute
   '/catalogo/novo': typeof CatalogoNovoRoute
-  '/clients/$id': typeof ClientsIdRouteWithChildren
   '/contratos/$id': typeof ContratosIdRoute
   '/operacoes/agenda': typeof OperacoesAgendaRoute
   '/operacoes/campanhas': typeof OperacoesCampanhasRoute
@@ -458,13 +384,7 @@ export interface FileRoutesById {
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
   '/operacoes/': typeof OperacoesIndexRoute
-  '/clients/$id/comercial': typeof ClientsIdComercialRoute
-  '/clients/$id/documentos': typeof ClientsIdDocumentosRoute
-  '/clients/$id/financeiro': typeof ClientsIdFinanceiroRoute
-  '/clients/$id/historico': typeof ClientsIdHistoricoRoute
-  '/clients/$id/operacoes': typeof ClientsIdOperacoesRoute
   '/operacoes/clientes/$id': typeof OperacoesClientesIdRouteWithChildren
-  '/clients/$id/': typeof ClientsIdIndexRoute
   '/operacoes/clientes/$id/comercial': typeof OperacoesClientesIdComercialRoute
   '/operacoes/clientes/$id/documentos': typeof OperacoesClientesIdDocumentosRoute
   '/operacoes/clientes/$id/financeiro': typeof OperacoesClientesIdFinanceiroRoute
@@ -479,14 +399,12 @@ export interface FileRouteTypes {
     | '/briefings'
     | '/cadencia'
     | '/catalogo'
-    | '/clients'
     | '/contratos'
     | '/crm'
     | '/dashboard'
     | '/kickoff'
     | '/login'
     | '/metas'
-    | '/pipeline'
     | '/propostas'
     | '/prospeccao'
     | '/tarefas'
@@ -494,7 +412,6 @@ export interface FileRouteTypes {
     | '/briefings/$id'
     | '/catalogo/$id'
     | '/catalogo/novo'
-    | '/clients/$id'
     | '/contratos/$id'
     | '/operacoes/agenda'
     | '/operacoes/campanhas'
@@ -512,13 +429,7 @@ export interface FileRouteTypes {
     | '/proposta/$token'
     | '/propostas/$id'
     | '/operacoes/'
-    | '/clients/$id/comercial'
-    | '/clients/$id/documentos'
-    | '/clients/$id/financeiro'
-    | '/clients/$id/historico'
-    | '/clients/$id/operacoes'
     | '/operacoes/clientes/$id'
-    | '/clients/$id/'
     | '/operacoes/clientes/$id/comercial'
     | '/operacoes/clientes/$id/documentos'
     | '/operacoes/clientes/$id/financeiro'
@@ -531,14 +442,12 @@ export interface FileRouteTypes {
     | '/briefings'
     | '/cadencia'
     | '/catalogo'
-    | '/clients'
     | '/contratos'
     | '/crm'
     | '/dashboard'
     | '/kickoff'
     | '/login'
     | '/metas'
-    | '/pipeline'
     | '/propostas'
     | '/prospeccao'
     | '/tarefas'
@@ -563,12 +472,6 @@ export interface FileRouteTypes {
     | '/proposta/$token'
     | '/propostas/$id'
     | '/operacoes'
-    | '/clients/$id/comercial'
-    | '/clients/$id/documentos'
-    | '/clients/$id/financeiro'
-    | '/clients/$id/historico'
-    | '/clients/$id/operacoes'
-    | '/clients/$id'
     | '/operacoes/clientes/$id/comercial'
     | '/operacoes/clientes/$id/documentos'
     | '/operacoes/clientes/$id/financeiro'
@@ -581,14 +484,12 @@ export interface FileRouteTypes {
     | '/briefings'
     | '/cadencia'
     | '/catalogo'
-    | '/clients'
     | '/contratos'
     | '/crm'
     | '/dashboard'
     | '/kickoff'
     | '/login'
     | '/metas'
-    | '/pipeline'
     | '/propostas'
     | '/prospeccao'
     | '/tarefas'
@@ -596,7 +497,6 @@ export interface FileRouteTypes {
     | '/briefings/$id'
     | '/catalogo/$id'
     | '/catalogo/novo'
-    | '/clients/$id'
     | '/contratos/$id'
     | '/operacoes/agenda'
     | '/operacoes/campanhas'
@@ -614,13 +514,7 @@ export interface FileRouteTypes {
     | '/proposta/$token'
     | '/propostas/$id'
     | '/operacoes/'
-    | '/clients/$id/comercial'
-    | '/clients/$id/documentos'
-    | '/clients/$id/financeiro'
-    | '/clients/$id/historico'
-    | '/clients/$id/operacoes'
     | '/operacoes/clientes/$id'
-    | '/clients/$id/'
     | '/operacoes/clientes/$id/comercial'
     | '/operacoes/clientes/$id/documentos'
     | '/operacoes/clientes/$id/financeiro'
@@ -634,14 +528,12 @@ export interface RootRouteChildren {
   BriefingsRoute: typeof BriefingsRouteWithChildren
   CadenciaRoute: typeof CadenciaRoute
   CatalogoRoute: typeof CatalogoRouteWithChildren
-  ClientsRoute: typeof ClientsRouteWithChildren
   ContratosRoute: typeof ContratosRouteWithChildren
   CrmRoute: typeof CrmRoute
   DashboardRoute: typeof DashboardRoute
   KickoffRoute: typeof KickoffRoute
   LoginRoute: typeof LoginRoute
   MetasRoute: typeof MetasRoute
-  PipelineRoute: typeof PipelineRoute
   PropostasRoute: typeof PropostasRouteWithChildren
   ProspeccaoRoute: typeof ProspeccaoRoute
   TarefasRoute: typeof TarefasRoute
@@ -686,13 +578,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PropostasRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/pipeline': {
-      id: '/pipeline'
-      path: '/pipeline'
-      fullPath: '/pipeline'
-      preLoaderRoute: typeof PipelineRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/metas': {
       id: '/metas'
       path: '/metas'
@@ -733,13 +618,6 @@ declare module '@tanstack/react-router' {
       path: '/contratos'
       fullPath: '/contratos'
       preLoaderRoute: typeof ContratosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/clients': {
-      id: '/clients'
-      path: '/clients'
-      fullPath: '/clients'
-      preLoaderRoute: typeof ClientsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/catalogo': {
@@ -889,13 +767,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ContratosIdRouteImport
       parentRoute: typeof ContratosRoute
     }
-    '/clients/$id': {
-      id: '/clients/$id'
-      path: '/$id'
-      fullPath: '/clients/$id'
-      preLoaderRoute: typeof ClientsIdRouteImport
-      parentRoute: typeof ClientsRoute
-    }
     '/catalogo/novo': {
       id: '/catalogo/novo'
       path: '/novo'
@@ -924,54 +795,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BriefingTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/clients/$id/': {
-      id: '/clients/$id/'
-      path: '/'
-      fullPath: '/clients/$id/'
-      preLoaderRoute: typeof ClientsIdIndexRouteImport
-      parentRoute: typeof ClientsIdRoute
-    }
     '/operacoes/clientes/$id': {
       id: '/operacoes/clientes/$id'
       path: '/$id'
       fullPath: '/operacoes/clientes/$id'
       preLoaderRoute: typeof OperacoesClientesIdRouteImport
       parentRoute: typeof OperacoesClientesRoute
-    }
-    '/clients/$id/operacoes': {
-      id: '/clients/$id/operacoes'
-      path: '/operacoes'
-      fullPath: '/clients/$id/operacoes'
-      preLoaderRoute: typeof ClientsIdOperacoesRouteImport
-      parentRoute: typeof ClientsIdRoute
-    }
-    '/clients/$id/historico': {
-      id: '/clients/$id/historico'
-      path: '/historico'
-      fullPath: '/clients/$id/historico'
-      preLoaderRoute: typeof ClientsIdHistoricoRouteImport
-      parentRoute: typeof ClientsIdRoute
-    }
-    '/clients/$id/financeiro': {
-      id: '/clients/$id/financeiro'
-      path: '/financeiro'
-      fullPath: '/clients/$id/financeiro'
-      preLoaderRoute: typeof ClientsIdFinanceiroRouteImport
-      parentRoute: typeof ClientsIdRoute
-    }
-    '/clients/$id/documentos': {
-      id: '/clients/$id/documentos'
-      path: '/documentos'
-      fullPath: '/clients/$id/documentos'
-      preLoaderRoute: typeof ClientsIdDocumentosRouteImport
-      parentRoute: typeof ClientsIdRoute
-    }
-    '/clients/$id/comercial': {
-      id: '/clients/$id/comercial'
-      path: '/comercial'
-      fullPath: '/clients/$id/comercial'
-      preLoaderRoute: typeof ClientsIdComercialRouteImport
-      parentRoute: typeof ClientsIdRoute
     }
     '/operacoes/clientes/$id/': {
       id: '/operacoes/clientes/$id/'
@@ -1044,39 +873,6 @@ const CatalogoRouteWithChildren = CatalogoRoute._addFileChildren(
   CatalogoRouteChildren,
 )
 
-interface ClientsIdRouteChildren {
-  ClientsIdComercialRoute: typeof ClientsIdComercialRoute
-  ClientsIdDocumentosRoute: typeof ClientsIdDocumentosRoute
-  ClientsIdFinanceiroRoute: typeof ClientsIdFinanceiroRoute
-  ClientsIdHistoricoRoute: typeof ClientsIdHistoricoRoute
-  ClientsIdOperacoesRoute: typeof ClientsIdOperacoesRoute
-  ClientsIdIndexRoute: typeof ClientsIdIndexRoute
-}
-
-const ClientsIdRouteChildren: ClientsIdRouteChildren = {
-  ClientsIdComercialRoute: ClientsIdComercialRoute,
-  ClientsIdDocumentosRoute: ClientsIdDocumentosRoute,
-  ClientsIdFinanceiroRoute: ClientsIdFinanceiroRoute,
-  ClientsIdHistoricoRoute: ClientsIdHistoricoRoute,
-  ClientsIdOperacoesRoute: ClientsIdOperacoesRoute,
-  ClientsIdIndexRoute: ClientsIdIndexRoute,
-}
-
-const ClientsIdRouteWithChildren = ClientsIdRoute._addFileChildren(
-  ClientsIdRouteChildren,
-)
-
-interface ClientsRouteChildren {
-  ClientsIdRoute: typeof ClientsIdRouteWithChildren
-}
-
-const ClientsRouteChildren: ClientsRouteChildren = {
-  ClientsIdRoute: ClientsIdRouteWithChildren,
-}
-
-const ClientsRouteWithChildren =
-  ClientsRoute._addFileChildren(ClientsRouteChildren)
-
 interface ContratosRouteChildren {
   ContratosIdRoute: typeof ContratosIdRoute
 }
@@ -1138,14 +934,12 @@ const rootRouteChildren: RootRouteChildren = {
   BriefingsRoute: BriefingsRouteWithChildren,
   CadenciaRoute: CadenciaRoute,
   CatalogoRoute: CatalogoRouteWithChildren,
-  ClientsRoute: ClientsRouteWithChildren,
   ContratosRoute: ContratosRouteWithChildren,
   CrmRoute: CrmRoute,
   DashboardRoute: DashboardRoute,
   KickoffRoute: KickoffRoute,
   LoginRoute: LoginRoute,
   MetasRoute: MetasRoute,
-  PipelineRoute: PipelineRoute,
   PropostasRoute: PropostasRouteWithChildren,
   ProspeccaoRoute: ProspeccaoRoute,
   TarefasRoute: TarefasRoute,
