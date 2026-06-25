@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BriefingsDashboard } from "@/components/BriefingsDashboard";
+import { OnboardingChecklist } from "@/components/operacoes/OnboardingChecklist";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -75,6 +76,7 @@ function OnboardingPage() {
         </TabsList>
 
         <TabsContent value="onboarding" className="mt-4">
+          <OnboardingChecklist />
           <div className="mb-3 flex items-center justify-end">
         <Button onClick={() => setCreating(true)} disabled={!clientesQ.data?.length}>
           <Plus className="mr-2 h-4 w-4" /> Novo onboarding
@@ -150,11 +152,11 @@ function OnboardingPage() {
         </TabsContent>
 
         <TabsContent value="briefings" className="mt-4">
-          <BriefingsDashboard tipo="briefing_comercial" embedded />
+          <BriefingsDashboard tipo="briefing_comercial" embedded syncLifecycleStage />
         </TabsContent>
 
         <TabsContent value="kickoff" className="mt-4">
-          <BriefingsDashboard tipo="kickoff_producao" embedded />
+          <BriefingsDashboard tipo="kickoff_producao" embedded syncLifecycleStage />
         </TabsContent>
       </Tabs>
     </OperacoesLayout>
