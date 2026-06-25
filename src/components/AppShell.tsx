@@ -40,8 +40,6 @@ import { NotificationsBell } from "./cadencia/NotificationsBell";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, enabled: true },
-  { to: "/pipeline", label: "Pipeline 360", icon: GitBranch, enabled: true },
-  { to: "/clients", label: "Clientes 360", icon: UserCog, enabled: true },
   { to: "/crm", label: "CRM Comercial", icon: Users, enabled: true },
   { to: "/prospeccao", label: "Prospecção", icon: Search, enabled: true },
   { to: "/cadencia", label: "Cadência", icon: Repeat2, enabled: true },
