@@ -34,6 +34,7 @@ import { Route as OperacoesFinanceiroRouteImport } from './routes/operacoes.fina
 import { Route as OperacoesDashboardRouteImport } from './routes/operacoes.dashboard'
 import { Route as OperacoesCredenciaisRouteImport } from './routes/operacoes.credenciais'
 import { Route as OperacoesClientesRouteImport } from './routes/operacoes.clientes'
+import { Route as OperacoesCampanhasRouteImport } from './routes/operacoes.campanhas'
 import { Route as OperacoesAgendaRouteImport } from './routes/operacoes.agenda'
 import { Route as ContratosIdRouteImport } from './routes/contratos.$id'
 import { Route as CatalogoNovoRouteImport } from './routes/catalogo.novo'
@@ -166,6 +167,11 @@ const OperacoesClientesRoute = OperacoesClientesRouteImport.update({
   path: '/operacoes/clientes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OperacoesCampanhasRoute = OperacoesCampanhasRouteImport.update({
+  id: '/operacoes/campanhas',
+  path: '/operacoes/campanhas',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OperacoesAgendaRoute = OperacoesAgendaRouteImport.update({
   id: '/operacoes/agenda',
   path: '/operacoes/agenda',
@@ -217,6 +223,7 @@ export interface FileRoutesByFullPath {
   '/catalogo/novo': typeof CatalogoNovoRoute
   '/contratos/$id': typeof ContratosIdRoute
   '/operacoes/agenda': typeof OperacoesAgendaRoute
+  '/operacoes/campanhas': typeof OperacoesCampanhasRoute
   '/operacoes/clientes': typeof OperacoesClientesRoute
   '/operacoes/credenciais': typeof OperacoesCredenciaisRoute
   '/operacoes/dashboard': typeof OperacoesDashboardRoute
@@ -250,6 +257,7 @@ export interface FileRoutesByTo {
   '/catalogo/novo': typeof CatalogoNovoRoute
   '/contratos/$id': typeof ContratosIdRoute
   '/operacoes/agenda': typeof OperacoesAgendaRoute
+  '/operacoes/campanhas': typeof OperacoesCampanhasRoute
   '/operacoes/clientes': typeof OperacoesClientesRoute
   '/operacoes/credenciais': typeof OperacoesCredenciaisRoute
   '/operacoes/dashboard': typeof OperacoesDashboardRoute
@@ -284,6 +292,7 @@ export interface FileRoutesById {
   '/catalogo/novo': typeof CatalogoNovoRoute
   '/contratos/$id': typeof ContratosIdRoute
   '/operacoes/agenda': typeof OperacoesAgendaRoute
+  '/operacoes/campanhas': typeof OperacoesCampanhasRoute
   '/operacoes/clientes': typeof OperacoesClientesRoute
   '/operacoes/credenciais': typeof OperacoesCredenciaisRoute
   '/operacoes/dashboard': typeof OperacoesDashboardRoute
@@ -319,6 +328,7 @@ export interface FileRouteTypes {
     | '/catalogo/novo'
     | '/contratos/$id'
     | '/operacoes/agenda'
+    | '/operacoes/campanhas'
     | '/operacoes/clientes'
     | '/operacoes/credenciais'
     | '/operacoes/dashboard'
@@ -352,6 +362,7 @@ export interface FileRouteTypes {
     | '/catalogo/novo'
     | '/contratos/$id'
     | '/operacoes/agenda'
+    | '/operacoes/campanhas'
     | '/operacoes/clientes'
     | '/operacoes/credenciais'
     | '/operacoes/dashboard'
@@ -385,6 +396,7 @@ export interface FileRouteTypes {
     | '/catalogo/novo'
     | '/contratos/$id'
     | '/operacoes/agenda'
+    | '/operacoes/campanhas'
     | '/operacoes/clientes'
     | '/operacoes/credenciais'
     | '/operacoes/dashboard'
@@ -415,6 +427,7 @@ export interface RootRouteChildren {
   TarefasRoute: typeof TarefasRoute
   BriefingTokenRoute: typeof BriefingTokenRoute
   OperacoesAgendaRoute: typeof OperacoesAgendaRoute
+  OperacoesCampanhasRoute: typeof OperacoesCampanhasRoute
   OperacoesClientesRoute: typeof OperacoesClientesRoute
   OperacoesCredenciaisRoute: typeof OperacoesCredenciaisRoute
   OperacoesDashboardRoute: typeof OperacoesDashboardRoute
@@ -605,6 +618,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OperacoesClientesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/operacoes/campanhas': {
+      id: '/operacoes/campanhas'
+      path: '/operacoes/campanhas'
+      fullPath: '/operacoes/campanhas'
+      preLoaderRoute: typeof OperacoesCampanhasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/operacoes/agenda': {
       id: '/operacoes/agenda'
       path: '/operacoes/agenda'
@@ -716,6 +736,7 @@ const rootRouteChildren: RootRouteChildren = {
   TarefasRoute: TarefasRoute,
   BriefingTokenRoute: BriefingTokenRoute,
   OperacoesAgendaRoute: OperacoesAgendaRoute,
+  OperacoesCampanhasRoute: OperacoesCampanhasRoute,
   OperacoesClientesRoute: OperacoesClientesRoute,
   OperacoesCredenciaisRoute: OperacoesCredenciaisRoute,
   OperacoesDashboardRoute: OperacoesDashboardRoute,
