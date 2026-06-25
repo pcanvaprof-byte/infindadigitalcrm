@@ -7,6 +7,7 @@ import { Copy, Send } from "lucide-react";
 import { toast } from "sonner";
 import { listTemplates, registerSend, markProspectContactedFromLead } from "@/lib/cadencia/api";
 import { renderTemplate, type CadLead } from "@/lib/cadencia/types";
+import { wasDispatchedToday, dispatchBlockedMessage } from "@/lib/dispatch-lock";
 
 function onlyDigits(s: string) { return (s || "").replace(/\D+/g, ""); }
 /** Normaliza telefone BR para E.164 sem sinal, garantindo DDI 55. */
@@ -39,15 +40,25 @@ export function SendMessageDialog({
     return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
   }
 
-  function handleSend() {
+  async function handleSend() {
     if (!lead || !msg.trim() || sending) return;
     const phone = waPhone(lead.whatsapp || lead.telefone || "");
     if (!phone) {
       toast.warning("Lead sem telefone/WhatsApp.");
       return;
     }
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
     setSending(true);
+    // Trava: verifica se já houve disparo hoje em Cadência ou Prospecção.
+    const lock = await wasDispatchedToday({
+      leadId: lead.id,
+      prospectId: lead.prospect_id ?? null,
+    });
+    if (lock.blocked) {
+      toast.error(dispatchBlockedMessage(lock.source!));
+      setSending(false);
+      return;
+    }
+    const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
 
     // 1) Abre o WhatsApp IMEDIATAMENTE dentro do gesto do usuário.
     //    No mobile usa navegação direta (popups são bloqueados); no desktop nova aba.
