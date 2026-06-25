@@ -51,6 +51,78 @@ export async function deleteCliente(id: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+// ---------- Importação a partir de Contratos -----------------------------
+export type ImportContratoResult = {
+  importados: number;
+  ignorados: number;
+  total: number;
+};
+
+function pickPessoa(p: Record<string, unknown> | null | undefined) {
+  const x = (p ?? {}) as Record<string, unknown>;
+  const nome =
+    (x.razao_social as string) ||
+    (x.nome_fantasia as string) ||
+    (x.nome as string) ||
+    (x.responsavel as string) ||
+    "";
+  const empresa = (x.nome_fantasia as string) || (x.razao_social as string) || "";
+  const email = (x.email as string) || "";
+  const telefone = (x.telefone as string) || "";
+  const whatsapp = (x.whatsapp as string) || "";
+  return { nome, empresa, email, telefone, whatsapp };
+}
+
+export async function importClientesFromContratos(): Promise<ImportContratoResult> {
+  // status considerados "fechados" / ativos comerciais
+  const statusFechados = ["assinado", "ativo", "pendente_financeiro"];
+  const { data: contratos, error } = await db
+    .from("contratos")
+    .select("id, status, tipo_pessoa, dados_pessoa, valor_mensal, valor_implantacao")
+    .in("status", statusFechados);
+  if (error) throw new Error(error.message);
+  const lista = (contratos ?? []) as Array<Record<string, unknown>>;
+
+  const existentes = await listClientes();
+  const idx = new Set(
+    existentes.flatMap((c) => [
+      (c.email ?? "").toLowerCase().trim(),
+      (c.nome ?? "").toLowerCase().trim(),
+      (c.empresa ?? "").toLowerCase().trim(),
+    ].filter(Boolean)),
+  );
+
+  let importados = 0;
+  let ignorados = 0;
+  for (const c of lista) {
+    const { nome, empresa, email, telefone, whatsapp } = pickPessoa(
+      c.dados_pessoa as Record<string, unknown> | null,
+    );
+    if (!nome) {
+      ignorados++;
+      continue;
+    }
+    const chave = (email || nome || empresa).toLowerCase().trim();
+    if (idx.has(chave)) {
+      ignorados++;
+      continue;
+    }
+    const obs = `Importado do contrato ${String(c.id).slice(0, 8)} · MRR ${Number(c.valor_mensal ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`;
+    await upsertCliente({
+      nome,
+      empresa: empresa || undefined,
+      email: email || undefined,
+      telefone: telefone || undefined,
+      whatsapp: whatsapp || undefined,
+      status: "ativo",
+      observacoes: obs,
+    });
+    idx.add(chave);
+    importados++;
+  }
+  return { importados, ignorados, total: lista.length };
+}
+
 // ---------- Tráfego: contas ------------------------------------------------
 export async function listContas(clienteId?: string): Promise<OpTrafegoConta[]> {
   let q = db.from("op_trafego_contas").select("*").order("created_at", { ascending: false });

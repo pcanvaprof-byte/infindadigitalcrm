@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Download, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/lib/auth-context";
@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { OperacoesLayout } from "@/modules/operacoes/components/OperacoesLayout";
 import { ClienteFormDialog } from "@/modules/operacoes/components/ClienteFormDialog";
-import { deleteCliente, listClientes } from "@/modules/operacoes/api";
+import { deleteCliente, importClientesFromContratos, listClientes } from "@/modules/operacoes/api";
 import { OP_CLIENTE_STATUS_LABEL, type OpCliente } from "@/modules/operacoes/types";
 
 export const Route = createFileRoute("/operacoes/clientes")({
@@ -60,6 +60,20 @@ function ClientesPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const importM = useMutation({
+    mutationFn: () => importClientesFromContratos(),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ["op-clientes"] });
+      qc.invalidateQueries({ queryKey: ["op-dashboard"] });
+      if (r.importados === 0) {
+        toast.info(`Nenhum novo cliente. ${r.ignorados} já estavam cadastrados.`);
+      } else {
+        toast.success(`${r.importados} cliente(s) importado(s) de contratos. ${r.ignorados} ignorado(s).`);
+      }
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <OperacoesLayout description="Cadastro centralizado dos clientes da operação. Vincule contas de tráfego, entregas e métricas.">
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -69,10 +83,20 @@ function ClientesPage() {
           onChange={(e) => setSearch(e.target.value)}
           className="sm:max-w-sm"
         />
-        <Button onClick={() => setCreating(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Novo cliente
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => importM.mutate()}
+            disabled={importM.isPending}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            {importM.isPending ? "Importando…" : "Importar de Contratos"}
+          </Button>
+          <Button onClick={() => setCreating(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Novo cliente
+          </Button>
+        </div>
       </div>
 
       <Card className="overflow-hidden">
