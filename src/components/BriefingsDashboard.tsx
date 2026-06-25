@@ -27,6 +27,8 @@ import {
   type BriefingStatus, type BriefingTipo,
 } from "@/lib/briefings/types";
 import { crmKeys, invalidateCrmCore } from "@/lib/crm/api";
+import { listClients } from "@/modules/lifecycle/api";
+import { PIPELINE_STAGES, STAGE_LABEL, type PipelineStage } from "@/modules/lifecycle/types";
 
 const FILTERS: { id: "todos" | BriefingStatus; label: string }[] = [
   { id: "todos", label: "Todos" },
@@ -36,16 +38,35 @@ const FILTERS: { id: "todos" | BriefingStatus; label: string }[] = [
   { id: "cancelado", label: "Cancelados" },
 ];
 
+function normalize(v: string | null | undefined): string {
+  return (v ?? "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function publicUrl(token: string) {
   if (typeof window === "undefined") return `/briefing/${token}`;
   return `${window.location.origin}/briefing/${token}`;
 }
 
-export function BriefingsDashboard({ tipo, embedded = false }: { tipo: BriefingTipo; embedded?: boolean }) {
+export function BriefingsDashboard({
+  tipo,
+  embedded = false,
+  syncLifecycleStage = false,
+}: {
+  tipo: BriefingTipo;
+  embedded?: boolean;
+  /** Quando true, mostra um filtro extra por estágio do lifecycle do cliente. */
+  syncLifecycleStage?: boolean;
+}) {
   const isKickoff = tipo === "kickoff_producao";
   const qc = useQueryClient();
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("todos");
   const [query, setQuery] = useState("");
+  const [stageFilter, setStageFilter] = useState<"todos" | PipelineStage>("todos");
   const [createOpen, setCreateOpen] = useState(false);
   const [shareTarget, setShareTarget] = useState<Briefing | null>(null);
 
@@ -54,6 +75,25 @@ export function BriefingsDashboard({ tipo, embedded = false }: { tipo: BriefingT
     queryFn: () => listBriefings({ tipo }),
     staleTime: 10_000,
   });
+  const lifecycleQ = useQuery({
+    queryKey: ["lifecycle-clients"],
+    queryFn: () => listClients(),
+    enabled: syncLifecycleStage,
+    staleTime: 30_000,
+  });
+  const stageByCompany = useMemo(() => {
+    const m = new Map<string, PipelineStage>();
+    (lifecycleQ.data ?? []).forEach((c) => {
+      const key = normalize(c.company);
+      if (key) m.set(key, c.pipeline_stage);
+    });
+    return m;
+  }, [lifecycleQ.data]);
+  const stageFor = (b: Briefing): PipelineStage | null =>
+    stageByCompany.get(normalize(b.empresa)) ??
+    stageByCompany.get(normalize(b.cliente_nome)) ??
+    null;
+
   const items: Briefing[] = briefingsQ.data ?? [];
   const loading = briefingsQ.isLoading;
 
@@ -75,10 +115,12 @@ export function BriefingsDashboard({ tipo, embedded = false }: { tipo: BriefingT
 
   const filtered = useMemo(() => items.filter((b) => {
     if (filter !== "todos" && b.status !== filter) return false;
+    if (syncLifecycleStage && stageFilter !== "todos" && stageFor(b) !== stageFilter) return false;
     if (!query) return true;
     const q = query.toLowerCase();
     return [b.cliente_nome, b.empresa, b.telefone, b.email].some((v) => (v ?? "").toLowerCase().includes(q));
-  }), [items, filter, query]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [items, filter, query, stageFilter, stageByCompany, syncLifecycleStage]);
 
   const kpis = useMemo(() => {
     const total = items.length;
@@ -118,9 +160,24 @@ export function BriefingsDashboard({ tipo, embedded = false }: { tipo: BriefingT
         <Tabs value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
           <TabsList>{FILTERS.map((f) => <TabsTrigger key={f.id} value={f.id}>{f.label}</TabsTrigger>)}</TabsList>
         </Tabs>
-        <div className="relative w-full sm:w-72">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="pl-8" placeholder="Buscar por nome, empresa, telefone…" value={query} onChange={(e) => setQuery(e.target.value)} />
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          {syncLifecycleStage && (
+            <Select value={stageFilter} onValueChange={(v) => setStageFilter(v as typeof stageFilter)}>
+              <SelectTrigger className="w-full sm:w-56">
+                <SelectValue placeholder="Estágio do lifecycle" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os estágios</SelectItem>
+                {PIPELINE_STAGES.map((s) => (
+                  <SelectItem key={s} value={s}>{STAGE_LABEL[s]}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <div className="relative w-full sm:w-72">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input className="pl-8" placeholder="Buscar por nome, empresa, telefone…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          </div>
         </div>
       </div>
 
@@ -132,15 +189,16 @@ export function BriefingsDashboard({ tipo, embedded = false }: { tipo: BriefingT
               <TableHead>Serviço</TableHead>
               <TableHead>Data</TableHead>
               <TableHead>Status</TableHead>
+              {syncLifecycleStage && <TableHead>Estágio</TableHead>}
               <TableHead>Responsável</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Carregando…</TableCell></TableRow>
+              <TableRow><TableCell colSpan={syncLifecycleStage ? 7 : 6} className="py-8 text-center text-muted-foreground">Carregando…</TableCell></TableRow>
             ) : filtered.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="py-8 text-center text-muted-foreground">Nenhum registro.</TableCell></TableRow>
+              <TableRow><TableCell colSpan={syncLifecycleStage ? 7 : 6} className="py-8 text-center text-muted-foreground">Nenhum registro.</TableCell></TableRow>
             ) : filtered.map((b) => (
               <TableRow key={b.id}>
                 <TableCell>
@@ -150,6 +208,18 @@ export function BriefingsDashboard({ tipo, embedded = false }: { tipo: BriefingT
                 <TableCell>{SERVICO_LABEL[b.servico]}</TableCell>
                 <TableCell>{new Date(b.created_at).toLocaleDateString("pt-BR")}</TableCell>
                 <TableCell><StatusBadge status={b.status} /></TableCell>
+                {syncLifecycleStage && (
+                  <TableCell>
+                    {(() => {
+                      const st = stageFor(b);
+                      return st ? (
+                        <Badge variant="outline" className="text-[10px]">{STAGE_LABEL[st]}</Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      );
+                    })()}
+                  </TableCell>
+                )}
                 <TableCell>{b.responsavel ?? "—"}</TableCell>
                 <TableCell className="text-right">
                   <Button size="sm" variant="ghost" onClick={() => setShareTarget(b)}>Compartilhar</Button>
