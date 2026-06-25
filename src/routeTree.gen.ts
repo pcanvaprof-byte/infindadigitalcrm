@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TarefasRouteImport } from './routes/tarefas'
 import { Route as ProspeccaoRouteImport } from './routes/prospeccao'
 import { Route as PropostasRouteImport } from './routes/propostas'
-import { Route as OperacoesRouteImport } from './routes/operacoes'
 import { Route as MetasRouteImport } from './routes/metas'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as KickoffRouteImport } from './routes/kickoff'
@@ -23,6 +22,7 @@ import { Route as CatalogoRouteImport } from './routes/catalogo'
 import { Route as CadenciaRouteImport } from './routes/cadencia'
 import { Route as BriefingsRouteImport } from './routes/briefings'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as OperacoesIndexRouteImport } from './routes/operacoes.index'
 import { Route as PropostasIdRouteImport } from './routes/propostas.$id'
 import { Route as PropostaTokenRouteImport } from './routes/proposta.$token'
 import { Route as OperacoesTrafegoRouteImport } from './routes/operacoes.trafego'
@@ -52,11 +52,6 @@ const ProspeccaoRoute = ProspeccaoRouteImport.update({
 const PropostasRoute = PropostasRouteImport.update({
   id: '/propostas',
   path: '/propostas',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OperacoesRoute = OperacoesRouteImport.update({
-  id: '/operacoes',
-  path: '/operacoes',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MetasRoute = MetasRouteImport.update({
@@ -109,6 +104,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OperacoesIndexRoute = OperacoesIndexRouteImport.update({
+  id: '/operacoes/',
+  path: '/operacoes/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PropostasIdRoute = PropostasIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -120,44 +120,44 @@ const PropostaTokenRoute = PropostaTokenRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const OperacoesTrafegoRoute = OperacoesTrafegoRouteImport.update({
-  id: '/trafego',
-  path: '/trafego',
-  getParentRoute: () => OperacoesRoute,
+  id: '/operacoes/trafego',
+  path: '/operacoes/trafego',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const OperacoesRelatoriosRoute = OperacoesRelatoriosRouteImport.update({
-  id: '/relatorios',
-  path: '/relatorios',
-  getParentRoute: () => OperacoesRoute,
+  id: '/operacoes/relatorios',
+  path: '/operacoes/relatorios',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const OperacoesKanbanRoute = OperacoesKanbanRouteImport.update({
-  id: '/kanban',
-  path: '/kanban',
-  getParentRoute: () => OperacoesRoute,
+  id: '/operacoes/kanban',
+  path: '/operacoes/kanban',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const OperacoesFinanceiroRoute = OperacoesFinanceiroRouteImport.update({
-  id: '/financeiro',
-  path: '/financeiro',
-  getParentRoute: () => OperacoesRoute,
+  id: '/operacoes/financeiro',
+  path: '/operacoes/financeiro',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const OperacoesDashboardRoute = OperacoesDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => OperacoesRoute,
+  id: '/operacoes/dashboard',
+  path: '/operacoes/dashboard',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const OperacoesCredenciaisRoute = OperacoesCredenciaisRouteImport.update({
-  id: '/credenciais',
-  path: '/credenciais',
-  getParentRoute: () => OperacoesRoute,
+  id: '/operacoes/credenciais',
+  path: '/operacoes/credenciais',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const OperacoesClientesRoute = OperacoesClientesRouteImport.update({
-  id: '/clientes',
-  path: '/clientes',
-  getParentRoute: () => OperacoesRoute,
+  id: '/operacoes/clientes',
+  path: '/operacoes/clientes',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const OperacoesAgendaRoute = OperacoesAgendaRouteImport.update({
-  id: '/agenda',
-  path: '/agenda',
-  getParentRoute: () => OperacoesRoute,
+  id: '/operacoes/agenda',
+  path: '/operacoes/agenda',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ContratosIdRoute = ContratosIdRouteImport.update({
   id: '/$id',
@@ -196,7 +196,6 @@ export interface FileRoutesByFullPath {
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
-  '/operacoes': typeof OperacoesRouteWithChildren
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
@@ -215,6 +214,7 @@ export interface FileRoutesByFullPath {
   '/operacoes/trafego': typeof OperacoesTrafegoRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
+  '/operacoes/': typeof OperacoesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -227,7 +227,6 @@ export interface FileRoutesByTo {
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
-  '/operacoes': typeof OperacoesRouteWithChildren
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
@@ -246,6 +245,7 @@ export interface FileRoutesByTo {
   '/operacoes/trafego': typeof OperacoesTrafegoRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
+  '/operacoes': typeof OperacoesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -259,7 +259,6 @@ export interface FileRoutesById {
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
-  '/operacoes': typeof OperacoesRouteWithChildren
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
@@ -278,6 +277,7 @@ export interface FileRoutesById {
   '/operacoes/trafego': typeof OperacoesTrafegoRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
+  '/operacoes/': typeof OperacoesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -292,7 +292,6 @@ export interface FileRouteTypes {
     | '/kickoff'
     | '/login'
     | '/metas'
-    | '/operacoes'
     | '/propostas'
     | '/prospeccao'
     | '/tarefas'
@@ -311,6 +310,7 @@ export interface FileRouteTypes {
     | '/operacoes/trafego'
     | '/proposta/$token'
     | '/propostas/$id'
+    | '/operacoes/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -323,7 +323,6 @@ export interface FileRouteTypes {
     | '/kickoff'
     | '/login'
     | '/metas'
-    | '/operacoes'
     | '/propostas'
     | '/prospeccao'
     | '/tarefas'
@@ -342,6 +341,7 @@ export interface FileRouteTypes {
     | '/operacoes/trafego'
     | '/proposta/$token'
     | '/propostas/$id'
+    | '/operacoes'
   id:
     | '__root__'
     | '/'
@@ -354,7 +354,6 @@ export interface FileRouteTypes {
     | '/kickoff'
     | '/login'
     | '/metas'
-    | '/operacoes'
     | '/propostas'
     | '/prospeccao'
     | '/tarefas'
@@ -373,6 +372,7 @@ export interface FileRouteTypes {
     | '/operacoes/trafego'
     | '/proposta/$token'
     | '/propostas/$id'
+    | '/operacoes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -386,12 +386,20 @@ export interface RootRouteChildren {
   KickoffRoute: typeof KickoffRoute
   LoginRoute: typeof LoginRoute
   MetasRoute: typeof MetasRoute
-  OperacoesRoute: typeof OperacoesRouteWithChildren
   PropostasRoute: typeof PropostasRouteWithChildren
   ProspeccaoRoute: typeof ProspeccaoRoute
   TarefasRoute: typeof TarefasRoute
   BriefingTokenRoute: typeof BriefingTokenRoute
+  OperacoesAgendaRoute: typeof OperacoesAgendaRoute
+  OperacoesClientesRoute: typeof OperacoesClientesRoute
+  OperacoesCredenciaisRoute: typeof OperacoesCredenciaisRoute
+  OperacoesDashboardRoute: typeof OperacoesDashboardRoute
+  OperacoesFinanceiroRoute: typeof OperacoesFinanceiroRoute
+  OperacoesKanbanRoute: typeof OperacoesKanbanRoute
+  OperacoesRelatoriosRoute: typeof OperacoesRelatoriosRoute
+  OperacoesTrafegoRoute: typeof OperacoesTrafegoRoute
   PropostaTokenRoute: typeof PropostaTokenRoute
+  OperacoesIndexRoute: typeof OperacoesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -415,13 +423,6 @@ declare module '@tanstack/react-router' {
       path: '/propostas'
       fullPath: '/propostas'
       preLoaderRoute: typeof PropostasRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operacoes': {
-      id: '/operacoes'
-      path: '/operacoes'
-      fullPath: '/operacoes'
-      preLoaderRoute: typeof OperacoesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/metas': {
@@ -494,6 +495,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/operacoes/': {
+      id: '/operacoes/'
+      path: '/operacoes'
+      fullPath: '/operacoes/'
+      preLoaderRoute: typeof OperacoesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/propostas/$id': {
       id: '/propostas/$id'
       path: '/$id'
@@ -510,59 +518,59 @@ declare module '@tanstack/react-router' {
     }
     '/operacoes/trafego': {
       id: '/operacoes/trafego'
-      path: '/trafego'
+      path: '/operacoes/trafego'
       fullPath: '/operacoes/trafego'
       preLoaderRoute: typeof OperacoesTrafegoRouteImport
-      parentRoute: typeof OperacoesRoute
+      parentRoute: typeof rootRouteImport
     }
     '/operacoes/relatorios': {
       id: '/operacoes/relatorios'
-      path: '/relatorios'
+      path: '/operacoes/relatorios'
       fullPath: '/operacoes/relatorios'
       preLoaderRoute: typeof OperacoesRelatoriosRouteImport
-      parentRoute: typeof OperacoesRoute
+      parentRoute: typeof rootRouteImport
     }
     '/operacoes/kanban': {
       id: '/operacoes/kanban'
-      path: '/kanban'
+      path: '/operacoes/kanban'
       fullPath: '/operacoes/kanban'
       preLoaderRoute: typeof OperacoesKanbanRouteImport
-      parentRoute: typeof OperacoesRoute
+      parentRoute: typeof rootRouteImport
     }
     '/operacoes/financeiro': {
       id: '/operacoes/financeiro'
-      path: '/financeiro'
+      path: '/operacoes/financeiro'
       fullPath: '/operacoes/financeiro'
       preLoaderRoute: typeof OperacoesFinanceiroRouteImport
-      parentRoute: typeof OperacoesRoute
+      parentRoute: typeof rootRouteImport
     }
     '/operacoes/dashboard': {
       id: '/operacoes/dashboard'
-      path: '/dashboard'
+      path: '/operacoes/dashboard'
       fullPath: '/operacoes/dashboard'
       preLoaderRoute: typeof OperacoesDashboardRouteImport
-      parentRoute: typeof OperacoesRoute
+      parentRoute: typeof rootRouteImport
     }
     '/operacoes/credenciais': {
       id: '/operacoes/credenciais'
-      path: '/credenciais'
+      path: '/operacoes/credenciais'
       fullPath: '/operacoes/credenciais'
       preLoaderRoute: typeof OperacoesCredenciaisRouteImport
-      parentRoute: typeof OperacoesRoute
+      parentRoute: typeof rootRouteImport
     }
     '/operacoes/clientes': {
       id: '/operacoes/clientes'
-      path: '/clientes'
+      path: '/operacoes/clientes'
       fullPath: '/operacoes/clientes'
       preLoaderRoute: typeof OperacoesClientesRouteImport
-      parentRoute: typeof OperacoesRoute
+      parentRoute: typeof rootRouteImport
     }
     '/operacoes/agenda': {
       id: '/operacoes/agenda'
-      path: '/agenda'
+      path: '/operacoes/agenda'
       fullPath: '/operacoes/agenda'
       preLoaderRoute: typeof OperacoesAgendaRouteImport
-      parentRoute: typeof OperacoesRoute
+      parentRoute: typeof rootRouteImport
     }
     '/contratos/$id': {
       id: '/contratos/$id'
@@ -640,32 +648,6 @@ const ContratosRouteWithChildren = ContratosRoute._addFileChildren(
   ContratosRouteChildren,
 )
 
-interface OperacoesRouteChildren {
-  OperacoesAgendaRoute: typeof OperacoesAgendaRoute
-  OperacoesClientesRoute: typeof OperacoesClientesRoute
-  OperacoesCredenciaisRoute: typeof OperacoesCredenciaisRoute
-  OperacoesDashboardRoute: typeof OperacoesDashboardRoute
-  OperacoesFinanceiroRoute: typeof OperacoesFinanceiroRoute
-  OperacoesKanbanRoute: typeof OperacoesKanbanRoute
-  OperacoesRelatoriosRoute: typeof OperacoesRelatoriosRoute
-  OperacoesTrafegoRoute: typeof OperacoesTrafegoRoute
-}
-
-const OperacoesRouteChildren: OperacoesRouteChildren = {
-  OperacoesAgendaRoute: OperacoesAgendaRoute,
-  OperacoesClientesRoute: OperacoesClientesRoute,
-  OperacoesCredenciaisRoute: OperacoesCredenciaisRoute,
-  OperacoesDashboardRoute: OperacoesDashboardRoute,
-  OperacoesFinanceiroRoute: OperacoesFinanceiroRoute,
-  OperacoesKanbanRoute: OperacoesKanbanRoute,
-  OperacoesRelatoriosRoute: OperacoesRelatoriosRoute,
-  OperacoesTrafegoRoute: OperacoesTrafegoRoute,
-}
-
-const OperacoesRouteWithChildren = OperacoesRoute._addFileChildren(
-  OperacoesRouteChildren,
-)
-
 interface PropostasRouteChildren {
   PropostasIdRoute: typeof PropostasIdRoute
 }
@@ -689,12 +671,20 @@ const rootRouteChildren: RootRouteChildren = {
   KickoffRoute: KickoffRoute,
   LoginRoute: LoginRoute,
   MetasRoute: MetasRoute,
-  OperacoesRoute: OperacoesRouteWithChildren,
   PropostasRoute: PropostasRouteWithChildren,
   ProspeccaoRoute: ProspeccaoRoute,
   TarefasRoute: TarefasRoute,
   BriefingTokenRoute: BriefingTokenRoute,
+  OperacoesAgendaRoute: OperacoesAgendaRoute,
+  OperacoesClientesRoute: OperacoesClientesRoute,
+  OperacoesCredenciaisRoute: OperacoesCredenciaisRoute,
+  OperacoesDashboardRoute: OperacoesDashboardRoute,
+  OperacoesFinanceiroRoute: OperacoesFinanceiroRoute,
+  OperacoesKanbanRoute: OperacoesKanbanRoute,
+  OperacoesRelatoriosRoute: OperacoesRelatoriosRoute,
+  OperacoesTrafegoRoute: OperacoesTrafegoRoute,
   PropostaTokenRoute: PropostaTokenRoute,
+  OperacoesIndexRoute: OperacoesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
