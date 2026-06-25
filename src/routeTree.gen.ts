@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TarefasRouteImport } from './routes/tarefas'
 import { Route as ProspeccaoRouteImport } from './routes/prospeccao'
 import { Route as PropostasRouteImport } from './routes/propostas'
+import { Route as OperacoesRouteImport } from './routes/operacoes'
 import { Route as MetasRouteImport } from './routes/metas'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as KickoffRouteImport } from './routes/kickoff'
@@ -24,6 +25,14 @@ import { Route as BriefingsRouteImport } from './routes/briefings'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PropostasIdRouteImport } from './routes/propostas.$id'
 import { Route as PropostaTokenRouteImport } from './routes/proposta.$token'
+import { Route as OperacoesTrafegoRouteImport } from './routes/operacoes.trafego'
+import { Route as OperacoesRelatoriosRouteImport } from './routes/operacoes.relatorios'
+import { Route as OperacoesKanbanRouteImport } from './routes/operacoes.kanban'
+import { Route as OperacoesFinanceiroRouteImport } from './routes/operacoes.financeiro'
+import { Route as OperacoesDashboardRouteImport } from './routes/operacoes.dashboard'
+import { Route as OperacoesCredenciaisRouteImport } from './routes/operacoes.credenciais'
+import { Route as OperacoesClientesRouteImport } from './routes/operacoes.clientes'
+import { Route as OperacoesAgendaRouteImport } from './routes/operacoes.agenda'
 import { Route as ContratosIdRouteImport } from './routes/contratos.$id'
 import { Route as CatalogoNovoRouteImport } from './routes/catalogo.novo'
 import { Route as CatalogoIdRouteImport } from './routes/catalogo.$id'
@@ -43,6 +52,11 @@ const ProspeccaoRoute = ProspeccaoRouteImport.update({
 const PropostasRoute = PropostasRouteImport.update({
   id: '/propostas',
   path: '/propostas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OperacoesRoute = OperacoesRouteImport.update({
+  id: '/operacoes',
+  path: '/operacoes',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MetasRoute = MetasRouteImport.update({
@@ -105,6 +119,46 @@ const PropostaTokenRoute = PropostaTokenRouteImport.update({
   path: '/proposta/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OperacoesTrafegoRoute = OperacoesTrafegoRouteImport.update({
+  id: '/trafego',
+  path: '/trafego',
+  getParentRoute: () => OperacoesRoute,
+} as any)
+const OperacoesRelatoriosRoute = OperacoesRelatoriosRouteImport.update({
+  id: '/relatorios',
+  path: '/relatorios',
+  getParentRoute: () => OperacoesRoute,
+} as any)
+const OperacoesKanbanRoute = OperacoesKanbanRouteImport.update({
+  id: '/kanban',
+  path: '/kanban',
+  getParentRoute: () => OperacoesRoute,
+} as any)
+const OperacoesFinanceiroRoute = OperacoesFinanceiroRouteImport.update({
+  id: '/financeiro',
+  path: '/financeiro',
+  getParentRoute: () => OperacoesRoute,
+} as any)
+const OperacoesDashboardRoute = OperacoesDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => OperacoesRoute,
+} as any)
+const OperacoesCredenciaisRoute = OperacoesCredenciaisRouteImport.update({
+  id: '/credenciais',
+  path: '/credenciais',
+  getParentRoute: () => OperacoesRoute,
+} as any)
+const OperacoesClientesRoute = OperacoesClientesRouteImport.update({
+  id: '/clientes',
+  path: '/clientes',
+  getParentRoute: () => OperacoesRoute,
+} as any)
+const OperacoesAgendaRoute = OperacoesAgendaRouteImport.update({
+  id: '/agenda',
+  path: '/agenda',
+  getParentRoute: () => OperacoesRoute,
+} as any)
 const ContratosIdRoute = ContratosIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -142,6 +196,7 @@ export interface FileRoutesByFullPath {
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
+  '/operacoes': typeof OperacoesRouteWithChildren
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
@@ -150,6 +205,14 @@ export interface FileRoutesByFullPath {
   '/catalogo/$id': typeof CatalogoIdRoute
   '/catalogo/novo': typeof CatalogoNovoRoute
   '/contratos/$id': typeof ContratosIdRoute
+  '/operacoes/agenda': typeof OperacoesAgendaRoute
+  '/operacoes/clientes': typeof OperacoesClientesRoute
+  '/operacoes/credenciais': typeof OperacoesCredenciaisRoute
+  '/operacoes/dashboard': typeof OperacoesDashboardRoute
+  '/operacoes/financeiro': typeof OperacoesFinanceiroRoute
+  '/operacoes/kanban': typeof OperacoesKanbanRoute
+  '/operacoes/relatorios': typeof OperacoesRelatoriosRoute
+  '/operacoes/trafego': typeof OperacoesTrafegoRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
 }
@@ -164,6 +227,7 @@ export interface FileRoutesByTo {
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
+  '/operacoes': typeof OperacoesRouteWithChildren
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
@@ -172,6 +236,14 @@ export interface FileRoutesByTo {
   '/catalogo/$id': typeof CatalogoIdRoute
   '/catalogo/novo': typeof CatalogoNovoRoute
   '/contratos/$id': typeof ContratosIdRoute
+  '/operacoes/agenda': typeof OperacoesAgendaRoute
+  '/operacoes/clientes': typeof OperacoesClientesRoute
+  '/operacoes/credenciais': typeof OperacoesCredenciaisRoute
+  '/operacoes/dashboard': typeof OperacoesDashboardRoute
+  '/operacoes/financeiro': typeof OperacoesFinanceiroRoute
+  '/operacoes/kanban': typeof OperacoesKanbanRoute
+  '/operacoes/relatorios': typeof OperacoesRelatoriosRoute
+  '/operacoes/trafego': typeof OperacoesTrafegoRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
 }
@@ -187,6 +259,7 @@ export interface FileRoutesById {
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
+  '/operacoes': typeof OperacoesRouteWithChildren
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
@@ -195,6 +268,14 @@ export interface FileRoutesById {
   '/catalogo/$id': typeof CatalogoIdRoute
   '/catalogo/novo': typeof CatalogoNovoRoute
   '/contratos/$id': typeof ContratosIdRoute
+  '/operacoes/agenda': typeof OperacoesAgendaRoute
+  '/operacoes/clientes': typeof OperacoesClientesRoute
+  '/operacoes/credenciais': typeof OperacoesCredenciaisRoute
+  '/operacoes/dashboard': typeof OperacoesDashboardRoute
+  '/operacoes/financeiro': typeof OperacoesFinanceiroRoute
+  '/operacoes/kanban': typeof OperacoesKanbanRoute
+  '/operacoes/relatorios': typeof OperacoesRelatoriosRoute
+  '/operacoes/trafego': typeof OperacoesTrafegoRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
 }
@@ -211,6 +292,7 @@ export interface FileRouteTypes {
     | '/kickoff'
     | '/login'
     | '/metas'
+    | '/operacoes'
     | '/propostas'
     | '/prospeccao'
     | '/tarefas'
@@ -219,6 +301,14 @@ export interface FileRouteTypes {
     | '/catalogo/$id'
     | '/catalogo/novo'
     | '/contratos/$id'
+    | '/operacoes/agenda'
+    | '/operacoes/clientes'
+    | '/operacoes/credenciais'
+    | '/operacoes/dashboard'
+    | '/operacoes/financeiro'
+    | '/operacoes/kanban'
+    | '/operacoes/relatorios'
+    | '/operacoes/trafego'
     | '/proposta/$token'
     | '/propostas/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -233,6 +323,7 @@ export interface FileRouteTypes {
     | '/kickoff'
     | '/login'
     | '/metas'
+    | '/operacoes'
     | '/propostas'
     | '/prospeccao'
     | '/tarefas'
@@ -241,6 +332,14 @@ export interface FileRouteTypes {
     | '/catalogo/$id'
     | '/catalogo/novo'
     | '/contratos/$id'
+    | '/operacoes/agenda'
+    | '/operacoes/clientes'
+    | '/operacoes/credenciais'
+    | '/operacoes/dashboard'
+    | '/operacoes/financeiro'
+    | '/operacoes/kanban'
+    | '/operacoes/relatorios'
+    | '/operacoes/trafego'
     | '/proposta/$token'
     | '/propostas/$id'
   id:
@@ -255,6 +354,7 @@ export interface FileRouteTypes {
     | '/kickoff'
     | '/login'
     | '/metas'
+    | '/operacoes'
     | '/propostas'
     | '/prospeccao'
     | '/tarefas'
@@ -263,6 +363,14 @@ export interface FileRouteTypes {
     | '/catalogo/$id'
     | '/catalogo/novo'
     | '/contratos/$id'
+    | '/operacoes/agenda'
+    | '/operacoes/clientes'
+    | '/operacoes/credenciais'
+    | '/operacoes/dashboard'
+    | '/operacoes/financeiro'
+    | '/operacoes/kanban'
+    | '/operacoes/relatorios'
+    | '/operacoes/trafego'
     | '/proposta/$token'
     | '/propostas/$id'
   fileRoutesById: FileRoutesById
@@ -278,6 +386,7 @@ export interface RootRouteChildren {
   KickoffRoute: typeof KickoffRoute
   LoginRoute: typeof LoginRoute
   MetasRoute: typeof MetasRoute
+  OperacoesRoute: typeof OperacoesRouteWithChildren
   PropostasRoute: typeof PropostasRouteWithChildren
   ProspeccaoRoute: typeof ProspeccaoRoute
   TarefasRoute: typeof TarefasRoute
@@ -306,6 +415,13 @@ declare module '@tanstack/react-router' {
       path: '/propostas'
       fullPath: '/propostas'
       preLoaderRoute: typeof PropostasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/operacoes': {
+      id: '/operacoes'
+      path: '/operacoes'
+      fullPath: '/operacoes'
+      preLoaderRoute: typeof OperacoesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/metas': {
@@ -392,6 +508,62 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PropostaTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/operacoes/trafego': {
+      id: '/operacoes/trafego'
+      path: '/trafego'
+      fullPath: '/operacoes/trafego'
+      preLoaderRoute: typeof OperacoesTrafegoRouteImport
+      parentRoute: typeof OperacoesRoute
+    }
+    '/operacoes/relatorios': {
+      id: '/operacoes/relatorios'
+      path: '/relatorios'
+      fullPath: '/operacoes/relatorios'
+      preLoaderRoute: typeof OperacoesRelatoriosRouteImport
+      parentRoute: typeof OperacoesRoute
+    }
+    '/operacoes/kanban': {
+      id: '/operacoes/kanban'
+      path: '/kanban'
+      fullPath: '/operacoes/kanban'
+      preLoaderRoute: typeof OperacoesKanbanRouteImport
+      parentRoute: typeof OperacoesRoute
+    }
+    '/operacoes/financeiro': {
+      id: '/operacoes/financeiro'
+      path: '/financeiro'
+      fullPath: '/operacoes/financeiro'
+      preLoaderRoute: typeof OperacoesFinanceiroRouteImport
+      parentRoute: typeof OperacoesRoute
+    }
+    '/operacoes/dashboard': {
+      id: '/operacoes/dashboard'
+      path: '/dashboard'
+      fullPath: '/operacoes/dashboard'
+      preLoaderRoute: typeof OperacoesDashboardRouteImport
+      parentRoute: typeof OperacoesRoute
+    }
+    '/operacoes/credenciais': {
+      id: '/operacoes/credenciais'
+      path: '/credenciais'
+      fullPath: '/operacoes/credenciais'
+      preLoaderRoute: typeof OperacoesCredenciaisRouteImport
+      parentRoute: typeof OperacoesRoute
+    }
+    '/operacoes/clientes': {
+      id: '/operacoes/clientes'
+      path: '/clientes'
+      fullPath: '/operacoes/clientes'
+      preLoaderRoute: typeof OperacoesClientesRouteImport
+      parentRoute: typeof OperacoesRoute
+    }
+    '/operacoes/agenda': {
+      id: '/operacoes/agenda'
+      path: '/agenda'
+      fullPath: '/operacoes/agenda'
+      preLoaderRoute: typeof OperacoesAgendaRouteImport
+      parentRoute: typeof OperacoesRoute
+    }
     '/contratos/$id': {
       id: '/contratos/$id'
       path: '/$id'
@@ -468,6 +640,32 @@ const ContratosRouteWithChildren = ContratosRoute._addFileChildren(
   ContratosRouteChildren,
 )
 
+interface OperacoesRouteChildren {
+  OperacoesAgendaRoute: typeof OperacoesAgendaRoute
+  OperacoesClientesRoute: typeof OperacoesClientesRoute
+  OperacoesCredenciaisRoute: typeof OperacoesCredenciaisRoute
+  OperacoesDashboardRoute: typeof OperacoesDashboardRoute
+  OperacoesFinanceiroRoute: typeof OperacoesFinanceiroRoute
+  OperacoesKanbanRoute: typeof OperacoesKanbanRoute
+  OperacoesRelatoriosRoute: typeof OperacoesRelatoriosRoute
+  OperacoesTrafegoRoute: typeof OperacoesTrafegoRoute
+}
+
+const OperacoesRouteChildren: OperacoesRouteChildren = {
+  OperacoesAgendaRoute: OperacoesAgendaRoute,
+  OperacoesClientesRoute: OperacoesClientesRoute,
+  OperacoesCredenciaisRoute: OperacoesCredenciaisRoute,
+  OperacoesDashboardRoute: OperacoesDashboardRoute,
+  OperacoesFinanceiroRoute: OperacoesFinanceiroRoute,
+  OperacoesKanbanRoute: OperacoesKanbanRoute,
+  OperacoesRelatoriosRoute: OperacoesRelatoriosRoute,
+  OperacoesTrafegoRoute: OperacoesTrafegoRoute,
+}
+
+const OperacoesRouteWithChildren = OperacoesRoute._addFileChildren(
+  OperacoesRouteChildren,
+)
+
 interface PropostasRouteChildren {
   PropostasIdRoute: typeof PropostasIdRoute
 }
@@ -491,6 +689,7 @@ const rootRouteChildren: RootRouteChildren = {
   KickoffRoute: KickoffRoute,
   LoginRoute: LoginRoute,
   MetasRoute: MetasRoute,
+  OperacoesRoute: OperacoesRouteWithChildren,
   PropostasRoute: PropostasRouteWithChildren,
   ProspeccaoRoute: ProspeccaoRoute,
   TarefasRoute: TarefasRoute,
@@ -500,13 +699,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
