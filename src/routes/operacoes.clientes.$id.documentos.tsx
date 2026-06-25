@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { getClient } from "@/modules/lifecycle/api";
 
-export const Route = createFileRoute("/operacoes/clients/$id/documentos")({
+export const Route = createFileRoute("/operacoes/clientes/$id/documentos")({
   ssr: false,
   component: DocumentosPage,
 });

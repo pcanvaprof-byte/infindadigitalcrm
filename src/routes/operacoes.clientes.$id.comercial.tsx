@@ -19,7 +19,7 @@ import {
   upsertCommercialPlan,
 } from "@/modules/lifecycle/api";
 
-export const Route = createFileRoute("/operacoes/clients/$id/comercial")({
+export const Route = createFileRoute("/operacoes/clientes/$id/comercial")({
   ssr: false,
   component: ComercialPage,
 });
