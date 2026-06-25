@@ -26,6 +26,7 @@ import { Route as OperacoesIndexRouteImport } from './routes/operacoes.index'
 import { Route as PropostasIdRouteImport } from './routes/propostas.$id'
 import { Route as PropostaTokenRouteImport } from './routes/proposta.$token'
 import { Route as OperacoesTrafegoRouteImport } from './routes/operacoes.trafego'
+import { Route as OperacoesRenovacoesRouteImport } from './routes/operacoes.renovacoes'
 import { Route as OperacoesRelatoriosRouteImport } from './routes/operacoes.relatorios'
 import { Route as OperacoesRelacionamentoRouteImport } from './routes/operacoes.relacionamento'
 import { Route as OperacoesOnboardingRouteImport } from './routes/operacoes.onboarding'
@@ -126,6 +127,11 @@ const PropostaTokenRoute = PropostaTokenRouteImport.update({
 const OperacoesTrafegoRoute = OperacoesTrafegoRouteImport.update({
   id: '/operacoes/trafego',
   path: '/operacoes/trafego',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OperacoesRenovacoesRoute = OperacoesRenovacoesRouteImport.update({
+  id: '/operacoes/renovacoes',
+  path: '/operacoes/renovacoes',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OperacoesRelatoriosRoute = OperacoesRelatoriosRouteImport.update({
@@ -239,6 +245,7 @@ export interface FileRoutesByFullPath {
   '/operacoes/onboarding': typeof OperacoesOnboardingRoute
   '/operacoes/relacionamento': typeof OperacoesRelacionamentoRoute
   '/operacoes/relatorios': typeof OperacoesRelatoriosRoute
+  '/operacoes/renovacoes': typeof OperacoesRenovacoesRoute
   '/operacoes/trafego': typeof OperacoesTrafegoRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
@@ -274,6 +281,7 @@ export interface FileRoutesByTo {
   '/operacoes/onboarding': typeof OperacoesOnboardingRoute
   '/operacoes/relacionamento': typeof OperacoesRelacionamentoRoute
   '/operacoes/relatorios': typeof OperacoesRelatoriosRoute
+  '/operacoes/renovacoes': typeof OperacoesRenovacoesRoute
   '/operacoes/trafego': typeof OperacoesTrafegoRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
@@ -310,6 +318,7 @@ export interface FileRoutesById {
   '/operacoes/onboarding': typeof OperacoesOnboardingRoute
   '/operacoes/relacionamento': typeof OperacoesRelacionamentoRoute
   '/operacoes/relatorios': typeof OperacoesRelatoriosRoute
+  '/operacoes/renovacoes': typeof OperacoesRenovacoesRoute
   '/operacoes/trafego': typeof OperacoesTrafegoRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
@@ -347,6 +356,7 @@ export interface FileRouteTypes {
     | '/operacoes/onboarding'
     | '/operacoes/relacionamento'
     | '/operacoes/relatorios'
+    | '/operacoes/renovacoes'
     | '/operacoes/trafego'
     | '/proposta/$token'
     | '/propostas/$id'
@@ -382,6 +392,7 @@ export interface FileRouteTypes {
     | '/operacoes/onboarding'
     | '/operacoes/relacionamento'
     | '/operacoes/relatorios'
+    | '/operacoes/renovacoes'
     | '/operacoes/trafego'
     | '/proposta/$token'
     | '/propostas/$id'
@@ -417,6 +428,7 @@ export interface FileRouteTypes {
     | '/operacoes/onboarding'
     | '/operacoes/relacionamento'
     | '/operacoes/relatorios'
+    | '/operacoes/renovacoes'
     | '/operacoes/trafego'
     | '/proposta/$token'
     | '/propostas/$id'
@@ -449,6 +461,7 @@ export interface RootRouteChildren {
   OperacoesOnboardingRoute: typeof OperacoesOnboardingRoute
   OperacoesRelacionamentoRoute: typeof OperacoesRelacionamentoRoute
   OperacoesRelatoriosRoute: typeof OperacoesRelatoriosRoute
+  OperacoesRenovacoesRoute: typeof OperacoesRenovacoesRoute
   OperacoesTrafegoRoute: typeof OperacoesTrafegoRoute
   PropostaTokenRoute: typeof PropostaTokenRoute
   OperacoesIndexRoute: typeof OperacoesIndexRoute
@@ -573,6 +586,13 @@ declare module '@tanstack/react-router' {
       path: '/operacoes/trafego'
       fullPath: '/operacoes/trafego'
       preLoaderRoute: typeof OperacoesTrafegoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/operacoes/renovacoes': {
+      id: '/operacoes/renovacoes'
+      path: '/operacoes/renovacoes'
+      fullPath: '/operacoes/renovacoes'
+      preLoaderRoute: typeof OperacoesRenovacoesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/operacoes/relatorios': {
@@ -766,6 +786,7 @@ const rootRouteChildren: RootRouteChildren = {
   OperacoesOnboardingRoute: OperacoesOnboardingRoute,
   OperacoesRelacionamentoRoute: OperacoesRelacionamentoRoute,
   OperacoesRelatoriosRoute: OperacoesRelatoriosRoute,
+  OperacoesRenovacoesRoute: OperacoesRenovacoesRoute,
   OperacoesTrafegoRoute: OperacoesTrafegoRoute,
   PropostaTokenRoute: PropostaTokenRoute,
   OperacoesIndexRoute: OperacoesIndexRoute,
