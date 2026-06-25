@@ -98,10 +98,34 @@ export type CadMetrics = {
   serie_30d: Array<{ dia: string; enviadas: number; respostas: number }>;
 };
 
+/** Primeiro nome do responsável (antes do primeiro espaço). */
+export function primeiroNome(nome: string | null | undefined): string {
+  const n = (nome || "").trim();
+  if (!n) return "";
+  return n.split(/\s+/)[0];
+}
+
+/** Nome curto da empresa: remove sufixos societários (LTDA, ME, EIRELI, S/A…) e mantém até 2 palavras. */
+export function empresaCurta(nome: string | null | undefined): string {
+  const raw = (nome || "").trim();
+  if (!raw) return "";
+  const limpo = raw
+    .replace(/[,\-–|].*$/, "")
+    .replace(/\b(LTDA|ME|EPP|EIRELI|S\.?\/?A\.?|SA|S\.A|S\/A|MEI|CIA|COMPANY|CO|INC|LLC)\.?$/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const partes = limpo.split(" ");
+  return partes.slice(0, 2).join(" ") || limpo;
+}
+
 export function renderTemplate(corpo: string, lead: Pick<CadLead, "empresa" | "responsavel">): string {
+  const emp = lead.empresa || "";
+  const resp = lead.responsavel || "";
   return (corpo || "")
-    .replaceAll("{{empresa}}", lead.empresa || "")
-    .replaceAll("{{responsavel}}", lead.responsavel || "");
+    .replaceAll("{{primeiro_nome}}", primeiroNome(resp))
+    .replaceAll("{{empresa_curta}}", empresaCurta(emp))
+    .replaceAll("{{empresa}}", emp)
+    .replaceAll("{{responsavel}}", resp);
 }
 
 export function diasSemResposta(lead: Pick<CadLead, "last_response_at" | "primeira_abordagem_at">): number {
