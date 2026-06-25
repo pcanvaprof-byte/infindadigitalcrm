@@ -25,6 +25,7 @@ import { Route as BriefingsRouteImport } from './routes/briefings'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PropostasIdRouteImport } from './routes/propostas.$id'
 import { Route as PropostaTokenRouteImport } from './routes/proposta.$token'
+import { Route as OperacoesDashboardRouteImport } from './routes/operacoes.dashboard'
 import { Route as ContratosIdRouteImport } from './routes/contratos.$id'
 import { Route as CatalogoNovoRouteImport } from './routes/catalogo.novo'
 import { Route as CatalogoIdRouteImport } from './routes/catalogo.$id'
@@ -111,6 +112,11 @@ const PropostaTokenRoute = PropostaTokenRouteImport.update({
   path: '/proposta/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OperacoesDashboardRoute = OperacoesDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => OperacoesRoute,
+} as any)
 const ContratosIdRoute = ContratosIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -148,7 +154,7 @@ export interface FileRoutesByFullPath {
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
-  '/operacoes': typeof OperacoesRoute
+  '/operacoes': typeof OperacoesRouteWithChildren
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
@@ -157,6 +163,7 @@ export interface FileRoutesByFullPath {
   '/catalogo/$id': typeof CatalogoIdRoute
   '/catalogo/novo': typeof CatalogoNovoRoute
   '/contratos/$id': typeof ContratosIdRoute
+  '/operacoes/dashboard': typeof OperacoesDashboardRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
 }
@@ -171,7 +178,7 @@ export interface FileRoutesByTo {
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
-  '/operacoes': typeof OperacoesRoute
+  '/operacoes': typeof OperacoesRouteWithChildren
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
@@ -180,6 +187,7 @@ export interface FileRoutesByTo {
   '/catalogo/$id': typeof CatalogoIdRoute
   '/catalogo/novo': typeof CatalogoNovoRoute
   '/contratos/$id': typeof ContratosIdRoute
+  '/operacoes/dashboard': typeof OperacoesDashboardRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
 }
@@ -195,7 +203,7 @@ export interface FileRoutesById {
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
-  '/operacoes': typeof OperacoesRoute
+  '/operacoes': typeof OperacoesRouteWithChildren
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
@@ -204,6 +212,7 @@ export interface FileRoutesById {
   '/catalogo/$id': typeof CatalogoIdRoute
   '/catalogo/novo': typeof CatalogoNovoRoute
   '/contratos/$id': typeof ContratosIdRoute
+  '/operacoes/dashboard': typeof OperacoesDashboardRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
 }
@@ -229,6 +238,7 @@ export interface FileRouteTypes {
     | '/catalogo/$id'
     | '/catalogo/novo'
     | '/contratos/$id'
+    | '/operacoes/dashboard'
     | '/proposta/$token'
     | '/propostas/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -252,6 +262,7 @@ export interface FileRouteTypes {
     | '/catalogo/$id'
     | '/catalogo/novo'
     | '/contratos/$id'
+    | '/operacoes/dashboard'
     | '/proposta/$token'
     | '/propostas/$id'
   id:
@@ -275,6 +286,7 @@ export interface FileRouteTypes {
     | '/catalogo/$id'
     | '/catalogo/novo'
     | '/contratos/$id'
+    | '/operacoes/dashboard'
     | '/proposta/$token'
     | '/propostas/$id'
   fileRoutesById: FileRoutesById
@@ -290,7 +302,7 @@ export interface RootRouteChildren {
   KickoffRoute: typeof KickoffRoute
   LoginRoute: typeof LoginRoute
   MetasRoute: typeof MetasRoute
-  OperacoesRoute: typeof OperacoesRoute
+  OperacoesRoute: typeof OperacoesRouteWithChildren
   PropostasRoute: typeof PropostasRouteWithChildren
   ProspeccaoRoute: typeof ProspeccaoRoute
   TarefasRoute: typeof TarefasRoute
@@ -412,6 +424,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PropostaTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/operacoes/dashboard': {
+      id: '/operacoes/dashboard'
+      path: '/dashboard'
+      fullPath: '/operacoes/dashboard'
+      preLoaderRoute: typeof OperacoesDashboardRouteImport
+      parentRoute: typeof OperacoesRoute
+    }
     '/contratos/$id': {
       id: '/contratos/$id'
       path: '/$id'
@@ -488,6 +507,18 @@ const ContratosRouteWithChildren = ContratosRoute._addFileChildren(
   ContratosRouteChildren,
 )
 
+interface OperacoesRouteChildren {
+  OperacoesDashboardRoute: typeof OperacoesDashboardRoute
+}
+
+const OperacoesRouteChildren: OperacoesRouteChildren = {
+  OperacoesDashboardRoute: OperacoesDashboardRoute,
+}
+
+const OperacoesRouteWithChildren = OperacoesRoute._addFileChildren(
+  OperacoesRouteChildren,
+)
+
 interface PropostasRouteChildren {
   PropostasIdRoute: typeof PropostasIdRoute
 }
@@ -511,7 +542,7 @@ const rootRouteChildren: RootRouteChildren = {
   KickoffRoute: KickoffRoute,
   LoginRoute: LoginRoute,
   MetasRoute: MetasRoute,
-  OperacoesRoute: OperacoesRoute,
+  OperacoesRoute: OperacoesRouteWithChildren,
   PropostasRoute: PropostasRouteWithChildren,
   ProspeccaoRoute: ProspeccaoRoute,
   TarefasRoute: TarefasRoute,
