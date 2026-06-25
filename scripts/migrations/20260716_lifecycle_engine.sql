@@ -254,8 +254,17 @@ grant select on public.client_timeline to authenticated;
 
 -- 9) BACKFILL — popula clients a partir do que já existe ------------------
 do $$
-declare v_now timestamptz := now();
+declare
+  v_now timestamptz := now();
+  v_default_org uuid;
 begin
+  -- Org padrão para fallback quando current_org_id() é null (rodando no SQL editor sem JWT)
+  select coalesce(public.current_org_id(), (select id from public.organizations order by created_at limit 1))
+    into v_default_org;
+  if v_default_org is null then
+    raise exception 'Nenhuma organização encontrada — crie uma em public.organizations antes do backfill';
+  end if;
+
   -- 9.1 op_clientes ativos => ATIVO (cria clients quando não existir)
   insert into public.clients (
     user_id, organization_id, company, contact_name, phone, whatsapp, email,
@@ -264,7 +273,7 @@ begin
   )
   select
     coalesce(oc.responsavel_id, (select id from auth.users limit 1)) as user_id,
-    public.current_org_id() as organization_id,
+    v_default_org as organization_id,
     coalesce(nullif(oc.empresa,''), oc.nome) as company,
     oc.nome, oc.telefone, oc.whatsapp, oc.email,
     'ATIVO'::public.pipeline_stage, false, oc.created_at, 'operacoes', oc.id,
@@ -281,7 +290,7 @@ begin
     created_from, source_ref, lc_contract_status, financial_status
   )
   select
-    ct.user_id, public.current_org_id(),
+    ct.user_id, v_default_org,
     coalesce(ct.cliente_empresa, ct.cliente_nome, 'Cliente'),
     ct.cliente_cnpj,
     'IMPLANTACAO'::public.pipeline_stage,
@@ -298,7 +307,7 @@ begin
     created_from, source_ref, lc_contract_status
   )
   select
-    ct.user_id, public.current_org_id(),
+    ct.user_id, v_default_org,
     coalesce(ct.cliente_empresa, ct.cliente_nome, 'Cliente'),
     ct.cliente_cnpj,
     'ASSINATURA'::public.pipeline_stage,
@@ -314,7 +323,7 @@ begin
     created_from, source_ref
   )
   select
-    p.user_id, public.current_org_id(),
+    p.user_id, v_default_org,
     coalesce(p.titulo, 'Proposta '||left(p.id::text,8)),
     case when p.status = 'aprovada' then 'PROPOSTA' else 'PROPOSTA' end::public.pipeline_stage,
     'proposta', p.id
@@ -328,7 +337,7 @@ begin
     pipeline_stage, created_from, source_ref
   )
   select
-    cl.owner_id, cl.organization_id,
+    cl.owner_id, coalesce(cl.organization_id, v_default_org),
     cl.empresa, cl.responsavel, cl.telefone, cl.whatsapp, cl.email,
     'CADENCIA'::public.pipeline_stage, 'cadencia', cl.id
   from public.cad_leads cl
