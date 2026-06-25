@@ -8,6 +8,8 @@ import { RequireAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BriefingsDashboard } from "@/components/BriefingsDashboard";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -46,6 +48,7 @@ function OnboardingPage() {
   const qc = useQueryClient();
   const [editing, setEditing] = useState<OpOnboarding | null>(null);
   const [creating, setCreating] = useState(false);
+  const [tab, setTab] = useState<"onboarding" | "briefings" | "kickoff">("onboarding");
 
   const clientesQ = useQuery({ queryKey: ["op-clientes"], queryFn: listClientes });
   const onbQ = useQuery({ queryKey: ["op-onboarding"], queryFn: listOnboardings });
@@ -64,7 +67,15 @@ function OnboardingPage() {
 
   return (
     <OperacoesLayout description="Centralize redes sociais, credenciais e integrações de cada cliente para começar a operação.">
-      <div className="mb-3 flex items-center justify-end">
+      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="mb-4">
+        <TabsList>
+          <TabsTrigger value="onboarding">Onboarding</TabsTrigger>
+          <TabsTrigger value="briefings">Briefings Comerciais</TabsTrigger>
+          <TabsTrigger value="kickoff">Kickoff de Produção</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="onboarding" className="mt-4">
+          <div className="mb-3 flex items-center justify-end">
         <Button onClick={() => setCreating(true)} disabled={!clientesQ.data?.length}>
           <Plus className="mr-2 h-4 w-4" /> Novo onboarding
         </Button>
@@ -136,6 +147,16 @@ function OnboardingPage() {
           qc.invalidateQueries({ queryKey: ["op-exec-metrics"] });
         }}
       />
+        </TabsContent>
+
+        <TabsContent value="briefings" className="mt-4">
+          <BriefingsDashboard tipo="briefing_comercial" embedded />
+        </TabsContent>
+
+        <TabsContent value="kickoff" className="mt-4">
+          <BriefingsDashboard tipo="kickoff_producao" embedded />
+        </TabsContent>
+      </Tabs>
     </OperacoesLayout>
   );
 }
