@@ -46,8 +46,6 @@ const NAV = [
   { to: "/prospeccao", label: "Prospecção", icon: Search, enabled: true },
   { to: "/cadencia", label: "Cadência", icon: Repeat2, enabled: true },
   { to: "/operacoes", label: "Operações", icon: Briefcase, enabled: true },
-  { to: "/metas", label: "Metas", icon: Target, enabled: true },
-  { to: "/tarefas", label: "Tarefas", icon: ListChecks, enabled: true },
   { to: "/briefings", label: "Briefings Comerciais", icon: FileText, enabled: true },
   { to: "/catalogo", label: "Catálogo Comercial", icon: Package, enabled: true },
   { to: "/kickoff", label: "Kickoff Produção", icon: Rocket, enabled: true },
