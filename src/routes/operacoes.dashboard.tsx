@@ -7,12 +7,18 @@ import {
   LineChart,
   PauseCircle,
   Users,
+  ClipboardList,
+  Settings2,
+  Target,
+  MessageCircle,
+  CalendarClock,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/lib/auth-context";
 import { Card } from "@/components/ui/card";
 import { OperacoesLayout } from "@/modules/operacoes/components/OperacoesLayout";
 import { fetchDashboardMetrics } from "@/modules/operacoes/api";
+import { getExecutiveMetrics } from "@/modules/operacoes/fase2.api";
 import { OP_PLATAFORMA_LABEL } from "@/modules/operacoes/types";
 
 export const Route = createFileRoute("/operacoes/dashboard")({
@@ -59,7 +65,9 @@ function Kpi({
 
 function DashboardOperacional() {
   const q = useQuery({ queryKey: ["op-dashboard"], queryFn: fetchDashboardMetrics });
+  const ex = useQuery({ queryKey: ["op-exec-metrics"], queryFn: getExecutiveMetrics });
   const m = q.data;
+  const e = ex.data;
 
   return (
     <OperacoesLayout description="Visão consolidada de clientes ativos, verba investida, performance e entregas em andamento.">
@@ -82,6 +90,32 @@ function DashboardOperacional() {
           label="Entregas atrasadas"
           value={`${m?.entregasAtrasadas ?? 0}`}
         />
+      </div>
+
+      <div className="mt-4">
+        <div className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">Operação (visão executiva)</div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+          <Kpi icon={ClipboardList} label="Onboarding concluído"
+               value={`${e?.onboarding_concluido ?? 0}`}
+               hint={`${e?.onboarding_em_configuracao ?? 0} em config · ${e?.onboarding_pendente ?? 0} pendentes`} />
+          <Kpi icon={Settings2} label="Implantações concluídas"
+               value={`${e?.deployments_concluidos ?? 0}`}
+               hint={`${e?.deployments_andamento ?? 0} em andamento · ${e?.deployments_total ?? 0} total`} />
+          <Kpi icon={Target} label="Campanhas ativas"
+               value={`${e?.campanhas_ativas ?? 0}`}
+               hint={`${e?.campanhas_pausadas ?? 0} pausadas · ${e?.campanhas_encerradas ?? 0} encerradas`} />
+          <Kpi icon={MessageCircle} label="Interações (30d)" value={`${e?.interacoes_30d ?? 0}`} />
+          <Kpi icon={CalendarClock} label="Vencendo em 30d" value={`${e?.contratos_vencendo_30d ?? 0}`} />
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <div className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">Saúde operacional</div>
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+          <Kpi icon={AlertTriangle} label="Clientes sem onboarding" value={`${e?.clientes_sem_onboarding ?? 0}`} />
+          <Kpi icon={AlertTriangle} label="Clientes sem campanha ativa" value={`${e?.clientes_sem_campanha_ativa ?? 0}`} />
+          <Kpi icon={AlertTriangle} label="Implantação pendente" value={`${e?.clientes_com_implantacao_pendente ?? 0}`} />
+        </div>
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">

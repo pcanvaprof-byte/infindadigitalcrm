@@ -1,94 +1,104 @@
-# Plano — Módulo Operações
+# Plano Revisado — Operações Fase 2 (Dados Reais)
 
-Novo módulo nativo da INFINDA acessível pela sidebar (mesmo layout, tema, componentes e contexto global). Estrutura preparada para crescer sem mexer no resto do app.
+Expandir `/operacoes` com 6 áreas novas, persistidas no Supabase. Incorpora os 9 ajustes solicitados.
 
-## Navegação
+## 1. Migration (`scripts/migrations/20260714_operacoes_fase2.sql`)
 
-- Novo item **Operações** (ícone `Briefcase`) no `NAV` de `src/components/AppShell.tsx`, posicionado após "Kickoff Produção".
-- Rota raiz `/operacoes` é layout com `<Outlet />` e uma barra de tabs horizontal sticky no topo da página (componente `OperacoesTabs`) listando as 8 sub-seções.
-- Cada sub-seção é uma rota filha real, com URL própria:
-  - `/operacoes` → redireciona para `/operacoes/dashboard`
-  - `/operacoes/dashboard`
-  - `/operacoes/clientes`
-  - `/operacoes/trafego`
-  - `/operacoes/kanban`
-  - `/operacoes/credenciais` (placeholder "Em breve")
-  - `/operacoes/financeiro` (placeholder "Em breve")
-  - `/operacoes/agenda` (placeholder "Em breve")
-  - `/operacoes/relatorios` (placeholder "Em breve")
-- `MobileNav` não muda (continua com 5 ícones); acesso a Operações via "Mais".
-
-## Banco de dados (Lovable Cloud)
-
-Migration `scripts/migrations/20260712_operacoes_core.sql`, sem `org_id` (compartilhado entre usuários autenticados), seguindo o padrão de GRANTs e RLS já adotado.
-
-Tabelas:
-
-- `op_clientes` — id, nome, empresa, contato (email, telefone, whatsapp), status (`ativo|pausado|offboarding|encerrado`), responsavel_id, observacoes, criado_em, atualizado_em.
-- `op_trafego_contas` — vincula cliente a contas de mídia (`plataforma` enum: meta_ads, google_ads, tiktok_ads, linkedin_ads; `conta_id_externa`, `nome_conta`, `verba_mensal`, `objetivo`, `status`).
-- `op_trafego_campanhas` — cliente_id, plataforma, nome, status, verba, gasto, impressoes, cliques, conversoes, cpa, roas, periodo_inicio, periodo_fim, ultima_sync.
-- `op_entregas` — id, cliente_id, titulo, tipo (`criativo|relatorio|otimizacao|reuniao|outro`), responsavel_id, status (`backlog|em_andamento|revisao|entregue`), prazo, descricao, ordem.
-
-Todas com:
-- `GRANT SELECT, INSERT, UPDATE, DELETE … TO authenticated;`
-- `GRANT ALL … TO service_role;`
-- RLS habilitada com policy `authenticated` (qualquer usuário logado lê/escreve).
-- Triggers `updated_at`.
-
-## Telas funcionais
-
-**`/operacoes/dashboard`**
-- KPIs: clientes ativos, verba mensal total, gasto no mês, ROAS médio, entregas em atraso.
-- Lista "Entregas com prazo nos próximos 7 dias" e "Campanhas pausadas".
-- Tudo via `useSuspenseQuery` em `src/lib/operacoes/api.ts`.
-
-**`/operacoes/clientes`**
-- Tabela (shadcn `Table`) com busca, filtro por status e botão "Novo cliente".
-- Drawer (`Sheet`) lateral para criar/editar com `react-hook-form` + zod.
-- Ação rápida: abrir cliente exibe abas internas com contas vinculadas e entregas recentes.
-
-**`/operacoes/trafego`**
-- Seletor de cliente no topo.
-- Lista de contas vinculadas (cards) e tabela de campanhas com métricas.
-- CRUD de contas e campanhas via dialogs. Não integra APIs externas nesta v1 (apenas registro manual / preparado para sync futuro).
-
-**`/operacoes/kanban`**
-- 4 colunas (`backlog`, `em_andamento`, `revisao`, `entregue`) usando `@dnd-kit/core` (já estilo dos componentes existentes — se não instalado, usar drag nativo HTML5 simples).
-- Cards de `op_entregas` com cliente, prazo, responsável; drag-and-drop atualiza `status`. Dialog para criar/editar entrega.
-
-## Telas placeholder (`/operacoes/credenciais`, `/financeiro`, `/agenda`, `/relatorios`)
-
-Página padronizada com `AppShell`/card central, ícone + título + descrição curta + selo "Em breve". Mesmo estilo das features desabilitadas atuais.
-
-## Estrutura de código
-
-Módulo isolado em `src/modules/operacoes/`:
-
-```text
-src/modules/operacoes/
-  components/
-    OperacoesTabs.tsx
-    ClienteForm.tsx
-    EntregaCard.tsx
-    KanbanBoard.tsx
-    CampanhaTable.tsx
-    Placeholder.tsx
-  api/
-    clientes.functions.ts
-    trafego.functions.ts
-    entregas.functions.ts
-    dashboard.functions.ts
-  types.ts
-  query-keys.ts
+Toda tabela nova inclui:
+```sql
+owner_id uuid not null references auth.users(id) default auth.uid()
 ```
+Policies por tabela:
+```sql
+USING (owner_id = auth.uid()) WITH CHECK (owner_id = auth.uid())
+```
++ GRANTs (`authenticated`, `service_role`) + `ENABLE RLS` + trigger `updated_at`.
 
-Rotas em `src/routes/operacoes.tsx` (layout) + `src/routes/operacoes.dashboard.tsx`, `operacoes.clientes.tsx`, `operacoes.trafego.tsx`, `operacoes.kanban.tsx`, `operacoes.credenciais.tsx`, `operacoes.financeiro.tsx`, `operacoes.agenda.tsx`, `operacoes.relatorios.tsx`, `operacoes.index.tsx` (redirect).
+### Tabelas
 
-Server functions seguem o padrão existente (`createServerFn` + `requireSupabaseAuth` + zod). Reaproveitam `AppShell`, `Card`, `Button`, `Sheet`, `Dialog`, `Badge`, `Table`, design tokens e `NotificationsBell` — nada novo no design system.
+**`op_onboarding`** (1:1 com cliente)
+- Campos do enunciado, sem `progress`.
+- Booleans de integração + redes + `goal_type` + `status`.
 
-## Fora do escopo desta v1
+**`op_deployments`**
+- + `priority text check in ('Baixa','Normal','Alta','Crítica') default 'Normal'`.
 
-- Integrações reais com Meta/Google Ads API (apenas modelo de dados pronto).
-- Permissões por papel dentro de Operações (todos autenticados acessam tudo).
-- Multi-tenant por `org_id` (pode ser adicionado depois sem quebrar dados, via migration aditiva).
-- Conteúdo funcional de Credenciais, Financeiro, Agenda e Relatórios.
+**`op_campaigns`**
+- + `monthly_budget`, `investment_to_date`, `results_count`, `cost_per_result` (numeric).
+
+**`op_client_interactions`**
+- + `next_followup_at timestamptz`.
+
+**`op_contract_renewals`**
+- Sem trigger. Cálculo de `days_to_expire` e status via view.
+
+### Views (não armazenam estado derivado)
+
+**`op_onboarding_progress`** — calcula `progress` (%) a partir dos booleans.
+
+**`op_renewals_status`** — calcula `days_to_expire` e status (`Vencido` / `Urgente` / `Próximo Vencimento` / `Ativo`) via `CASE` sobre `CURRENT_DATE`. Respeita `renewal_status` quando `Renovado` ou `Cancelado`.
+
+**`op_dashboard_exec_metrics`** — view (não RPC) com colunas tipadas:
+- `total_clientes`, `clientes_ativos`, `clientes_inativos`
+- `onboarding_pendente`, `onboarding_em_configuracao`, `onboarding_concluido`
+- `deployments_total`, `deployments_concluidos`, `deployments_andamento`
+- `campanhas_ativas`, `campanhas_pausadas`, `campanhas_encerradas`
+- `interacoes_30d`
+- **Saúde Operacional**: `clientes_sem_onboarding`, `clientes_sem_campanha_ativa`, `clientes_com_implantacao_pendente`, `contratos_vencendo_30d`
+
+Todas as views com `security_invoker=on` para respeitar RLS do usuário.
+
+## 2. Types & API (`src/modules/operacoes/`)
+
+- Estender `types.ts` com as 5 interfaces + interfaces das views.
+- Estender `api.ts` com CRUDs tipados:
+  - Onboarding: `list`, `getByClient`, `upsert`, `listProgress`
+  - Deployments: `list(filters)`, `create`, `update`, `delete`
+  - Campaigns: `list(filters)`, `create`, `update`, `delete`
+  - Interactions: `list(clientId?)`, `create`, `listPendingFollowups`
+  - Renewals: `list` (via view de status), `upsert`
+  - Dashboard: `getExecutiveMetrics()` lê a view diretamente
+
+Sempre injeta `owner_id = auth.uid()` no insert.
+
+## 3. Rotas novas (`src/routes/`, sob `_authenticated`)
+
+- `operacoes.onboarding.tsx`
+- `operacoes.implantacao.tsx`
+- `operacoes.campanhas.tsx` (não confunde com `operacoes.trafego.tsx`)
+- `operacoes.relacionamento.tsx`
+- `operacoes.renovacoes.tsx`
+- Atualiza `operacoes.dashboard.tsx` p/ consumir `op_dashboard_exec_metrics`.
+
+Adiciona abas em `OperacoesTabs.tsx`.
+
+## 4. Componentes (`src/modules/operacoes/components/`)
+
+- `OnboardingList.tsx` + `OnboardingFormDialog.tsx` (barra de progresso a partir da view)
+- `DeploymentsBoard.tsx` + `DeploymentFormDialog.tsx` (badge de prioridade, filtros cliente/categoria/status/prioridade, busca)
+- `CampanhasOpsList.tsx` + `CampanhaOpsFormDialog.tsx` (campos financeiros novos)
+- `RelacionamentoTimeline.tsx` + `InteractionFormDialog.tsx` (`next_followup_at`, seção "Follow-ups pendentes")
+- `RenovacoesList.tsx` + `RenovacaoFormDialog.tsx` (badge automático)
+- `ExecutiveDashboard.tsx` — grid KPIs + bloco "Saúde Operacional"
+
+Usa shadcn `Card`/`Table`/`Dialog`/`Badge`/`Tabs` já presentes; sem alterar visual atual.
+
+## 5. Garantias
+
+- Sem mocks, sem localStorage, sem fallback fake.
+- Todas as leituras vão a `useQuery` → Supabase real.
+- Loaders nas rotas só fazem `ensureQueryData`; rotas vivem sob `_authenticated`.
+- CRM, Prospecção e Cadência intocados.
+
+## 6. Execução & Entrega (não apenas descrição)
+
+Ao final, listar concretamente:
+1. Arquivos criados.
+2. Arquivos modificados.
+3. SQL da migration (incluído no repo).
+4. Services implementados (caminhos).
+5. Rotas registradas (TanStack regen).
+6. Componentes renderizados (caminhos).
+7. Evidência de consultas reais (snippets `from('op_*')`).
+
+A implementação fica de fato no código — não apenas descrita.

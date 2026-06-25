@@ -8,6 +8,11 @@ import {
   DollarSign,
   Calendar,
   BarChart3,
+  ClipboardList,
+  Settings2,
+  Target,
+  MessageCircle,
+  RefreshCw,
 } from "lucide-react";
 import type { ComponentType, SVGProps } from "react";
 
@@ -21,6 +26,11 @@ type Tab = {
 export const OPERACOES_TABS: Tab[] = [
   { to: "/operacoes/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/operacoes/clientes", label: "Clientes", icon: Users },
+  { to: "/operacoes/onboarding", label: "Onboarding", icon: ClipboardList },
+  { to: "/operacoes/implantacao", label: "Implantação", icon: Settings2 },
+  { to: "/operacoes/campanhas", label: "Campanhas", icon: Target },
+  { to: "/operacoes/relacionamento", label: "Relacionamento", icon: MessageCircle },
+  { to: "/operacoes/renovacoes", label: "Renovações", icon: RefreshCw },
   { to: "/operacoes/trafego", label: "Tráfego", icon: Megaphone },
   { to: "/operacoes/kanban", label: "Kanban", icon: KanbanSquare },
   { to: "/operacoes/credenciais", label: "Credenciais", icon: KeyRound, soon: true },
