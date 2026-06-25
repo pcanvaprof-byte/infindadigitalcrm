@@ -26,6 +26,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as PropostasIdRouteImport } from './routes/propostas.$id'
 import { Route as PropostaTokenRouteImport } from './routes/proposta.$token'
 import { Route as OperacoesTrafegoRouteImport } from './routes/operacoes.trafego'
+import { Route as OperacoesKanbanRouteImport } from './routes/operacoes.kanban'
 import { Route as OperacoesDashboardRouteImport } from './routes/operacoes.dashboard'
 import { Route as OperacoesClientesRouteImport } from './routes/operacoes.clientes'
 import { Route as ContratosIdRouteImport } from './routes/contratos.$id'
@@ -119,6 +120,11 @@ const OperacoesTrafegoRoute = OperacoesTrafegoRouteImport.update({
   path: '/trafego',
   getParentRoute: () => OperacoesRoute,
 } as any)
+const OperacoesKanbanRoute = OperacoesKanbanRouteImport.update({
+  id: '/kanban',
+  path: '/kanban',
+  getParentRoute: () => OperacoesRoute,
+} as any)
 const OperacoesDashboardRoute = OperacoesDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -177,6 +183,7 @@ export interface FileRoutesByFullPath {
   '/contratos/$id': typeof ContratosIdRoute
   '/operacoes/clientes': typeof OperacoesClientesRoute
   '/operacoes/dashboard': typeof OperacoesDashboardRoute
+  '/operacoes/kanban': typeof OperacoesKanbanRoute
   '/operacoes/trafego': typeof OperacoesTrafegoRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
@@ -203,6 +210,7 @@ export interface FileRoutesByTo {
   '/contratos/$id': typeof ContratosIdRoute
   '/operacoes/clientes': typeof OperacoesClientesRoute
   '/operacoes/dashboard': typeof OperacoesDashboardRoute
+  '/operacoes/kanban': typeof OperacoesKanbanRoute
   '/operacoes/trafego': typeof OperacoesTrafegoRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
@@ -230,6 +238,7 @@ export interface FileRoutesById {
   '/contratos/$id': typeof ContratosIdRoute
   '/operacoes/clientes': typeof OperacoesClientesRoute
   '/operacoes/dashboard': typeof OperacoesDashboardRoute
+  '/operacoes/kanban': typeof OperacoesKanbanRoute
   '/operacoes/trafego': typeof OperacoesTrafegoRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
@@ -258,6 +267,7 @@ export interface FileRouteTypes {
     | '/contratos/$id'
     | '/operacoes/clientes'
     | '/operacoes/dashboard'
+    | '/operacoes/kanban'
     | '/operacoes/trafego'
     | '/proposta/$token'
     | '/propostas/$id'
@@ -284,6 +294,7 @@ export interface FileRouteTypes {
     | '/contratos/$id'
     | '/operacoes/clientes'
     | '/operacoes/dashboard'
+    | '/operacoes/kanban'
     | '/operacoes/trafego'
     | '/proposta/$token'
     | '/propostas/$id'
@@ -310,6 +321,7 @@ export interface FileRouteTypes {
     | '/contratos/$id'
     | '/operacoes/clientes'
     | '/operacoes/dashboard'
+    | '/operacoes/kanban'
     | '/operacoes/trafego'
     | '/proposta/$token'
     | '/propostas/$id'
@@ -455,6 +467,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OperacoesTrafegoRouteImport
       parentRoute: typeof OperacoesRoute
     }
+    '/operacoes/kanban': {
+      id: '/operacoes/kanban'
+      path: '/kanban'
+      fullPath: '/operacoes/kanban'
+      preLoaderRoute: typeof OperacoesKanbanRouteImport
+      parentRoute: typeof OperacoesRoute
+    }
     '/operacoes/dashboard': {
       id: '/operacoes/dashboard'
       path: '/dashboard'
@@ -548,12 +567,14 @@ const ContratosRouteWithChildren = ContratosRoute._addFileChildren(
 interface OperacoesRouteChildren {
   OperacoesClientesRoute: typeof OperacoesClientesRoute
   OperacoesDashboardRoute: typeof OperacoesDashboardRoute
+  OperacoesKanbanRoute: typeof OperacoesKanbanRoute
   OperacoesTrafegoRoute: typeof OperacoesTrafegoRoute
 }
 
 const OperacoesRouteChildren: OperacoesRouteChildren = {
   OperacoesClientesRoute: OperacoesClientesRoute,
   OperacoesDashboardRoute: OperacoesDashboardRoute,
+  OperacoesKanbanRoute: OperacoesKanbanRoute,
   OperacoesTrafegoRoute: OperacoesTrafegoRoute,
 }
 
