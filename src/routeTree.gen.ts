@@ -27,6 +27,7 @@ import { Route as PropostasIdRouteImport } from './routes/propostas.$id'
 import { Route as PropostaTokenRouteImport } from './routes/proposta.$token'
 import { Route as OperacoesTrafegoRouteImport } from './routes/operacoes.trafego'
 import { Route as OperacoesRelatoriosRouteImport } from './routes/operacoes.relatorios'
+import { Route as OperacoesOnboardingRouteImport } from './routes/operacoes.onboarding'
 import { Route as OperacoesKanbanRouteImport } from './routes/operacoes.kanban'
 import { Route as OperacoesFinanceiroRouteImport } from './routes/operacoes.financeiro'
 import { Route as OperacoesDashboardRouteImport } from './routes/operacoes.dashboard'
@@ -129,6 +130,11 @@ const OperacoesRelatoriosRoute = OperacoesRelatoriosRouteImport.update({
   path: '/operacoes/relatorios',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OperacoesOnboardingRoute = OperacoesOnboardingRouteImport.update({
+  id: '/operacoes/onboarding',
+  path: '/operacoes/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OperacoesKanbanRoute = OperacoesKanbanRouteImport.update({
   id: '/operacoes/kanban',
   path: '/operacoes/kanban',
@@ -210,6 +216,7 @@ export interface FileRoutesByFullPath {
   '/operacoes/dashboard': typeof OperacoesDashboardRoute
   '/operacoes/financeiro': typeof OperacoesFinanceiroRoute
   '/operacoes/kanban': typeof OperacoesKanbanRoute
+  '/operacoes/onboarding': typeof OperacoesOnboardingRoute
   '/operacoes/relatorios': typeof OperacoesRelatoriosRoute
   '/operacoes/trafego': typeof OperacoesTrafegoRoute
   '/proposta/$token': typeof PropostaTokenRoute
@@ -241,6 +248,7 @@ export interface FileRoutesByTo {
   '/operacoes/dashboard': typeof OperacoesDashboardRoute
   '/operacoes/financeiro': typeof OperacoesFinanceiroRoute
   '/operacoes/kanban': typeof OperacoesKanbanRoute
+  '/operacoes/onboarding': typeof OperacoesOnboardingRoute
   '/operacoes/relatorios': typeof OperacoesRelatoriosRoute
   '/operacoes/trafego': typeof OperacoesTrafegoRoute
   '/proposta/$token': typeof PropostaTokenRoute
@@ -273,6 +281,7 @@ export interface FileRoutesById {
   '/operacoes/dashboard': typeof OperacoesDashboardRoute
   '/operacoes/financeiro': typeof OperacoesFinanceiroRoute
   '/operacoes/kanban': typeof OperacoesKanbanRoute
+  '/operacoes/onboarding': typeof OperacoesOnboardingRoute
   '/operacoes/relatorios': typeof OperacoesRelatoriosRoute
   '/operacoes/trafego': typeof OperacoesTrafegoRoute
   '/proposta/$token': typeof PropostaTokenRoute
@@ -306,6 +315,7 @@ export interface FileRouteTypes {
     | '/operacoes/dashboard'
     | '/operacoes/financeiro'
     | '/operacoes/kanban'
+    | '/operacoes/onboarding'
     | '/operacoes/relatorios'
     | '/operacoes/trafego'
     | '/proposta/$token'
@@ -337,6 +347,7 @@ export interface FileRouteTypes {
     | '/operacoes/dashboard'
     | '/operacoes/financeiro'
     | '/operacoes/kanban'
+    | '/operacoes/onboarding'
     | '/operacoes/relatorios'
     | '/operacoes/trafego'
     | '/proposta/$token'
@@ -368,6 +379,7 @@ export interface FileRouteTypes {
     | '/operacoes/dashboard'
     | '/operacoes/financeiro'
     | '/operacoes/kanban'
+    | '/operacoes/onboarding'
     | '/operacoes/relatorios'
     | '/operacoes/trafego'
     | '/proposta/$token'
@@ -396,6 +408,7 @@ export interface RootRouteChildren {
   OperacoesDashboardRoute: typeof OperacoesDashboardRoute
   OperacoesFinanceiroRoute: typeof OperacoesFinanceiroRoute
   OperacoesKanbanRoute: typeof OperacoesKanbanRoute
+  OperacoesOnboardingRoute: typeof OperacoesOnboardingRoute
   OperacoesRelatoriosRoute: typeof OperacoesRelatoriosRoute
   OperacoesTrafegoRoute: typeof OperacoesTrafegoRoute
   PropostaTokenRoute: typeof PropostaTokenRoute
@@ -528,6 +541,13 @@ declare module '@tanstack/react-router' {
       path: '/operacoes/relatorios'
       fullPath: '/operacoes/relatorios'
       preLoaderRoute: typeof OperacoesRelatoriosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/operacoes/onboarding': {
+      id: '/operacoes/onboarding'
+      path: '/operacoes/onboarding'
+      fullPath: '/operacoes/onboarding'
+      preLoaderRoute: typeof OperacoesOnboardingRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/operacoes/kanban': {
@@ -681,6 +701,7 @@ const rootRouteChildren: RootRouteChildren = {
   OperacoesDashboardRoute: OperacoesDashboardRoute,
   OperacoesFinanceiroRoute: OperacoesFinanceiroRoute,
   OperacoesKanbanRoute: OperacoesKanbanRoute,
+  OperacoesOnboardingRoute: OperacoesOnboardingRoute,
   OperacoesRelatoriosRoute: OperacoesRelatoriosRoute,
   OperacoesTrafegoRoute: OperacoesTrafegoRoute,
   PropostaTokenRoute: PropostaTokenRoute,
