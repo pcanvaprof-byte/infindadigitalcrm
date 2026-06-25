@@ -20,7 +20,7 @@ export const Route = createFileRoute("/operacoes/dashboard")({
   head: () => ({ meta: [{ title: "Operações — INFINDA" }] }),
   component: () => (
     <RequireAuth>
-      <AppShell>
+      <AppShell title="Operações" subtitle="Dashboard">
         <DashboardOperacional />
       </AppShell>
     </RequireAuth>
@@ -62,10 +62,7 @@ function DashboardOperacional() {
   const m = q.data;
 
   return (
-    <OperacoesLayout
-      title="Dashboard Operacional"
-      description="Visão consolidada de clientes ativos, verba investida, performance e entregas em andamento."
-    >
+    <OperacoesLayout description="Visão consolidada de clientes ativos, verba investida, performance e entregas em andamento.">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
         <Kpi
           icon={Users}
