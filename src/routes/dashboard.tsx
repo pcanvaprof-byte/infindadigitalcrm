@@ -17,7 +17,7 @@ import {
   TrendingUp,
   UserX,
 } from "lucide-react";
-import { cadenceKeys, fetchDashboardMetrics } from "@/lib/cadence/api";
+import { cadenceKeys, EMPTY_DASHBOARD_METRICS, fetchDashboardMetrics } from "@/lib/cadence/api";
 import { FollowupComparativoWidget } from "@/components/cadence/FollowupComparativoWidget";
 
 export const Route = createFileRoute("/dashboard")({
@@ -138,12 +138,13 @@ function DashboardPage() {
     ? "Visão consolidada da operação comercial"
     : "Seu desempenho e cadência";
 
-  const m = q.data;
+  const m = q.data ?? EMPTY_DASHBOARD_METRICS;
   const errMsg = q.error ? (q.error as Error).message : "";
   const migrationPending =
     errMsg.includes("dashboard_metrics") ||
     errMsg.includes("function") ||
-    errMsg.includes("404");
+    errMsg.includes("404") ||
+    q.data?.schema === "legacy";
 
   return (
     <AppShell
@@ -160,7 +161,7 @@ function DashboardPage() {
     >
       {migrationPending && (
         <div className="surface-card mb-4 border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-200">
-          <strong>Migration pendente:</strong> aplique <code>scripts/migrations/20260624_fase6_cadencia.sql</code> no SQL Editor do Supabase. Sem ela o dashboard não tem como agregar os KPIs.
+          <strong>Dashboard em modo compatibilidade:</strong> aplique <code>scripts/migrations/20260722_dashboard_metrics_v2.sql</code> no SQL Editor do Supabase para usar somente <code>prospect_touchpoints</code> e <code>clients</code> como fontes oficiais.
         </div>
       )}
 
