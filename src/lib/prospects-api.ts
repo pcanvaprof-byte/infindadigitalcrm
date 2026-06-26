@@ -34,10 +34,11 @@ type Row = {
 type IxRow = {
   id: string;
   prospect_id: string;
-  kind: string;
-  text: string;
-  by_name: string;
-  created_at: string;
+  // Linha originária de prospect_touchpoints (fonte única de verdade).
+  kind: string;        // mapeado de touchpoints.tipo
+  text: string;        // mapeado de touchpoints.mensagem
+  by_name: string;     // touchpoints.by_name (pode ser '')
+  created_at: string;  // mapeado de touchpoints.enviado_em
 };
 
 const VALID_POTENTIALS = ["alto", "medio", "baixo"];
@@ -126,17 +127,33 @@ export async function loadAllProspects(): Promise<Prospect[]> {
     const slice = ids.slice(i, i + ID_BATCH);
     for (let from = 0; ; from += PAGE) {
       const { data, error } = await supabase
-        .from("prospect_interactions")
-        .select("*")
+        .from("prospect_touchpoints")
+        .select("id, prospect_id, tipo, mensagem, by_name, enviado_em")
         .in("prospect_id", slice)
-        .order("created_at", { ascending: false })
+        .order("enviado_em", { ascending: false })
         .range(from, from + PAGE - 1);
       if (error) {
-        console.warn("loadAllProspects interactions error", error);
+        console.warn("loadAllProspects touchpoints error", error);
         break;
       }
-      const batch = (data ?? []) as IxRow[];
-      ixs.push(...batch);
+      const batch = (data ?? []) as Array<{
+        id: string;
+        prospect_id: string;
+        tipo: string;
+        mensagem: string | null;
+        by_name: string | null;
+        enviado_em: string;
+      }>;
+      for (const row of batch) {
+        ixs.push({
+          id: row.id,
+          prospect_id: row.prospect_id,
+          kind: row.tipo,
+          text: row.mensagem ?? "",
+          by_name: row.by_name ?? "",
+          created_at: row.enviado_em,
+        });
+      }
       if (batch.length < PAGE) break;
     }
   }
