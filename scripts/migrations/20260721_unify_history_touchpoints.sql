@@ -115,12 +115,15 @@ with src as (
       else 'enviado'
     end as resultado,
     i.created_at as enviado_em,
-    i.by_name
+    i.by_name,
+    p.organization_id
   from public.prospect_interactions i
+  join public.prospects p on p.id = i.prospect_id
+  where p.organization_id is not null
 )
 insert into public.prospect_touchpoints
-  (prospect_id, user_id, tipo, mensagem, resultado, enviado_em, by_name)
-select s.prospect_id, s.user_id, s.tipo, s.mensagem, s.resultado, s.enviado_em, s.by_name
+  (prospect_id, user_id, tipo, mensagem, resultado, enviado_em, by_name, organization_id)
+select s.prospect_id, s.user_id, s.tipo, s.mensagem, s.resultado, s.enviado_em, s.by_name, s.organization_id
 from src s
 where not exists (
   select 1 from public.prospect_touchpoints t
