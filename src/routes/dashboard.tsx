@@ -9,8 +9,11 @@ import {
   CheckCircle2,
   Clock,
   Handshake,
+  Inbox,
   MessageSquare,
+  Percent,
   Plus,
+  Repeat,
   TrendingUp,
   UserX,
 } from "lucide-react";
@@ -162,69 +165,74 @@ function DashboardPage() {
       )}
 
       {/* Operação */}
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Operação</h3>
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <Kpi label="Empresas na base"     value={m?.operacao.base         ?? 0} icon={Building2} />
-        <Kpi label="Contatadas"           value={m?.operacao.contatadas   ?? 0} icon={MessageSquare} />
-        <Kpi label="Sem resposta"         value={m?.operacao.sem_resposta ?? 0} icon={Clock} tone="warn" />
-        <Kpi label="Interessadas"         value={m?.operacao.interessadas ?? 0} icon={Handshake} tone="ok" />
-        <Kpi label="Clientes fechados"    value={m?.operacao.clientes     ?? 0} icon={CheckCircle2} tone="ok" />
-      </section>
-
-      {/* Cadência */}
-      <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cadência</h3>
+      {/* Resumo — fonte: prospects + clients (Lifecycle) */}
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resumo</h3>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        <Kpi label="Contatos hoje"   value={m?.cadencia.hoje   ?? 0} icon={MessageSquare} />
-        <Kpi label="Contatos semana" value={m?.cadencia.semana ?? 0} icon={MessageSquare} />
-        <Kpi label="Contatos mês"    value={m?.cadencia.mes    ?? 0} icon={MessageSquare} />
-        <Kpi label="Taxa resposta"   value={m?.cadencia.taxa_resposta   ?? 0} suffix="%" icon={TrendingUp} />
-        <Kpi label="Taxa interesse"  value={m?.cadencia.taxa_interesse  ?? 0} suffix="%" icon={TrendingUp} />
-        <Kpi label="Taxa fechamento" value={m?.cadencia.taxa_fechamento ?? 0} suffix="%" icon={CheckCircle2} tone="ok" />
+        <Kpi label="Empresas na base"   value={m?.resumo.base          ?? 0} icon={Building2} />
+        <Kpi label="Contatados"         value={m?.resumo.contatados    ?? 0} icon={MessageSquare} />
+        <Kpi label="Responderam"        value={m?.resumo.respondidos   ?? 0} icon={Inbox} tone="ok" />
+        <Kpi label="Interessados"       value={m?.resumo.interessados  ?? 0} icon={Handshake} tone="ok" />
+        <Kpi label="Em negociação"      value={m?.resumo.em_negociacao ?? 0} icon={TrendingUp} />
+        <Kpi label="Clientes ativos"    value={m?.resumo.ativos        ?? 0} icon={CheckCircle2} tone="ok" />
       </section>
 
-      {/* Tentativas de contato (cliques) */}
-      <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tentativas de contato</h3>
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <Kpi label="Tentativas hoje"   value={m?.tentativas?.hoje   ?? 0} icon={MessageSquare} tone="warn" />
-        <Kpi label="Tentativas semana" value={m?.tentativas?.semana ?? 0} icon={MessageSquare} tone="warn" />
-        <Kpi label="Tentativas mês"    value={m?.tentativas?.mes    ?? 0} icon={MessageSquare} tone="warn" />
+      {/* Contatos — fonte: prospect_touchpoints */}
+      <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Contatos realizados
+      </h3>
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3">
+        <Kpi label="Hoje"   value={m?.contatos.hoje   ?? 0} icon={MessageSquare} />
+        <Kpi label="Semana" value={m?.contatos.semana ?? 0} icon={MessageSquare} />
+        <Kpi label="Mês"    value={m?.contatos.mes    ?? 0} icon={MessageSquare} />
       </section>
 
-      {/* Gargalos */}
+      {/* Respostas — fonte: prospect_touchpoints (tipo=resposta | resultado=respondido/interessado) */}
+      <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Respostas recebidas
+      </h3>
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Kpi label="Hoje"           value={m?.respostas.hoje   ?? 0} icon={Inbox} tone="ok" />
+        <Kpi label="Semana"         value={m?.respostas.semana ?? 0} icon={Inbox} tone="ok" />
+        <Kpi label="Mês"            value={m?.respostas.mes    ?? 0} icon={Inbox} tone="ok" />
+        <Kpi label="Taxa de resposta" value={m?.respostas.taxa ?? 0} suffix="%" icon={Percent} tone="ok" />
+      </section>
+
+      {/* Gargalos — fonte: prospects (cadência) + clients (Lifecycle) */}
       <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gargalos</h3>
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Kpi label="Follow-ups atrasados"     value={m?.gargalos.atrasados         ?? 0} icon={AlertTriangle} tone="danger" />
-        <Kpi label="Parados há 30+ dias"      value={m?.gargalos.parados_30d       ?? 0} icon={Clock}         tone="warn" />
-        <Kpi label="Sem responsável"          value={m?.gargalos.sem_responsavel   ?? 0} icon={UserX}         tone="warn" />
-        <Kpi label="Deals parados há 15+ dias" value={m?.gargalos.deals_paradas_15d ?? 0} icon={AlertTriangle} tone="warn" />
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <Kpi label="Cadência atrasada"        value={m?.gargalos.cadencia_atrasada   ?? 0} icon={AlertTriangle} tone="danger" />
+        <Kpi label="Sem contato há 30+ dias"  value={m?.gargalos.parados_30d         ?? 0} icon={Clock}         tone="warn" />
+        <Kpi label="Sem responsável"          value={m?.gargalos.sem_responsavel     ?? 0} icon={UserX}         tone="warn" />
+        <Kpi label="Clientes parados 15+ dias" value={m?.gargalos.clients_parados_15d ?? 0} icon={Repeat}        tone="warn" />
+        <Kpi label="Sem próxima ação"          value={m?.gargalos.sem_proxima_acao    ?? 0} icon={AlertTriangle} tone="warn" />
       </section>
 
-      {/* Conversão */}
+      {/* Funil de conversão — derivado de prospects + clients */}
       <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Conversão</h3>
       <section className="surface-card p-5">
         <div className="space-y-2">
           <FunilLinha label="Base → Contato"        pct={m?.conversao.base_contato      ?? 0} />
-          <FunilLinha label="Contato → Interesse"   pct={m?.conversao.contato_interesse ?? 0} />
-          <FunilLinha label="Interesse → Reunião"   pct={m?.conversao.interesse_reuniao ?? 0} />
-          <FunilLinha label="Reunião → Proposta"    pct={m?.conversao.reuniao_proposta  ?? 0} />
-          <FunilLinha label="Proposta → Cliente"    pct={m?.conversao.proposta_cliente  ?? 0} />
+          <FunilLinha label="Contato → Resposta"    pct={m?.conversao.contato_resposta  ?? 0} />
+          <FunilLinha label="Resposta → Interesse"  pct={m?.conversao.resposta_interesse ?? 0} />
+          <FunilLinha label="Interesse → Proposta"  pct={m?.conversao.interesse_proposta ?? 0} />
+          <FunilLinha label="Proposta → Ativo"      pct={m?.conversao.proposta_ativo    ?? 0} />
         </div>
       </section>
 
-      {/* Comparativo Semana x Mês */}
+      {/* Comparativo Semana x Mês — só Contatos (única série temporal oficial agora) */}
       <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         Comparativo Semana × Mês
       </h3>
       <section className="surface-card space-y-2 p-5">
         <ComparativoLinha
           label="Contatos"
-          semana={m?.cadencia.semana ?? 0}
-          mes={m?.cadencia.mes ?? 0}
+          semana={m?.contatos.semana ?? 0}
+          mes={m?.contatos.mes ?? 0}
         />
         <ComparativoLinha
-          label="Tentativas"
-          semana={m?.tentativas?.semana ?? 0}
-          mes={m?.tentativas?.mes ?? 0}
+          label="Respostas"
+          semana={m?.respostas.semana ?? 0}
+          mes={m?.respostas.mes ?? 0}
         />
         <p className="pt-1 text-[11px] text-muted-foreground">
           O delta compara a semana atual com a média semanal do mês (mês ÷ 4,28). Verde indica ritmo acima da média; vermelho, abaixo.

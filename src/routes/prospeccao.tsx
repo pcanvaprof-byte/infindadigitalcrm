@@ -611,7 +611,7 @@ function ProspeccaoPage() {
       await addTouchpoint({
         prospect_id: prospect.id,
         tipo,
-        resultado: "tentativa",
+        resultado: "enviado",
         mensagem: "auto: clique na ação",
       });
       console.log("[prosp] logAttempt:ok", { prospectId: prospect.id, tipo });
