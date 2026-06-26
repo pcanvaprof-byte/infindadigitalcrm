@@ -27,6 +27,9 @@ begin
 end $$;
 
 alter table public.prospect_touchpoints
+  drop constraint if exists prospect_touchpoints_tipo_check;
+
+alter table public.prospect_touchpoints
   add constraint prospect_touchpoints_tipo_check
   check (tipo in ('whatsapp','ligacao','email','reuniao','nota','status'));
 
