@@ -14,7 +14,6 @@ const sb = supabase as any;
 
 export type TouchpointTipo = "whatsapp" | "ligacao" | "email" | "reuniao" | "nota";
 export type TouchpointResultado =
-  | "tentativa"
   | "enviado"
   | "respondido"
   | "interessado"
@@ -73,46 +72,36 @@ export interface AcaoHoje {
 }
 
 export interface DashboardMetrics {
-  operacao: {
+  contatos:  { hoje: number; semana: number; mes: number };
+  respostas: { hoje: number; semana: number; mes: number; taxa: number };
+  resumo: {
     base: number;
-    contatadas: number;
-    sem_resposta: number;
-    interessadas: number;
-    clientes: number;
+    contatados: number;
+    respondidos: number;
+    interessados: number;
+    em_negociacao: number;
+    ativos: number;
+    perdidos: number;
   };
-  cadencia: {
-    hoje: number;
-    semana: number;
-    mes: number;
-    taxa_resposta: number;
-    taxa_interesse: number;
-    taxa_fechamento: number;
-  };
-  tentativas: {
-    hoje: number;
-    semana: number;
-    mes: number;
-  };
+  pipeline: Partial<Record<
+    "PROSPECCAO" | "CADENCIA" | "FECHADO" | "REUNIAO_INICIAL" | "PROPOSTA"
+    | "CONTRATO" | "ASSINATURA" | "PAGAMENTO_CONFIRMADO" | "IMPLANTACAO"
+    | "ATIVO" | "CHURNED" | "PERDIDO",
+    number
+  >>;
   gargalos: {
-    atrasados: number;
+    cadencia_atrasada: number;
     parados_30d: number;
     sem_responsavel: number;
-    deals_paradas_15d: number;
+    clients_parados_15d: number;
+    sem_proxima_acao: number;
   };
   conversao: {
     base_contato: number;
-    contato_interesse: number;
-    interesse_reuniao: number;
-    reuniao_proposta: number;
-    proposta_cliente: number;
-  };
-  filtros: {
-    hoje: number;
-    atrasados: number;
-    sem_resposta: number;
-    responderam: number;
-    interessados: number;
-    clientes: number;
+    contato_resposta: number;
+    resposta_interesse: number;
+    interesse_proposta: number;
+    proposta_ativo: number;
   };
 }
 
@@ -146,7 +135,7 @@ export async function listTouchpoints(prospectId: string): Promise<Touchpoint[]>
 /** Insere touchpoint. Trigger no banco avança cadência + atualiza prospect. */
 export async function addTouchpoint(input: {
   prospect_id: string;
-  tipo: TouchpointTipo;
+  tipo: TouchpointTipo | "resposta";
   mensagem?: string | null;
   resultado: TouchpointResultado;
 }): Promise<Touchpoint> {
@@ -168,6 +157,32 @@ export async function addTouchpoint(input: {
     throw error;
   }
   console.log("[cadence-api] addTouchpoint:ok", { id: (data as Touchpoint)?.id });
+  return data as Touchpoint;
+}
+
+/**
+ * Registra uma RESPOSTA inbound (cliente respondeu por wpp/ligação/email).
+ * Conta na taxa de resposta do dashboard e marca o prospect como respondido,
+ * mas NÃO avança a cadência (trigger trata).
+ */
+export async function registerResponse(
+  prospectId: string,
+  canal: "whatsapp" | "ligacao" | "email" | "outro" = "whatsapp",
+  mensagem?: string,
+): Promise<Touchpoint> {
+  const user_id = await uid();
+  const { data, error } = await sb
+    .from("prospect_touchpoints")
+    .insert({
+      prospect_id: prospectId,
+      user_id,
+      tipo: "resposta",
+      mensagem: mensagem ?? `Resposta recebida (${canal})`,
+      resultado: "respondido",
+    })
+    .select()
+    .single();
+  if (error) throw error;
   return data as Touchpoint;
 }
 
