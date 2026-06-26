@@ -12,26 +12,35 @@ alter table public.prospect_touchpoints
   add column if not exists by_name text;
 
 -- 1.2) Expande CHECK de tipo para aceitar 'status' (mudanças de status do CRM).
+-- Idempotente: remove qualquer CHECK antigo envolvendo a coluna tipo antes de recriar.
 do $$
 declare
-  c_name text;
+  r record;
 begin
-  select conname into c_name
-  from pg_constraint
-  where conrelid = 'public.prospect_touchpoints'::regclass
-    and contype  = 'c'
-    and pg_get_constraintdef(oid) ilike '%tipo%in%';
-  if c_name is not null then
-    execute format('alter table public.prospect_touchpoints drop constraint %I', c_name);
+  for r in
+    select conname
+    from pg_constraint
+    where conrelid = 'public.prospect_touchpoints'::regclass
+      and contype = 'c'
+      and (
+        conname = 'prospect_touchpoints_tipo_check'
+        or pg_get_constraintdef(oid) ilike '%tipo%'
+      )
+  loop
+    execute format('alter table public.prospect_touchpoints drop constraint if exists %I', r.conname);
+  end loop;
+
+  if not exists (
+    select 1
+    from pg_constraint
+    where conrelid = 'public.prospect_touchpoints'::regclass
+      and conname = 'prospect_touchpoints_tipo_check'
+  ) then
+    alter table public.prospect_touchpoints
+      add constraint prospect_touchpoints_tipo_check
+      check (tipo in ('whatsapp','ligacao','email','reuniao','nota','status'));
   end if;
 end $$;
-
-alter table public.prospect_touchpoints
-  drop constraint if exists prospect_touchpoints_tipo_check;
-
-alter table public.prospect_touchpoints
-  add constraint prospect_touchpoints_tipo_check
-  check (tipo in ('whatsapp','ligacao','email','reuniao','nota','status'));
 
 -- 2) Trigger de cadência: 'status' também não avança cadência ---------------
 create or replace function public.advance_prospect_cadence()
