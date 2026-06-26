@@ -16,7 +16,7 @@ async function fetchComparativo(days = 14): Promise<Row[]> {
     rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: Row[] | null; error: { message: string } | null }>;
   }).rpc("cadencia_followup_comparativo", { _days: days });
   if (error) throw new Error(error.message);
-  return data ?? [];
+  return Array.isArray(data) ? data : [];
 }
 
 function fmtDay(iso: string): string {
