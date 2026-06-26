@@ -101,7 +101,10 @@ end $$;
 -- consolidado e NÃO queremos recalcular cadência/last_contact_at.
 alter table public.prospect_touchpoints disable trigger prospect_touchpoint_advance;
 
-with src as (
+with default_org as (
+  select id from public.organizations order by created_at limit 1
+),
+src as (
   select
     i.prospect_id,
     i.user_id,
@@ -116,16 +119,15 @@ with src as (
     end as resultado,
     i.created_at as enviado_em,
     i.by_name,
-    p.organization_id
+    (select id from default_org) as organization_id
   from public.prospect_interactions i
-  join public.prospects p on p.id = i.prospect_id
-  where p.organization_id is not null
 )
 insert into public.prospect_touchpoints
   (prospect_id, user_id, tipo, mensagem, resultado, enviado_em, by_name, organization_id)
 select s.prospect_id, s.user_id, s.tipo, s.mensagem, s.resultado, s.enviado_em, s.by_name, s.organization_id
 from src s
-where not exists (
+where s.organization_id is not null
+  and not exists (
   select 1 from public.prospect_touchpoints t
   where t.prospect_id = s.prospect_id
     and t.user_id     = s.user_id
