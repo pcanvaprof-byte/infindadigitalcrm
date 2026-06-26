@@ -164,9 +164,41 @@ begin
   return new;
 end $$;
 
+-- Helper seguro: evita quebrar a RPC se a camada multi-tenant ainda não existir
+-- em algum banco de transição. Usa EXECUTE para não validar current_org_id()
+-- durante o CREATE FUNCTION.
+create or replace function public.dashboard_current_org_id()
+returns uuid
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_org uuid;
+begin
+  if to_regprocedure('public.current_org_id()') is null then
+    return null;
+  end if;
+
+  execute 'select public.current_org_id()' into v_org;
+  return v_org;
+exception when others then
+  return null;
+end $$;
+
+grant execute on function public.dashboard_current_org_id() to authenticated, anon, service_role;
+
 -- 3) RPC dashboard_metrics v2 ---------------------------------------------
 create or replace function public.dashboard_metrics()
-returns jsonb language sql stable security definer set search_path = public as $$
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  return (
   with
   p as (select * from prospects where user_id = auth.uid()),
   -- Contatos = envios reais (whatsapp/ligação/email/reunião) — sem 'tentativa', sem nota/status/resposta
@@ -187,7 +219,7 @@ returns jsonb language sql stable security definer set search_path = public as $
   c as (
     select * from clients
      where user_id = auth.uid()
-        or organization_id = public.current_org_id()
+        or organization_id = public.dashboard_current_org_id()
   )
   select jsonb_build_object(
     'contatos', jsonb_build_object(
@@ -260,7 +292,9 @@ returns jsonb language sql stable security definer set search_path = public as $
                                   ('PROPOSTA','CONTRATO','ASSINATURA',
                                    'PAGAMENTO_CONFIRMADO','IMPLANTACAO','ATIVO')),0), 1), 0)
     )
+  )
   );
+end
 $$;
 
 grant execute on function public.dashboard_metrics() to authenticated;
