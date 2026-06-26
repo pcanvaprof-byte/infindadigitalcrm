@@ -122,6 +122,15 @@ function ComparativoLinha({
   );
 }
 
+function errorMessage(error: unknown): string {
+  if (!error) return "";
+  if (error instanceof Error) return error.message;
+  if (typeof error === "object" && "message" in error) {
+    return String((error as { message?: unknown }).message ?? "");
+  }
+  return String(error);
+}
+
 function DashboardPage() {
   const user = useRequiredUser();
   const navigate = useNavigate();
@@ -139,7 +148,7 @@ function DashboardPage() {
     : "Seu desempenho e cadência";
 
   const m = q.data ?? EMPTY_DASHBOARD_METRICS;
-  const errMsg = q.error ? (q.error as Error).message : "";
+  const errMsg = errorMessage(q.error);
   const migrationPending =
     errMsg.includes("dashboard_metrics") ||
     errMsg.includes("function") ||
