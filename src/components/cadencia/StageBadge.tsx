@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { CAD_STAGE_LABEL, type CadStage } from "@/lib/cadencia/types";
 
 const TONE: Record<CadStage, string> = {
+  novo: "bg-slate-500/15 text-slate-300 border-slate-500/30",
   followup_1: "bg-blue-500/10 text-blue-300 border-blue-500/30",
   followup_2: "bg-blue-500/15 text-blue-300 border-blue-500/30",
   followup_3: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30",

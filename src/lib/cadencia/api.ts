@@ -30,6 +30,7 @@ const PROSPECT_STATUS_TO_CAD_STAGE: Record<string, CadStage> = {
 
 /** Mapeamento reverso: stage de cadência → status de prospect (CRM). */
 const CAD_STAGE_TO_PROSPECT_STATUS: Record<CadStage, string> = {
+  novo: "novo",
   followup_1: "primeiro_contato",
   followup_2: "primeiro_contato",
   followup_3: "primeiro_contato",
@@ -47,7 +48,7 @@ const CAD_STAGE_TO_PROSPECT_STATUS: Record<CadStage, string> = {
 
 function prospectStatusToCadStage(status: string | null | undefined): CadStage {
   if (status?.startsWith("aguardando_")) return "fechado";
-  return PROSPECT_STATUS_TO_CAD_STAGE[status ?? ""] ?? "followup_1";
+  return PROSPECT_STATUS_TO_CAD_STAGE[status ?? ""] ?? "novo";
 }
 
 /**
