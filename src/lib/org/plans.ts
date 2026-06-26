@@ -69,10 +69,11 @@ export function useActiveOrg() {
   const orgs = q.data ?? [];
   const active = orgs.find((o) => o.is_active) ?? orgs[0];
   // fallback: assume scale (acesso total) quando não há plano definido
-  const plan: OrgPlan = (active?.plan as OrgPlan) ?? "scale";
+  const rawPlan = active?.plan;
+  const plan: OrgPlan = rawPlan && rawPlan in PLAN_FEATURES ? rawPlan : "scale";
   return { org: active, plan, isLoading: q.isLoading };
 }
 
 export function planAllows(plan: OrgPlan, feature: Feature): boolean {
-  return PLAN_FEATURES[plan].includes(feature);
+  return (PLAN_FEATURES[plan] ?? PLAN_FEATURES.scale).includes(feature);
 }
