@@ -34,7 +34,7 @@ export function FollowupComparativoWidget() {
   });
 
   const { passado, hoje, futuro, totais } = useMemo(() => {
-    const rows = q.data ?? [];
+    const rows = Array.isArray(q.data) ? q.data : [];
     const todayISO = new Date().toISOString().slice(0, 10);
     const passado = rows.filter((r) => r.dia < todayISO);
     const hoje = rows.find((r) => r.dia === todayISO) ?? null;
