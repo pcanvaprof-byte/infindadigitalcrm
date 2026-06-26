@@ -15,6 +15,7 @@ import {
   UserX,
 } from "lucide-react";
 import { cadenceKeys, fetchDashboardMetrics } from "@/lib/cadence/api";
+import { FollowupComparativoWidget } from "@/components/cadence/FollowupComparativoWidget";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -229,6 +230,12 @@ function DashboardPage() {
           O delta compara a semana atual com a média semanal do mês (mês ÷ 4,28). Verde indica ritmo acima da média; vermelho, abaixo.
         </p>
       </section>
+
+      {/* Follow-ups: previsto x realizado */}
+      <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Aderência da cadência
+      </h3>
+      <FollowupComparativoWidget />
     </AppShell>
   );
 }
