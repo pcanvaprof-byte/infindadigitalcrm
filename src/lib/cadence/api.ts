@@ -135,6 +135,9 @@ export async function listTouchpoints(prospectId: string): Promise<Touchpoint[]>
     .from("prospect_touchpoints")
     .select("*")
     .eq("prospect_id", prospectId)
+    // Eventos 'status' aparecem no histórico do card (p.interactions),
+    // não na timeline da cadência — mantém a timeline limpa.
+    .neq("tipo", "status")
     .order("enviado_em", { ascending: false });
   if (error) throw error;
   return (data ?? []) as Touchpoint[];

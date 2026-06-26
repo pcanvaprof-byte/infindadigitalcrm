@@ -34,10 +34,11 @@ type Row = {
 type IxRow = {
   id: string;
   prospect_id: string;
-  kind: string;
-  text: string;
-  by_name: string;
-  created_at: string;
+  // Linha originária de prospect_touchpoints (fonte única de verdade).
+  kind: string;        // mapeado de touchpoints.tipo
+  text: string;        // mapeado de touchpoints.mensagem
+  by_name: string;     // touchpoints.by_name (pode ser '')
+  created_at: string;  // mapeado de touchpoints.enviado_em
 };
 
 const VALID_POTENTIALS = ["alto", "medio", "baixo"];
@@ -125,18 +126,36 @@ export async function loadAllProspects(): Promise<Prospect[]> {
   for (let i = 0; i < ids.length; i += ID_BATCH) {
     const slice = ids.slice(i, i + ID_BATCH);
     for (let from = 0; ; from += PAGE) {
-      const { data, error } = await supabase
-        .from("prospect_interactions")
-        .select("*")
+      // Types ainda não conhecem by_name; usamos cliente afrouxado.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from("prospect_touchpoints")
+        .select("id, prospect_id, tipo, mensagem, by_name, enviado_em")
         .in("prospect_id", slice)
-        .order("created_at", { ascending: false })
+        .order("enviado_em", { ascending: false })
         .range(from, from + PAGE - 1);
       if (error) {
-        console.warn("loadAllProspects interactions error", error);
+        console.warn("loadAllProspects touchpoints error", error);
         break;
       }
-      const batch = (data ?? []) as IxRow[];
-      ixs.push(...batch);
+      const batch = (data ?? []) as Array<{
+        id: string;
+        prospect_id: string;
+        tipo: string;
+        mensagem: string | null;
+        by_name: string | null;
+        enviado_em: string;
+      }>;
+      for (const row of batch) {
+        ixs.push({
+          id: row.id,
+          prospect_id: row.prospect_id,
+          kind: row.tipo,
+          text: row.mensagem ?? "",
+          by_name: row.by_name ?? "",
+          created_at: row.enviado_em,
+        });
+      }
       if (batch.length < PAGE) break;
     }
   }
@@ -250,22 +269,35 @@ export async function addInteractionRemote(
   byName: string,
 ): Promise<Interaction | null> {
   const uid = await requireUserId();
-  const { data, error } = await supabase
-    .from("prospect_interactions")
-    .insert({ prospect_id: prospectId, user_id: uid, kind, text, by_name: byName })
-    .select()
+  // Fonte única: grava em prospect_touchpoints.
+  // 'status' e 'nota' viram resultado='enviado' (não disparam avanço de cadência via trigger).
+  // 'whatsapp'|'ligacao'|'email' chamados aqui (fora de logAttempt) também são 'enviado'.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from("prospect_touchpoints")
+    .insert({
+      prospect_id: prospectId,
+      user_id: uid,
+      tipo: kind,
+      mensagem: text,
+      resultado: "enviado",
+      by_name: byName,
+    })
+    .select("id, tipo, mensagem, by_name, enviado_em")
     .single();
   if (error) {
     console.warn("addInteraction error", error);
     return null;
   }
-  const r = data as IxRow;
+  const r = data as {
+    id: string; tipo: string; mensagem: string | null; by_name: string | null; enviado_em: string;
+  };
   return {
     id: r.id,
-    kind: r.kind as InteractionKind,
-    text: r.text,
-    by: r.by_name,
-    at: r.created_at,
+    kind: r.tipo as InteractionKind,
+    text: r.mensagem ?? "",
+    by: r.by_name ?? "",
+    at: r.enviado_em,
   };
 }
 
@@ -278,26 +310,32 @@ export async function addInteractionsBatch(
   const payload = items.map((i) => ({
     prospect_id: i.prospectId,
     user_id: uid,
-    kind: i.kind,
-    text: i.text,
+    tipo: i.kind,
+    mensagem: i.text,
+    resultado: "enviado",
     by_name: i.byName,
   }));
-  const { data, error } = await supabase
-    .from("prospect_interactions")
-    .insert(payload as never)
-    .select();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from("prospect_touchpoints")
+    .insert(payload)
+    .select("id, prospect_id, tipo, mensagem, by_name, enviado_em");
   if (error) {
     console.warn("addInteractionsBatch error", error);
     return [];
   }
-  return (data as IxRow[]).map((r) => ({
+  const rows = (data ?? []) as Array<{
+    id: string; prospect_id: string; tipo: string; mensagem: string | null;
+    by_name: string | null; enviado_em: string;
+  }>;
+  return rows.map((r) => ({
     prospectId: r.prospect_id,
     ix: {
       id: r.id,
-      kind: r.kind as InteractionKind,
-      text: r.text,
-      by: r.by_name,
-      at: r.created_at,
+      kind: r.tipo as InteractionKind,
+      text: r.mensagem ?? "",
+      by: r.by_name ?? "",
+      at: r.enviado_em,
     },
   }));
 }

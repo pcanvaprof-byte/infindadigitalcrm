@@ -615,14 +615,8 @@ function ProspeccaoPage() {
         mensagem: "auto: clique na ação",
       });
       console.log("[prosp] logAttempt:ok", { prospectId: prospect.id, tipo });
-      // Espelha em prospect_interactions para refletir imediatamente no
-      // contador "Conversas iniciadas" e na timeline do card.
-      const label =
-        tipo === "whatsapp" ? "WhatsApp disparado"
-        : tipo === "ligacao" ? "Ligação iniciada"
-        : tipo === "email"   ? "E-mail enviado"
-        : "Tentativa registrada";
-      addInteraction(prospect.id, tipo as InteractionKind, label);
+      // Fonte única: addTouchpoint já gravou em prospect_touchpoints, que agora
+      // alimenta também o contador "Conversas iniciadas" e a timeline do card.
       qc.invalidateQueries({ queryKey: cadenceKeys.dashboard });
       qc.invalidateQueries({ queryKey: cadenceKeys.timeline(prospect.id) });
     } catch (e) {
