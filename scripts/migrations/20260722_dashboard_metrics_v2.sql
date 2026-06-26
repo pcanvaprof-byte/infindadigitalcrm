@@ -7,6 +7,60 @@
 
 begin;
 
+-- 0) Guarda de compatibilidade: garante a camada Lifecycle em clients --------
+-- Esta migration pode ser aplicada mesmo se a migration do Lifecycle ainda não
+-- tiver sido executada no banco atual. Tudo é aditivo e preserva dados.
+do $$ begin
+  create type public.pipeline_stage as enum (
+    'PROSPECCAO','CADENCIA','FECHADO','REUNIAO_INICIAL','PROPOSTA',
+    'CONTRATO','ASSINATURA','PAGAMENTO_CONFIRMADO','IMPLANTACAO','ATIVO',
+    'CHURNED','PERDIDO'
+  );
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type public.client_financial_status as enum (
+    'pendente','confirmado','recorrente','inadimplente'
+  );
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type public.client_lc_contract_status as enum (
+    'nao_gerado','enviado','assinado'
+  );
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type public.client_onboarding_status as enum (
+    'pendente','em_andamento','concluido'
+  );
+exception when duplicate_object then null; end $$;
+
+alter table public.clients
+  add column if not exists organization_id uuid references public.organizations(id) on delete cascade,
+  add column if not exists pipeline_stage public.pipeline_stage not null default 'PROSPECCAO',
+  add column if not exists financial_status public.client_financial_status not null default 'pendente',
+  add column if not exists lc_contract_status public.client_lc_contract_status not null default 'nao_gerado',
+  add column if not exists onboarding_status public.client_onboarding_status not null default 'pendente',
+  add column if not exists current_step text,
+  add column if not exists next_action_date timestamptz,
+  add column if not exists operations_locked boolean not null default true,
+  add column if not exists created_from text,
+  add column if not exists source_ref uuid,
+  add column if not exists activated_at timestamptz,
+  add column if not exists churned_at timestamptz,
+  add column if not exists plano_code text,
+  add column if not exists mensalidade numeric(12,2);
+
+update public.clients c
+   set organization_id = public.current_org_id()
+ where c.organization_id is null
+   and public.current_org_id() is not null;
+
+create index if not exists clients_pipeline_idx on public.clients(pipeline_stage);
+create index if not exists clients_org_idx on public.clients(organization_id);
+create index if not exists clients_next_action_idx on public.clients(next_action_date);
+
 -- 1) Expande CHECK de tipo para aceitar 'resposta' (touchpoint inbound) ----
 do $$
 declare r record;
