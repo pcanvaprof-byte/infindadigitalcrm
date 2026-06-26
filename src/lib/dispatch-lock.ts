@@ -1,17 +1,17 @@
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Trava anti-disparo duplicado no mesmo dia.
+ * Trava anti-disparo duplicado nas últimas 24h (janela deslizante).
  * Verifica tanto Prospecção (prospect_touchpoints) quanto Cadência (cad_messages outbound).
  * Retorna { blocked, source } indicando onde já houve disparo hoje.
  */
 
 type DispatchSource = "Prospecção" | "Cadência";
 
-function startOfTodayISO(): string {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString();
+const LOCK_WINDOW_HOURS = 24;
+
+function lockWindowSinceISO(): string {
+  return new Date(Date.now() - LOCK_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
 }
 
 const db = supabase as unknown as {
@@ -37,7 +37,7 @@ async function prospectIdFromLead(leadId: string): Promise<string | null> {
 }
 
 async function touchpointToday(prospectId: string): Promise<boolean> {
-  const since = startOfTodayISO();
+  const since = lockWindowSinceISO();
   const { data, error } = await db
     .from("prospect_touchpoints")
     .select("id")
@@ -50,7 +50,7 @@ async function touchpointToday(prospectId: string): Promise<boolean> {
 }
 
 async function cadMessageToday(leadId: string): Promise<boolean> {
-  const since = startOfTodayISO();
+  const since = lockWindowSinceISO();
   const { data, error } = await db
     .from("cad_messages")
     .select("id")
@@ -85,5 +85,5 @@ export async function wasDispatchedToday(input: {
 }
 
 export function dispatchBlockedMessage(source: DispatchSource): string {
-  return `Cliente já disparado hoje em ${source}. Aguarde até amanhã para novo contato.`;
+  return `Cliente já disparado nas últimas 24h em ${source}. Aguarde para novo contato.`;
 }
