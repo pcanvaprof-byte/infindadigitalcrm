@@ -7,6 +7,10 @@
 
 begin;
 
+-- Parse mais permissivo: evita falsos negativos de "column does not exist"
+-- ao validar o corpo da função SQL no mesmo transaction-block do ALTER TABLE.
+set local check_function_bodies = off;
+
 -- 0) Guarda de compatibilidade: garante a camada Lifecycle em clients --------
 -- Esta migration pode ser aplicada mesmo se a migration do Lifecycle ainda não
 -- tiver sido executada no banco atual. Tudo é aditivo e preserva dados.
@@ -36,8 +40,18 @@ do $$ begin
   );
 exception when duplicate_object then null; end $$;
 
+-- FK para organizations só é adicionada se a tabela existir.
+do $$ begin
+  if to_regclass('public.organizations') is not null then
+    alter table public.clients
+      add column if not exists organization_id uuid references public.organizations(id) on delete cascade;
+  else
+    alter table public.clients
+      add column if not exists organization_id uuid;
+  end if;
+end $$;
+
 alter table public.clients
-  add column if not exists organization_id uuid references public.organizations(id) on delete cascade,
   add column if not exists pipeline_stage public.pipeline_stage not null default 'PROSPECCAO',
   add column if not exists financial_status public.client_financial_status not null default 'pendente',
   add column if not exists lc_contract_status public.client_lc_contract_status not null default 'nao_gerado',
@@ -52,10 +66,25 @@ alter table public.clients
   add column if not exists plano_code text,
   add column if not exists mensalidade numeric(12,2);
 
-update public.clients c
-   set organization_id = public.current_org_id()
- where c.organization_id is null
-   and public.current_org_id() is not null;
+-- Backfill de organization_id (só se a função current_org_id existir).
+do $$ begin
+  if to_regprocedure('public.current_org_id()') is not null then
+    update public.clients c
+       set organization_id = public.current_org_id()
+     where c.organization_id is null
+       and public.current_org_id() is not null;
+  end if;
+end $$;
+
+-- Sanity check: aborta cedo se algo impediu a criação da coluna.
+do $$ begin
+  if not exists (
+    select 1 from information_schema.columns
+     where table_schema='public' and table_name='clients' and column_name='pipeline_stage'
+  ) then
+    raise exception 'clients.pipeline_stage ausente após ALTER — verifique migrations base do Lifecycle';
+  end if;
+end $$;
 
 create index if not exists clients_pipeline_idx on public.clients(pipeline_stage);
 create index if not exists clients_org_idx on public.clients(organization_id);
