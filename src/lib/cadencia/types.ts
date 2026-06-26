@@ -1,4 +1,5 @@
 export const CAD_STAGES = [
+  "novo",
   "followup_1","followup_2","followup_3","followup_4",
   "followup_5","followup_6","followup_7",
   "interessado","reuniao_agendada","proposta_enviada",
@@ -8,6 +9,7 @@ export const CAD_STAGES = [
 export type CadStage = typeof CAD_STAGES[number];
 
 export const CAD_STAGE_LABEL: Record<CadStage, string> = {
+  novo: "Novo",
   followup_1: "Follow-up 1",
   followup_2: "Follow-up 2",
   followup_3: "Follow-up 3",
