@@ -14,11 +14,23 @@ import {
   type CadNotifKind,
 } from "@/lib/cadencia/api";
 
+const DEFAULT_KIND_META: { label: string; Icon: typeof Bell; tone: string } = {
+  label: "Notificação",
+  Icon: Bell,
+  tone: "text-muted-foreground",
+};
+
 const KIND_META: Record<CadNotifKind, { label: string; Icon: typeof Bell; tone: string }> = {
   overdue: { label: "Follow-up vencido", Icon: Clock, tone: "text-amber-400" },
   last_attempt: { label: "Última tentativa", Icon: AlertTriangle, tone: "text-rose-400" },
   response_pending: { label: "Resposta sem retorno", Icon: MessageSquareReply, tone: "text-cyan-400" },
 };
+
+function kindMeta(kind: string | null | undefined) {
+  return kind && kind in KIND_META
+    ? KIND_META[kind as CadNotifKind]
+    : DEFAULT_KIND_META;
+}
 
 function fmt(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -49,7 +61,7 @@ export function NotificationsBell() {
     queryFn: listNotifications,
     refetchInterval: 30_000,
   });
-  const items = q.data ?? [];
+  const items = Array.isArray(q.data) ? q.data : [];
   const count = items.length;
 
   const handleM = useMutation({
@@ -95,6 +107,10 @@ export function NotificationsBell() {
         <div className="max-h-[420px] overflow-y-auto">
           {q.isLoading ? (
             <div className="p-4 text-center text-xs text-muted-foreground">Carregando…</div>
+          ) : q.error ? (
+            <div className="p-4 text-center text-xs text-amber-300">
+              Notificações indisponíveis temporariamente.
+            </div>
           ) : items.length === 0 ? (
             <div className="p-6 text-center text-xs text-muted-foreground">
               Sem follow-ups pendentes 🎉
@@ -102,7 +118,7 @@ export function NotificationsBell() {
           ) : (
             <ul className="divide-y divide-border">
               {items.map((n) => {
-                const meta = KIND_META[n.kind];
+                const meta = kindMeta(n.kind);
                 const Icon = meta.Icon;
                 return (
                   <li key={n.id} className="p-3 hover:bg-accent/40 transition-colors">
