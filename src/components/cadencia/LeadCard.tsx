@@ -6,6 +6,7 @@ import {
   CAD_FOLLOWUP_DAYS,
   diasSemResposta,
   renderTemplate,
+  leadElegivelParaDisparo,
   type CadLead,
   type CadTemplate,
 } from "@/lib/cadencia/types";
@@ -31,6 +32,7 @@ export function LeadCard({
   const dias = diasSemResposta(lead);
   const overdue =
     lead.next_action_at && new Date(lead.next_action_at).getTime() < Date.now();
+  const elig = leadElegivelParaDisparo(lead);
   const [showPreview, setShowPreview] = useState(false);
   const dia = CAD_FOLLOWUP_DAYS[lead.stage];
   const preview = template ? renderTemplate(template.corpo, lead) : "";
@@ -83,9 +85,20 @@ export function LeadCard({
           </pre>
         )}
       </div>
-      <Button size="sm" variant="secondary" className="mt-2 w-full h-7 text-xs" onClick={onSend}>
-        <Send className="h-3 w-3 mr-1" /> Enviar Mensagem
+      <Button
+        size="sm"
+        variant="secondary"
+        className="mt-2 w-full h-7 text-xs"
+        onClick={onSend}
+        disabled={!elig.elegivel}
+        title={elig.elegivel ? undefined : elig.motivo}
+      >
+        <Send className="h-3 w-3 mr-1" />
+        {elig.elegivel ? "Enviar Mensagem" : "Aguardando data"}
       </Button>
+      {!elig.elegivel && elig.motivo && (
+        <div className="mt-1 text-[10px] text-muted-foreground leading-tight">{elig.motivo}</div>
+      )}
     </Card>
   );
 }

@@ -136,3 +136,34 @@ export function diasSemResposta(lead: Pick<CadLead, "last_response_at" | "primei
   const ms = Date.now() - new Date(base).getTime();
   return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
 }
+
+/** Outcomes: lead sai da cadência e não deve mais aparecer na fila. */
+export const CAD_OUTCOME_STAGES: ReadonlySet<CadStage> = new Set<CadStage>([
+  "interessado","reuniao_agendada","proposta_enviada","negociacao","fechado","perdido",
+]);
+
+/**
+ * Elegibilidade do lead para o próximo disparo de cadência.
+ * - Outcome: nunca elegível (saiu da fila).
+ * - next_action_at no futuro: bloqueado até a data.
+ * - Caso contrário: elegível agora.
+ */
+export function leadElegivelParaDisparo(
+  lead: Pick<CadLead, "stage" | "next_action_at">,
+  now: Date = new Date(),
+): { elegivel: boolean; motivo?: string; proximoEnvioAt?: Date } {
+  if (CAD_OUTCOME_STAGES.has(lead.stage)) {
+    return { elegivel: false, motivo: "Lead fora da cadência (mudou de status)." };
+  }
+  if (lead.next_action_at) {
+    const next = new Date(lead.next_action_at);
+    if (now.getTime() < next.getTime()) {
+      return {
+        elegivel: false,
+        motivo: `Próximo disparo permitido em ${next.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}.`,
+        proximoEnvioAt: next,
+      };
+    }
+  }
+  return { elegivel: true };
+}

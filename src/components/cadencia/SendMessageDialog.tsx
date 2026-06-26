@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Copy, Send } from "lucide-react";
 import { toast } from "sonner";
 import { listTemplates, registerSend, markProspectContactedFromLead } from "@/lib/cadencia/api";
-import { renderTemplate, type CadLead } from "@/lib/cadencia/types";
+import { renderTemplate, leadElegivelParaDisparo, type CadLead } from "@/lib/cadencia/types";
 import { wasDispatchedToday, dispatchBlockedMessage } from "@/lib/dispatch-lock";
 
 function onlyDigits(s: string) { return (s || "").replace(/\D+/g, ""); }
@@ -42,6 +42,12 @@ export function SendMessageDialog({
 
   async function handleSend() {
     if (!lead || !msg.trim() || sending) return;
+    // TRAVA DE ELEGIBILIDADE: bloqueia antes de tudo (frontend).
+    const elig = leadElegivelParaDisparo(lead);
+    if (!elig.elegivel) {
+      toast.error(elig.motivo || "Lead não elegível para disparo.");
+      return;
+    }
     const phone = waPhone(lead.whatsapp || lead.telefone || "");
     if (!phone) {
       toast.warning("Lead sem telefone/WhatsApp.");
@@ -105,12 +111,19 @@ export function SendMessageDialog({
         <Textarea rows={10} value={msg} onChange={(e) => setMsg(e.target.value)} />
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={copy}><Copy className="h-4 w-4 mr-2" /> Copiar</Button>
-          <Button
-            onClick={handleSend}
-            disabled={sending || !msg.trim()}
-          >
-            <Send className="h-4 w-4 mr-2" /> Enviar via WhatsApp
-          </Button>
+          {(() => {
+            const elig = lead ? leadElegivelParaDisparo(lead) : { elegivel: true } as const;
+            return (
+              <Button
+                onClick={handleSend}
+                disabled={sending || !msg.trim() || !elig.elegivel}
+                title={elig.elegivel ? undefined : elig.motivo}
+              >
+                <Send className="h-4 w-4 mr-2" />
+                {elig.elegivel ? "Enviar via WhatsApp" : "Aguardando data"}
+              </Button>
+            );
+          })()}
         </DialogFooter>
       </DialogContent>
     </Dialog>
