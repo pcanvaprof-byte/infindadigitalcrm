@@ -294,7 +294,7 @@ begin
     )
   )
   );
-end
+end;
 $$;
 
 grant execute on function public.dashboard_metrics() to authenticated;
