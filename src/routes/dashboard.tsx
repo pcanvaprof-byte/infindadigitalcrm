@@ -15,7 +15,6 @@ import {
   UserX,
 } from "lucide-react";
 import { cadenceKeys, fetchDashboardMetrics } from "@/lib/cadence/api";
-import { AcoesHojeWidget } from "@/components/cadence/AcoesHojeWidget";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -69,6 +68,50 @@ function FunilLinha({ label, pct }: { label: string; pct: number }) {
         />
         <span className="absolute inset-0 flex items-center px-3 text-[11px] font-semibold">
           {pct.toLocaleString("pt-BR")}%
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function ComparativoLinha({
+  label,
+  semana,
+  mes,
+}: {
+  label: string;
+  semana: number;
+  mes: number;
+}) {
+  // Projeção da semana sobre o mês: semana * (30/7)
+  const projecaoMensal = semana * (30 / 7);
+  const mediaSemanalDoMes = mes / (30 / 7);
+  const delta = mediaSemanalDoMes > 0
+    ? ((semana - mediaSemanalDoMes) / mediaSemanalDoMes) * 100
+    : semana > 0 ? 100 : 0;
+  const positivo = delta >= 0;
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-md border border-border/60 bg-accent/20 px-3 py-2.5">
+      <div className="w-40 shrink-0 text-xs font-medium">{label}</div>
+      <div className="flex flex-1 flex-wrap items-center gap-x-6 gap-y-1 text-xs">
+        <span className="text-muted-foreground">
+          Semana: <span className="font-semibold text-foreground tabular-nums">{semana.toLocaleString("pt-BR")}</span>
+        </span>
+        <span className="text-muted-foreground">
+          Mês: <span className="font-semibold text-foreground tabular-nums">{mes.toLocaleString("pt-BR")}</span>
+        </span>
+        <span className="text-muted-foreground">
+          Projeção mensal: <span className="font-semibold text-foreground tabular-nums">{Math.round(projecaoMensal).toLocaleString("pt-BR")}</span>
+        </span>
+        <span
+          className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+            positivo
+              ? "bg-emerald-500/15 text-emerald-300"
+              : "bg-rose-500/15 text-rose-300"
+          }`}
+          title="Semana atual vs média semanal do mês"
+        >
+          {positivo ? "▲" : "▼"} {Math.abs(delta).toFixed(1)}% vs média
         </span>
       </div>
     </div>
@@ -167,10 +210,25 @@ function DashboardPage() {
         </div>
       </section>
 
-      {/* Ações de hoje */}
-      <div className="mt-6">
-        <AcoesHojeWidget />
-      </div>
+      {/* Comparativo Semana x Mês */}
+      <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Comparativo Semana × Mês
+      </h3>
+      <section className="surface-card space-y-2 p-5">
+        <ComparativoLinha
+          label="Contatos"
+          semana={m?.cadencia.semana ?? 0}
+          mes={m?.cadencia.mes ?? 0}
+        />
+        <ComparativoLinha
+          label="Tentativas"
+          semana={m?.tentativas?.semana ?? 0}
+          mes={m?.tentativas?.mes ?? 0}
+        />
+        <p className="pt-1 text-[11px] text-muted-foreground">
+          O delta compara a semana atual com a média semanal do mês (mês ÷ 4,28). Verde indica ritmo acima da média; vermelho, abaixo.
+        </p>
+      </section>
     </AppShell>
   );
 }
