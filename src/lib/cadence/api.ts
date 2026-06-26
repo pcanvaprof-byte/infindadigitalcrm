@@ -72,6 +72,7 @@ export interface AcaoHoje {
 }
 
 export interface DashboardMetrics {
+  schema?: "v2" | "legacy" | "empty";
   contatos:  { hoje: number; semana: number; mes: number };
   respostas: { hoje: number; semana: number; mes: number; taxa: number };
   resumo: {
@@ -102,6 +103,151 @@ export interface DashboardMetrics {
     resposta_interesse: number;
     interesse_proposta: number;
     proposta_ativo: number;
+  };
+}
+
+export const EMPTY_DASHBOARD_METRICS: DashboardMetrics = {
+  schema: "empty",
+  contatos: { hoje: 0, semana: 0, mes: 0 },
+  respostas: { hoje: 0, semana: 0, mes: 0, taxa: 0 },
+  resumo: {
+    base: 0,
+    contatados: 0,
+    respondidos: 0,
+    interessados: 0,
+    em_negociacao: 0,
+    ativos: 0,
+    perdidos: 0,
+  },
+  pipeline: {},
+  gargalos: {
+    cadencia_atrasada: 0,
+    parados_30d: 0,
+    sem_responsavel: 0,
+    clients_parados_15d: 0,
+    sem_proxima_acao: 0,
+  },
+  conversao: {
+    base_contato: 0,
+    contato_resposta: 0,
+    resposta_interesse: 0,
+    interesse_proposta: 0,
+    proposta_ativo: 0,
+  },
+};
+
+function asObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function n(value: unknown): number {
+  const parsed = typeof value === "number" ? value : Number(value ?? 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizePipeline(value: unknown): DashboardMetrics["pipeline"] {
+  const obj = asObject(value);
+  return Object.fromEntries(
+    Object.entries(obj).map(([key, value]) => [key, n(value)]),
+  ) as DashboardMetrics["pipeline"];
+}
+
+function normalizeDashboardMetrics(value: unknown): DashboardMetrics {
+  const data = asObject(value);
+  const contatos = asObject(data.contatos);
+  const respostas = asObject(data.respostas);
+  const resumo = asObject(data.resumo);
+  const gargalos = asObject(data.gargalos);
+  const conversao = asObject(data.conversao);
+
+  const hasV2Shape = Boolean(data.contatos && data.respostas && data.resumo);
+
+  if (hasV2Shape) {
+    return {
+      schema: "v2",
+      contatos: {
+        hoje: n(contatos.hoje),
+        semana: n(contatos.semana),
+        mes: n(contatos.mes),
+      },
+      respostas: {
+        hoje: n(respostas.hoje),
+        semana: n(respostas.semana),
+        mes: n(respostas.mes),
+        taxa: n(respostas.taxa),
+      },
+      resumo: {
+        base: n(resumo.base),
+        contatados: n(resumo.contatados),
+        respondidos: n(resumo.respondidos),
+        interessados: n(resumo.interessados),
+        em_negociacao: n(resumo.em_negociacao),
+        ativos: n(resumo.ativos),
+        perdidos: n(resumo.perdidos),
+      },
+      pipeline: normalizePipeline(data.pipeline),
+      gargalos: {
+        cadencia_atrasada: n(gargalos.cadencia_atrasada),
+        parados_30d: n(gargalos.parados_30d),
+        sem_responsavel: n(gargalos.sem_responsavel),
+        clients_parados_15d: n(gargalos.clients_parados_15d),
+        sem_proxima_acao: n(gargalos.sem_proxima_acao),
+      },
+      conversao: {
+        base_contato: n(conversao.base_contato),
+        contato_resposta: n(conversao.contato_resposta),
+        resposta_interesse: n(conversao.resposta_interesse),
+        interesse_proposta: n(conversao.interesse_proposta),
+        proposta_ativo: n(conversao.proposta_ativo),
+      },
+    };
+  }
+
+  // Compatibilidade: se a RPC antiga ainda estiver publicada no banco,
+  // o dashboard não deve quebrar. Mapeamos o formato legado para o V2
+  // até a migration 20260722_dashboard_metrics_v2.sql ser aplicada.
+  const operacao = asObject(data.operacao);
+  const cadencia = asObject(data.cadencia);
+
+  return {
+    ...EMPTY_DASHBOARD_METRICS,
+    schema: Object.keys(data).length ? "legacy" : "empty",
+    contatos: {
+      hoje: n(cadencia.hoje),
+      semana: n(cadencia.semana),
+      mes: n(cadencia.mes),
+    },
+    respostas: {
+      hoje: 0,
+      semana: 0,
+      mes: 0,
+      taxa: n(cadencia.taxa_resposta),
+    },
+    resumo: {
+      base: n(operacao.base),
+      contatados: n(operacao.contatadas),
+      respondidos: n(asObject(data.filtros).responderam),
+      interessados: n(operacao.interessadas),
+      em_negociacao: 0,
+      ativos: n(operacao.clientes),
+      perdidos: 0,
+    },
+    gargalos: {
+      cadencia_atrasada: n(gargalos.atrasados),
+      parados_30d: n(gargalos.parados_30d),
+      sem_responsavel: n(gargalos.sem_responsavel),
+      clients_parados_15d: n(gargalos.deals_paradas_15d),
+      sem_proxima_acao: 0,
+    },
+    conversao: {
+      base_contato: n(conversao.base_contato),
+      contato_resposta: n(conversao.contato_interesse),
+      resposta_interesse: n(conversao.contato_interesse),
+      interesse_proposta: n(conversao.reuniao_proposta),
+      proposta_ativo: n(conversao.proposta_cliente),
+    },
   };
 }
 
@@ -189,7 +335,7 @@ export async function registerResponse(
 export async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
   const { data, error } = await sb.rpc("dashboard_metrics");
   if (error) throw error;
-  return data as unknown as DashboardMetrics;
+  return normalizeDashboardMetrics(data);
 }
 
 export async function fetchAcoesHoje(limit = 100): Promise<AcaoHoje[]> {

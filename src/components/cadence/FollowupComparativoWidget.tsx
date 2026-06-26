@@ -16,7 +16,7 @@ async function fetchComparativo(days = 14): Promise<Row[]> {
     rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: Row[] | null; error: { message: string } | null }>;
   }).rpc("cadencia_followup_comparativo", { _days: days });
   if (error) throw new Error(error.message);
-  return data ?? [];
+  return Array.isArray(data) ? data : [];
 }
 
 function fmtDay(iso: string): string {
@@ -34,7 +34,7 @@ export function FollowupComparativoWidget() {
   });
 
   const { passado, hoje, futuro, totais } = useMemo(() => {
-    const rows = q.data ?? [];
+    const rows = Array.isArray(q.data) ? q.data : [];
     const todayISO = new Date().toISOString().slice(0, 10);
     const passado = rows.filter((r) => r.dia < todayISO);
     const hoje = rows.find((r) => r.dia === todayISO) ?? null;
