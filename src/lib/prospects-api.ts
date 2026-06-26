@@ -269,22 +269,35 @@ export async function addInteractionRemote(
   byName: string,
 ): Promise<Interaction | null> {
   const uid = await requireUserId();
-  const { data, error } = await supabase
-    .from("prospect_interactions")
-    .insert({ prospect_id: prospectId, user_id: uid, kind, text, by_name: byName })
-    .select()
+  // Fonte única: grava em prospect_touchpoints.
+  // 'status' e 'nota' viram resultado='enviado' (não disparam avanço de cadência via trigger).
+  // 'whatsapp'|'ligacao'|'email' chamados aqui (fora de logAttempt) também são 'enviado'.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from("prospect_touchpoints")
+    .insert({
+      prospect_id: prospectId,
+      user_id: uid,
+      tipo: kind,
+      mensagem: text,
+      resultado: "enviado",
+      by_name: byName,
+    })
+    .select("id, tipo, mensagem, by_name, enviado_em")
     .single();
   if (error) {
     console.warn("addInteraction error", error);
     return null;
   }
-  const r = data as IxRow;
+  const r = data as {
+    id: string; tipo: string; mensagem: string | null; by_name: string | null; enviado_em: string;
+  };
   return {
     id: r.id,
-    kind: r.kind as InteractionKind,
-    text: r.text,
-    by: r.by_name,
-    at: r.created_at,
+    kind: r.tipo as InteractionKind,
+    text: r.mensagem ?? "",
+    by: r.by_name ?? "",
+    at: r.enviado_em,
   };
 }
 
@@ -297,26 +310,32 @@ export async function addInteractionsBatch(
   const payload = items.map((i) => ({
     prospect_id: i.prospectId,
     user_id: uid,
-    kind: i.kind,
-    text: i.text,
+    tipo: i.kind,
+    mensagem: i.text,
+    resultado: "enviado",
     by_name: i.byName,
   }));
-  const { data, error } = await supabase
-    .from("prospect_interactions")
-    .insert(payload as never)
-    .select();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from("prospect_touchpoints")
+    .insert(payload)
+    .select("id, prospect_id, tipo, mensagem, by_name, enviado_em");
   if (error) {
     console.warn("addInteractionsBatch error", error);
     return [];
   }
-  return (data as IxRow[]).map((r) => ({
+  const rows = (data ?? []) as Array<{
+    id: string; prospect_id: string; tipo: string; mensagem: string | null;
+    by_name: string | null; enviado_em: string;
+  }>;
+  return rows.map((r) => ({
     prospectId: r.prospect_id,
     ix: {
       id: r.id,
-      kind: r.kind as InteractionKind,
-      text: r.text,
-      by: r.by_name,
-      at: r.created_at,
+      kind: r.tipo as InteractionKind,
+      text: r.mensagem ?? "",
+      by: r.by_name ?? "",
+      at: r.enviado_em,
     },
   }));
 }
