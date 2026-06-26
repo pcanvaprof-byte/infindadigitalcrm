@@ -83,7 +83,7 @@ begin
 
   update public.cad_leads
      set last_contact_at = now(),
-         stage = v_sent_stage,
+         stage = v_next_eligible,
          next_action_at = v_next_at
    where id = p_lead;
 
