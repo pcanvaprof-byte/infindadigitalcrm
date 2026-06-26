@@ -126,7 +126,9 @@ export async function loadAllProspects(): Promise<Prospect[]> {
   for (let i = 0; i < ids.length; i += ID_BATCH) {
     const slice = ids.slice(i, i + ID_BATCH);
     for (let from = 0; ; from += PAGE) {
-      const { data, error } = await supabase
+      // Types ainda não conhecem by_name; usamos cliente afrouxado.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
         .from("prospect_touchpoints")
         .select("id, prospect_id, tipo, mensagem, by_name, enviado_em")
         .in("prospect_id", slice)
