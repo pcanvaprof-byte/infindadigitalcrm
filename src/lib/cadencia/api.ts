@@ -118,6 +118,13 @@ export async function createLead(input: Partial<CadLead> & { empresa: string }):
 }
 
 export async function updateLead(id: string, patch: Partial<CadLead>): Promise<CadLead> {
+  // GUARD: `stage` é máquina de estados — só pode mudar via cad_register_send
+  // (após envio confirmado) ou cad_move_stage (alteração manual explícita).
+  if (Object.prototype.hasOwnProperty.call(patch, "stage")) {
+    throw new Error(
+      "updateLead: alteração de `stage` proibida. Use moveStage() (cad_move_stage) ou registerSend() (cad_register_send).",
+    );
+  }
   const { data, error } = await db.from("cad_leads").update(patch).eq("id", id).select("*").single();
   if (error) throw new Error(error.message);
   return data as CadLead;
@@ -302,6 +309,21 @@ function buildEmptySerie(since: Date): CadMetrics["serie_30d"] {
 }
 
 export async function syncLeadStagesFromProspects(): Promise<number> {
+  // Apenas reflete RESULTADOS do CRM (interessado/agendado/proposta/negociacao/
+  // fechado/perdido) em cad_leads. NUNCA toca em stages de cadência ativa
+  // (`novo`, `followup_*`) — esses só mudam via cad_register_send/cad_move_stage.
+  const OUTCOME_STAGES = new Set<CadStage>([
+    "interessado",
+    "reuniao_agendada",
+    "proposta_enviada",
+    "negociacao",
+    "fechado",
+    "perdido",
+  ]);
+  const ACTIVE_STAGES = new Set<CadStage>([
+    "novo",
+    "followup_1","followup_2","followup_3","followup_4","followup_5","followup_6","followup_7",
+  ]);
   const pageSize = 1000;
   const prospects: ProspectStatusRow[] = [];
   for (let from = 0; ; from += pageSize) {
@@ -339,6 +361,12 @@ export async function syncLeadStagesFromProspects(): Promise<number> {
     if (!statusByProspectId.has(lead.prospect_id)) continue;
     const targetStage = prospectStatusToCadStage(statusByProspectId.get(lead.prospect_id));
     if (targetStage === lead.stage) continue;
+    // Nunca regride/avança a cadência ativa a partir do CRM.
+    if (!OUTCOME_STAGES.has(targetStage)) continue;
+    // Nunca sobrescreve um lead que já está em outcome com outro outcome
+    // automaticamente quando o lead ainda está em fase de follow-up ativo
+    // pendente de envio — apenas migra leads de novo/followup_* → outcome.
+    if (!ACTIVE_STAGES.has(lead.stage) && !OUTCOME_STAGES.has(lead.stage)) continue;
     idsByStage.set(targetStage, [...(idsByStage.get(targetStage) ?? []), lead.id]);
   }
 
