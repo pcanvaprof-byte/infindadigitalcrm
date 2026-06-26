@@ -3,12 +3,13 @@
 --
 -- Regras:
 -- 1) Intervalos oficiais entre etapas (relativos ao envio anterior):
---      novo → FU1: +2d   FU1→FU2: +3d   FU2→FU3: +5d   FU3→FU4: +7d
+--      import → FU1: +2d   FU1→FU2: +3d   FU2→FU3: +5d   FU3→FU4: +7d
 --      FU4→FU5: +10d    FU5→FU6: +14d  FU6→FU7: +21d
 -- 2) cad_register_send NÃO aceita envio se now() < next_action_at.
 -- 3) Ao mover para outcome (interessado, reuniao, proposta, negociacao,
 --    fechado, perdido) o lead sai da fila: next_action_at := null.
--- 4) Import: lead nasce em 'novo' com next_action_at = primeira_abordagem_at + 2d
+-- 4) Import: lead nasce em 'followup_1' (próxima etapa a executar)
+--    com next_action_at = primeira_abordagem_at + 2d
 --    (data do contato inicial vinda da Prospecção).
 -- ============================================================================
 
@@ -117,7 +118,8 @@ end $$;
 
 grant execute on function public.cad_move_stage(uuid, public.cad_stage) to authenticated;
 
--- 4) Import: lead nasce 'novo' com next_action_at = primeira_abordagem_at + 2d.
+-- 4) Import: lead nasce em 'followup_1' (próxima etapa a executar)
+--    com next_action_at = primeira_abordagem_at + 2d.
 create or replace function public.cad_import_from_prospects(p_ids uuid[] default null)
 returns int language plpgsql security definer set search_path = public as $$
 declare v_count int;
@@ -140,7 +142,7 @@ begin
       p.created_at,
       now()
     ),
-    'novo'::public.cad_stage,
+    'followup_1'::public.cad_stage,
     coalesce(
       (select max(t.enviado_em) from public.prospect_touchpoints t where t.prospect_id = p.id),
       p.created_at,
@@ -164,8 +166,13 @@ update public.cad_leads
                  'proposta_enviada','negociacao')
    and next_action_at is not null;
 
--- 6) Backfill: leads 'novo' sem next_action_at recebem primeira_abordagem_at + 2d
-update public.cad_leads
-   set next_action_at = coalesce(primeira_abordagem_at, created_at, now()) + interval '2 days'
- where stage = 'novo'
-   and next_action_at is null;
+-- 6) Backfill: leads em followup_1 sem next_action_at recebem
+--    primeira_abordagem_at + 2d (somente se ainda não enviaram mensagens).
+update public.cad_leads l
+   set next_action_at = coalesce(l.primeira_abordagem_at, l.created_at, now()) + interval '2 days'
+ where l.stage = 'followup_1'
+   and l.next_action_at is null
+   and not exists (
+     select 1 from public.cad_messages m
+      where m.lead_id = l.id and m.direction = 'out' and m.tipo <> 'sistema'
+   );
