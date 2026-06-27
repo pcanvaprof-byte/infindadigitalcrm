@@ -31,12 +31,13 @@ export function sortLeadsByDispatchDate<T extends Pick<CadLead, "next_action_at"
   return [...leads].sort((a, b) => {
     const ta = a.next_action_at ? new Date(a.next_action_at).getTime() : null;
     const tb = b.next_action_at ? new Date(b.next_action_at).getTime() : null;
-    const aFuture = ta !== null && ta > now;
-    const bFuture = tb !== null && tb > now;
-    if (aFuture !== bFuture) return aFuture ? 1 : -1;
+    // Sem data sempre por último (depois de vencidos E futuros).
     if (ta === null && tb === null) return 0;
     if (ta === null) return 1;
     if (tb === null) return -1;
+    const aFuture = ta !== null && ta > now;
+    const bFuture = tb !== null && tb > now;
+    if (aFuture !== bFuture) return aFuture ? 1 : -1;
     return ta - tb;
   });
 }
