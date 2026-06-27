@@ -27,11 +27,15 @@ begin
         (select cl2.organization_id from public.cad_leads cl2
           where cl2.owner_id = p.user_id and cl2.organization_id is not null
           order by cl2.created_at asc limit 1),
-        -- 2) organização já usada em outro prospect do mesmo dono (se a coluna existir)
-        (select pr.organization_id from public.prospects pr
-          where pr.user_id = p.user_id and pr.organization_id is not null
-          order by pr.created_at asc limit 1),
-        -- 3) fallback: primeira organização do sistema
+        -- 2) organização ativa do dono do prospect
+        (select uao.organization_id from public.user_active_org uao
+          where uao.user_id = p.user_id limit 1),
+        -- 3) primeira organização onde o dono é membro
+        (select om.organization_id from public.organization_members om
+          where om.user_id = p.user_id
+          order by case when om.role = 'owner' then 0 else 1 end, om.joined_at asc
+          limit 1),
+        -- 4) fallback: primeira organização do sistema
         (select id from public.organizations order by created_at asc limit 1)
       ),
       p.user_id,
