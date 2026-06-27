@@ -181,7 +181,6 @@ begin
            and t.tipo = 'whatsapp_enviado'
            and t.created_at > coalesce(v_lead.last_contact_at, v_lead.created_at)
          order by t.created_at;
-        get diagnostics v_backfilled = row_count + 0; -- reset abaixo
       end if;
       v_backfilled := v_backfilled + (v_tp_count - v_msg_count);
     end if;
