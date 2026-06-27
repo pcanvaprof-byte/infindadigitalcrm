@@ -24,11 +24,11 @@ begin
            m.created_at    as last_sent_at
       from public.cad_leads l
       join lateral (
-        select stage_at_send, created_at
-          from public.cad_messages
-         where lead_id = l.id
-           and direction = 'out'
-           and tipo = 'whatsapp'
+        select cm.stage_at_send, cm.created_at
+          from public.cad_messages cm
+         where cm.lead_id = l.id
+           and cm.direction = 'out'
+           and cm.tipo = 'whatsapp'
          order by created_at desc
          limit 1
       ) m on true
