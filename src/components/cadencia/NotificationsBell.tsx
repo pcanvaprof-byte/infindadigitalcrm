@@ -80,7 +80,7 @@ export function NotificationsBell() {
   });
 
   function openLead(n: CadNotification) {
-    navigate({ to: "/cadencia" });
+    navigate({ to: "/cadencia", search: { lead: n.lead_id } as never });
   }
 
   return (

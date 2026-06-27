@@ -64,7 +64,8 @@ export function LeadCard({
       <div className="mt-2 rounded-md border border-border/60 bg-muted/30 p-2">
         <button
           type="button"
-          onClick={() => setShowPreview((v) => !v)}
+          onClick={(e) => { e.stopPropagation(); setShowPreview((v) => !v); }}
+          onPointerDown={(e) => e.stopPropagation()}
           className="flex w-full items-center justify-between text-[11px] text-muted-foreground hover:text-foreground"
         >
           <span className="truncate">
@@ -89,7 +90,8 @@ export function LeadCard({
         size="sm"
         variant="secondary"
         className="mt-2 w-full h-7 text-xs"
-        onClick={onSend}
+        onClick={(e) => { e.stopPropagation(); onSend(); }}
+        onPointerDown={(e) => e.stopPropagation()}
         disabled={!elig.elegivel}
         title={elig.elegivel ? undefined : elig.motivo}
       >

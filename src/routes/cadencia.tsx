@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/lib/auth-context";
@@ -23,6 +23,9 @@ import { X } from "lucide-react";
 
 export const Route = createFileRoute("/cadencia")({
   ssr: false,
+  validateSearch: (s: Record<string, unknown>) => ({
+    lead: typeof s.lead === "string" ? s.lead : undefined,
+  }),
   head: () => ({ meta: [{ title: "Cadência — INFINDA" }] }),
   component: () => (
     <RequireAuth>
@@ -33,6 +36,8 @@ export const Route = createFileRoute("/cadencia")({
 
 function CadenciaPage() {
   const qc = useQueryClient();
+  const urlSearch = Route.useSearch();
+  const navigate = Route.useNavigate();
   const [tab, setTab] = useState<"dashboard" | "pipeline" | "templates">("dashboard");
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState<CadStage | null>(null);
@@ -43,6 +48,20 @@ function CadenciaPage() {
   const [sendLead, setSendLead] = useState<CadLead | null>(null);
 
   const leadsQ = useQuery({ queryKey: ["cad-leads"], queryFn: listLeads });
+
+  // Abre o LeadDrawer automaticamente quando vier via ?lead=<id> (ex.: clique
+  // em notificação). Limpa o search param após abrir para evitar reabertura
+  // ao fechar o drawer.
+  useEffect(() => {
+    if (!urlSearch.lead || !leadsQ.data) return;
+    const found = leadsQ.data.find((l) => l.id === urlSearch.lead);
+    if (found) {
+      setDrawerLead(found);
+      setTab("pipeline");
+      navigate({ search: { lead: undefined } as never, replace: true });
+    }
+  }, [urlSearch.lead, leadsQ.data, navigate]);
+
   const leads = useMemo(() => {
     let all = leadsQ.data ?? [];
     if (stageFilter) all = all.filter((l) => l.stage === stageFilter);

@@ -30,7 +30,6 @@ const PROSPECT_STATUS_TO_CAD_STAGE: Record<string, CadStage> = {
 
 /** Mapeamento reverso: stage de cadência → status de prospect (CRM). */
 const CAD_STAGE_TO_PROSPECT_STATUS: Record<CadStage, string> = {
-  novo: "novo",
   followup_1: "primeiro_contato",
   followup_2: "primeiro_contato",
   followup_3: "primeiro_contato",
@@ -48,7 +47,9 @@ const CAD_STAGE_TO_PROSPECT_STATUS: Record<CadStage, string> = {
 
 function prospectStatusToCadStage(status: string | null | undefined): CadStage {
   if (status?.startsWith("aguardando_")) return "fechado";
-  return PROSPECT_STATUS_TO_CAD_STAGE[status ?? ""] ?? "novo";
+  // Fallback seguro: estágio inicial de follow-up. `novo` foi removido da
+  // máquina de estados (migration 20260719) e o enum cad_stage rejeita.
+  return PROSPECT_STATUS_TO_CAD_STAGE[status ?? ""] ?? "followup_1";
 }
 
 /**
@@ -321,7 +322,6 @@ export async function syncLeadStagesFromProspects(): Promise<number> {
     "perdido",
   ]);
   const ACTIVE_STAGES = new Set<CadStage>([
-    "novo",
     "followup_1","followup_2","followup_3","followup_4","followup_5","followup_6","followup_7",
   ]);
   const pageSize = 1000;
