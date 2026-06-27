@@ -1,8 +1,8 @@
 -- ============================================================================
--- Permite reentrada de leads encerrados (perdido/ganho) sem violar índices
+-- Permite reentrada de leads encerrados (perdido/fechado) sem violar índices
 -- ============================================================================
 -- Refina os índices únicos de cad_leads para considerar apenas leads ativos.
--- Assim, uma empresa/CNPJ que foi marcada como perdido/ganho pode voltar
+-- Assim, uma empresa/CNPJ que foi marcada como perdido/fechado pode voltar
 -- a entrar na cadência sem ser bloqueada pela trava de duplicatas.
 
 drop index if exists ux_cad_leads_org_cnpj;
