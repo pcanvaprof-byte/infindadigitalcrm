@@ -246,50 +246,26 @@ export async function fetchMetrics(): Promise<CadMetrics> {
 }
 
 async function fetchSerie30d(): Promise<CadMetrics["serie_30d"]> {
-  const since = new Date(Date.now() - 29 * 24 * 60 * 60 * 1000);
-  since.setHours(0, 0, 0, 0);
-  const rows: Array<{ created_at: string; direction: string | null }> = [];
-  const pageSize = 1000;
-  for (let from = 0; ; from += pageSize) {
-    const { data, error } = await db
-      .from("cad_messages")
-      .select("created_at,direction")
-      .gte("created_at", since.toISOString())
-      .order("created_at", { ascending: true })
-      .range(from, from + pageSize - 1);
-    if (error) {
-      console.warn("[cadencia] fetchSerie30d", error.message);
-      return buildEmptySerie(since);
-    }
-    const page = (data ?? []) as Array<{ created_at: string; direction: string | null }>;
-    rows.push(...page);
-    if (page.length < pageSize) break;
+  // Agregação no servidor via RPC (substitui full-scan paginado).
+  // Fallback gracioso se a migration ainda não rodou.
+  const { data, error } = await db.rpc("cad_metrics_serie_30d");
+  if (error) {
+    console.warn("[cadencia] cad_metrics_serie_30d", error.message);
+    const since = new Date(Date.now() - 29 * 24 * 60 * 60 * 1000);
+    since.setHours(0, 0, 0, 0);
+    return buildEmptySerie(since);
   }
-  const acc = new Map<string, { enviadas: number; respostas: number }>();
-  for (let i = 0; i < 30; i++) {
-    const d = new Date(since);
-    d.setDate(since.getDate() + i);
-    acc.set(isoDayKey(d), { enviadas: 0, respostas: 0 });
-  }
-  for (const r of rows) {
-    const key = isoDayKey(new Date(r.created_at));
-    const slot = acc.get(key);
-    if (!slot) continue;
-    if (r.direction === "in") slot.respostas++;
-    else slot.enviadas++;
-  }
-  return Array.from(acc.entries()).map(([key, v]) => ({ dia: formatIsoDayKey(key), ...v }));
+  const rows = (data ?? []) as Array<{ dia: string; enviadas: number | string; respostas: number | string }>;
+  return rows.map((r) => ({
+    dia: formatIsoDate(r.dia),
+    enviadas: Number(r.enviadas) || 0,
+    respostas: Number(r.respostas) || 0,
+  }));
 }
 
-function isoDayKey(d: Date): string {
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function formatIsoDayKey(key: string): string {
-  const [, mm, dd] = key.split("-");
+function formatIsoDate(iso: string): string {
+  // 'YYYY-MM-DD' -> 'DD/MM'
+  const [, mm, dd] = iso.split("-");
   return `${dd}/${mm}`;
 }
 
