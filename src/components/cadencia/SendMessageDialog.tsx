@@ -66,36 +66,44 @@ export function SendMessageDialog({
     }
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
 
-    // 1) Abre o WhatsApp IMEDIATAMENTE dentro do gesto do usuário.
-    //    No mobile usa navegação direta (popups são bloqueados); no desktop nova aba.
-    if (isMobile()) {
-      // Dispara antes de qualquer await para não perder o gesto.
-      window.location.href = url;
-    } else {
+    // ESTRATÉGIA: no desktop abrimos a aba IMEDIATAMENTE (dentro do gesto)
+    // e registramos depois — a página atual fica viva.
+    // No mobile, `window.location.href` mata o JS antes do await chegar ao
+    // banco, deixando o card preso no stage. Por isso registramos PRIMEIRO
+    // e só então navegamos. A trava `wasDispatchedToday` (já checada acima)
+    // evita duplicata se o usuário reenviar.
+    const mobile = isMobile();
+    if (!mobile) {
       window.open(url, "_blank", "noopener,noreferrer");
     }
 
-    // 2) Registra em background — não bloqueia a navegação.
-    (async () => {
+    try {
+      await registerSend({ leadId: lead.id, tipo: "whatsapp", mensagem: msg, advance: true });
       try {
-        await registerSend({ leadId: lead.id, tipo: "whatsapp", mensagem: msg, advance: true });
-        try {
-          await markProspectContactedFromLead(lead.id);
-        } catch (syncErr) {
-          console.warn("Falha ao sincronizar status do prospect:", syncErr);
-        }
-        toast.success("Mensagem registrada");
-        qc.invalidateQueries({ queryKey: ["cad-leads"] });
-        qc.invalidateQueries({ queryKey: ["cad-messages"] });
-        qc.invalidateQueries({ queryKey: ["cad-metrics"] });
-        qc.invalidateQueries({ queryKey: ["prospects"] });
-      } catch (e) {
-        toast.error((e as Error).message);
-      } finally {
-        setSending(false);
-        onOpenChange(false);
+        await markProspectContactedFromLead(lead.id);
+      } catch (syncErr) {
+        console.warn("Falha ao sincronizar status do prospect:", syncErr);
       }
-    })();
+      toast.success("Mensagem registrada");
+      qc.invalidateQueries({ queryKey: ["cad-leads"] });
+      qc.invalidateQueries({ queryKey: ["cad-messages"] });
+      qc.invalidateQueries({ queryKey: ["cad-metrics"] });
+      qc.invalidateQueries({ queryKey: ["prospects"] });
+    } catch (e) {
+      toast.error(
+        `Falha ao registrar disparo: ${(e as Error).message}. WhatsApp NÃO será aberto para evitar envio sem registro.`,
+      );
+      setSending(false);
+      return;
+    } finally {
+      setSending(false);
+      onOpenChange(false);
+    }
+
+    if (mobile) {
+      // Registro confirmado: agora pode navegar para o WhatsApp.
+      window.location.href = url;
+    }
   }
 
   function copy() {
