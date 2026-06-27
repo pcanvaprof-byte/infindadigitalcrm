@@ -60,9 +60,8 @@ begin
    limit 1;
 
   if v_org is null then
-    insert into public.organizations (name, slug)
-    values ('INFINDA', 'infinda')
-    on conflict (slug) do update set name = excluded.name
+    insert into public.organizations (name)
+    values ('INFINDA')
     returning id into v_org;
   end if;
 
