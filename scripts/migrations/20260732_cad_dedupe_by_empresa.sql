@@ -35,7 +35,28 @@ begin
 
     update public.cad_messages set lead_id = v_winner where lead_id = any(v_losers);
     begin
-      update public.cad_notifications set lead_id = v_winner where lead_id = any(v_losers);
+      -- Evita conflito com ux_cad_notif_pending (lead_id, kind) quando o
+      -- vencedor e/ou múltiplos perdedores têm a mesma notificação pendente.
+      delete from public.cad_notifications n
+       using public.cad_notifications keep
+       where n.lead_id = any(v_losers)
+         and n.handled_at is null
+         and keep.lead_id = v_winner
+         and keep.kind = n.kind
+         and keep.handled_at is null;
+
+      delete from public.cad_notifications n
+       using public.cad_notifications keep
+       where n.lead_id = any(v_losers)
+         and n.handled_at is null
+         and keep.lead_id = any(v_losers)
+         and keep.kind = n.kind
+         and keep.handled_at is null
+         and keep.id < n.id;
+
+      update public.cad_notifications
+         set lead_id = v_winner
+       where lead_id = any(v_losers);
     exception when undefined_table then null; end;
 
     delete from public.cad_leads where id = any(v_losers);
