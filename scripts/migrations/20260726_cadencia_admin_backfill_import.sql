@@ -1,9 +1,5 @@
 -- ============================================================================
--- Admin backfill: importa prospects 'primeiro_contato' órfãos para cad_leads
--- preservando owner_id e organization_id originais do prospect.
---
--- Motivo: cad_import_from_prospects filtra por p.user_id = auth.uid().
--- No SQL editor (sem sessão), auth.uid() é NULL e a função importa 0 rows.
+-- Admin backfill: importa prospects órfãos para cad_leads
 -- ============================================================================
 
 create or replace function public.cad_admin_backfill_import_prospects(
@@ -27,8 +23,15 @@ begin
     )
     select
       coalesce(
-        (select o.id from public.organizations o
-           where o.owner_id = p.user_id order by o.created_at asc limit 1),
+        -- 1) organização já usada por outro cad_lead do mesmo dono
+        (select cl2.organization_id from public.cad_leads cl2
+          where cl2.owner_id = p.user_id and cl2.organization_id is not null
+          order by cl2.created_at asc limit 1),
+        -- 2) organização já usada em outro prospect do mesmo dono (se a coluna existir)
+        (select pr.organization_id from public.prospects pr
+          where pr.user_id = p.user_id and pr.organization_id is not null
+          order by pr.created_at asc limit 1),
+        -- 3) fallback: primeira organização do sistema
         (select id from public.organizations order by created_at asc limit 1)
       ),
       p.user_id,
@@ -62,7 +65,3 @@ begin
 end $$;
 
 grant execute on function public.cad_admin_backfill_import_prospects(text[]) to authenticated;
-
--- Uso:
---   select * from cad_admin_backfill_import_prospects();
---   select * from cad_admin_backfill_import_prospects(array['primeiro_contato','contatado']);
