@@ -28,8 +28,8 @@ begin
   ),
   upd as (
     update public.cad_leads l
-    set next_action_at = v_now + make_interval(days => ((o.rn - 1) / p_per_day)::int)
-                                + make_interval(mins => ((o.rn - 1) % p_per_day) * 5)
+    set next_action_at = v_now + make_interval(days => (((o.rn - 1) / p_per_day))::int)
+                                + make_interval(mins => (((o.rn - 1) % p_per_day) * 5)::int)
     from overdue o
     where l.id = o.id
     returning l.next_action_at
