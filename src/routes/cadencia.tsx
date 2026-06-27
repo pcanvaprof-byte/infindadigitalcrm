@@ -36,7 +36,7 @@ export const Route = createFileRoute("/cadencia")({
 
 function CadenciaPage() {
   const qc = useQueryClient();
-  const search = Route.useSearch();
+  const urlSearch = Route.useSearch();
   const navigate = Route.useNavigate();
   const [tab, setTab] = useState<"dashboard" | "pipeline" | "templates">("dashboard");
   const [search, setSearch] = useState("");
@@ -53,14 +53,14 @@ function CadenciaPage() {
   // em notificação). Limpa o search param após abrir para evitar reabertura
   // ao fechar o drawer.
   useEffect(() => {
-    if (!search.lead || !leadsQ.data) return;
-    const found = leadsQ.data.find((l) => l.id === search.lead);
+    if (!urlSearch.lead || !leadsQ.data) return;
+    const found = leadsQ.data.find((l) => l.id === urlSearch.lead);
     if (found) {
       setDrawerLead(found);
       setTab("pipeline");
       navigate({ search: { lead: undefined } as never, replace: true });
     }
-  }, [search.lead, leadsQ.data, navigate]);
+  }, [urlSearch.lead, leadsQ.data, navigate]);
 
   const leads = useMemo(() => {
     let all = leadsQ.data ?? [];
