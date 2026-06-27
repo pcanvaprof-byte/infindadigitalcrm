@@ -1,9 +1,10 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CAD_STAGES, CAD_STAGE_LABEL, type CadLead, type CadStage, type CadTemplate } from "@/lib/cadencia/types";
 import { listTemplates, moveStage } from "@/lib/cadencia/api";
+import { sortLeadsByDispatchDate, filterLeadsByDispatch, type DispatchFilter } from "@/lib/cadencia/sort";
 import { LeadCard } from "./LeadCard";
 
 function Draggable({ lead, children }: { lead: CadLead; children: React.ReactNode }) {
@@ -54,30 +55,15 @@ export function CadenciaKanban({
     for (const t of tplQ.data ?? []) m.set(t.stage, t);
     return m;
   }, [tplQ.data]);
+  const [dispatchFilter, setDispatchFilter] = useState<DispatchFilter>("all");
   const byStage = useMemo(() => {
     const m = new Map<CadStage, CadLead[]>();
     for (const s of CAD_STAGES) m.set(s, []);
-    for (const l of leads) m.get(l.stage)?.push(l);
-    // Ordena cada coluna: vencidos/no prazo primeiro (asc por data),
-    // depois agendados para o futuro no final (asc por data).
-    // Sem next_action_at vai pro fim.
-    const now = Date.now();
-    for (const [s, arr] of m) {
-      arr.sort((a, b) => {
-        const ta = a.next_action_at ? new Date(a.next_action_at).getTime() : null;
-        const tb = b.next_action_at ? new Date(b.next_action_at).getTime() : null;
-        const aFuture = ta !== null && ta > now;
-        const bFuture = tb !== null && tb > now;
-        if (aFuture !== bFuture) return aFuture ? 1 : -1; // futuros depois
-        if (ta === null && tb === null) return 0;
-        if (ta === null) return 1;
-        if (tb === null) return -1;
-        return ta - tb; // mais antigo/próximo primeiro
-      });
-      m.set(s, arr);
-    }
+    const filtered = filterLeadsByDispatch(leads, dispatchFilter);
+    for (const l of filtered) m.get(l.stage)?.push(l);
+    for (const [s, arr] of m) m.set(s, sortLeadsByDispatchDate(arr));
     return m;
-  }, [leads]);
+  }, [leads, dispatchFilter]);
 
   const moveM = useMutation({
     mutationFn: ({ id, stage }: { id: string; stage: CadStage }) => moveStage(id, stage),
@@ -104,6 +90,24 @@ export function CadenciaKanban({
     <DndContext sensors={sensors} onDragEnd={onDragEnd}>
       <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-muted/20 p-2 text-xs">
         <span className="font-semibold text-foreground">Total: {leads.length}</span>
+        <span className="text-muted-foreground">·</span>
+        <div className="inline-flex overflow-hidden rounded-md border border-border">
+          {([
+            ["all", "Todos"],
+            ["due", "No prazo"],
+            ["overdue", "Vencidos"],
+            ["future", "Futuros"],
+          ] as const).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setDispatchFilter(key)}
+              className={`px-2 py-0.5 ${dispatchFilter === key ? "bg-primary text-primary-foreground" : "bg-background text-foreground hover:bg-muted"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <span className="text-muted-foreground">·</span>
         {CAD_STAGES.map((s) => {
           const n = byStage.get(s)?.length ?? 0;

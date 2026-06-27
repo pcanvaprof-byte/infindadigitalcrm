@@ -96,6 +96,9 @@ export async function listLeads(): Promise<CadLead[]> {
     const { data, error } = await db
       .from("cad_leads")
       .select("*")
+      // Ordem canônica da fila: vencidos/no prazo primeiro (asc),
+      // futuros depois, sem data por último. Mesma regra do Kanban.
+      .order("next_action_at", { ascending: true, nullsFirst: false })
       .order("updated_at", { ascending: false })
       .range(from, from + pageSize - 1);
     if (error) throw new Error(error.message);
