@@ -41,25 +41,18 @@ export function NotificationsBell() {
   const qc = useQueryClient();
   const navigate = useNavigate();
 
-  // gera novas notificações periodicamente
-  const refreshM = useMutation({ mutationFn: refreshNotifications });
-  useEffect(() => {
-    refreshM.mutate(undefined, {
-      onSuccess: () => qc.invalidateQueries({ queryKey: ["cad-notifications"] }),
-    });
-    const i = setInterval(() => {
-      refreshM.mutate(undefined, {
-        onSuccess: () => qc.invalidateQueries({ queryKey: ["cad-notifications"] }),
-      });
-    }, 60_000);
-    return () => clearInterval(i);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+  // Uma única query unifica refresh (gera novas notif) + listagem.
+  // refetchInterval reduzido para 5 min — evita carga de 4 chamadas/min
+  // por aba aberta (o sino é montado em todo o AppShell).
   const q = useQuery({
     queryKey: ["cad-notifications"],
-    queryFn: listNotifications,
-    refetchInterval: 30_000,
+    queryFn: async () => {
+      try { await refreshNotifications(); } catch { /* segue exibindo o que já existe */ }
+      return listNotifications();
+    },
+    refetchInterval: 5 * 60_000,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
   const items = Array.isArray(q.data) ? q.data : [];
   const count = items.length;
