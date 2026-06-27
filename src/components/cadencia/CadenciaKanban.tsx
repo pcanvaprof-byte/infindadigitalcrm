@@ -58,6 +58,24 @@ export function CadenciaKanban({
     const m = new Map<CadStage, CadLead[]>();
     for (const s of CAD_STAGES) m.set(s, []);
     for (const l of leads) m.get(l.stage)?.push(l);
+    // Ordena cada coluna: vencidos/no prazo primeiro (asc por data),
+    // depois agendados para o futuro no final (asc por data).
+    // Sem next_action_at vai pro fim.
+    const now = Date.now();
+    for (const [s, arr] of m) {
+      arr.sort((a, b) => {
+        const ta = a.next_action_at ? new Date(a.next_action_at).getTime() : null;
+        const tb = b.next_action_at ? new Date(b.next_action_at).getTime() : null;
+        const aFuture = ta !== null && ta > now;
+        const bFuture = tb !== null && tb > now;
+        if (aFuture !== bFuture) return aFuture ? 1 : -1; // futuros depois
+        if (ta === null && tb === null) return 0;
+        if (ta === null) return 1;
+        if (tb === null) return -1;
+        return ta - tb; // mais antigo/próximo primeiro
+      });
+      m.set(s, arr);
+    }
     return m;
   }, [leads]);
 
