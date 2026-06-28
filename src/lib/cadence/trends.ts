@@ -127,18 +127,18 @@ export async function fetchKpiTrends(): Promise<KpiTrends> {
     ativos: ativosBuckets.slice(7).reduce((a, b) => a + b, 0),
   };
 
-  // Base = leads ativos no funil de prospecção.
-  // Exclui quem já foi convertido em cliente ou descartado, pois não pertence
-  // mais ao funil de aquisição.
+  // Base = leads que vieram via IMPORTAÇÃO (planilha/CSV/lote).
+  // Filtramos por prospects.source contendo "import" — cobre os valores
+  // mais comuns: "import", "csv_import", "imported", "import_lote".
   let baseLeads = 0;
   try {
     const { count, error } = await sb
       .from("prospects")
       .select("id", { count: "exact", head: true })
-      .not("status", "in", "(cliente,perdido)");
+      .ilike("source", "%import%");
     if (!error && typeof count === "number") baseLeads = count;
   } catch (e) {
-    console.warn("[trends] base leads count falhou:", e);
+    console.warn("[trends] base leads (importados) falhou:", e);
   }
 
   return {
