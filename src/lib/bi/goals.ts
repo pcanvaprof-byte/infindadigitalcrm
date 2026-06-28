@@ -67,6 +67,7 @@ export async function fetchBIGoals(): Promise<BIGoals> {
   } catch {
     return DEFAULT_GOALS;
   }
+}
 
 export async function saveMonthlyGoals(input: {
   year: number;
@@ -94,5 +95,4 @@ export async function saveMonthlyGoals(input: {
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
-}
 }
