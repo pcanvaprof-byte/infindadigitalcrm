@@ -402,6 +402,4 @@ export async function runEnrichment(
     emit(opts, "persist", "skipped", "Sem sessão Cloud — dados não foram salvos.");
     throw new Error("Sessão necessária para salvar o enriquecimento.");
   }
-
-  return { profile, address, location, market, score };
 }

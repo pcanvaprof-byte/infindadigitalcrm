@@ -153,44 +153,8 @@ const POTENTIALS: ProspectPotential[] = ["alto", "medio", "baixo"];
 const STATUS_SET = new Set<ProspectStatus>([...STATUSES, "cliente"]);
 const POTENTIAL_SET = new Set<ProspectPotential>(POTENTIALS);
 
-function safeProspect(raw: unknown, index: number): Prospect {
-  const p = raw && typeof raw === "object" ? (raw as Partial<Prospect> & { id?: unknown }) : {};
-  const status =
-    typeof p.status === "string" && STATUS_SET.has(p.status as ProspectStatus)
-      ? (p.status as ProspectStatus)
-      : "nao_contatado";
-  const potential =
-    typeof p.potential === "string" && POTENTIAL_SET.has(p.potential as ProspectPotential)
-      ? (p.potential as ProspectPotential)
-      : "medio";
-  const interactions = Array.isArray(p.interactions)
-    ? p.interactions.map((ix, ixIndex) => ({
-        id: typeof ix?.id === "string" && ix.id ? ix.id : `safe_ix_${index}_${ixIndex}`,
-        kind: ix?.kind && INTERACTION_ICON[ix.kind] ? ix.kind : "nota",
-        text: typeof ix?.text === "string" ? ix.text : "",
-        by: typeof ix?.by === "string" ? ix.by : "",
-        at: typeof ix?.at === "string" ? ix.at : new Date(0).toISOString(),
-      }))
-    : [];
-  return {
-    id: typeof p.id === "string" && p.id ? p.id : `safe_${index}`,
-    company: typeof p.company === "string" && p.company.trim() ? p.company : "Empresa sem nome",
-    cnpj: typeof p.cnpj === "string" ? p.cnpj : undefined,
-    segment: typeof p.segment === "string" && p.segment.trim() ? p.segment : "Outros",
-    owner: typeof p.owner === "string" ? p.owner : "",
-    whatsapp: typeof p.whatsapp === "string" ? p.whatsapp : "",
-    phone: typeof p.phone === "string" ? p.phone : "",
-    email: typeof p.email === "string" ? p.email : "",
-    instagram: typeof p.instagram === "string" ? p.instagram : "",
-    city: typeof p.city === "string" ? p.city : "",
-    state: typeof p.state === "string" ? p.state : "",
-    source: typeof p.source === "string" && p.source.trim() ? p.source : "Importação",
-    potential,
-    status,
-    createdAt: typeof p.createdAt === "string" ? p.createdAt : new Date(0).toISOString(),
-    interactions,
-  };
-}
+// safeProspect foi removido — `fromRow` em prospects-api.ts já garante o shape
+// e defaults. Mantemos os Sets exportados para uso por validações pontuais.
 
 const onlyDigits = (s: string) => s.replace(/\D/g, "");
 
@@ -391,7 +355,7 @@ function ProspeccaoPage() {
     staleTime: 5_000,
   });
   const prospects = useMemo(
-    () => (Array.isArray(prospectsQ.data) ? prospectsQ.data : []).map(safeProspect),
+    () => (Array.isArray(prospectsQ.data) ? prospectsQ.data : []) as Prospect[],
     [prospectsQ.data],
   );
   const loading = prospectsQ.isLoading;
@@ -401,7 +365,7 @@ function ProspeccaoPage() {
 
   // Helper para optimistic updates no cache do Query.
   const setCache = (update: (prev: Prospect[]) => Prospect[]) =>
-    qc.setQueryData<Prospect[]>(crmKeys.prospects, (old) => update(Array.isArray(old) ? old.map(safeProspect) : []));
+    qc.setQueryData<Prospect[]>(crmKeys.prospects, (old) => update(Array.isArray(old) ? (old as Prospect[]) : []));
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -473,6 +437,18 @@ function ProspeccaoPage() {
     for (const s of SEGMENTS) if (!set.has(s)) list.push(s);
     return list;
   }, [prospects]);
+
+  // Responsáveis derivados dinamicamente de prospects.owner_name + nome do
+   // usuário logado (fallback). Antes era hardcoded ["Valdinei","Danielly"].
+  const availableOwners = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of prospects) {
+      const o = (p.owner || "").trim();
+      if (o) set.add(o);
+    }
+    if (user?.name) set.add(user.name);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [prospects, user?.name]);
 
   const stats = useMemo(() => {
     const t = prospects.length;
@@ -1097,9 +1073,13 @@ function ProspeccaoPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {["Valdinei", "Danielly"].map((n) => (
-                  <DropdownMenuItem key={n} onClick={() => bulkAssign(n)} className="text-xs">{n}</DropdownMenuItem>
-                ))}
+                {availableOwners.length === 0 ? (
+                  <DropdownMenuItem disabled className="text-xs">Nenhum responsável cadastrado</DropdownMenuItem>
+                ) : (
+                  availableOwners.map((n) => (
+                    <DropdownMenuItem key={n} onClick={() => bulkAssign(n)} className="text-xs">{n}</DropdownMenuItem>
+                  ))
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
             <Button variant="outline" size="sm" className="h-8 text-xs"

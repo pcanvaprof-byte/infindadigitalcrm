@@ -121,44 +121,43 @@ export async function loadAllProspects(): Promise<Prospect[]> {
   }
   // Interações: também pagina e busca em lotes de ids (evita URL gigante no .in()).
   const ids = rows.map((r) => r.id);
-  const ixs: IxRow[] = [];
   const ID_BATCH = 200;
-  for (let i = 0; i < ids.length; i += ID_BATCH) {
-    const slice = ids.slice(i, i + ID_BATCH);
-    for (let from = 0; ; from += PAGE) {
-      // Types ainda não conhecem by_name; usamos cliente afrouxado.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
-        .from("prospect_touchpoints")
-        .select("id, prospect_id, tipo, mensagem, by_name, enviado_em")
-        .in("prospect_id", slice)
-        .order("enviado_em", { ascending: false })
-        .range(from, from + PAGE - 1);
-      if (error) {
-        console.warn("loadAllProspects touchpoints error", error);
-        break;
+  // Lotes de ids buscados em PARALELO (Promise.all) — antes era sequencial,
+  // causando N round-trips quando a base passava de 1k prospects.
+  type TpRow = {
+    id: string; prospect_id: string; tipo: string;
+    mensagem: string | null; by_name: string | null; enviado_em: string;
+  };
+  const slices: string[][] = [];
+  for (let i = 0; i < ids.length; i += ID_BATCH) slices.push(ids.slice(i, i + ID_BATCH));
+  const batchResults = await Promise.all(
+    slices.map(async (slice) => {
+      const out: TpRow[] = [];
+      for (let from = 0; ; from += PAGE) {
+        // Types ainda não conhecem by_name; usamos cliente afrouxado.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase as any)
+          .from("prospect_touchpoints")
+          .select("id, prospect_id, tipo, mensagem, by_name, enviado_em")
+          .in("prospect_id", slice)
+          .order("enviado_em", { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (error) { console.warn("loadAllProspects touchpoints error", error); break; }
+        const batch = (data ?? []) as TpRow[];
+        out.push(...batch);
+        if (batch.length < PAGE) break;
       }
-      const batch = (data ?? []) as Array<{
-        id: string;
-        prospect_id: string;
-        tipo: string;
-        mensagem: string | null;
-        by_name: string | null;
-        enviado_em: string;
-      }>;
-      for (const row of batch) {
-        ixs.push({
-          id: row.id,
-          prospect_id: row.prospect_id,
-          kind: row.tipo,
-          text: row.mensagem ?? "",
-          by_name: row.by_name ?? "",
-          created_at: row.enviado_em,
-        });
-      }
-      if (batch.length < PAGE) break;
-    }
-  }
+      return out;
+    }),
+  );
+  const ixs: IxRow[] = batchResults.flat().map((row) => ({
+    id: row.id,
+    prospect_id: row.prospect_id,
+    kind: row.tipo,
+    text: row.mensagem ?? "",
+    by_name: row.by_name ?? "",
+    created_at: row.enviado_em,
+  }));
   return rows.map((r) => fromRow(r, ixs));
 }
 
@@ -477,10 +476,20 @@ export async function applyImport(
     }
   }
 
-  for (const u of updates) {
-    const { error } = await supabase.from("prospects").update(u.patch as never).eq("id", u.id);
-    if (error) result.errors.push({ row: 0, message: `Atualização ${u.id}: ${error.message}` });
-    else result.updated++;
+  // Updates em paralelo, limitados a 10 simultâneos para não saturar o pool.
+  const CONCURRENCY = 10;
+  for (let i = 0; i < updates.length; i += CONCURRENCY) {
+    const chunk = updates.slice(i, i + CONCURRENCY);
+    const out = await Promise.all(
+      chunk.map(async (u) => {
+        const { error } = await supabase.from("prospects").update(u.patch as never).eq("id", u.id);
+        return { u, error };
+      }),
+    );
+    for (const { u, error } of out) {
+      if (error) result.errors.push({ row: 0, message: `Atualização ${u.id}: ${error.message}` });
+      else result.updated++;
+    }
   }
 
   return result;
