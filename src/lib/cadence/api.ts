@@ -148,6 +148,13 @@ type CadMessageMetricRow = {
   created_at: string | null;
 };
 
+type OpClientMetricRow = {
+  id: string;
+  status: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
 type MetricSource = "rpc" | "fallback";
 
 let lastDashboardMetricSource: MetricSource = "rpc";
@@ -383,7 +390,7 @@ function maxBucket(...values: number[]): number {
 }
 
 async function fetchDashboardMetricsFallback(): Promise<DashboardMetrics> {
-  const [prospects, touchpoints, clients, cadLeads, cadMessages] = await Promise.all([
+  const [prospects, touchpoints, clients, cadLeads, cadMessages, opClients] = await Promise.all([
     selectAllForMetrics<ProspectMetricRow>(
       "prospects",
       "id,status,owner_name,cadence_status,last_contact_at,next_contact_at",
@@ -403,6 +410,10 @@ async function fetchDashboardMetricsFallback(): Promise<DashboardMetrics> {
     selectAllForMetrics<CadMessageMetricRow>(
       "cad_messages",
       "lead_id,direction,tipo,status,created_at",
+    ),
+    selectAllForMetrics<OpClientMetricRow>(
+      "op_clientes",
+      "id,status,created_at,updated_at",
     ),
   ]);
 
@@ -527,6 +538,7 @@ async function fetchDashboardMetricsFallback(): Promise<DashboardMetrics> {
   );
   const ativos = maxBucket(
     clientStage(["ATIVO"]),
+    countWhere(opClients, (client) => String(client.status ?? "") === "ativo"),
     prospectStatus(["fechado_ganho", "cliente", "aguardando_kickoff", "aguardando_producao", "em_producao", "entregue"]),
     cadStage(["fechado"]),
   );
@@ -538,7 +550,7 @@ async function fetchDashboardMetricsFallback(): Promise<DashboardMetrics> {
 
   const allContactIds = new Set([...touchContactIds, ...cadContactIds]);
   const allResponseIds = new Set([...touchResponseIds, ...cadResponseIds, ...advancedIds]);
-  const base = maxBucket(prospects.length, cadLeads.length, clients.length);
+  const base = maxBucket(prospects.length, cadLeads.length, clients.length, opClients.length);
   const contatados = allContactIds.size;
   const respondidos = allResponseIds.size;
   const emNegociacaoMaisAtivos = emNegociacao + ativos;
@@ -595,6 +607,40 @@ async function fetchDashboardMetricsFallback(): Promise<DashboardMetrics> {
       resposta_interesse: pct(interesseMaisAvancados, respondidos),
       interesse_proposta: pct(emNegociacaoMaisAtivos, interesseMaisAvancados),
       proposta_ativo: pct(ativos, emNegociacaoMaisAtivos),
+    },
+  };
+}
+
+function preferRealValue(rpcValue: number, fallbackValue: number): number {
+  return rpcValue > 0 ? rpcValue : fallbackValue;
+}
+
+function mergeDashboardMetrics(rpcMetrics: DashboardMetrics, fallbackMetrics: DashboardMetrics): DashboardMetrics {
+  return {
+    ...rpcMetrics,
+    resumo: {
+      base: preferRealValue(rpcMetrics.resumo.base, fallbackMetrics.resumo.base),
+      contatados: preferRealValue(rpcMetrics.resumo.contatados, fallbackMetrics.resumo.contatados),
+      respondidos: preferRealValue(rpcMetrics.resumo.respondidos, fallbackMetrics.resumo.respondidos),
+      novos: preferRealValue(rpcMetrics.resumo.novos, fallbackMetrics.resumo.novos),
+      interessados: preferRealValue(rpcMetrics.resumo.interessados, fallbackMetrics.resumo.interessados),
+      em_negociacao: preferRealValue(rpcMetrics.resumo.em_negociacao, fallbackMetrics.resumo.em_negociacao),
+      ativos: preferRealValue(rpcMetrics.resumo.ativos, fallbackMetrics.resumo.ativos),
+      perdidos: preferRealValue(rpcMetrics.resumo.perdidos, fallbackMetrics.resumo.perdidos),
+    },
+    conversao: {
+      base_contato: preferRealValue(rpcMetrics.conversao.base_contato, fallbackMetrics.conversao.base_contato),
+      contato_resposta: preferRealValue(rpcMetrics.conversao.contato_resposta, fallbackMetrics.conversao.contato_resposta),
+      resposta_interesse: preferRealValue(rpcMetrics.conversao.resposta_interesse, fallbackMetrics.conversao.resposta_interesse),
+      interesse_proposta: preferRealValue(rpcMetrics.conversao.interesse_proposta, fallbackMetrics.conversao.interesse_proposta),
+      proposta_ativo: preferRealValue(rpcMetrics.conversao.proposta_ativo, fallbackMetrics.conversao.proposta_ativo),
+    },
+    gargalos: {
+      cadencia_atrasada: preferRealValue(rpcMetrics.gargalos.cadencia_atrasada, fallbackMetrics.gargalos.cadencia_atrasada),
+      parados_30d: preferRealValue(rpcMetrics.gargalos.parados_30d, fallbackMetrics.gargalos.parados_30d),
+      sem_responsavel: preferRealValue(rpcMetrics.gargalos.sem_responsavel, fallbackMetrics.gargalos.sem_responsavel),
+      clients_parados_15d: preferRealValue(rpcMetrics.gargalos.clients_parados_15d, fallbackMetrics.gargalos.clients_parados_15d),
+      sem_proxima_acao: preferRealValue(rpcMetrics.gargalos.sem_proxima_acao, fallbackMetrics.gargalos.sem_proxima_acao),
     },
   };
 }
@@ -690,7 +736,9 @@ export async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
     throw error;
   }
   lastDashboardMetricSource = "rpc";
-  return normalizeDashboardMetrics(data);
+  const rpcMetrics = normalizeDashboardMetrics(data);
+  const fallbackMetrics = await fetchDashboardMetricsFallback();
+  return mergeDashboardMetrics(rpcMetrics, fallbackMetrics);
 }
 
 export function getLastDashboardMetricSource(): MetricSource {
