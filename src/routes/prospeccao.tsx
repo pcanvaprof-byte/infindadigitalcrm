@@ -452,13 +452,19 @@ function ProspeccaoPage() {
 
   const stats = useMemo(() => {
     const t = prospects.length;
-    const contatadas = prospects.filter((p) => p.status !== "nao_contatado").length;
+    // "Contatadas" = base com pelo menos 1 touchpoint outbound (whatsapp/ligação/email).
+    // Mesma definição usada pelo Dashboard de Cadência (prospect_touchpoints),
+    // evitando divergência entre os módulos.
+    const isOutbound = (k: string) => k === "whatsapp" || k === "ligacao" || k === "email";
+    const contatadas = prospects.filter(
+      (p) => (p.interactions ?? []).some((ix) => isOutbound(ix.kind)),
+    ).length;
     const qualificadas = prospects.filter((p) => p.status === "qualificado").length;
     const agendadas = prospects.filter((p) => p.status === "agendado").length;
     let disparos = 0;
     for (const p of prospects) {
       for (const ix of p.interactions ?? []) {
-        if (ix.kind === "whatsapp" || ix.kind === "ligacao" || ix.kind === "email") disparos++;
+        if (isOutbound(ix.kind)) disparos++;
       }
     }
     return { t, contatadas, qualificadas, agendadas, disparos };
