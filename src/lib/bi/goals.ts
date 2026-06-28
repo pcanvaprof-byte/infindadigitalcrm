@@ -23,6 +23,9 @@ export interface BIGoals {
   weekly_partnerships_goal: number;
   daily_visits_goal: number;
   daily_contacts_goal: number;
+  payroll_cost: number;
+  infra_cost: number;
+  taxes_pct: number;
 }
 
 /** Fallback INFINDA — mantém UI funcional antes da migration rodar. */
@@ -49,6 +52,9 @@ export const DEFAULT_GOALS: BIGoals = {
   weekly_partnerships_goal: 1,
   daily_visits_goal: 30,
   daily_contacts_goal: 40,
+  payroll_cost: 0,
+  infra_cost: 0,
+  taxes_pct: 0,
 };
 
 const rpc = (sb as unknown as {
@@ -78,6 +84,13 @@ export async function saveMonthlyGoals(input: {
   leads: number;
   meetings: number;
   ticket: number;
+  payroll?: number;
+  infra?: number;
+  taxesPct?: number;
+  weeklyRevenue?: number;
+  dailyVisits?: number;
+  dailyContacts?: number;
+  weeklyDispatches?: number;
 }): Promise<{ ok: boolean; error?: string }> {
   try {
     const { error } = await rpc("bi_set_monthly_goals", {
@@ -89,6 +102,13 @@ export async function saveMonthlyGoals(input: {
       p_leads: input.leads,
       p_meetings: input.meetings,
       p_ticket: input.ticket,
+      p_payroll: input.payroll ?? 0,
+      p_infra: input.infra ?? 0,
+      p_taxes_pct: input.taxesPct ?? 0,
+      p_weekly_revenue: input.weeklyRevenue ?? 17000,
+      p_daily_visits: input.dailyVisits ?? 30,
+      p_daily_contacts: input.dailyContacts ?? 40,
+      p_weekly_dispatches: input.weeklyDispatches ?? 240,
     });
     if (error) return { ok: false, error: String((error as { message?: string }).message ?? error) };
     return { ok: true };
