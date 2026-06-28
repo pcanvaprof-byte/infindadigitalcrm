@@ -107,72 +107,87 @@ function Kpi({ label, value, hint }: { label: string; value: string; hint?: stri
   );
 }
 
-function MetaHero({ realizado, ticket, meta }: { realizado: number; ticket: number; meta: number }) {
+function MetaHero({
+  realizado, ticket, meta, recorrencia,
+}: { realizado: number; ticket: number; meta: number; recorrencia: number }) {
   const total = diasUteisNoMes();
   const dia = diasUteisAteHoje();
   const totalCal = diasNoMes();
   const diaCal = diaAtual();
-  const ritmo = dia > 0 ? realizado / dia : 0;
-  const projetado = Math.round(ritmo * total);
-  const gap = Math.max(0, meta - projetado);
-  const pctReal = meta > 0 ? Math.min(100, Math.round((realizado / meta) * 100)) : 0;
+  // Realizado total = recorrência garantida + novos negócios já fechados no mês.
+  const novos = Math.max(0, realizado);
+  const realizadoTotal = recorrencia + novos;
+  const ritmoNovos = dia > 0 ? novos / dia : 0;
+  const projetadoNovos = Math.round(ritmoNovos * total);
+  const projetadoTotal = recorrencia + projetadoNovos;
+  const gap = Math.max(0, meta - projetadoTotal);
+  const pctReal = meta > 0 ? Math.min(100, Math.round((realizadoTotal / meta) * 100)) : 0;
   const pctIdeal = total > 0 ? Math.round((dia / total) * 100) : 0;
-  const prob = meta > 0 ? Math.max(0, Math.min(100, Math.round((projetado / meta) * 100))) : 0;
+  const prob = meta > 0 ? Math.max(0, Math.min(100, Math.round((projetadoTotal / meta) * 100))) : 0;
   const status = prob >= 100 ? "no ritmo" : prob >= 85 ? "atenção" : "crítico";
   const statusTone =
     status === "no ritmo" ? "text-emerald-400" : status === "atenção" ? "text-amber-400" : "text-rose-400";
   const idealAcum = total > 0 ? Math.round((meta * dia) / total) : 0;
-  const diffIdeal = realizado - idealAcum;
-  const contratosFaltam = ticket > 0 ? Math.max(0, Math.ceil((meta - realizado) / ticket)) : 0;
+  const diffIdeal = realizadoTotal - idealAcum;
+  const faltam = Math.max(0, meta - realizadoTotal);
+  const contratosFaltam = ticket > 0 ? Math.max(0, Math.ceil(faltam / ticket)) : 0;
+
+  const pctRecorrencia = meta > 0 ? Math.round((recorrencia / meta) * 100) : 0;
+  const pctNovos = meta > 0 ? Math.round((novos / meta) * 100) : 0;
+  const pctFaltam = Math.max(0, 100 - pctRecorrencia - pctNovos);
 
   return (
     <Card className="overflow-hidden border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card">
       <CardContent className="p-6 grid gap-6 md:grid-cols-[1.4fr_1fr]">
         <div>
           <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-primary/80">
-            <Target className="h-3.5 w-3.5" /> Meta do mês
+            <Target className="h-3.5 w-3.5" /> Meta total do mês
           </div>
           <div className="mt-3 flex items-baseline gap-3 flex-wrap">
-            <span className="text-3xl font-semibold">{fmtBRL(realizado)}</span>
+            <span className="text-3xl font-semibold">{fmtBRL(realizadoTotal)}</span>
             <span className="text-sm text-muted-foreground">de {fmtBRL(meta)}</span>
             <Badge variant="secondary" className={statusTone}>{pctReal}% atingido</Badge>
           </div>
-          <div className="mt-4 h-2.5 w-full rounded-full bg-muted/40 overflow-hidden">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-primary to-primary/60 transition-all"
-              style={{ width: `${pctReal}%` }}
-            />
+          {/* Barra empilhada: recorrência (garantida) + novos (conquistado) + gap */}
+          <div className="mt-4 h-2.5 w-full rounded-full bg-muted/40 overflow-hidden flex">
+            <div className="h-full bg-emerald-500/80" style={{ width: `${pctRecorrencia}%` }} title={`Recorrência ${fmtBRL(recorrencia)}`} />
+            <div className="h-full bg-primary" style={{ width: `${pctNovos}%` }} title={`Novos ${fmtBRL(novos)}`} />
+            <div className="h-full bg-muted/30" style={{ width: `${pctFaltam}%` }} title={`Faltam ${fmtBRL(faltam)}`} />
           </div>
-          <div className="mt-1 flex justify-between text-[11px] text-muted-foreground tabular-nums">
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1"><i className="inline-block h-2 w-2 rounded-sm bg-emerald-500/80" /> Recorrência {pctRecorrencia}%</span>
+            <span className="inline-flex items-center gap-1"><i className="inline-block h-2 w-2 rounded-sm bg-primary" /> Novos {pctNovos}%</span>
+            <span className="inline-flex items-center gap-1"><i className="inline-block h-2 w-2 rounded-sm bg-muted/60" /> Faltam {pctFaltam}%</span>
+          </div>
+          <div className="mt-2 flex justify-between text-[11px] text-muted-foreground tabular-nums">
             <span>Dia útil {dia}/{total} · calend. {diaCal}/{totalCal}</span>
             <span>Ideal acumulado: {pctIdeal}%</span>
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            Projeção final: <strong className="text-foreground">{fmtBRL(projetado)}</strong> ·
+            Projeção final: <strong className="text-foreground">{fmtBRL(projetadoTotal)}</strong> ·
             Probabilidade de bater: <strong className={statusTone}>{prob}%</strong>
           </p>
         </div>
 
         <div className="grid grid-cols-2 gap-3 content-start">
           <div className="rounded-lg border border-border bg-card/60 p-3">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Gap p/ meta</p>
-            <p className="mt-1 text-xl font-semibold text-rose-400">{fmtBRL(Math.max(0, meta - realizado))}</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Recorrência garantida</p>
+            <p className="mt-1 text-xl font-semibold text-emerald-400">{fmtBRL(recorrencia)}</p>
           </div>
           <div className="rounded-lg border border-border bg-card/60 p-3">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Gap projeção</p>
-            <p className={`mt-1 text-xl font-semibold ${gap > 0 ? "text-amber-400" : "text-emerald-400"}`}>
-              {fmtBRL(gap)}
-            </p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Novos negócios (mês)</p>
+            <p className="mt-1 text-xl font-semibold text-primary">{fmtBRL(novos)}</p>
           </div>
           <div className="rounded-lg border border-border bg-card/60 p-3">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Δ vs ideal</p>
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Faltam (gap comercial)</p>
+            <p className="mt-1 text-xl font-semibold text-rose-400">{fmtBRL(faltam)}</p>
+          </div>
+          <div className="rounded-lg border border-border bg-card/60 p-3">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Δ vs ideal · faltam</p>
             <p className={`mt-1 text-xl font-semibold ${diffIdeal >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
               {diffIdeal >= 0 ? "+" : ""}{fmtBRL(diffIdeal)}
             </p>
-          </div>
-          <div className="rounded-lg border border-border bg-card/60 p-3">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Faltam fechar</p>
-            <p className="mt-1 text-xl font-semibold">{contratosFaltam} contratos</p>
+            <p className="mt-1 text-[10px] text-muted-foreground">≈ {contratosFaltam} contratos</p>
           </div>
         </div>
       </CardContent>
