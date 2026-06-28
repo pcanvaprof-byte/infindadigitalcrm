@@ -128,7 +128,7 @@ function BIPage() {
       <Tabs value={area} onValueChange={(v) => setArea(v as BIArea)}>
         <nav
           aria-label="Áreas de BI"
-          className="sticky top-0 z-10 -mx-3 sm:-mx-6 flex items-center gap-1 overflow-x-auto border-b border-border bg-background/80 px-3 sm:px-6 py-2 backdrop-blur-xl [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex items-center gap-2 overflow-x-auto rounded-xl border border-border bg-card/60 p-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {AREAS.map((a) => {
             const Icon = a.icon;
@@ -138,13 +138,13 @@ function BIPage() {
                 key={a.id}
                 type="button"
                 onClick={() => setArea(a.id)}
-                className={`group inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+                className={`group inline-flex shrink-0 items-center gap-2 rounded-lg border px-3.5 py-2 text-sm font-medium transition-all ${
                   active
-                    ? "border-primary/40 bg-primary/10 text-foreground"
+                    ? "border-primary/50 bg-primary/15 text-foreground shadow-sm"
                     : "border-border/60 bg-card/60 text-muted-foreground hover:border-border hover:text-foreground"
                 }`}
               >
-                <Icon className={`h-3.5 w-3.5 ${active ? "text-primary" : ""}`} />
+                <Icon className={`h-4 w-4 ${active ? "text-primary" : ""}`} />
                 <span>{a.label}</span>
               </button>
             );
