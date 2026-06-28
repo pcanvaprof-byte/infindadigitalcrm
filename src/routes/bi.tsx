@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { FEATURES } from "@/config/features";
 import { AppShell } from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +12,7 @@ import {
   LineChart, Line,
 } from "recharts";
 import { fetchBIDashboard, type BIArea, type BIDashboardPayload } from "@/lib/bi/api";
+import { fetchBIGoals, DEFAULT_GOALS, type BIGoals } from "@/lib/bi/goals";
 import { AIInsightsPanel } from "@/components/bi/AIInsightsPanel";
 import { ExportMenu, type ExportSection } from "@/components/bi/ExportMenu";
 import { ParaBaterMeta } from "@/components/bi/ParaBaterMeta";
@@ -21,15 +23,6 @@ import { FunilExecutivo } from "@/components/bi/FunilExecutivo";
 import { FinanceiroPanel } from "@/components/bi/FinanceiroPanel";
 import { MarketingPanel } from "@/components/bi/MarketingPanel";
 import { OperacoesPanel } from "@/components/bi/OperacoesPanel";
-
-// Metas comerciais default (em breve: configurável via /metas)
-const META_COMERCIAL = {
-  leads: 700,
-  reunioes: 100,
-  propostas: 50,
-  contratos: 20,
-  conversaoPct: 15,
-} as const;
 
 export const Route = createFileRoute("/bi")({
   component: BIPageGate,
@@ -76,14 +69,30 @@ const fmtNum = (n: number | null | undefined) =>
 const fmtPct = (n: number | null | undefined) =>
   `${Number.isFinite(n as number) ? (n as number) : 0}%`;
 
-// Meta mensal default (em breve: configurável via /metas)
-const META_MENSAL = 100_000;
-
 function diasNoMes(d = new Date()) {
   return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
 }
 function diaAtual(d = new Date()) {
   return d.getDate();
+}
+function diasUteisNoMes(d = new Date()) {
+  const y = d.getFullYear(), m = d.getMonth();
+  const total = new Date(y, m + 1, 0).getDate();
+  let n = 0;
+  for (let i = 1; i <= total; i++) {
+    const dow = new Date(y, m, i).getDay();
+    if (dow !== 0 && dow !== 6) n++;
+  }
+  return n;
+}
+function diasUteisAteHoje(d = new Date()) {
+  const y = d.getFullYear(), m = d.getMonth(), dia = d.getDate();
+  let n = 0;
+  for (let i = 1; i <= dia; i++) {
+    const dow = new Date(y, m, i).getDay();
+    if (dow !== 0 && dow !== 6) n++;
+  }
+  return Math.max(1, n);
 }
 
 function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
@@ -98,20 +107,21 @@ function Kpi({ label, value, hint }: { label: string; value: string; hint?: stri
   );
 }
 
-function MetaHero({ realizado, ticket }: { realizado: number; ticket: number }) {
-  const meta = META_MENSAL;
-  const total = diasNoMes();
-  const dia = diaAtual();
+function MetaHero({ realizado, ticket, meta }: { realizado: number; ticket: number; meta: number }) {
+  const total = diasUteisNoMes();
+  const dia = diasUteisAteHoje();
+  const totalCal = diasNoMes();
+  const diaCal = diaAtual();
   const ritmo = dia > 0 ? realizado / dia : 0;
   const projetado = Math.round(ritmo * total);
   const gap = Math.max(0, meta - projetado);
-  const pctReal = Math.min(100, Math.round((realizado / meta) * 100));
-  const pctIdeal = Math.round((dia / total) * 100);
-  const prob = Math.max(0, Math.min(100, Math.round((projetado / meta) * 100)));
+  const pctReal = meta > 0 ? Math.min(100, Math.round((realizado / meta) * 100)) : 0;
+  const pctIdeal = total > 0 ? Math.round((dia / total) * 100) : 0;
+  const prob = meta > 0 ? Math.max(0, Math.min(100, Math.round((projetado / meta) * 100))) : 0;
   const status = prob >= 100 ? "no ritmo" : prob >= 85 ? "atenção" : "crítico";
   const statusTone =
     status === "no ritmo" ? "text-emerald-400" : status === "atenção" ? "text-amber-400" : "text-rose-400";
-  const idealAcum = Math.round((meta * dia) / total);
+  const idealAcum = total > 0 ? Math.round((meta * dia) / total) : 0;
   const diffIdeal = realizado - idealAcum;
   const contratosFaltam = ticket > 0 ? Math.max(0, Math.ceil((meta - realizado) / ticket)) : 0;
 
@@ -134,7 +144,7 @@ function MetaHero({ realizado, ticket }: { realizado: number; ticket: number }) 
             />
           </div>
           <div className="mt-1 flex justify-between text-[11px] text-muted-foreground tabular-nums">
-            <span>Dia {dia} / {total}</span>
+            <span>Dia útil {dia}/{total} · calend. {diaCal}/{totalCal}</span>
             <span>Ideal acumulado: {pctIdeal}%</span>
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
@@ -172,31 +182,35 @@ function MetaHero({ realizado, ticket }: { realizado: number; ticket: number }) 
 
 function BIPage() {
   const [area, setArea] = useState<BIArea>("diretoria");
-  const [data, setData] = useState<BIDashboardPayload | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true); setErr(null);
-    fetchBIDashboard(area)
-      .then((d) => { if (!cancelled) setData(d); })
-      .catch((e) => {
-        if (cancelled) return;
-        const msg =
-          e instanceof Error
-            ? e.message
-            : typeof e === "object" && e !== null
-              ? ((e as { message?: string; error_description?: string; details?: string }).message
-                ?? (e as { error_description?: string }).error_description
-                ?? (e as { details?: string }).details
-                ?? JSON.stringify(e))
-              : String(e);
-        setErr(msg);
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
-  }, [area]);
+  const dashQuery = useQuery<BIDashboardPayload>({
+    queryKey: ["bi", "dashboard", area],
+    queryFn: () => fetchBIDashboard(area),
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+
+  const goalsQuery = useQuery<BIGoals>({
+    queryKey: ["bi", "goals"],
+    queryFn: fetchBIGoals,
+    staleTime: 30 * 60_000,
+    gcTime: 60 * 60_000,
+    refetchOnWindowFocus: false,
+    placeholderData: DEFAULT_GOALS,
+  });
+
+  const data = dashQuery.data ?? null;
+  const loading = dashQuery.isLoading || dashQuery.isFetching;
+  const errRaw = dashQuery.error;
+  const err = errRaw
+    ? (errRaw instanceof Error
+        ? errRaw.message
+        : typeof errRaw === "object" && errRaw !== null
+          ? ((errRaw as { message?: string }).message ?? JSON.stringify(errRaw))
+          : String(errRaw))
+    : null;
+  const goals = goalsQuery.data ?? DEFAULT_GOALS;
 
   const exportSections = useMemo<ExportSection[]>(() => {
     if (!data) return [];
@@ -265,16 +279,17 @@ function BIPage() {
                 <MetaHero
                   realizado={data.kpis.receita_realizada ?? 0}
                   ticket={data.kpis.ticket_medio ?? 0}
+                  meta={goals.revenue_goal}
                 />
                 <div className="grid gap-5 lg:grid-cols-2">
                   <ParaBaterMeta
-                    meta={META_MENSAL}
+                    meta={goals.revenue_goal}
                     realizado={data.kpis.receita_realizada ?? 0}
                     ticket={data.kpis.ticket_medio ?? 0}
                     taxaConversao={data.forecast?.taxa_conversao_historica ?? null}
                   />
                   <EvolucaoMes
-                    meta={META_MENSAL}
+                    meta={goals.revenue_goal}
                     realizado={data.kpis.receita_realizada ?? 0}
                   />
                 </div>
@@ -291,29 +306,28 @@ function BIPage() {
               const contratos = findStage(/contrat|fech/) || (stages[stages.length - 1]?.clientes ?? 0);
               const conversao = leads > 0 ? Math.round((contratos / leads) * 1000) / 10 : 0;
 
-              const now = new Date();
-              const total = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-              const dia = Math.max(1, now.getDate());
+              const total = diasUteisNoMes();
+              const dia = diasUteisAteHoje();
               const projetadoContratos = Math.round((contratos / dia) * total);
 
               return (
                 <div className="space-y-5">
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                    <KpiGoalCard label="Leads" value={leads} goal={META_COMERCIAL.leads} icon={Users} />
-                    <KpiGoalCard label="Reuniões" value={reunioes} goal={META_COMERCIAL.reunioes} icon={CalendarClock} />
-                    <KpiGoalCard label="Propostas" value={propostas} goal={META_COMERCIAL.propostas} icon={FileText} />
-                    <KpiGoalCard label="Contratos" value={contratos} goal={META_COMERCIAL.contratos} icon={FileSignature} />
+                    <KpiGoalCard label="Leads" value={leads} goal={goals.leads_goal} icon={Users} />
+                    <KpiGoalCard label="Reuniões" value={reunioes} goal={goals.meetings_goal} icon={CalendarClock} />
+                    <KpiGoalCard label="Propostas" value={propostas} goal={goals.proposals_goal} icon={FileText} />
+                    <KpiGoalCard label="Contratos" value={contratos} goal={goals.contracts_goal} icon={FileSignature} />
                     <KpiGoalCard
                       label="Conversão"
                       value={conversao}
-                      goal={META_COMERCIAL.conversaoPct}
+                      goal={15}
                       icon={Percent}
                       format={(n) => `${n}%`}
                     />
                   </div>
 
                   <ForecastCard
-                    meta={META_COMERCIAL.contratos}
+                    meta={goals.contracts_goal}
                     projecao={projetadoContratos}
                     unidade="contratos"
                   />
@@ -361,36 +375,8 @@ function BIPage() {
               />
             )}
 
-            {data?.kpis && (
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                <Kpi label="Clientes ativos" value={fmtNum(data.kpis.clientes_ativos)} />
-                <Kpi label="MRR" value={fmtBRL(data.kpis.mrr)} />
-                <Kpi label="ARR" value={fmtBRL(data.kpis.arr)} />
-                <Kpi label="Ticket médio" value={fmtBRL(data.kpis.ticket_medio)} />
-                <Kpi label="LTV" value={fmtBRL(data.kpis.ltv)} hint="ticket × 12" />
-                <Kpi label="CAC" value={fmtBRL(data.kpis.cac)} hint="custo / novos no mês" />
-                <Kpi label="ROI" value={fmtPct(data.kpis.roi)} />
-                <Kpi label="Payback (meses)" value={fmtNum(data.kpis.payback_meses)} />
-                <Kpi label="Receita realizada" value={fmtBRL(data.kpis.receita_realizada)} />
-                <Kpi label="Receita prevista (mês)" value={fmtBRL(data.kpis.receita_prevista_mes)} />
-                <Kpi label="Custo marketing" value={fmtBRL(data.kpis.custo_marketing)} />
-              </div>
-            )}
-
-            {data?.forecast && (
-              <Card>
-                <CardHeader><CardTitle className="text-base">Previsão de receita</CardTitle></CardHeader>
-                <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                  <Kpi label="Pipeline aberto" value={fmtBRL(data.forecast.pipeline_aberto)} />
-                  <Kpi label="Conversão hist." value={fmtPct(data.forecast.taxa_conversao_historica)} />
-                  <Kpi label="Previsão 30d" value={fmtBRL(data.forecast.previsao_30d)} />
-                  <Kpi label="Previsão 90d" value={fmtBRL(data.forecast.previsao_90d)} />
-                  <Kpi label="MRR" value={fmtBRL(data.forecast.mrr)} />
-                </CardContent>
-              </Card>
-            )}
-
-            {data?.funnel && data.funnel.length > 0 && (
+            {a.id !== "diretoria" && a.id !== "financeiro" && a.id !== "comercial"
+              && data?.funnel && data.funnel.length > 0 && (
               <Card>
                 <CardHeader><CardTitle className="text-base">Gargalos do funil</CardTitle></CardHeader>
                 <CardContent style={{ height: 300 }}>
