@@ -353,7 +353,7 @@ function DashboardPage() {
   /* Funil unificado */
   // Base = leads importados (prospects com source contendo "import").
   // Preferimos o valor do trends; se indisponível, caímos no resumo.base da RPC.
-  const baseN = trends.base > 0 ? trends.base : (m?.resumo.base ?? 0);
+  const baseN = trends.baseLeads > 0 ? trends.baseLeads : (m?.resumo.base ?? 0);
   // Rollup cumulativo: cada etapa deve ser >= a próxima (funil monotônico).
   // Sem isso, "Responderam" pode ficar menor que "Interessados" porque o RPC
   // só conta quem está atualmente no estágio respondido, ignorando quem já
