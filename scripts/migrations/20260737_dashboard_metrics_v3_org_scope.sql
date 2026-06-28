@@ -156,4 +156,6 @@ $$;
 
 grant execute on function public.dashboard_metrics() to authenticated;
 
+notify pgrst, 'reload schema';
+
 commit;
