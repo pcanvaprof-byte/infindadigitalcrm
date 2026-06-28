@@ -72,13 +72,14 @@ export interface AcaoHoje {
 }
 
 export interface DashboardMetrics {
-  schema?: "v2" | "legacy" | "empty";
+  schema?: "v4" | "v2" | "legacy" | "empty";
   contatos:  { hoje: number; semana: number; mes: number };
   respostas: { hoje: number; semana: number; mes: number; taxa: number };
   resumo: {
     base: number;
     contatados: number;
     respondidos: number;
+    novos: number;
     interessados: number;
     em_negociacao: number;
     ativos: number;
@@ -114,6 +115,7 @@ export const EMPTY_DASHBOARD_METRICS: DashboardMetrics = {
     base: 0,
     contatados: 0,
     respondidos: 0,
+    novos: 0,
     interessados: 0,
     em_negociacao: 0,
     ativos: 0,
@@ -166,7 +168,7 @@ function normalizeDashboardMetrics(value: unknown): DashboardMetrics {
 
   if (hasV2Shape) {
     return {
-      schema: "v2",
+      schema: (data.schema as DashboardMetrics["schema"]) ?? "v2",
       contatos: {
         hoje: n(contatos.hoje),
         semana: n(contatos.semana),
@@ -182,6 +184,7 @@ function normalizeDashboardMetrics(value: unknown): DashboardMetrics {
         base: n(resumo.base),
         contatados: n(resumo.contatados),
         respondidos: n(resumo.respondidos),
+        novos: n(resumo.novos),
         interessados: n(resumo.interessados),
         em_negociacao: n(resumo.em_negociacao),
         ativos: n(resumo.ativos),
@@ -229,6 +232,7 @@ function normalizeDashboardMetrics(value: unknown): DashboardMetrics {
       base: n(operacao.base),
       contatados: n(operacao.contatadas),
       respondidos: n(asObject(data.filtros).responderam),
+      novos: 0,
       interessados: n(operacao.interessadas),
       em_negociacao: 0,
       ativos: n(operacao.clientes),

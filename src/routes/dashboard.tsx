@@ -149,12 +149,16 @@ function DashboardPage() {
 
   const m = q.data ?? EMPTY_DASHBOARD_METRICS;
   const errMsg = errorMessage(q.error);
+  const noActiveOrg =
+    errMsg.includes("no_active_org") || errMsg.includes("org_access_denied");
   const migrationPending =
+    !noActiveOrg && (
     errMsg.includes("dashboard_metrics") ||
     errMsg.includes("organization_id") ||
     errMsg.includes("function") ||
     errMsg.includes("404") ||
-    q.data?.schema === "legacy";
+    q.data?.schema === "legacy"
+    );
 
   return (
     <AppShell
@@ -169,19 +173,25 @@ function DashboardPage() {
         </Button>
       }
     >
+      {noActiveOrg && (
+        <div className="surface-card mb-4 border border-red-500/30 bg-red-500/5 p-4 text-xs text-red-200">
+          <strong>Sem organização ativa:</strong> selecione uma organização no seletor do header para ver os KPIs. O Dashboard agora exige escopo de organização (sem fallback por usuário).
+        </div>
+      )}
       {migrationPending && (
         <div className="surface-card mb-4 border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-200">
-          <strong>Dashboard em modo compatibilidade:</strong> aplique <code>scripts/migrations/20260739_fix_dashboard_zero_prospects_org.sql</code> no SQL Editor para restaurar os KPIs por organização.
+          <strong>Dashboard em modo compatibilidade:</strong> aplique <code>scripts/migrations/20260740_dashboard_metrics_v4_strict_org.sql</code> no SQL Editor para restaurar os KPIs por organização.
         </div>
       )}
 
       {/* Operação */}
       {/* Resumo — fonte: prospects + clients (Lifecycle) */}
       <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resumo</h3>
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
         <Kpi label="Empresas na base"   value={m?.resumo.base          ?? 0} icon={Building2} />
         <Kpi label="Contatados"         value={m?.resumo.contatados    ?? 0} icon={MessageSquare} />
         <Kpi label="Responderam"        value={m?.resumo.respondidos   ?? 0} icon={Inbox} tone="ok" />
+        <Kpi label="Novos"              value={m?.resumo.novos         ?? 0} icon={MessageSquare} />
         <Kpi label="Interessados"       value={m?.resumo.interessados  ?? 0} icon={Handshake} tone="ok" />
         <Kpi label="Em negociação"      value={m?.resumo.em_negociacao ?? 0} icon={TrendingUp} />
         <Kpi label="Clientes ativos"    value={m?.resumo.ativos        ?? 0} icon={CheckCircle2} tone="ok" />
