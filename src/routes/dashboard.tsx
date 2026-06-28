@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { FollowupComparativoWidget } from "@/components/cadence/FollowupComparativoWidget";
 import { fetchDashboardMetrics, type DashboardMetrics } from "@/lib/cadence/api";
+import { fetchKpiTrends, wowDelta, EMPTY_TRENDS } from "@/lib/cadence/trends";
 import { FEATURES } from "@/config/features";
 
 type Period = "hoje" | "semana" | "mes" | "previsao";
@@ -150,6 +151,11 @@ function NorthStar({
         {suffix && <span className="text-sm text-muted-foreground">{suffix}</span>}
       </div>
       <Sparkline values={spark} positive={delta ? delta.up : true} />
+      {delta && (
+        <p className="-mt-2 text-[10px] uppercase tracking-wider text-muted-foreground/60">
+          vs. semana passada · série 7d
+        </p>
+      )}
       {goal && goalPct !== null && (
         <div>
           <div className="mb-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
@@ -291,6 +297,13 @@ function DashboardPage() {
     staleTime: 30_000,
   });
 
+  const qTrends = useQuery({
+    queryKey: ["dashboard", "trends-14d"] as const,
+    queryFn: () => fetchKpiTrends(),
+    staleTime: 60_000,
+  });
+  const trends = qTrends.data ?? EMPTY_TRENDS;
+
   const subtitle = "Seu desempenho e cadência";
 
   const m = q.data as DashboardMetrics | undefined;
@@ -315,22 +328,15 @@ function DashboardPage() {
   const ativos = m?.resumo.ativos ?? 0;
   const respPct = taxa;
 
-  /* Sparklines sintéticas: usamos hoje/semana/mes como 3 pontos
-     + interpolação simples para um traço fluido, sem inventar série. */
-  const sparkFromBucket = (b: { hoje: number; semana: number; mes: number }) => {
-    const mediaDia = b.semana / 7;
-    return [
-      Math.round(b.mes / 30),
-      Math.round(mediaDia * 0.8),
-      Math.round(mediaDia),
-      Math.round(mediaDia * 1.1),
-      Math.round(mediaDia * 0.95),
-      Math.round(mediaDia * 1.2),
-      b.hoje,
-    ];
-  };
-  const sparkContatos = sparkFromBucket(m?.contatos ?? { hoje: 0, semana: 0, mes: 0 });
-  const sparkRespostas = sparkFromBucket(m?.respostas ?? { hoje: 0, semana: 0, mes: 0 } as any);
+  /* Sparklines REAIS — série diária dos últimos 7 dias (oldest -> newest). */
+  const sparkContatos = trends.contatos7d;
+  const sparkRespostas = trends.respostas7d;
+  const sparkAtivos = trends.ativos7d;
+
+  /* Deltas semana atual vs. semana anterior (WoW) calculados sobre dados reais. */
+  const deltaContatos = wowDelta(trends.thisWeek.contatos, trends.prevWeek.contatos);
+  const deltaRespostas = wowDelta(trends.thisWeek.respostas, trends.prevWeek.respostas);
+  const deltaAtivos = wowDelta(trends.thisWeek.ativos, trends.prevWeek.ativos);
 
   /* Status frase dinâmica */
   const mediaSemana = (m?.contatos.semana ?? 0) / 7;
@@ -439,7 +445,7 @@ function DashboardPage() {
           value={contato.value}
           icon={Zap}
           spark={sparkContatos}
-          delta={variacao !== 0 ? { pct: variacao, up: variacao >= 0 } : undefined}
+          delta={deltaContatos}
           goal={!isProj ? { current: contato.value, target: Math.max(contato.value, m?.contatos.mes ?? 0, 30), label: "Ritmo do mês" } : undefined}
           onClick={() => navigate({ to: "/cadencia" })}
         />
@@ -447,8 +453,8 @@ function DashboardPage() {
           label="Clientes Ativos"
           value={ativos}
           icon={Users}
-          spark={[Math.max(0, ativos - 4), Math.max(0, ativos - 3), Math.max(0, ativos - 2), Math.max(0, ativos - 1), Math.max(0, ativos - 1), ativos, ativos]}
-          delta={ativos > 0 ? { pct: 8.0, up: true } : undefined}
+          spark={sparkAtivos.some((v) => v > 0) ? sparkAtivos : [ativos, ativos, ativos, ativos, ativos, ativos, ativos]}
+          delta={deltaAtivos}
           goal={{ current: ativos, target: Math.max(ativos + Math.ceil(ativos * 0.15), 10), label: "Meta trimestral" }}
           onClick={() => navigate({ to: "/operacoes" })}
         />
@@ -458,7 +464,7 @@ function DashboardPage() {
           suffix="%"
           icon={Target}
           spark={sparkRespostas}
-          delta={respPct > 0 ? { pct: respPct, up: respPct >= 5 } : undefined}
+          delta={deltaRespostas}
           goal={{ current: Math.round(respPct), target: 20, label: "Benchmark: 20%" }}
           onClick={() => navigate({ to: "/prospeccao" })}
         />
