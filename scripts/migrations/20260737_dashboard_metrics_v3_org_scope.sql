@@ -27,7 +27,7 @@ security definer
 set search_path = public
 as $$
 declare
-  v_org uuid := public.dashboard_current_org_id();
+  v_org uuid := public.current_org_id();
 begin
   return (
   with
