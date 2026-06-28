@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   LayoutDashboard,
   Users,
@@ -19,6 +19,8 @@ import {
   Repeat2,
   GitBranch,
   UserCog,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 import { Briefcase } from "lucide-react";
 import { Logo } from "./Logo";
@@ -150,6 +152,15 @@ export function AppShell({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("infinda:sidebar-collapsed") === "1";
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("infinda:sidebar-collapsed", sidebarCollapsed ? "1" : "0");
+  }, [sidebarCollapsed]);
 
   const handleLogout = async () => {
     await queryClient.cancelQueries();
@@ -166,9 +177,11 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen bg-background">
-      <div className="hidden lg:block">
-        <Sidebar />
-      </div>
+      {!sidebarCollapsed && (
+        <div className="hidden lg:block">
+          <Sidebar />
+        </div>
+      )}
 
       <div className="flex min-w-0 flex-1 flex-col">
         <header
@@ -176,6 +189,15 @@ export function AppShell({
           style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 0.625rem)" }}
         >
           <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="tap-target hidden lg:inline-flex"
+              aria-label={sidebarCollapsed ? "Abrir menu lateral" : "Recolher menu lateral"}
+              onClick={() => setSidebarCollapsed((v) => !v)}
+            >
+              {sidebarCollapsed ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+            </Button>
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="tap-target lg:hidden" aria-label="Abrir menu">
