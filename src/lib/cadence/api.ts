@@ -389,6 +389,10 @@ function maxBucket(...values: number[]): number {
   return Math.max(0, ...values.map((value) => Number(value) || 0));
 }
 
+function hasAnyActivity(bucket: { hoje: number; semana: number; mes: number; ultimos_7d: number }): boolean {
+  return bucket.hoje > 0 || bucket.semana > 0 || bucket.mes > 0 || bucket.ultimos_7d > 0;
+}
+
 async function fetchDashboardMetricsFallback(): Promise<DashboardMetrics> {
   const [prospects, touchpoints, clients, cadLeads, cadMessages, opClients] = await Promise.all([
     selectAllForMetrics<ProspectMetricRow>(
@@ -424,6 +428,7 @@ async function fetchDashboardMetricsFallback(): Promise<DashboardMetrics> {
   const rolling7d = new Date(now.getTime() - 7 * 86400000);
 
   const leadToProspect = new Map(cadLeads.map((lead) => [lead.id, lead.prospect_id ?? lead.id]));
+  const cadLeadProspectIds = new Set(cadLeads.map((lead) => lead.prospect_id ?? lead.id).filter(Boolean));
   const cadContactIds = new Set<string>();
   const cadResponseIds = new Set<string>();
   let cadContatosHoje = 0;
@@ -441,7 +446,7 @@ async function fetchDashboardMetricsFallback(): Promise<DashboardMetrics> {
     const direction = String(msg.direction ?? "");
     const tipo = String(msg.tipo ?? "");
     const status = String(msg.status ?? "");
-    const outbound = direction === "out" || ["whatsapp", "email", "ligacao"].includes(tipo);
+    const outbound = direction === "out" || (!direction && ["whatsapp", "email", "ligacao"].includes(tipo));
     const inbound = direction === "in" || status === "respondido";
     if (outbound) {
       cadContactIds.add(entityId);
@@ -472,6 +477,10 @@ async function fetchDashboardMetricsFallback(): Promise<DashboardMetrics> {
 
   for (const tp of touchpoints) {
     if (!tp.prospect_id) continue;
+    // Se o prospect já está na Cadência, cad_messages é a fonte canônica.
+    // Isso evita contar duas vezes o mesmo disparo (touchpoint + cad_message),
+    // que era a causa dos 316 contatos contra 294 leads em cadência.
+    if (cadLeadProspectIds.has(tp.prospect_id)) continue;
     const tipo = String(tp.tipo ?? "");
     const resultado = String(tp.resultado ?? "");
     const isContato = ["whatsapp", "ligacao", "email", "reuniao"].includes(tipo) && resultado !== "tentativa";
@@ -548,8 +557,33 @@ async function fetchDashboardMetricsFallback(): Promise<DashboardMetrics> {
     cadStage(["perdido"]),
   );
 
-  const allContactIds = new Set([...touchContactIds, ...cadContactIds]);
-  const allResponseIds = new Set([...touchResponseIds, ...cadResponseIds, ...advancedIds]);
+  const cadActivity = {
+    hoje: cadContatosHoje,
+    semana: cadContatosSemana,
+    mes: cadContatosMes,
+    ultimos_7d: cadContatos7d,
+  };
+  const touchActivity = {
+    hoje: touchContatosHoje,
+    semana: touchContatosSemana,
+    mes: touchContatosMes,
+    ultimos_7d: touchContatos7d,
+  };
+  const responseCadActivity = {
+    hoje: cadRespostasHoje,
+    semana: cadRespostasSemana,
+    mes: cadRespostasMes,
+    ultimos_7d: cadRespostas7d,
+  };
+  const responseTouchActivity = {
+    hoje: touchRespostasHoje,
+    semana: touchRespostasSemana,
+    mes: touchRespostasMes,
+    ultimos_7d: touchRespostas7d,
+  };
+
+  const allContactIds = new Set([...cadContactIds, ...touchContactIds]);
+  const allResponseIds = new Set([...cadResponseIds, ...touchResponseIds, ...advancedIds]);
   const base = maxBucket(prospects.length, cadLeads.length, clients.length, opClients.length);
   const contatados = allContactIds.size;
   const respondidos = allResponseIds.size;
@@ -559,16 +593,16 @@ async function fetchDashboardMetricsFallback(): Promise<DashboardMetrics> {
   return {
     schema: "v6",
     contatos: {
-      hoje: touchContatosHoje + cadContatosHoje,
-      semana: touchContatosSemana + cadContatosSemana,
-      mes: touchContatosMes + cadContatosMes,
-      ultimos_7d: touchContatos7d + cadContatos7d,
+      hoje: cadActivity.hoje + touchActivity.hoje,
+      semana: cadActivity.semana + touchActivity.semana,
+      mes: cadActivity.mes + touchActivity.mes,
+      ultimos_7d: cadActivity.ultimos_7d + touchActivity.ultimos_7d,
     },
     respostas: {
-      hoje: touchRespostasHoje + cadRespostasHoje,
-      semana: touchRespostasSemana + cadRespostasSemana,
-      mes: touchRespostasMes + cadRespostasMes,
-      ultimos_7d: touchRespostas7d + cadRespostas7d,
+      hoje: responseCadActivity.hoje + responseTouchActivity.hoje,
+      semana: responseCadActivity.semana + responseTouchActivity.semana,
+      mes: responseCadActivity.mes + responseTouchActivity.mes,
+      ultimos_7d: responseCadActivity.ultimos_7d + responseTouchActivity.ultimos_7d,
       taxa: pct(respondidos, contatados),
     },
     resumo: {
@@ -616,24 +650,35 @@ function preferRealValue(rpcValue: number, fallbackValue: number): number {
 }
 
 function mergeDashboardMetrics(rpcMetrics: DashboardMetrics, fallbackMetrics: DashboardMetrics): DashboardMetrics {
+  const useFallbackContacts = hasAnyActivity(fallbackMetrics.contatos);
+  const useFallbackResponses = hasAnyActivity(fallbackMetrics.respostas);
+  const contatos = useFallbackContacts ? fallbackMetrics.contatos : rpcMetrics.contatos;
+  const respostas = {
+    ...(useFallbackResponses ? fallbackMetrics.respostas : rpcMetrics.respostas),
+  };
+  const resumo = {
+    base: preferRealValue(rpcMetrics.resumo.base, fallbackMetrics.resumo.base),
+    contatados: preferRealValue(fallbackMetrics.resumo.contatados, rpcMetrics.resumo.contatados),
+    respondidos: preferRealValue(fallbackMetrics.resumo.respondidos, rpcMetrics.resumo.respondidos),
+    novos: preferRealValue(rpcMetrics.resumo.novos, fallbackMetrics.resumo.novos),
+    interessados: preferRealValue(rpcMetrics.resumo.interessados, fallbackMetrics.resumo.interessados),
+    em_negociacao: preferRealValue(rpcMetrics.resumo.em_negociacao, fallbackMetrics.resumo.em_negociacao),
+    ativos: preferRealValue(rpcMetrics.resumo.ativos, fallbackMetrics.resumo.ativos),
+    perdidos: preferRealValue(rpcMetrics.resumo.perdidos, fallbackMetrics.resumo.perdidos),
+  };
+  respostas.taxa = pct(resumo.respondidos, resumo.contatados);
+
   return {
     ...rpcMetrics,
-    resumo: {
-      base: preferRealValue(rpcMetrics.resumo.base, fallbackMetrics.resumo.base),
-      contatados: preferRealValue(rpcMetrics.resumo.contatados, fallbackMetrics.resumo.contatados),
-      respondidos: preferRealValue(rpcMetrics.resumo.respondidos, fallbackMetrics.resumo.respondidos),
-      novos: preferRealValue(rpcMetrics.resumo.novos, fallbackMetrics.resumo.novos),
-      interessados: preferRealValue(rpcMetrics.resumo.interessados, fallbackMetrics.resumo.interessados),
-      em_negociacao: preferRealValue(rpcMetrics.resumo.em_negociacao, fallbackMetrics.resumo.em_negociacao),
-      ativos: preferRealValue(rpcMetrics.resumo.ativos, fallbackMetrics.resumo.ativos),
-      perdidos: preferRealValue(rpcMetrics.resumo.perdidos, fallbackMetrics.resumo.perdidos),
-    },
+    contatos,
+    respostas,
+    resumo,
     conversao: {
-      base_contato: preferRealValue(rpcMetrics.conversao.base_contato, fallbackMetrics.conversao.base_contato),
-      contato_resposta: preferRealValue(rpcMetrics.conversao.contato_resposta, fallbackMetrics.conversao.contato_resposta),
-      resposta_interesse: preferRealValue(rpcMetrics.conversao.resposta_interesse, fallbackMetrics.conversao.resposta_interesse),
-      interesse_proposta: preferRealValue(rpcMetrics.conversao.interesse_proposta, fallbackMetrics.conversao.interesse_proposta),
-      proposta_ativo: preferRealValue(rpcMetrics.conversao.proposta_ativo, fallbackMetrics.conversao.proposta_ativo),
+      base_contato: pct(resumo.contatados, resumo.base),
+      contato_resposta: pct(resumo.respondidos, resumo.contatados),
+      resposta_interesse: preferRealValue(fallbackMetrics.conversao.resposta_interesse, rpcMetrics.conversao.resposta_interesse),
+      interesse_proposta: preferRealValue(fallbackMetrics.conversao.interesse_proposta, rpcMetrics.conversao.interesse_proposta),
+      proposta_ativo: preferRealValue(fallbackMetrics.conversao.proposta_ativo, rpcMetrics.conversao.proposta_ativo),
     },
     gargalos: {
       cadencia_atrasada: preferRealValue(rpcMetrics.gargalos.cadencia_atrasada, fallbackMetrics.gargalos.cadencia_atrasada),

@@ -68,15 +68,15 @@ export async function fetchKpiTrends(): Promise<KpiTrends> {
   const start14 = new Date(today.getTime() - 13 * 86400000);
   const sinceIso = start14.toISOString();
 
-  // Fontes confiáveis (colunas inexistentes removidas para evitar 400 silencioso):
-  // - prospect_touchpoints: histórico unificado de contatos/respostas
-  // - op_clientes: funil real de clientes ativos (substitui clients.pipeline_stage)
-  const [touchpoints, opClientes] = await Promise.all([
-    safeSelect<{ tipo?: string; resultado?: string; enviado_em?: string }>(
-      "prospect_touchpoints",
-      "tipo,resultado,enviado_em",
+  // Fonte canônica de atividade da Cadência: cad_messages.
+  // prospect_touchpoints guarda histórico de prospecção e pode duplicar disparos
+  // já espelhados na cadência; por isso não alimenta mais o KPI de contatos.
+  const [cadMessages, opClientes] = await Promise.all([
+    safeSelect<{ direction?: string; tipo?: string; status?: string; created_at?: string }>(
+      "cad_messages",
+      "direction,tipo,status,created_at",
       sinceIso,
-      "enviado_em",
+      "created_at",
     ),
     safeSelect<{ status?: string; updated_at?: string }>(
       "op_clientes",
@@ -90,12 +90,15 @@ export async function fetchKpiTrends(): Promise<KpiTrends> {
   const respostasBuckets = new Array(14).fill(0) as number[];
   const ativosBuckets = new Array(14).fill(0) as number[];
 
-  for (const tp of touchpoints) {
-    const idx = dayIndex(tp.enviado_em, start14);
+  for (const msg of cadMessages) {
+    const idx = dayIndex(msg.created_at, start14);
     if (idx < 0) continue;
-    const r = String(tp.resultado ?? "");
-    if (r === "enviado") contatosBuckets[idx]++;
-    else if (r === "respondido" || r === "interessado" || r === "sem_interesse") {
+    const direction = String(msg.direction ?? "");
+    const tipo = String(msg.tipo ?? "");
+    const status = String(msg.status ?? "");
+    if (direction === "out" || (!direction && ["whatsapp", "ligacao", "email"].includes(tipo))) {
+      contatosBuckets[idx]++;
+    } else if (direction === "in" || status === "respondido" || status === "respondida") {
       respostasBuckets[idx]++;
     }
   }
