@@ -1,53 +1,123 @@
-## Correções do Dashboard — Ondas A→D
+## Visão geral
 
-### A. Diagnóstico de `clients` (executar primeiro)
-Rodar no SQL Editor para confirmar a causa raiz dos buckets zerados:
+Vou evoluir o módulo `/bi` para ser o **Cockpit Executivo Premium** da INFINDA, consumindo apenas dados já existentes (CRM, Prospecção, Cadência, Operações, Propostas, Contratos). Sem novos módulos no menu, sem cadastros próprios.
 
-```sql
--- 1. Quantos clients existem por org e quantos estão sem org
-select 
-  count(*) as total,
-  count(*) filter (where organization_id is null) as sem_org,
-  count(distinct organization_id) as orgs
-from public.clients;
+A implementação será dividida em 5 ondas, uma por aba, para garantir que cada entrega esteja estável antes da próxima.
 
--- 2. Distribuição por stage na MINHA org
-select pipeline_stage, count(*)
-from public.clients
-where organization_id = (select organization_id from public.user_active_org where user_id = auth.uid())
-group by 1 order by 2 desc;
-```
+---
 
-Compartilhar resultado antes de aplicar B (a migration de backfill depende disso).
+## Onda 1 — Diretoria (Cockpit principal)
 
-### B. Migration `20260751_dashboard_fix_zeros.sql`
-Três correções no mesmo arquivo:
+Já existe `MetaHero` (meta mensal, projeção, gap, probabilidade). Vou completar:
 
-1. **Backfill `clients.organization_id`** — quando `source_ref` aponta para um `prospects.id`, herda a org do prospect. Para órfãos, atribui à org default da conta dona.
-2. **Bucket "Novos" lê de prospects como fallback** — recriar `dashboard_metrics()` v6.1 para que `novos` faça `GREATEST(clients_novos, prospects_em_cadencia_step_0_ou_1)` quando `clients_novos = 0`. Mantém a semântica correta para operações que ainda não promoveram prospects para a tabela `clients`.
-3. **Hotfix timezone "Hoje"** — trocar `date_trunc('day', now())` por `date_trunc('day', now() at time zone 'America/Sao_Paulo') at time zone 'America/Sao_Paulo'` para os buckets `contatos_hoje` e `respostas_hoje`. Idem em `respostas`.
+1. **Card "Para bater a meta"** — cálculo automático com base no ticket médio e taxas de conversão históricas:
+   - Quanto falta em R$
+   - Quantos contratos faltam
+   - Quantos leads faltam (gap ÷ taxa_conversão)
+   - Quantas reuniões faltam
+2. **Card "Evolução do mês"** — ideal acumulado vs realizado, status (NO RITMO / ATENÇÃO / CRÍTICO), ritmo necessário para os dias restantes (R$/dia).
+3. **Bloco "Comparativo mês anterior"** — receita, contratos, ticket médio, leads (com Δ% verde/vermelho).
+4. **Cards executivos** — reorganizar os KPIs existentes em grid premium: Receita Acumulada, Receita Prevista, Clientes Ativos, Contratos Fechados, Ticket Médio, ROAS, Churn, Crescimento Mensal, MRR.
 
-### C. Botão "Marcar resposta" no `LeadDrawer`
-Sem isso, a taxa de resposta nunca sai do zero.
+Backend: nova RPC `bi_diretoria_executive()` que agrega esses números a partir de `contratos`, `propostas`, `cad_leads`, `op_clientes` e snapshot do mês anterior.
 
-- Adicionar botão `<Button>Marcar resposta recebida</Button>` no header do `src/components/cadence/LeadDrawer.tsx`.
-- Ao clicar, chama `registerResponse(prospectId, 'whatsapp')` (já existe em `src/lib/cadence/api.ts:647`).
-- Toast de sucesso + invalidar queries `["dashboard","v6"]` e a timeline.
-- Mostra o botão apenas quando o último touchpoint outbound do lead não tem resposta correspondente.
+---
 
-### D. Projeção rolante de 7 dias reais
-Em `src/routes/dashboard.tsx`:
+## Onda 2 — Comercial (Forecast + Funil Executivo)
 
-- Adicionar campo `contatos.ultimos_7d` e `respostas.ultimos_7d` na RPC (item B) — janela `now() - interval '7 days'`, não `date_trunc('week')`.
-- Atualizar `projectMonth(mes, ultimos_7d)` em `dashboard.tsx:43` para `mes + (ultimos_7d/7) * dias_restantes`.
-- Manter o disclaimer já existente: "Projeção = acumulado do mês + (média diária dos últimos 7 dias × dias restantes)".
-- Atualizar `DashboardMetrics` type em `src/lib/cadence/api.ts:74` para incluir `ultimos_7d`.
+1. **KPIs com progresso vs meta** (Leads, Reuniões, Propostas, Contratos, Conversão) — barras animadas estilo ClickUp Goals.
+2. **Forecast Comercial** — projeção de contratos no fim do mês, gap, probabilidade.
+3. **Funil Executivo** — visualização vertical com taxa de conversão entre cada etapa (Leads → Contatos → Reuniões → Propostas → Contratos), destacando o estágio com maior queda.
 
-### Fora de escopo (não vou mexer)
-- v7 gerencial, v8 multiusuário, BI — continuam off via `FEATURES`.
-- Estrutura de prospects/clients/lifecycle — só backfill de coluna existente.
+Backend: estender `bi_dashboard('comercial')` com `metas_comercial`, `forecast_contratos` e `funil_executivo`.
 
-### Detalhes técnicos
-- Arquivos: `scripts/migrations/20260751_dashboard_fix_zeros.sql` (novo), `src/lib/cadence/api.ts` (type + projeção arg), `src/routes/dashboard.tsx` (assinatura projectMonth), `src/components/cadence/LeadDrawer.tsx` (botão).
-- Fallback client-side em `fetchDashboardMetricsFallback` também ganha `ultimos_7d` para paridade.
-- Sem reset de dados, sem alteração de schema destrutiva, sem mexer em RLS existente.
+---
+
+## Onda 3 — Financeiro
+
+1. KPIs: Receita realizada, prevista, recorrente (MRR), ticket médio, margem, inadimplência, crescimento mensal.
+2. **Forecast financeiro**: receita prevista, recorrente, margem, projeção trimestral.
+3. **Fluxo de caixa previsto** — próximas 12 semanas com base em contratos ativos e propostas em fechamento.
+
+Backend: nova RPC `bi_financeiro_forecast()`.
+
+---
+
+## Onda 4 — Marketing
+
+1. KPIs: Investimento, Leads, CPL, CPA, ROAS, ROI, CAC, LTV.
+2. **Card Performance** — Investido vs Retorno, ROAS, CAC, com comparativo mês anterior.
+3. Reaproveitar `best_hours`, `best_channels`, `top_campaigns` já existentes.
+
+Backend: agregar custo de marketing (Operações) com receita gerada (Contratos).
+
+---
+
+## Onda 5 — Operações
+
+1. **INFINDA SCORE** — indicador proprietário (0-100) calculado por:
+   - Onboarding completo (peso 20)
+   - Implantação no prazo (peso 20)
+   - Campanhas ativas com performance (peso 25)
+   - Reuniões de relacionamento em dia (peso 15)
+   - Renovações no prazo (peso 20)
+   - Faixas: 90+ Excelente, 70+ Saudável, 50+ Atenção, <50 Crítico.
+2. **Saúde Operacional** — barras de progresso por área.
+3. KPIs: Onboarding, Implantação, Campanhas, Relacionamento, Renovação, Entregas, Pendências.
+
+Backend: nova RPC `bi_operacoes_health()` agregando dados de `op_*`.
+
+---
+
+## Bloco transversal — Insights Executivos (IA)
+
+Substituir o título "Insights IA" por **"Insights Executivos"** (já feito na Onda 0). Refinar prompt para gerar alertas categorizados:
+- Alertas de meta (⚠ ritmo, ⚠ gap)
+- Alertas de conversão (⚠ taxa caiu / ✅ subiu)
+- Alertas financeiros
+- Alertas operacionais (Health Score baixo)
+- Recomendações práticas com call-to-action ("Faltam 2 contratos até dia 20").
+
+---
+
+## Design system (ClickUp / HubSpot / Salesforce)
+
+- Progress bars animadas com gradiente
+- Cards premium glass com borda sutil
+- Semáforo verde/amarelo/vermelho via tokens `--success`, `--warning`, `--destructive`
+- Comparativos com setas Δ%
+- Sparklines em KPIs principais
+- Tudo via tokens existentes — sem cores hardcoded
+
+---
+
+## Detalhes técnicos
+
+**Arquivos novos**:
+- `src/components/bi/ParaBaterMeta.tsx`
+- `src/components/bi/EvolucaoMes.tsx`
+- `src/components/bi/ComparativoMesAnterior.tsx`
+- `src/components/bi/KpiGoalCard.tsx` (KPI com barra de progresso vs meta)
+- `src/components/bi/FunilExecutivo.tsx`
+- `src/components/bi/ForecastCard.tsx`
+- `src/components/bi/InfindaScore.tsx`
+- `src/components/bi/SaudeOperacional.tsx`
+
+**Migrations**:
+- `supabase/migrations/20260801_bi_executive_rpcs.sql` — RPCs `bi_diretoria_executive`, `bi_comercial_forecast`, `bi_financeiro_forecast`, `bi_operacoes_health`.
+
+**API**:
+- Estender `src/lib/bi/api.ts` com tipos e fetchers das novas RPCs.
+
+**Restrições**:
+- Nenhuma tabela nova de cadastro. Apenas RPCs de leitura/agregação.
+- Tudo respeitando RLS por `organization_id`.
+- Sem mudança no menu lateral.
+
+---
+
+## Ordem de entrega proposta
+
+Sugiro liberar **Onda 1 (Diretoria)** primeiro para você validar visual e cálculos, e na sequência avançar Comercial → Financeiro → Marketing → Operações. Cada onda é commitada de forma independente; se algo precisar de ajuste, isolamos sem afetar as outras abas.
+
+Posso começar pela Onda 1 agora?

@@ -13,6 +13,8 @@ import {
 import { fetchBIDashboard, type BIArea, type BIDashboardPayload } from "@/lib/bi/api";
 import { AIInsightsPanel } from "@/components/bi/AIInsightsPanel";
 import { ExportMenu, type ExportSection } from "@/components/bi/ExportMenu";
+import { ParaBaterMeta } from "@/components/bi/ParaBaterMeta";
+import { EvolucaoMes } from "@/components/bi/EvolucaoMes";
 
 export const Route = createFileRoute("/bi")({
   component: BIPageGate,
@@ -244,10 +246,24 @@ function BIPage() {
             )}
 
             {a.id === "diretoria" && data?.kpis && (
-              <MetaHero
-                realizado={data.kpis.receita_realizada ?? 0}
-                ticket={data.kpis.ticket_medio ?? 0}
-              />
+              <>
+                <MetaHero
+                  realizado={data.kpis.receita_realizada ?? 0}
+                  ticket={data.kpis.ticket_medio ?? 0}
+                />
+                <div className="grid gap-5 lg:grid-cols-2">
+                  <ParaBaterMeta
+                    meta={META_MENSAL}
+                    realizado={data.kpis.receita_realizada ?? 0}
+                    ticket={data.kpis.ticket_medio ?? 0}
+                    taxaConversao={data.forecast?.taxa_conversao_historica ?? null}
+                  />
+                  <EvolucaoMes
+                    meta={META_MENSAL}
+                    realizado={data.kpis.receita_realizada ?? 0}
+                  />
+                </div>
+              </>
             )}
 
             {data?.kpis && (
