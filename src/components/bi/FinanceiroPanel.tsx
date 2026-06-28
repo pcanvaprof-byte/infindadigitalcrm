@@ -21,16 +21,21 @@ type Props = {
   pipelineAberto: number;
   previsao30d: number;
   previsao90d: number;
+  folha?: number;
+  infra?: number;
+  taxasPct?: number;
 };
 
 export function FinanceiroPanel({
   mrr, arr, receitaRealizada, receitaPrevistaMes,
   custoMarketing, ticketMedio, pipelineAberto, previsao30d, previsao90d,
+  folha = 0, infra = 0, taxasPct = 0,
 }: Props) {
-  // Margem operacional (receita - custo de marketing)
-  // ATENÇÃO: isto é margem de AQUISIÇÃO (só desconta marketing), não margem operacional real.
-  const margemAquisicao = receitaRealizada - custoMarketing;
-  const margemAquisicaoPct = receitaRealizada > 0 ? (margemAquisicao / receitaRealizada) * 100 : 0;
+  // Lucro real = Receita - (Marketing + Folha + Infra + Impostos sobre receita)
+  const impostos = receitaRealizada * (Math.max(0, taxasPct) / 100);
+  const opex = custoMarketing + folha + infra + impostos;
+  const lucroReal = receitaRealizada - opex;
+  const lucroPct = receitaRealizada > 0 ? (lucroReal / receitaRealizada) * 100 : 0;
 
   // Crescimento previsto (próximos 30d vs realizado mês corrente)
   const crescimentoPct = receitaRealizada > 0
@@ -43,7 +48,7 @@ export function FinanceiroPanel({
   const incremento60a90 = Math.max(0, previsao90d - previsao30d);
   const fluxoCaixa90d = receitaRealizada + previsao30d + incremento60a90;
 
-  const margemTone = margemAquisicaoPct >= 60 ? "text-emerald-400" : margemAquisicaoPct >= 30 ? "text-amber-400" : "text-rose-400";
+  const lucroTone = lucroPct >= 30 ? "text-emerald-400" : lucroPct >= 10 ? "text-amber-400" : "text-rose-400";
   const crescTone = crescimentoPct >= 0 ? "text-emerald-400" : "text-rose-400";
 
   return (
@@ -77,25 +82,25 @@ export function FinanceiroPanel({
       </Card>
 
       <div className="grid gap-5 lg:grid-cols-3">
-        {/* Margem operacional */}
+        {/* Lucro real */}
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
-              <PieChart className="h-4 w-4 text-primary" /> Margem de aquisição
+              <PieChart className="h-4 w-4 text-primary" /> Lucro real
             </CardTitle>
             <p className="text-[10px] text-muted-foreground mt-1">
-              Receita − custo de marketing (não inclui folha, infra, impostos)
+              Receita − (Marketing + Folha + Infra + Impostos)
             </p>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-baseline gap-2">
-              <span className={`text-3xl font-semibold ${margemTone}`}>{margemAquisicaoPct.toFixed(1)}%</span>
-              <Badge variant="secondary" className={margemTone}>{fmtBRL(margemAquisicao)}</Badge>
+              <span className={`text-3xl font-semibold ${lucroTone}`}>{lucroPct.toFixed(1)}%</span>
+              <Badge variant="secondary" className={lucroTone}>{fmtBRL(lucroReal)}</Badge>
             </div>
             <div className="h-2 w-full rounded-full bg-muted/40 overflow-hidden">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"
-                style={{ width: `${Math.max(0, Math.min(100, margemAquisicaoPct))}%` }}
+                style={{ width: `${Math.max(0, Math.min(100, lucroPct))}%` }}
               />
             </div>
             <div className="grid grid-cols-2 gap-2 text-xs">
@@ -104,8 +109,20 @@ export function FinanceiroPanel({
                 <p className="font-medium text-foreground">{fmtBRL(receitaRealizada)}</p>
               </div>
               <div className="rounded border border-border/60 bg-card/40 p-2">
-                <p className="text-muted-foreground">Custo MKT</p>
+                <p className="text-muted-foreground">Marketing</p>
                 <p className="font-medium text-foreground">{fmtBRL(custoMarketing)}</p>
+              </div>
+              <div className="rounded border border-border/60 bg-card/40 p-2">
+                <p className="text-muted-foreground">Folha</p>
+                <p className="font-medium text-foreground">{fmtBRL(folha)}</p>
+              </div>
+              <div className="rounded border border-border/60 bg-card/40 p-2">
+                <p className="text-muted-foreground">Infra</p>
+                <p className="font-medium text-foreground">{fmtBRL(infra)}</p>
+              </div>
+              <div className="rounded border border-border/60 bg-card/40 p-2 col-span-2">
+                <p className="text-muted-foreground">Impostos ({taxasPct.toFixed(1)}%)</p>
+                <p className="font-medium text-foreground">{fmtBRL(impostos)}</p>
               </div>
             </div>
           </CardContent>
