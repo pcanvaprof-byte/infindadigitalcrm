@@ -154,8 +154,8 @@ let lastDashboardMetricSource: MetricSource = "rpc";
 
 export const EMPTY_DASHBOARD_METRICS: DashboardMetrics = {
   schema: "empty",
-  contatos: { hoje: 0, semana: 0, mes: 0 },
-  respostas: { hoje: 0, semana: 0, mes: 0, taxa: 0 },
+  contatos: { hoje: 0, semana: 0, mes: 0, ultimos_7d: 0 },
+  respostas: { hoje: 0, semana: 0, mes: 0, ultimos_7d: 0, taxa: 0 },
   resumo: {
     base: 0,
     contatados: 0,
@@ -218,11 +218,13 @@ function normalizeDashboardMetrics(value: unknown): DashboardMetrics {
         hoje: n(contatos.hoje),
         semana: n(contatos.semana),
         mes: n(contatos.mes),
+        ultimos_7d: n(contatos.ultimos_7d ?? contatos.semana),
       },
       respostas: {
         hoje: n(respostas.hoje),
         semana: n(respostas.semana),
         mes: n(respostas.mes),
+        ultimos_7d: n(respostas.ultimos_7d ?? respostas.semana),
         taxa: n(respostas.taxa),
       },
       resumo: {
@@ -266,11 +268,13 @@ function normalizeDashboardMetrics(value: unknown): DashboardMetrics {
       hoje: n(cadencia.hoje),
       semana: n(cadencia.semana),
       mes: n(cadencia.mes),
+      ultimos_7d: n(cadencia.semana),
     },
     respostas: {
       hoje: 0,
       semana: 0,
       mes: 0,
+      ultimos_7d: 0,
       taxa: n(cadencia.taxa_resposta),
     },
     resumo: {
