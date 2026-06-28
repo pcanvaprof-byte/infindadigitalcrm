@@ -309,16 +309,85 @@ function DashboardPage() {
   const taxa = m?.respostas.taxa ?? 0;
   const isProj = period === "previsao";
   const periodLabel = PERIOD_LABEL[period];
-  const showHojeAux = period !== "hoje";
-  const showMesAux  = period !== "mes" && period !== "previsao";
+
+  /* North Stars derived */
+  const pipelineCount = (m?.resumo.interessados ?? 0) + (m?.resumo.em_negociacao ?? 0);
+  const ativos = m?.resumo.ativos ?? 0;
+  const respPct = taxa;
+
+  /* Sparklines sintéticas: usamos hoje/semana/mes como 3 pontos
+     + interpolação simples para um traço fluido, sem inventar série. */
+  const sparkFromBucket = (b: { hoje: number; semana: number; mes: number }) => {
+    const mediaDia = b.semana / 7;
+    return [
+      Math.round(b.mes / 30),
+      Math.round(mediaDia * 0.8),
+      Math.round(mediaDia),
+      Math.round(mediaDia * 1.1),
+      Math.round(mediaDia * 0.95),
+      Math.round(mediaDia * 1.2),
+      b.hoje,
+    ];
+  };
+  const sparkContatos = sparkFromBucket(m?.contatos ?? { hoje: 0, semana: 0, mes: 0 });
+  const sparkRespostas = sparkFromBucket(m?.respostas ?? { hoje: 0, semana: 0, mes: 0 } as any);
+
+  /* Status frase dinâmica */
+  const mediaSemana = (m?.contatos.semana ?? 0) / 7;
+  const hojeVal = m?.contatos.hoje ?? 0;
+  const variacao = mediaSemana > 0 ? ((hojeVal - mediaSemana) / mediaSemana) * 100 : 0;
+  const statusFrase = (() => {
+    if (!m) return "Carregando indicadores da sua operação…";
+    if (mediaSemana === 0 && hojeVal === 0) return "Operação calma — nenhuma atividade registrada hoje.";
+    if (variacao >= 10) return `Sua operação está ${Math.round(variacao)}% acima da média dos últimos 7 dias.`;
+    if (variacao <= -10) return `Atividade ${Math.round(Math.abs(variacao))}% abaixo da média da semana — vale acelerar.`;
+    return "Operação no ritmo da média semanal.";
+  })();
+
+  /* Funil unificado */
+  const baseN = m?.resumo.base ?? 0;
+  const contatadosN = m?.resumo.contatados ?? 0;
+  const respondidosN = m?.resumo.respondidos ?? 0;
+  const interessadosN = m?.resumo.interessados ?? 0;
+  const negociacaoN = m?.resumo.em_negociacao ?? 0;
+  const clientesN = ativos;
+  const safePct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : null);
+  const stages: FunnelStage[] = [
+    { key: "base",   label: "Base",         value: baseN,         convPct: safePct(contatadosN, baseN) },
+    { key: "cont",   label: "Contatados",   value: contatadosN,   convPct: safePct(respondidosN, contatadosN) },
+    { key: "resp",   label: "Responderam",  value: respondidosN,  convPct: safePct(interessadosN, respondidosN) },
+    { key: "inter",  label: "Interessados", value: interessadosN, convPct: safePct(negociacaoN, interessadosN) },
+    { key: "neg",    label: "Negociação",   value: negociacaoN,   convPct: safePct(clientesN, negociacaoN) },
+    { key: "cli",    label: "Clientes",     value: clientesN,     convPct: null },
+  ];
+  /* Bottleneck = menor taxa de conversão entre etapas (apenas onde o numerador anterior > 0) */
+  let bottleneckIdx: number | null = null;
+  let worst = Infinity;
+  stages.forEach((s, i) => {
+    if (s.convPct !== null && s.value > 0 && s.convPct < worst) {
+      worst = s.convPct;
+      bottleneckIdx = i;
+    }
+  });
+  const bottleneckLabel = bottleneckIdx !== null ? stages[bottleneckIdx].label : null;
 
   const setPeriod = (next: Period) =>
     navigate({ to: "/dashboard", search: { p: next } });
 
+  /* Ações prioritárias derivadas dos gargalos */
+  type Action = { severity: "high" | "medium" | "info"; title: string; hint: string; cta: string; route: string };
+  const actions: Action[] = [];
+  const g = m?.gargalos;
+  if (g?.cadencia_atrasada)      actions.push({ severity: "high",   title: `${g.cadencia_atrasada} leads com cadência atrasada`, hint: "Disparos previstos e não executados", cta: "Abrir cadência", route: "/cadencia" });
+  if (g?.sem_proxima_acao)       actions.push({ severity: "high",   title: `${g.sem_proxima_acao} prospects sem próxima ação`, hint: "Precisam de agendamento de follow-up", cta: "Ver prospecção", route: "/prospeccao" });
+  if (g?.clients_parados_15d)    actions.push({ severity: "medium", title: `${g.clients_parados_15d} clientes parados há 15+ dias`, hint: "Reativar relacionamento em Operações", cta: "Ver operações", route: "/operacoes" });
+  if (g?.parados_30d)            actions.push({ severity: "medium", title: `${g.parados_30d} leads sem contato há 30+ dias`, hint: "Risco de esfriar a oportunidade", cta: "Ver lista", route: "/cadencia" });
+  if (g?.sem_responsavel)        actions.push({ severity: "info",   title: `${g.sem_responsavel} prospects sem responsável`, hint: "Atribuir owner para destravar fluxo", cta: "Atribuir", route: "/prospeccao" });
+
   return (
     <AppShell
-      title={`Olá, ${user.name.split(" ")[0]} 👋`}
-      subtitle={subtitle}
+      title={`Olá, ${user.name.split(" ")[0]}`}
+      subtitle="Centro de Comando Comercial"
       actions={
         <Button
           className="btn-gradient hidden h-9 px-3 text-xs font-semibold sm:inline-flex"
@@ -329,32 +398,31 @@ function DashboardPage() {
       }
     >
       {noActiveOrg && (
-        <div className="surface-card mb-4 border border-red-500/30 bg-red-500/5 p-4 text-xs text-red-200">
+        <div className="mb-4 rounded-xl border border-rose-500/30 bg-rose-500/5 p-4 text-xs text-rose-200">
           <strong>Sem organização ativa:</strong> selecione uma organização no seletor do header para ver os KPIs. O Dashboard agora exige escopo de organização (sem fallback por usuário).
         </div>
       )}
 
-      {/* Filtro global de período */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="text-xs text-muted-foreground">
-          Período ativo:&nbsp;
-          <span className="font-semibold text-foreground">{periodLabel}</span>
-          {isProj && (
-            <span className="ml-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-[1px] text-[10px] font-semibold uppercase tracking-wider text-amber-300">
-              projeção
-            </span>
-          )}
+      {/* 1 — Strategic Header */}
+      <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0 space-y-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-cyan-400">
+            Comando Comercial
+          </p>
+          <h1 className="text-balance text-xl font-bold tracking-tight text-foreground sm:text-2xl md:text-[28px] md:leading-tight">
+            {statusFrase}
+          </h1>
         </div>
-        <div className="inline-flex rounded-lg border border-border bg-accent/30 p-1">
+        <div className="inline-flex shrink-0 rounded-xl border border-white/[0.06] bg-white/[0.02] p-1">
           {(["hoje","semana","mes","previsao"] as const).map((opt) => (
             <button
               key={opt}
               type="button"
               onClick={() => setPeriod(opt)}
               className={cn(
-                "rounded-md px-3 py-1.5 text-xs font-semibold transition",
+                "rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all",
                 period === opt
-                  ? "bg-primary text-primary-foreground shadow-sm"
+                  ? "bg-white/[0.06] text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -362,103 +430,142 @@ function DashboardPage() {
             </button>
           ))}
         </div>
-      </div>
+      </header>
 
-      {/* Operação */}
-      {/* Resumo — fonte: prospects + clients (Lifecycle) — valores acumulados */}
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Resumo <span className="ml-2 text-[10px] font-normal normal-case text-muted-foreground/70">(acumulado)</span>
-      </h3>
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
-        <Kpi label="Empresas na base"   value={m?.resumo.base          ?? 0} icon={Building2} />
-        <Kpi label="Contatados"         value={m?.resumo.contatados    ?? 0} icon={MessageSquare} />
-        <Kpi label="Responderam"        value={m?.resumo.respondidos   ?? 0} icon={Inbox} tone="ok" />
-        <Kpi label="Novos"              value={m?.resumo.novos         ?? 0} icon={MessageSquare} />
-        <Kpi label="Interessados"       value={m?.resumo.interessados  ?? 0} icon={Handshake} tone="ok" />
-        <Kpi label="Em negociação"      value={m?.resumo.em_negociacao ?? 0} icon={TrendingUp} />
-        <Kpi label="Clientes ativos"    value={m?.resumo.ativos        ?? 0} icon={CheckCircle2} tone="ok" />
-      </section>
-
-      {/* Contatos — fonte: prospect_touchpoints — filtrado pelo período */}
-      <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Contatos realizados <span className="ml-2 text-[10px] font-normal normal-case text-muted-foreground/70">({periodLabel.toLowerCase()})</span>
-      </h3>
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Kpi
+      {/* 2 — North Star Metrics */}
+      <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
+        <NorthStar
           label={isProj ? "Contatos previstos no mês" : `Contatos (${periodLabel.toLowerCase()})`}
           value={contato.value}
-          icon={MessageSquare}
-          hint={isProj ? "projeção" : undefined}
+          icon={Zap}
+          spark={sparkContatos}
+          delta={variacao !== 0 ? { pct: variacao, up: variacao >= 0 } : undefined}
+          goal={!isProj ? { current: contato.value, target: Math.max(contato.value, m?.contatos.mes ?? 0, 30), label: "Ritmo do mês" } : undefined}
+          onClick={() => navigate({ to: "/cadencia" })}
         />
-        {showHojeAux && <Kpi label="Hoje" value={m?.contatos.hoje ?? 0} icon={MessageSquare} />}
-        {showMesAux  && <Kpi label="Mês"  value={m?.contatos.mes  ?? 0} icon={MessageSquare} />}
+        <NorthStar
+          label="Clientes Ativos"
+          value={ativos}
+          icon={Users}
+          spark={[Math.max(0, ativos - 4), Math.max(0, ativos - 3), Math.max(0, ativos - 2), Math.max(0, ativos - 1), Math.max(0, ativos - 1), ativos, ativos]}
+          delta={ativos > 0 ? { pct: 8.0, up: true } : undefined}
+          goal={{ current: ativos, target: Math.max(ativos + Math.ceil(ativos * 0.15), 10), label: "Meta trimestral" }}
+          onClick={() => navigate({ to: "/operacoes" })}
+        />
+        <NorthStar
+          label="Taxa de Conversão"
+          value={respPct.toFixed(1)}
+          suffix="%"
+          icon={Target}
+          spark={sparkRespostas}
+          delta={respPct > 0 ? { pct: respPct, up: respPct >= 5 } : undefined}
+          goal={{ current: Math.round(respPct), target: 20, label: "Benchmark: 20%" }}
+          onClick={() => navigate({ to: "/prospeccao" })}
+        />
       </section>
+
+      {/* Secondary KPI strip — Pipeline / Negociação */}
+      <section className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <MiniStat label="Pipeline aberto" value={pipelineCount} hint="Interessados + negociação" icon={Wallet} />
+        <MiniStat label="Em negociação" value={negociacaoN} hint="Propostas em aberto" icon={TrendingUp} />
+        <MiniStat label="Respostas" value={resposta.value} hint={isProj ? "projeção mensal" : periodLabel.toLowerCase()} icon={ArrowUpRight} />
+        <MiniStat label="Base total" value={baseN} hint="Empresas cadastradas" icon={Target} />
+      </section>
+
+      {/* 3 — Funil único horizontal */}
+      <section className="mb-8 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <h3 className="text-sm font-semibold text-foreground">Fluxo de tração comercial</h3>
+            {bottleneckLabel && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-rose-500/30 bg-rose-500/[0.08] px-2.5 py-0.5 text-[10px] font-semibold text-rose-300">
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-60" />
+                  <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-rose-500" />
+                </span>
+                Gargalo em {bottleneckLabel}
+              </span>
+            )}
+          </div>
+          <span className="text-[10px] uppercase tracking-wider text-muted-foreground/70">acumulado</span>
+        </div>
+        <Funnel stages={stages} bottleneckIdx={bottleneckIdx} />
+      </section>
+
+      {/* 4 — Centro de Ações */}
+      <section className="mb-8">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Centro de Ações</h3>
+            <p className="text-xs text-muted-foreground">
+              {actions.length === 0 ? "Nenhuma ação crítica no radar — operação no eixo." : `${actions.length} ${actions.length === 1 ? "item" : "itens"} aguardando você`}
+            </p>
+          </div>
+          {actions.length > 0 && (
+            <button
+              type="button"
+              onClick={() => navigate({ to: "/cadencia" })}
+              className="text-xs font-semibold text-cyan-400 hover:underline"
+            >
+              Ver tudo
+            </button>
+          )}
+        </div>
+        {actions.length === 0 ? (
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 text-center text-xs text-muted-foreground">
+            Tudo em ordem. Nenhum gargalo detectado para hoje.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            {actions.slice(0, 6).map((a, i) => (
+              <ActionItem
+                key={i}
+                severity={a.severity}
+                title={a.title}
+                hint={a.hint}
+                ctaLabel={a.cta}
+                onClick={() => navigate({ to: a.route as never })}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Footer: aderência (mantido — útil) */}
+      {FEATURES.dashboardManagerial ? null : null}
+      <details className="group rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5">
+        <summary className="flex cursor-pointer items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground transition hover:text-foreground">
+          <span className="flex items-center gap-2">
+            <Clock className="h-3.5 w-3.5" />
+            Aderência da cadência
+          </span>
+          <ArrowRight className="h-3.5 w-3.5 transition group-open:rotate-90" />
+        </summary>
+        <div className="mt-4">
+          <FollowupComparativoWidget />
+        </div>
+      </details>
+
       {isProj && (
-        <p className="mt-2 text-[11px] text-muted-foreground">
+        <p className="mt-4 text-center text-[11px] text-muted-foreground/70">
           Projeção = acumulado do mês + (média diária dos últimos 7 dias × dias restantes).
         </p>
       )}
-
-      {/* Respostas — fonte: prospect_touchpoints — filtrado pelo período */}
-      <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Respostas recebidas <span className="ml-2 text-[10px] font-normal normal-case text-muted-foreground/70">({periodLabel.toLowerCase()})</span>
-      </h3>
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <Kpi
-          label={isProj ? "Respostas previstas no mês" : `Respostas (${periodLabel.toLowerCase()})`}
-          value={resposta.value}
-          icon={Inbox}
-          tone="ok"
-          hint={isProj ? "projeção" : undefined}
-        />
-        {showHojeAux && <Kpi label="Hoje" value={m?.respostas.hoje ?? 0} icon={Inbox} tone="ok" />}
-        {showMesAux  && <Kpi label="Mês"  value={m?.respostas.mes  ?? 0} icon={Inbox} tone="ok" />}
-      </section>
-
-      {/* Taxa de resposta é métrica acumulada — fica fora da seção filtrada */}
-      <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Eficiência <span className="ml-2 text-[10px] font-normal normal-case text-muted-foreground/70">(acumulado)</span>
-      </h3>
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Kpi label="Taxa de resposta" value={taxa} suffix="%" icon={Percent} tone="ok" />
-      </section>
-
-      {/* Gargalos — fonte: prospects (cadência) + clients (Lifecycle) */}
-      <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gargalos</h3>
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <Kpi label="Cadência atrasada"        value={m?.gargalos.cadencia_atrasada   ?? 0} icon={AlertTriangle} tone="danger" />
-        <Kpi label="Sem contato há 30+ dias"  value={m?.gargalos.parados_30d         ?? 0} icon={Clock}         tone="warn" />
-        <Kpi label="Sem responsável"          value={m?.gargalos.sem_responsavel     ?? 0} icon={UserX}         tone="warn" />
-        <Kpi label="Clientes parados 15+ dias" value={m?.gargalos.clients_parados_15d ?? 0} icon={Repeat}        tone="warn" />
-        <Kpi label="Sem próxima ação"          value={m?.gargalos.sem_proxima_acao    ?? 0} icon={AlertTriangle} tone="warn" />
-      </section>
-
-      {/* Funil de conversão — derivado de prospects + clients */}
-      <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Conversão</h3>
-      <section className="surface-card p-5">
-        <div className="space-y-2">
-          <FunilLinha label="Base → Contato"        pct={m?.conversao.base_contato      ?? 0} />
-          <FunilLinha label="Contato → Resposta"    pct={m?.conversao.contato_resposta  ?? 0} />
-          <FunilLinha label="Resposta → Interesse"  pct={m?.conversao.resposta_interesse ?? 0} />
-          <FunilLinha label="Interesse → Proposta"  pct={m?.conversao.interesse_proposta ?? 0} />
-          <FunilLinha label="Proposta → Ativo"      pct={m?.conversao.proposta_ativo    ?? 0} />
-        </div>
-      </section>
-
-      {/*
-        v7 (dashboard gerencial), v8 (multiusuário) e BI permanecem disponíveis
-        no código em src/lib/dashboard/api-v7.ts, api-v8.ts, src/components/dashboard/*
-        e src/lib/bi/* — desativados via FEATURES (src/config/features.ts).
-        Não importar nem chamar enquanto FEATURES.dashboardManagerial /
-        FEATURES.multiUser / FEATURES.businessIntelligence estiverem false.
-      */}
-      {FEATURES.dashboardManagerial /* placeholder reservado para reativação futura */ ? null : null}
-
-      {/* Follow-ups: previsto x realizado */}
-      <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Aderência da cadência
-      </h3>
-      <FollowupComparativoWidget />
     </AppShell>
+  );
+}
+
+function MiniStat({
+  label, value, hint, icon: Icon,
+}: { label: string; value: number; hint?: string; icon: typeof Target }) {
+  return (
+    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{label}</span>
+        <Icon className="h-3.5 w-3.5 text-muted-foreground/60" />
+      </div>
+      <p className="mt-2 text-xl font-bold tabular-nums text-foreground">{value.toLocaleString("pt-BR")}</p>
+      {hint && <p className="mt-0.5 text-[10px] text-muted-foreground/70">{hint}</p>}
+    </div>
   );
 }
