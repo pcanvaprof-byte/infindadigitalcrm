@@ -291,17 +291,51 @@ function BIPage() {
 
             {a.id === "diretoria" && data?.kpis && (
               <>
+                {(() => null)()}
                 <MetaHero
                   realizado={data.kpis.receita_realizada ?? 0}
                   ticket={data.kpis.ticket_medio ?? 0}
                   meta={goals.revenue_goal}
+                  recorrencia={Math.max(data.kpis.mrr ?? 0, goals.recurring_revenue_goal)}
                 />
+                {(() => {
+                  const recorrencia = Math.max(data.kpis.mrr ?? 0, goals.recurring_revenue_goal);
+                  const novos = data.kpis.receita_realizada ?? 0;
+                  const faltam = Math.max(0, goals.revenue_goal - recorrencia - novos);
+                  const pct = (n: number) => goals.revenue_goal > 0
+                    ? Math.round((n / goals.revenue_goal) * 100) : 0;
+                  return (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <Card><CardContent className="p-4">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Receita garantida (MRR)</p>
+                        <p className="mt-1 text-xl font-semibold text-emerald-400">{fmtBRL(recorrencia)}</p>
+                        <p className="mt-0.5 text-[10px] text-muted-foreground">{pct(recorrencia)}% da meta</p>
+                      </CardContent></Card>
+                      <Card><CardContent className="p-4">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Receita nova (mês)</p>
+                        <p className="mt-1 text-xl font-semibold text-primary">{fmtBRL(novos)}</p>
+                        <p className="mt-0.5 text-[10px] text-muted-foreground">{pct(novos)}% da meta</p>
+                      </CardContent></Card>
+                      <Card><CardContent className="p-4">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Gap comercial</p>
+                        <p className="mt-1 text-xl font-semibold text-rose-400">{fmtBRL(faltam)}</p>
+                        <p className="mt-0.5 text-[10px] text-muted-foreground">{pct(faltam)}% da meta</p>
+                      </CardContent></Card>
+                      <Card><CardContent className="p-4">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Cobertura</p>
+                        <p className="mt-1 text-xl font-semibold">{pct(recorrencia + novos)}%</p>
+                        <p className="mt-0.5 text-[10px] text-muted-foreground">garantida + conquistada</p>
+                      </CardContent></Card>
+                    </div>
+                  );
+                })()}
                 <div className="grid gap-5 lg:grid-cols-2">
                   <ParaBaterMeta
                     meta={goals.revenue_goal}
                     realizado={data.kpis.receita_realizada ?? 0}
                     ticket={data.kpis.ticket_medio ?? 0}
                     taxaConversao={data.forecast?.taxa_conversao_historica ?? null}
+                    recorrencia={Math.max(data.kpis.mrr ?? 0, goals.recurring_revenue_goal)}
                   />
                   <EvolucaoMes
                     meta={goals.revenue_goal}
