@@ -91,7 +91,8 @@ drop function if exists public.cad_admin_dedupe_full() cascade;
 
 -- Helper: aplica merge sem assumir nomes antigos de colunas/tabelas.
 -- O schema atual de cad_messages usa lead_id; cad_lead_id existiu apenas em
--- versões intermediárias, então cada update é condicionado à coluna real.
+-- versões intermediárias, então updates opcionais usam SQL dinâmico e só rodam
+-- quando a coluna realmente existe.
 create or replace function public._cad_merge_losers_into(p_winner uuid, p_losers uuid[])
 returns void
 language plpgsql security definer set search_path=public as $$
@@ -105,12 +106,14 @@ begin
       select 1 from information_schema.columns
       where table_schema = 'public' and table_name = 'cad_messages' and column_name = 'lead_id'
     ) then
-      update public.cad_messages set lead_id = p_winner where lead_id = any(p_losers);
+      execute 'update public.cad_messages set lead_id = $1 where lead_id = any($2)'
+        using p_winner, p_losers;
     elsif exists (
       select 1 from information_schema.columns
       where table_schema = 'public' and table_name = 'cad_messages' and column_name = 'cad_lead_id'
     ) then
-      update public.cad_messages set cad_lead_id = p_winner where cad_lead_id = any(p_losers);
+      execute 'update public.cad_messages set cad_lead_id = $1 where cad_lead_id = any($2)'
+        using p_winner, p_losers;
     end if;
   end if;
 
@@ -119,29 +122,35 @@ begin
       select 1 from information_schema.columns
       where table_schema = 'public' and table_name = 'cad_notifications' and column_name = 'lead_id'
     ) then
-      delete from public.cad_notifications n
-       using public.cad_notifications keep
-       where n.lead_id = any(p_losers)
-         and n.handled_at is null
-         and keep.lead_id = p_winner
-         and keep.kind = n.kind
-         and keep.handled_at is null;
+      execute '
+        delete from public.cad_notifications n
+         using public.cad_notifications keep
+         where n.lead_id = any($1)
+           and n.handled_at is null
+           and keep.lead_id = $2
+           and keep.kind = n.kind
+           and keep.handled_at is null'
+        using p_losers, p_winner;
 
-      delete from public.cad_notifications n
-       using public.cad_notifications keep
-       where n.lead_id = any(p_losers)
-         and n.handled_at is null
-         and keep.lead_id = any(p_losers)
-         and keep.kind = n.kind
-         and keep.handled_at is null
-         and keep.id < n.id;
+      execute '
+        delete from public.cad_notifications n
+         using public.cad_notifications keep
+         where n.lead_id = any($1)
+           and n.handled_at is null
+           and keep.lead_id = any($1)
+           and keep.kind = n.kind
+           and keep.handled_at is null
+           and keep.id < n.id'
+        using p_losers;
 
-      update public.cad_notifications set lead_id = p_winner where lead_id = any(p_losers);
+      execute 'update public.cad_notifications set lead_id = $1 where lead_id = any($2)'
+        using p_winner, p_losers;
     elsif exists (
       select 1 from information_schema.columns
       where table_schema = 'public' and table_name = 'cad_notifications' and column_name = 'cad_lead_id'
     ) then
-      update public.cad_notifications set cad_lead_id = p_winner where cad_lead_id = any(p_losers);
+      execute 'update public.cad_notifications set cad_lead_id = $1 where cad_lead_id = any($2)'
+        using p_winner, p_losers;
     end if;
   end if;
 
@@ -150,12 +159,14 @@ begin
       select 1 from information_schema.columns
       where table_schema = 'public' and table_name = 'notifications' and column_name = 'lead_id'
     ) then
-      update public.notifications set lead_id = p_winner where lead_id = any(p_losers);
+      execute 'update public.notifications set lead_id = $1 where lead_id = any($2)'
+        using p_winner, p_losers;
     elsif exists (
       select 1 from information_schema.columns
       where table_schema = 'public' and table_name = 'notifications' and column_name = 'cad_lead_id'
     ) then
-      update public.notifications set cad_lead_id = p_winner where cad_lead_id = any(p_losers);
+      execute 'update public.notifications set cad_lead_id = $1 where cad_lead_id = any($2)'
+        using p_winner, p_losers;
     end if;
   end if;
 
