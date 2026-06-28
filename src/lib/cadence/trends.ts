@@ -68,22 +68,19 @@ export async function fetchKpiTrends(): Promise<KpiTrends> {
   const start14 = new Date(today.getTime() - 13 * 86400000);
   const sinceIso = start14.toISOString();
 
-  const [touchpoints, cadMessages, clients] = await Promise.all([
+  // Fontes confiáveis (colunas inexistentes removidas para evitar 400 silencioso):
+  // - prospect_touchpoints: histórico unificado de contatos/respostas
+  // - op_clientes: funil real de clientes ativos (substitui clients.pipeline_stage)
+  const [touchpoints, opClientes] = await Promise.all([
     safeSelect<{ tipo?: string; resultado?: string; enviado_em?: string }>(
       "prospect_touchpoints",
       "tipo,resultado,enviado_em",
       sinceIso,
       "enviado_em",
     ),
-    safeSelect<{ direction?: string; created_at?: string }>(
-      "cad_messages",
-      "direction,created_at",
-      sinceIso,
-      "created_at",
-    ),
-    safeSelect<{ pipeline_stage?: string; updated_at?: string }>(
-      "clients",
-      "pipeline_stage,updated_at",
+    safeSelect<{ status?: string; updated_at?: string }>(
+      "op_clientes",
+      "status,updated_at",
       sinceIso,
       "updated_at",
     ),
@@ -102,18 +99,11 @@ export async function fetchKpiTrends(): Promise<KpiTrends> {
       respostasBuckets[idx]++;
     }
   }
-  for (const msg of cadMessages) {
-    const idx = dayIndex(msg.created_at, start14);
-    if (idx < 0) continue;
-    const dir = String(msg.direction ?? "");
-    if (dir === "outbound" || dir === "out") contatosBuckets[idx]++;
-    else if (dir === "inbound" || dir === "in") respostasBuckets[idx]++;
-  }
-  for (const c of clients) {
+  for (const c of opClientes) {
     const idx = dayIndex(c.updated_at, start14);
     if (idx < 0) continue;
-    const stage = String(c.pipeline_stage ?? "").toLowerCase();
-    if (stage === "ativo" || stage === "active") ativosBuckets[idx]++;
+    const status = String(c.status ?? "").toLowerCase();
+    if (status === "ativo" || status === "active") ativosBuckets[idx]++;
   }
 
   const prevWeek = {
