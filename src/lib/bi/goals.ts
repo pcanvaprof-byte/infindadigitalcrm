@@ -2,6 +2,7 @@ import { supabase as sb } from "@/integrations/supabase/client";
 
 export interface BIGoals {
   revenue_goal: number;
+  recurring_revenue_goal: number;
   contracts_goal: number;
   leads_goal: number;
   meetings_goal: number;
@@ -27,6 +28,7 @@ export interface BIGoals {
 /** Fallback INFINDA — mantém UI funcional antes da migration rodar. */
 export const DEFAULT_GOALS: BIGoals = {
   revenue_goal: 68000,
+  recurring_revenue_goal: 10000,
   contracts_goal: 16,
   leads_goal: 700,
   meetings_goal: 100,
@@ -65,4 +67,32 @@ export async function fetchBIGoals(): Promise<BIGoals> {
   } catch {
     return DEFAULT_GOALS;
   }
+
+export async function saveMonthlyGoals(input: {
+  year: number;
+  month: number;
+  revenue: number;
+  recurring: number;
+  contracts: number;
+  leads: number;
+  meetings: number;
+  ticket: number;
+}): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const { error } = await rpc("bi_set_monthly_goals", {
+      p_year: input.year,
+      p_month: input.month,
+      p_revenue: input.revenue,
+      p_recurring: input.recurring,
+      p_contracts: input.contracts,
+      p_leads: input.leads,
+      p_meetings: input.meetings,
+      p_ticket: input.ticket,
+    });
+    if (error) return { ok: false, error: String((error as { message?: string }).message ?? error) };
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
 }
