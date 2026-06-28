@@ -31,12 +31,23 @@ const PERIOD_LABEL: Record<Period, string> = {
   previsao: "Previsão",
 };
 
-function projectMonth(value: number): number {
+/**
+ * Projeção de mês baseada na tendência dos últimos 7 dias (proxy: bucket "semana"),
+ * somada ao acumulado real do mês. Evita a distorção da regra de 3 simples
+ * (valor/dia*diasDoMês), que infla nos primeiros dias e oscila com fins de semana.
+ *
+ * Regras:
+ *  - Dia < 3 do mês: amostra insuficiente, retorna o acumulado sem projetar.
+ *  - Caso contrário: acumulado + (média_diária_7d × dias_restantes).
+ */
+function projectMonth(mes: number, semana: number): number {
   const now = new Date();
   const day = now.getDate();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  if (!day || !value) return 0;
-  return Math.round((value / day) * daysInMonth);
+  if (day < 3) return mes;
+  const rate7d = semana / 7;
+  const remaining = Math.max(0, daysInMonth - day);
+  return Math.round(mes + rate7d * remaining);
 }
 
 function pickBucket(
@@ -46,7 +57,7 @@ function pickBucket(
   if (period === "hoje")     return { value: bucket.hoje, isProjection: false };
   if (period === "semana")   return { value: bucket.semana, isProjection: false };
   if (period === "mes")      return { value: bucket.mes, isProjection: false };
-  return { value: projectMonth(bucket.mes), isProjection: true };
+  return { value: projectMonth(bucket.mes, bucket.semana), isProjection: true };
 }
 
 export const Route = createFileRoute("/dashboard")({
@@ -158,6 +169,8 @@ function DashboardPage() {
   const taxa = m?.respostas.taxa ?? 0;
   const isProj = period === "previsao";
   const periodLabel = PERIOD_LABEL[period];
+  const showHojeAux = period !== "hoje";
+  const showMesAux  = period !== "mes" && period !== "previsao";
 
   const setPeriod = (next: Period) =>
     navigate({ to: "/dashboard", search: { p: next } });
@@ -237,15 +250,20 @@ function DashboardPage() {
           icon={MessageSquare}
           hint={isProj ? "projeção" : undefined}
         />
-        <Kpi label="Hoje"   value={m?.contatos.hoje   ?? 0} icon={MessageSquare} />
-        <Kpi label="Mês"    value={m?.contatos.mes    ?? 0} icon={MessageSquare} />
+        {showHojeAux && <Kpi label="Hoje" value={m?.contatos.hoje ?? 0} icon={MessageSquare} />}
+        {showMesAux  && <Kpi label="Mês"  value={m?.contatos.mes  ?? 0} icon={MessageSquare} />}
       </section>
+      {isProj && (
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          Projeção = acumulado do mês + (média diária dos últimos 7 dias × dias restantes).
+        </p>
+      )}
 
       {/* Respostas — fonte: prospect_touchpoints — filtrado pelo período */}
       <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         Respostas recebidas <span className="ml-2 text-[10px] font-normal normal-case text-muted-foreground/70">({periodLabel.toLowerCase()})</span>
       </h3>
-      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Kpi
           label={isProj ? "Respostas previstas no mês" : `Respostas (${periodLabel.toLowerCase()})`}
           value={resposta.value}
@@ -253,8 +271,15 @@ function DashboardPage() {
           tone="ok"
           hint={isProj ? "projeção" : undefined}
         />
-        <Kpi label="Hoje"   value={m?.respostas.hoje   ?? 0} icon={Inbox} tone="ok" />
-        <Kpi label="Mês"    value={m?.respostas.mes    ?? 0} icon={Inbox} tone="ok" />
+        {showHojeAux && <Kpi label="Hoje" value={m?.respostas.hoje ?? 0} icon={Inbox} tone="ok" />}
+        {showMesAux  && <Kpi label="Mês"  value={m?.respostas.mes  ?? 0} icon={Inbox} tone="ok" />}
+      </section>
+
+      {/* Taxa de resposta é métrica acumulada — fica fora da seção filtrada */}
+      <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Eficiência <span className="ml-2 text-[10px] font-normal normal-case text-muted-foreground/70">(acumulado)</span>
+      </h3>
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Kpi label="Taxa de resposta" value={taxa} suffix="%" icon={Percent} tone="ok" />
       </section>
 
