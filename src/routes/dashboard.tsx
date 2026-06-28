@@ -151,6 +151,11 @@ function NorthStar({
         {suffix && <span className="text-sm text-muted-foreground">{suffix}</span>}
       </div>
       <Sparkline values={spark} positive={delta ? delta.up : true} />
+      {delta && (
+        <p className="-mt-2 text-[10px] uppercase tracking-wider text-muted-foreground/60">
+          vs. semana passada · série 7d
+        </p>
+      )}
       {goal && goalPct !== null && (
         <div>
           <div className="mb-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
