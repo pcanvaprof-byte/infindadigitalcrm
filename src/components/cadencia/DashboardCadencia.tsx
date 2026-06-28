@@ -78,9 +78,13 @@ export function DashboardCadencia({
         <KPI label="Negociação" value={by.negociacao ?? 0} onClick={stageHandler("negociacao")} />
         <KPI label="Fechados" value={by.fechado ?? 0} onClick={stageHandler("fechado")} />
         <KPI label="Perdidos" value={by.perdido ?? 0} onClick={stageHandler("perdido")} />
-        <KPI label="Mensagens Enviadas" value={m?.total_mensagens ?? 0} />
-        <KPI label="Taxa de Resposta" value={`${m?.taxa_resposta ?? 0}%`} />
-        <KPI label="Taxa de Conversão" value={`${m?.taxa_conversao ?? 0}%`} />
+        {!isFiltered && (
+          <>
+            <KPI label="Mensagens Enviadas" value={m?.total_mensagens ?? 0} />
+            <KPI label="Taxa de Resposta" value={`${m?.taxa_resposta ?? 0}%`} />
+            <KPI label="Taxa de Conversão" value={`${m?.taxa_conversao ?? 0}%`} />
+          </>
+        )}
       </div>
 
       <Card className="p-4">
