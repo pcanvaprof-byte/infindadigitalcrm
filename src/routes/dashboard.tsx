@@ -131,7 +131,8 @@ function errorMessage(error: unknown): string {
 function DashboardPage() {
   const user = useRequiredUser();
   const navigate = useNavigate();
-  const { p: period } = Route.useSearch();
+  const search = Route.useSearch() as { p: Period };
+  const period: Period = search.p;
 
   const q = useQuery({
     queryKey: ["dashboard", "v6"] as const,
