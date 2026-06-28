@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { dbExt } from "@/integrations/supabase/types.extra";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
@@ -67,8 +68,7 @@ function CadenciaPage() {
       const chunkSize = 500;
       for (let i = 0; i < prospectIds.length; i += chunkSize) {
         const chunk = prospectIds.slice(i, i + chunkSize);
-        const { data, error } = await supabase
-          .from("prospects")
+        const { data, error } = await dbExt.from("prospects")
           .select("id,state")
           .in("id", chunk);
         if (error) throw new Error(error.message);

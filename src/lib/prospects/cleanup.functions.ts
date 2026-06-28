@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { dbExt } from "@/integrations/supabase/types.extra";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /**
@@ -21,8 +22,7 @@ export const cleanupOwnerFallback = createServerFn({ method: "POST" })
     if (candidates.size === 0) return { cleared: 0, matched: [] as string[] };
 
     const list = Array.from(candidates);
-    const { data, error } = await supabase
-      .from("prospects")
+    const { data, error } = await dbExt.from("prospects")
       .update({ owner_name: "" })
       .eq("user_id", userId)
       .in("owner_name", list)
