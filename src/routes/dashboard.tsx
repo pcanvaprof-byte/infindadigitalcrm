@@ -76,55 +76,196 @@ export const Route = createFileRoute("/dashboard")({
   ),
 });
 
-function Kpi({
-  label, value, icon: Icon, suffix, tone = "default", hint,
+/* ─────────────────────────────────────────────────────────────
+   Cockpit components
+   ───────────────────────────────────────────────────────────── */
+
+function Sparkline({
+  values, positive = true,
+}: { values: number[]; positive?: boolean }) {
+  const safe = values.length >= 2 ? values : [0, 0];
+  const max = Math.max(...safe, 1);
+  const min = Math.min(...safe, 0);
+  const range = max - min || 1;
+  const pts = safe.map((v, i) => {
+    const x = (i / (safe.length - 1)) * 100;
+    const y = 28 - ((v - min) / range) * 26;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const d = `M ${pts.join(" L ")}`;
+  const area = `${d} L 100,30 L 0,30 Z`;
+  const stroke = positive ? "text-cyan-400" : "text-rose-400";
+  return (
+    <svg viewBox="0 0 100 30" preserveAspectRatio="none" className={cn("h-10 w-full", stroke)}>
+      <path d={area} fill="currentColor" fillOpacity="0.08" />
+      <path d={d} fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function NorthStar({
+  label, value, suffix, delta, goal, spark, icon: Icon, onClick,
 }: {
   label: string;
   value: number | string;
-  icon: typeof Building2;
   suffix?: string;
-  tone?: "default" | "warn" | "danger" | "ok";
-  hint?: string;
+  delta?: { pct: number; up: boolean };
+  goal?: { current: number; target: number; label?: string };
+  spark: number[];
+  icon: typeof Target;
+  onClick?: () => void;
 }) {
-  const ring =
-    tone === "warn"   ? "border-amber-500/30" :
-    tone === "danger" ? "border-rose-500/30"  :
-    tone === "ok"     ? "border-emerald-500/30" :
-                        "border-border";
+  const goalPct = goal ? Math.min(100, Math.round((goal.current / Math.max(1, goal.target)) * 100)) : null;
   return (
-    <div className={`surface-card p-4 border ${ring}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      className="group relative flex flex-col gap-4 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 text-left transition-all hover:-translate-y-0.5 hover:border-cyan-500/30 hover:bg-white/[0.04]"
+    >
       <div className="flex items-center justify-between">
-        <span className="grid h-9 w-9 place-items-center rounded-lg bg-accent">
-          <Icon className="h-4 w-4 text-primary-glow" />
-        </span>
-        {hint && (
-          <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-[1px] text-[10px] font-semibold uppercase tracking-wider text-amber-300">
-            {hint}
+        <div className="flex items-center gap-2">
+          <span className="grid h-7 w-7 place-items-center rounded-lg border border-white/10 bg-white/[0.03]">
+            <Icon className="h-3.5 w-3.5 text-cyan-400" />
+          </span>
+          <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        </div>
+        {delta && (
+          <span
+            className={cn(
+              "inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-bold",
+              delta.up
+                ? "bg-emerald-500/10 text-emerald-400"
+                : "bg-rose-500/10 text-rose-400",
+            )}
+          >
+            {delta.up ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+            {Math.abs(delta.pct).toFixed(1)}%
           </span>
         )}
       </div>
-      <p className="mt-4 text-xs text-muted-foreground">{label}</p>
-      <p className="mt-1 text-2xl font-bold tracking-tight tabular-nums">
-        {typeof value === "number" ? value.toLocaleString("pt-BR") : value}
-        {suffix && <span className="ml-1 text-sm font-normal text-muted-foreground">{suffix}</span>}
-      </p>
+      <div className="flex items-baseline gap-1.5">
+        <span className="text-3xl font-bold tracking-tight tabular-nums text-foreground">
+          {typeof value === "number" ? value.toLocaleString("pt-BR") : value}
+        </span>
+        {suffix && <span className="text-sm text-muted-foreground">{suffix}</span>}
+      </div>
+      <Sparkline values={spark} positive={delta ? delta.up : true} />
+      {goal && goalPct !== null && (
+        <div>
+          <div className="mb-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
+            <span>{goal.label ?? `Meta: ${goal.target.toLocaleString("pt-BR")}`}</span>
+            <span className="tabular-nums">{goalPct}%</span>
+          </div>
+          <div className="h-1 w-full overflow-hidden rounded-full bg-white/[0.04]">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-cyan-300"
+              style={{ width: `${goalPct}%` }}
+            />
+          </div>
+        </div>
+      )}
+    </button>
+  );
+}
+
+type FunnelStage = { key: string; label: string; value: number; convPct: number | null };
+
+function Funnel({ stages, bottleneckIdx }: { stages: FunnelStage[]; bottleneckIdx: number | null }) {
+  return (
+    <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+      {stages.map((s, i) => {
+        const isBottleneck = bottleneckIdx === i;
+        const isFirst = i === 0;
+        const isLast = i === stages.length - 1;
+        return (
+          <div key={s.key} className="relative">
+            <div
+              className={cn(
+                "flex h-20 flex-col justify-center px-3 transition-all",
+                isFirst && "rounded-l-xl border-l",
+                isLast && "rounded-r-xl border-r",
+                "border-y border-white/[0.06]",
+                isBottleneck
+                  ? "border-cyan-500/40 bg-cyan-500/[0.08] shadow-[0_0_24px_rgba(34,211,238,0.08)]"
+                  : "bg-white/[0.02]",
+              )}
+            >
+              <span
+                className={cn(
+                  "text-[10px] font-bold uppercase tracking-wider",
+                  isBottleneck ? "text-cyan-300/80" : "text-muted-foreground/70",
+                )}
+              >
+                {s.label}
+              </span>
+              <span
+                className={cn(
+                  "mt-1 text-xl font-bold tabular-nums",
+                  isLast ? "text-emerald-400" : "text-foreground",
+                )}
+              >
+                {s.value.toLocaleString("pt-BR")}
+              </span>
+            </div>
+            {s.convPct !== null && i < stages.length - 1 && (
+              <div className="absolute -right-2.5 top-1/2 z-10 -translate-y-1/2">
+                <div
+                  className={cn(
+                    "grid h-7 w-7 place-items-center rounded-full border bg-[#0a0c10] text-[9px] font-semibold tabular-nums",
+                    isBottleneck
+                      ? "border-rose-500/50 text-rose-400"
+                      : "border-white/10 text-muted-foreground",
+                  )}
+                >
+                  {s.convPct}%
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
 
-function FunilLinha({ label, pct }: { label: string; pct: number }) {
+function ActionItem({
+  severity, title, hint, ctaLabel, onClick,
+}: {
+  severity: "high" | "medium" | "info";
+  title: string;
+  hint: string;
+  ctaLabel: string;
+  onClick: () => void;
+}) {
+  const dot =
+    severity === "high" ? "bg-rose-500" :
+    severity === "medium" ? "bg-amber-500" :
+    "bg-cyan-500";
+  const ring =
+    severity === "high" ? "bg-rose-500/10" :
+    severity === "medium" ? "bg-amber-500/10" :
+    "bg-cyan-500/10";
+  const pulse = severity === "high" ? "animate-pulse" : "";
   return (
-    <div className="flex items-center gap-3">
-      <div className="w-44 shrink-0 text-xs text-muted-foreground">{label}</div>
-      <div className="relative h-7 flex-1 overflow-hidden rounded-md bg-accent/50">
-        <div
-          className="h-full rounded-md"
-          style={{ width: `${Math.max(0, Math.min(100, pct))}%`, background: "var(--gradient-primary)" }}
-        />
-        <span className="absolute inset-0 flex items-center px-3 text-[11px] font-semibold">
-          {pct.toLocaleString("pt-BR")}%
-        </span>
+    <div className="group flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-3.5 transition-all hover:border-white/[0.12] hover:bg-white/[0.04]">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-full", ring)}>
+          <div className={cn("h-2 w-2 rounded-full", dot, pulse)} />
+        </div>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-foreground">{title}</p>
+          <p className="truncate text-xs text-muted-foreground">{hint}</p>
+        </div>
       </div>
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={onClick}
+        className="shrink-0 gap-1 border border-white/[0.06] bg-white/[0.03] text-xs font-semibold hover:bg-cyan-500/10 hover:text-cyan-300"
+      >
+        {ctaLabel}
+        <ArrowRight className="h-3 w-3" />
+      </Button>
     </div>
   );
 }
