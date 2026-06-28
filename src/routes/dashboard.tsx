@@ -1,24 +1,34 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth, useRequiredUser } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import {
-  AlertTriangle,
+  AlertTriangle, Award,
   Building2,
   CheckCircle2,
-  Clock,
-  Handshake,
+  Clock, DollarSign,
+  Handshake, Hourglass,
   Inbox,
   MessageSquare,
   Percent,
-  Plus,
+  Plus, Activity,
   Repeat,
-  TrendingUp,
+  TrendingUp, Trophy,
   UserX,
 } from "lucide-react";
-import { cadenceKeys, EMPTY_DASHBOARD_METRICS, fetchDashboardMetrics } from "@/lib/cadence/api";
 import { FollowupComparativoWidget } from "@/components/cadence/FollowupComparativoWidget";
+import { FiltersBar } from "@/components/dashboard/FiltersBar";
+import { MetasDialog } from "@/components/dashboard/MetasDialog";
+import {
+  EvolucaoDiariaChart, EvolucaoMensalChart, FunilChart, RankingChart,
+  ComparacaoChart, MetasChart,
+} from "@/components/dashboard/Charts";
+import {
+  dashboardKeys, fetchDashboardV7,
+  type DashboardFilters, type DashboardV7,
+} from "@/lib/dashboard/api-v7";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -78,50 +88,6 @@ function FunilLinha({ label, pct }: { label: string; pct: number }) {
   );
 }
 
-function ComparativoLinha({
-  label,
-  semana,
-  mes,
-}: {
-  label: string;
-  semana: number;
-  mes: number;
-}) {
-  // Projeção da semana sobre o mês: semana * (30/7)
-  const projecaoMensal = semana * (30 / 7);
-  const mediaSemanalDoMes = mes / (30 / 7);
-  const delta = mediaSemanalDoMes > 0
-    ? ((semana - mediaSemanalDoMes) / mediaSemanalDoMes) * 100
-    : semana > 0 ? 100 : 0;
-  const positivo = delta >= 0;
-  return (
-    <div className="flex flex-wrap items-center gap-3 rounded-md border border-border/60 bg-accent/20 px-3 py-2.5">
-      <div className="w-40 shrink-0 text-xs font-medium">{label}</div>
-      <div className="flex flex-1 flex-wrap items-center gap-x-6 gap-y-1 text-xs">
-        <span className="text-muted-foreground">
-          Semana: <span className="font-semibold text-foreground tabular-nums">{semana.toLocaleString("pt-BR")}</span>
-        </span>
-        <span className="text-muted-foreground">
-          Mês: <span className="font-semibold text-foreground tabular-nums">{mes.toLocaleString("pt-BR")}</span>
-        </span>
-        <span className="text-muted-foreground">
-          Projeção mensal: <span className="font-semibold text-foreground tabular-nums">{Math.round(projecaoMensal).toLocaleString("pt-BR")}</span>
-        </span>
-        <span
-          className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-            positivo
-              ? "bg-emerald-500/15 text-emerald-300"
-              : "bg-rose-500/15 text-rose-300"
-          }`}
-          title="Semana atual vs média semanal do mês"
-        >
-          {positivo ? "▲" : "▼"} {Math.abs(delta).toFixed(1)}% vs média
-        </span>
-      </div>
-    </div>
-  );
-}
-
 function errorMessage(error: unknown): string {
   if (!error) return "";
   if (error instanceof Error) return error.message;
@@ -131,33 +97,37 @@ function errorMessage(error: unknown): string {
   return String(error);
 }
 
+function fmtBRL(v: number): string {
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+}
+
 function DashboardPage() {
   const user = useRequiredUser();
   const navigate = useNavigate();
+  const [filters, setFilters] = useState<DashboardFilters>({ preset: "mes", owner_name: null });
 
-  // ÚNICA fonte: RPC server-side. Zero agregação client-side.
   const q = useQuery({
-    queryKey: cadenceKeys.dashboard,
-    queryFn: fetchDashboardMetrics,
+    queryKey: dashboardKeys.v7(filters),
+    queryFn: () => fetchDashboardV7(filters),
     staleTime: 30_000,
   });
 
   const isAdmin = user.role === "admin";
   const subtitle = isAdmin
-    ? "Visão consolidada da operação comercial"
+    ? "Visão gerencial consolidada"
     : "Seu desempenho e cadência";
 
-  const m = q.data ?? EMPTY_DASHBOARD_METRICS;
+  const m = q.data as DashboardV7 | undefined;
   const errMsg = errorMessage(q.error);
   const noActiveOrg =
     errMsg.includes("no_active_org") || errMsg.includes("org_access_denied");
   const migrationPending =
     !noActiveOrg && (
-    errMsg.includes("dashboard_metrics") ||
+    errMsg.includes("dashboard_metrics_v7") ||
+    errMsg.includes("dashboard_filters_options") ||
     errMsg.includes("organization_id") ||
-    errMsg.includes("function") ||
-    errMsg.includes("404") ||
-    q.data?.schema === "legacy"
+    errMsg.includes("PGRST202") ||
+    errMsg.includes("404")
     );
 
   return (
@@ -165,12 +135,15 @@ function DashboardPage() {
       title={`Olá, ${user.name.split(" ")[0]} 👋`}
       subtitle={subtitle}
       actions={
-        <Button
+        <>
+          {m && <MetasDialog metas={m.metas} />}
+          <Button
           className="btn-gradient hidden h-9 px-3 text-xs font-semibold sm:inline-flex"
           onClick={() => navigate({ to: "/prospeccao", search: { new: 1 } as never })}
         >
           <Plus className="mr-1.5 h-4 w-4" /> Nova oportunidade
-        </Button>
+          </Button>
+        </>
       }
     >
       {noActiveOrg && (
@@ -180,13 +153,36 @@ function DashboardPage() {
       )}
       {migrationPending && (
         <div className="surface-card mb-4 border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-200">
-          <strong>Dashboard em modo compatibilidade:</strong> aplique <code>scripts/migrations/20260740_dashboard_metrics_v4_strict_org.sql</code> no SQL Editor para restaurar os KPIs por organização.
+          <strong>Migration pendente:</strong> aplique <code>scripts/migrations/20260744_dashboard_v7_managerial.sql</code> no SQL Editor para ativar o Dashboard Gerencial v7.
         </div>
       )}
 
+      <FiltersBar filters={filters} onChange={setFilters} />
+
+      {/* KPIs gerenciais — fonte: dashboard_metrics_v7 */}
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">KPIs gerenciais</h3>
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <Kpi label="Taxa de resposta"     value={m?.kpis_gerencial.taxa_resposta ?? 0}    suffix="%" icon={Percent}   tone="ok" />
+        <Kpi label="Taxa de conversão"    value={m?.kpis_gerencial.taxa_conversao ?? 0}   suffix="%" icon={TrendingUp} tone="ok" />
+        <Kpi label="Taxa de fechamento"   value={m?.kpis_gerencial.taxa_fechamento ?? 0}  suffix="%" icon={Trophy}    tone="ok" />
+        <Kpi label="Ticket médio"         value={fmtBRL(m?.kpis_gerencial.ticket_medio ?? 0)} icon={DollarSign} />
+        <Kpi label="Receita (período)"    value={fmtBRL(m?.kpis_gerencial.receita_periodo ?? 0)} icon={DollarSign} tone="ok" />
+        <Kpi label="Ciclo médio venda"    value={m?.kpis_gerencial.ciclo_medio_venda_d ?? 0}            suffix=" d" icon={Hourglass} />
+        <Kpi label="Tempo até fechamento" value={m?.kpis_gerencial.tempo_medio_fechamento_d ?? 0}       suffix=" d" icon={Clock} />
+        <Kpi label="Tempo 1ª resposta"    value={m?.kpis_gerencial.tempo_medio_primeira_resposta_d ?? 0} suffix=" d" icon={Activity} />
+        <Kpi label="Clientes ganhos"      value={m?.kpis_gerencial.clientes_ganhos ?? 0}   icon={Award}        tone="ok" />
+        <Kpi label="Clientes perdidos"    value={m?.kpis_gerencial.clientes_perdidos ?? 0} icon={UserX}        tone="danger" />
+        <Kpi
+          label="ROI comercial"
+          value={m?.kpis_gerencial.roi_comercial == null ? "—" : `${m.kpis_gerencial.roi_comercial}%`}
+          icon={Percent}
+          tone={(m?.kpis_gerencial.roi_comercial ?? 0) >= 0 ? "ok" : "danger"}
+        />
+      </section>
+
       {/* Operação */}
       {/* Resumo — fonte: prospects + clients (Lifecycle) */}
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resumo</h3>
+      <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resumo</h3>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
         <Kpi label="Empresas na base"   value={m?.resumo.base          ?? 0} icon={Building2} />
         <Kpi label="Contatados"         value={m?.resumo.contatados    ?? 0} icon={MessageSquare} />
@@ -240,25 +236,20 @@ function DashboardPage() {
         </div>
       </section>
 
-      {/* Comparativo Semana x Mês — só Contatos (única série temporal oficial agora) */}
-      <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Comparativo Semana × Mês
-      </h3>
-      <section className="surface-card space-y-2 p-5">
-        <ComparativoLinha
-          label="Contatos"
-          semana={m?.contatos.semana ?? 0}
-          mes={m?.contatos.mes ?? 0}
-        />
-        <ComparativoLinha
-          label="Respostas"
-          semana={m?.respostas.semana ?? 0}
-          mes={m?.respostas.mes ?? 0}
-        />
-        <p className="pt-1 text-[11px] text-muted-foreground">
-          O delta compara a semana atual com a média semanal do mês (mês ÷ 4,28). Verde indica ritmo acima da média; vermelho, abaixo.
-        </p>
-      </section>
+      {/* Gráficos gerenciais */}
+      {m && (
+        <>
+          <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gráficos gerenciais</h3>
+          <section className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <EvolucaoDiariaChart data={m.series.evolucao_diaria} />
+            <EvolucaoMensalChart data={m.series.evolucao_mensal} />
+            <FunilChart data={m.series.funil} />
+            <RankingChart data={m.series.ranking} />
+            <ComparacaoChart comp={m.comparacao} />
+            <MetasChart metas={m.metas} />
+          </section>
+        </>
+      )}
 
       {/* Follow-ups: previsto x realizado */}
       <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
