@@ -5,7 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, TrendingUp, AlertTriangle, Target, DollarSign, Activity, Sparkles } from "lucide-react";
+import { Loader2, TrendingUp, AlertTriangle, Target, DollarSign, Activity, Sparkles, Users, CalendarClock, FileText, FileSignature, Percent } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   LineChart, Line,
@@ -15,6 +15,18 @@ import { AIInsightsPanel } from "@/components/bi/AIInsightsPanel";
 import { ExportMenu, type ExportSection } from "@/components/bi/ExportMenu";
 import { ParaBaterMeta } from "@/components/bi/ParaBaterMeta";
 import { EvolucaoMes } from "@/components/bi/EvolucaoMes";
+import { KpiGoalCard } from "@/components/bi/KpiGoalCard";
+import { ForecastCard } from "@/components/bi/ForecastCard";
+import { FunilExecutivo } from "@/components/bi/FunilExecutivo";
+
+// Metas comerciais default (em breve: configurável via /metas)
+const META_COMERCIAL = {
+  leads: 700,
+  reunioes: 100,
+  propostas: 50,
+  contratos: 20,
+  conversaoPct: 15,
+} as const;
 
 export const Route = createFileRoute("/bi")({
   component: BIPageGate,
@@ -265,6 +277,48 @@ function BIPage() {
                 </div>
               </>
             )}
+
+            {a.id === "comercial" && (() => {
+              const stages = data?.funnel ?? [];
+              const findStage = (re: RegExp) =>
+                stages.find((s) => re.test((s.stage ?? "").toLowerCase()))?.clientes ?? 0;
+              const leads = findStage(/lead|prospec/) || (stages[0]?.clientes ?? 0);
+              const reunioes = findStage(/reuni/);
+              const propostas = findStage(/propos/);
+              const contratos = findStage(/contrat|fech/) || (stages[stages.length - 1]?.clientes ?? 0);
+              const conversao = leads > 0 ? Math.round((contratos / leads) * 1000) / 10 : 0;
+
+              const now = new Date();
+              const total = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+              const dia = Math.max(1, now.getDate());
+              const projetadoContratos = Math.round((contratos / dia) * total);
+
+              return (
+                <div className="space-y-5">
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+                    <KpiGoalCard label="Leads" value={leads} goal={META_COMERCIAL.leads} icon={Users} />
+                    <KpiGoalCard label="Reuniões" value={reunioes} goal={META_COMERCIAL.reunioes} icon={CalendarClock} />
+                    <KpiGoalCard label="Propostas" value={propostas} goal={META_COMERCIAL.propostas} icon={FileText} />
+                    <KpiGoalCard label="Contratos" value={contratos} goal={META_COMERCIAL.contratos} icon={FileSignature} />
+                    <KpiGoalCard
+                      label="Conversão"
+                      value={conversao}
+                      goal={META_COMERCIAL.conversaoPct}
+                      icon={Percent}
+                      format={(n) => `${n}%`}
+                    />
+                  </div>
+
+                  <ForecastCard
+                    meta={META_COMERCIAL.contratos}
+                    projecao={projetadoContratos}
+                    unidade="contratos"
+                  />
+
+                  {stages.length > 0 && <FunilExecutivo stages={stages} />}
+                </div>
+              );
+            })()}
 
             {data?.kpis && (
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
