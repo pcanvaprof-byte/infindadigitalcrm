@@ -162,9 +162,16 @@ create table if not exists public.dashboard_alerts (
   detail          text,
   payload         jsonb not null default '{}'::jsonb,
   created_at      timestamptz not null default now(),
-  resolved_at     timestamptz,
-  unique (organization_id, kind, scope, scope_ref, (date(created_at)))
+  resolved_at     timestamptz
 );
+
+-- UNIQUE com expressão precisa ser índice (Postgres não aceita
+-- expressões em UNIQUE de tabela). COALESCE garante dedupe quando
+-- scope_ref é NULL (NULLs não colidem em índices únicos comuns).
+create unique index if not exists dashboard_alerts_dedupe_idx
+  on public.dashboard_alerts (
+    organization_id, kind, scope, coalesce(scope_ref, ''), (date(created_at))
+  );
 
 create index if not exists idx_alerts_org_open
   on public.dashboard_alerts(organization_id, created_at desc) where resolved_at is null;
