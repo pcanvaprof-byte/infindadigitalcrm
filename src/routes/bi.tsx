@@ -24,6 +24,8 @@ import { FunilExecutivo } from "@/components/bi/FunilExecutivo";
 import { FinanceiroPanel } from "@/components/bi/FinanceiroPanel";
 import { MarketingPanel } from "@/components/bi/MarketingPanel";
 import { OperacoesPanel } from "@/components/bi/OperacoesPanel";
+import { HojePanel } from "@/components/bi/HojePanel";
+import { SemanaPanel } from "@/components/bi/SemanaPanel";
 
 export const Route = createFileRoute("/bi")({
   component: BIPageGate,
@@ -305,6 +307,14 @@ function BIPage() {
                   meta={goals.revenue_goal}
                   recorrencia={Math.max(data.kpis.mrr ?? 0, goals.recurring_revenue_goal)}
                 />
+                <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
+                  <HojePanel
+                    visitsGoal={goals.daily_visits_goal}
+                    contactsGoal={goals.daily_contacts_goal}
+                    dispatchesGoal={Math.max(1, Math.round(goals.weekly_dispatches_goal / 5))}
+                  />
+                  <SemanaPanel metaSemanal={goals.weekly_revenue_goal} />
+                </div>
                 {(() => {
                   const recorrencia = Math.max(data.kpis.mrr ?? 0, goals.recurring_revenue_goal);
                   const novos = data.kpis.receita_realizada ?? 0;
@@ -404,6 +414,9 @@ function BIPage() {
                 pipelineAberto={data.forecast?.pipeline_aberto ?? 0}
                 previsao30d={data.forecast?.previsao_30d ?? 0}
                 previsao90d={data.forecast?.previsao_90d ?? 0}
+                folha={goals.payroll_cost}
+                infra={goals.infra_cost}
+                taxasPct={goals.taxes_pct}
               />
             )}
 
