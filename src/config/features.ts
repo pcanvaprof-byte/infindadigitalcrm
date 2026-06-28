@@ -1,15 +1,23 @@
 /**
  * Feature flags globais da plataforma INFINDA.
  *
- * MULTI_USER_MODE controla a visibilidade de funcionalidades multiusuário/equipes
- * (filtros por vendedor/equipe, ranking, alertas, badges de papel, metas individuais).
+ * Enquanto cada flag estiver `false`, NENHUMA RPC, componente, hook, query ou
+ * import dinâmico relacionado à área correspondente pode ser executado ou
+ * influenciar o Dashboard estável (v6). Todo o código permanece preservado
+ * para reativação futura — basta alternar a flag.
  *
- * Mantemos todo o código, migrations e RPCs intactos — apenas ocultamos a UI
- * enquanto o modo estiver desativado. Para reativar, basta alterar para `true`
- * (ou no futuro consumir `organization.settings.multi_user`).
+ *   dashboardManagerial → v7 (filtros, metas, KPIs gerenciais, gráficos)
+ *   multiUser           → v8 (equipes, vendedores, alertas, ranking, badge)
+ *   businessIntelligence → módulo /bi + IA
  */
-export const MULTI_USER_MODE = false as boolean;
-
-export const features = {
-  multiUser: MULTI_USER_MODE,
+export const FEATURES = {
+  dashboardManagerial: false,
+  multiUser: false,
+  businessIntelligence: false,
 } as const;
+
+/** Alias retro-compat — mantenha sincronizado com FEATURES.multiUser. */
+export const MULTI_USER_MODE: boolean = FEATURES.multiUser;
+
+/** Alias antigo. */
+export const features = FEATURES;

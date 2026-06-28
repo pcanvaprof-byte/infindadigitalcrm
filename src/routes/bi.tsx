@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { FEATURES } from "@/config/features";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -13,12 +14,26 @@ import { AIInsightsPanel } from "@/components/bi/AIInsightsPanel";
 import { ExportMenu, type ExportSection } from "@/components/bi/ExportMenu";
 
 export const Route = createFileRoute("/bi")({
-  component: BIPage,
+  component: BIPageGate,
   errorComponent: ({ error }) => (
     <div className="p-6 text-sm text-destructive">Erro BI: {String(error)}</div>
   ),
   notFoundComponent: () => <div className="p-6">Página não encontrada</div>,
 });
+
+function BIPageGate() {
+  if (!FEATURES.businessIntelligence) {
+    return (
+      <div className="p-6 text-sm text-muted-foreground">
+        <strong>Business Intelligence está desativado.</strong>
+        <p className="mt-2">
+          Reative em <code>src/config/features.ts</code> (<code>FEATURES.businessIntelligence = true</code>).
+        </p>
+      </div>
+    );
+  }
+  return <BIPage />;
+}
 
 const AREAS: Array<{ id: BIArea; label: string; icon: typeof TrendingUp }> = [
   { id: "diretoria",  label: "Diretoria",  icon: Target },
