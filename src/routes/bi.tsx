@@ -20,6 +20,7 @@ import { ForecastCard } from "@/components/bi/ForecastCard";
 import { FunilExecutivo } from "@/components/bi/FunilExecutivo";
 import { FinanceiroPanel } from "@/components/bi/FinanceiroPanel";
 import { MarketingPanel } from "@/components/bi/MarketingPanel";
+import { OperacoesPanel } from "@/components/bi/OperacoesPanel";
 
 // Metas comerciais default (em breve: configurável via /metas)
 const META_COMERCIAL = {
@@ -346,6 +347,17 @@ function BIPage() {
                 paybackMeses={data.kpis.payback_meses ?? 0}
                 clientesAtivos={data.kpis.clientes_ativos ?? 0}
                 ticketMedio={data.kpis.ticket_medio ?? 0}
+              />
+            )}
+
+            {a.id === "operacoes" && data?.kpis && (
+              <OperacoesPanel
+                funnel={data.funnel ?? []}
+                churn={data.churn}
+                clientesAtivos={data.kpis.clientes_ativos ?? 0}
+                receitaRealizada={data.kpis.receita_realizada ?? 0}
+                receitaPrevistaMes={data.kpis.receita_prevista_mes ?? 0}
+                taxaConversaoHistorica={data.forecast?.taxa_conversao_historica ?? null}
               />
             )}
 
