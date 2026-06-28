@@ -38,10 +38,11 @@ import { MobileNav } from "./MobileNav";
 import { OrgSwitcher } from "./org/OrgSwitcher";
 import { NotificationsBell } from "./cadencia/NotificationsBell";
 import { ROUTE_FEATURE, planAllows, useActiveOrg, PLAN_LABEL } from "@/lib/org/plans";
+import { FEATURES } from "@/config/features";
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, enabled: true },
-  { to: "/bi", label: "Business Intelligence", icon: Bot, enabled: true },
+  { to: "/bi", label: "Business Intelligence", icon: Bot, enabled: FEATURES.businessIntelligence },
   { to: "/crm", label: "CRM Comercial", icon: Users, enabled: true },
   { to: "/prospeccao", label: "Prospecção", icon: Search, enabled: true },
   { to: "/cadencia", label: "Cadência", icon: Repeat2, enabled: true },
