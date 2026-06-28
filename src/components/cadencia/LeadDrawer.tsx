@@ -10,12 +10,33 @@ import { moveStage, registerResponse, updateLead, setTemperatura, deleteLead } f
 import { LeadTimeline } from "./LeadTimeline";
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
+
+// Etapas que implicam que houve resposta do cliente
+const STAGES_REQUIRE_RESPONSE: CadStage[] = [
+  "interessado",
+  "reuniao_agendada",
+  "ganho",
+  "perdido",
+];
 
 export function LeadDrawer({
   lead, open, onOpenChange, onSend,
 }: { lead: CadLead | null; open: boolean; onOpenChange: (o: boolean) => void; onSend: () => void }) {
   const qc = useQueryClient();
   const [respText, setRespText] = useState("");
+  const [pendingStage, setPendingStage] = useState<CadStage | null>(null);
+  const [pendingRespText, setPendingRespText] = useState("");
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["cad-leads"] });
@@ -50,6 +71,35 @@ export function LeadDrawer({
     onSuccess: () => { invalidate(); toast.success("Lead removido"); onOpenChange(false); },
   });
 
+  // Intercepta mudança de etapa: se a nova etapa implica resposta do cliente,
+  // pergunta antes se ele respondeu (e registra junto para refletir no dashboard).
+  function requestStageChange(next: CadStage) {
+    if (!lead || next === lead.stage) return;
+    if (STAGES_REQUIRE_RESPONSE.includes(next)) {
+      setPendingStage(next);
+      setPendingRespText("");
+    } else {
+      moveM.mutate(next);
+    }
+  }
+
+  async function confirmStageChange(registerResp: boolean) {
+    if (!pendingStage || !lead) return;
+    const next = pendingStage;
+    const txt = pendingRespText.trim();
+    setPendingStage(null);
+    try {
+      if (registerResp) {
+        await registerResponse(lead.id, txt || "[resposta registrada na mudança de etapa]");
+      }
+      await moveStage(lead.id, next);
+      invalidate();
+      toast.success(registerResp ? "Resposta registrada e etapa atualizada" : "Etapa atualizada");
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
@@ -69,7 +119,7 @@ export function LeadDrawer({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <Label className="text-xs">Etapa</Label>
-                  <Select value={lead.stage} onValueChange={(v) => moveM.mutate(v as CadStage)}>
+                  <Select value={lead.stage} onValueChange={(v) => requestStageChange(v as CadStage)}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {CAD_STAGES.map((s) => (
@@ -102,9 +152,9 @@ export function LeadDrawer({
 
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" onClick={onSend}>Enviar mensagem</Button>
-                <Button size="sm" variant="outline" onClick={() => moveM.mutate("interessado")}>Marcar interessado</Button>
-                <Button size="sm" variant="outline" onClick={() => moveM.mutate("reuniao_agendada")}>Reunião agendada</Button>
-                <Button size="sm" variant="outline" onClick={() => moveM.mutate("perdido")}>Perdido</Button>
+                <Button size="sm" variant="outline" onClick={() => requestStageChange("interessado")}>Marcar interessado</Button>
+                <Button size="sm" variant="outline" onClick={() => requestStageChange("reuniao_agendada")}>Reunião agendada</Button>
+                <Button size="sm" variant="outline" onClick={() => requestStageChange("perdido")}>Perdido</Button>
                 <Button size="sm" variant="ghost" onClick={() => delM.mutate()}>
                   <Trash2 className="h-3 w-3 mr-1" /> Excluir
                 </Button>
@@ -126,6 +176,32 @@ export function LeadDrawer({
           </>
         )}
       </SheetContent>
+      <AlertDialog open={pendingStage !== null} onOpenChange={(o) => { if (!o) setPendingStage(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>O cliente respondeu?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Mover para <b>{pendingStage ? CAD_STAGE_LABEL[pendingStage] : ""}</b>. Se houve resposta do cliente,
+              registre o conteúdo abaixo para refletir nos KPIs do dashboard.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea
+            placeholder="O que o cliente respondeu... (opcional)"
+            value={pendingRespText}
+            onChange={(e) => setPendingRespText(e.target.value)}
+            rows={3}
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <Button variant="outline" onClick={() => confirmStageChange(false)}>
+              Não respondeu, só mudar etapa
+            </Button>
+            <AlertDialogAction onClick={() => confirmStageChange(true)}>
+              Sim, registrar resposta
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   );
 }
