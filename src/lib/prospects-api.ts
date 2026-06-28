@@ -107,8 +107,7 @@ export async function loadAllProspects(): Promise<Prospect[]> {
   const PAGE = 1000;
   const rows: Row[] = [];
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await supabase
-      .from("prospects")
+    const { data, error } = await dbExt.from("prospects")
       .select("*")
       .order("created_at", { ascending: false })
       .range(from, from + PAGE - 1);
@@ -204,8 +203,7 @@ async function requireUserId(): Promise<string> {
 
 export async function insertProspect(p: Omit<Prospect, "id" | "createdAt" | "interactions">) {
   const uid = await requireUserId();
-  const { data, error } = await supabase
-    .from("prospects")
+  const { data, error } = await dbExt.from("prospects")
     .insert({
       user_id: uid,
       company: p.company,
@@ -245,7 +243,7 @@ export async function updateProspect(id: string, patch: Partial<Prospect>) {
   if (patch.source !== undefined) map.source = patch.source;
   if (patch.potential !== undefined) map.potential = patch.potential;
   if (patch.status !== undefined) map.status = patch.status;
-  const { error } = await supabase.from("prospects").update(map as never).eq("id", id);
+  const { error } = await dbExt.from("prospects").update(map as never).eq("id", id);
   if (error) {
     console.error("[prospects-api] updateProspect:error", { id, patch, error });
     throw error;
@@ -256,7 +254,7 @@ export async function updateProspect(id: string, patch: Partial<Prospect>) {
 export async function deleteProspects(ids: string[]) {
   if (!ids.length) return;
   await requireUserId();
-  const { error } = await supabase.from("prospects").delete().in("id", ids);
+  const { error } = await dbExt.from("prospects").delete().in("id", ids);
   if (error) throw error;
 }
 
@@ -348,7 +346,7 @@ export async function bulkUpdateProspects(
   if (patch.owner !== undefined) map.owner_name = patch.owner;
   if (patch.potential !== undefined) map.potential = patch.potential;
   if (!Object.keys(map).length) return;
-  const { error } = await supabase.from("prospects").update(map as never).in("id", ids);
+  const { error } = await dbExt.from("prospects").update(map as never).in("id", ids);
   if (error) throw error;
 }
 
@@ -449,8 +447,7 @@ export async function applyImport(
   const BATCH = 500;
   for (let i = 0; i < toInsert.length; i += BATCH) {
     const slice = toInsert.slice(i, i + BATCH);
-    const { data: ins, error } = await supabase
-      .from("prospects")
+    const { data: ins, error } = await dbExt.from("prospects")
       .insert(slice as never)
       .select("id");
     if (!error) {
@@ -459,8 +456,7 @@ export async function applyImport(
     }
     // fallback: per-row inserts to isolate offending rows
     for (const row of slice) {
-      const { error: rowErr } = await supabase
-        .from("prospects")
+      const { error: rowErr } = await dbExt.from("prospects")
         .insert(row as never)
         .select("id")
         .single();
@@ -479,7 +475,7 @@ export async function applyImport(
     const chunk = updates.slice(i, i + CONCURRENCY);
     const out = await Promise.all(
       chunk.map(async (u) => {
-        const { error } = await supabase.from("prospects").update(u.patch as never).eq("id", u.id);
+        const { error } = await dbExt.from("prospects").update(u.patch as never).eq("id", u.id);
         return { u, error };
       }),
     );
@@ -514,7 +510,7 @@ export async function logImport(meta: {
   result: ImportResult;
 }): Promise<void> {
   const uid = await requireUserId();
-  await supabase.from("prospect_imports").insert({
+  await dbExt.from("prospect_imports").insert({
     user_id: uid,
     performed_by: meta.performedBy,
     file_name: meta.fileName,
@@ -529,8 +525,7 @@ export async function logImport(meta: {
 
 export async function listImports(): Promise<ImportLog[]> {
   await requireUserId();
-  const { data, error } = await supabase
-    .from("prospect_imports")
+  const { data, error } = await dbExt.from("prospect_imports")
     .select("*")
     .order("created_at", { ascending: false })
     .limit(50);

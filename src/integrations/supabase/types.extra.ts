@@ -34,6 +34,27 @@ type ExtraTables = {
     Update: Partial<ProspectTouchpointInsert>;
     Relationships: [];
   };
+  // Tabelas existentes no banco externo cujo tipo ainda não foi
+  // regenerado neste workspace. Mantemos shapes permissivos para que
+  // `dbExt.from(...)` aceite as queries em uso sem `as any` espalhado.
+  prospects: {
+    Row: Record<string, any>;
+    Insert: Record<string, any>;
+    Update: Record<string, any>;
+    Relationships: [];
+  };
+  prospect_imports: {
+    Row: Record<string, any>;
+    Insert: Record<string, any>;
+    Update: Record<string, any>;
+    Relationships: [];
+  };
+  cad_leads: {
+    Row: Record<string, any>;
+    Insert: Record<string, any>;
+    Update: Record<string, any>;
+    Relationships: [];
+  };
 };
 
 export type DatabaseExt = Omit<Base, "public"> & {
