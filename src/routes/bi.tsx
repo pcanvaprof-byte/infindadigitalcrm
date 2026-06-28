@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { FEATURES } from "@/config/features";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, TrendingUp, AlertTriangle, Target, DollarSign, Activity } from "lucide-react";
 import {
@@ -79,7 +79,19 @@ function BIPage() {
     setLoading(true); setErr(null);
     fetchBIDashboard(area)
       .then((d) => { if (!cancelled) setData(d); })
-      .catch((e) => { if (!cancelled) setErr(e instanceof Error ? e.message : String(e)); })
+      .catch((e) => {
+        if (cancelled) return;
+        const msg =
+          e instanceof Error
+            ? e.message
+            : typeof e === "object" && e !== null
+              ? ((e as { message?: string; error_description?: string; details?: string }).message
+                ?? (e as { error_description?: string }).error_description
+                ?? (e as { details?: string }).details
+                ?? JSON.stringify(e))
+              : String(e);
+        setErr(msg);
+      })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [area]);
@@ -114,22 +126,30 @@ function BIPage() {
       </header>
 
       <Tabs value={area} onValueChange={(v) => setArea(v as BIArea)}>
-        <div className="-mx-3 sm:-mx-6 px-3 sm:px-6 sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border">
-          <TabsList className="flex w-max gap-1 overflow-x-auto bg-transparent p-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {AREAS.map((a) => {
-              const Icon = a.icon;
-              return (
-                <TabsTrigger
-                  key={a.id}
-                  value={a.id}
-                  className="shrink-0 gap-2 rounded-full data-[state=active]:bg-primary/10 data-[state=active]:text-foreground"
-                >
-                  <Icon className="h-4 w-4" /> {a.label}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-        </div>
+        <nav
+          aria-label="Áreas de BI"
+          className="sticky top-0 z-10 -mx-3 sm:-mx-6 flex items-center gap-1 overflow-x-auto border-b border-border bg-background/80 px-3 sm:px-6 py-2 backdrop-blur-xl [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {AREAS.map((a) => {
+            const Icon = a.icon;
+            const active = area === a.id;
+            return (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => setArea(a.id)}
+                className={`group inline-flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${
+                  active
+                    ? "border-primary/40 bg-primary/10 text-foreground"
+                    : "border-border/60 bg-card/60 text-muted-foreground hover:border-border hover:text-foreground"
+                }`}
+              >
+                <Icon className={`h-3.5 w-3.5 ${active ? "text-primary" : ""}`} />
+                <span>{a.label}</span>
+              </button>
+            );
+          })}
+        </nav>
 
         {AREAS.map((a) => (
           <TabsContent key={a.id} value={a.id} className="mt-4 space-y-5">
