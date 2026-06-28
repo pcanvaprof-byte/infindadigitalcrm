@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { fetchMetrics, listLeads } from "@/lib/cadencia/api";
-import { CAD_STAGES, CAD_STAGE_LABEL, type CadStage } from "@/lib/cadencia/types";
+import { CAD_STAGES, CAD_STAGE_LABEL, type CadStage, type CadLead } from "@/lib/cadencia/types";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 
 function KPI({ label, value, onClick, active }: { label: string; value: string | number; onClick?: () => void; active?: boolean }) {
@@ -28,26 +28,43 @@ function KPI({ label, value, onClick, active }: { label: string; value: string |
 
 const FOLLOWUPS: CadStage[] = ["followup_1","followup_2","followup_3","followup_4","followup_5","followup_6","followup_7"];
 
-export function DashboardCadencia({ onStageSelect }: { onStageSelect?: (stage: CadStage) => void } = {}) {
+export function DashboardCadencia({
+  onStageSelect,
+  filteredLeads,
+  filterLabel,
+}: {
+  onStageSelect?: (stage: CadStage) => void;
+  filteredLeads?: CadLead[];
+  filterLabel?: string | null;
+} = {}) {
   const q = useQuery({ queryKey: ["cad-metrics"], queryFn: fetchMetrics, refetchInterval: 30_000 });
   const leadsQ = useQuery({ queryKey: ["cad-leads"], queryFn: listLeads, refetchInterval: 30_000 });
   const m = q.data;
+  const effectiveLeads = filteredLeads ?? leadsQ.data ?? [];
   const cardCounts = useMemo(() => {
     const counts: Partial<Record<CadStage, number>> = {};
-    for (const lead of leadsQ.data ?? []) {
+    for (const lead of effectiveLeads) {
       counts[lead.stage] = (counts[lead.stage] ?? 0) + 1;
     }
     return counts;
-  }, [leadsQ.data]);
-  const totalCards = leadsQ.data?.length ?? 0;
+  }, [effectiveLeads]);
+  const totalCards = effectiveLeads.length;
   // Cadência exibe apenas leads que já receberam disparo (last_contact_at != null).
   // Para manter o dashboard coerente com o pipeline, derivamos os contadores dos cards.
   const by: Partial<Record<CadStage, number>> = cardCounts;
   const isAudited = !!leadsQ.data;
+  const isFiltered = !!filterLabel;
   const stageHandler = (s: CadStage) => onStageSelect && (by[s] ?? 0) > 0 ? () => onStageSelect(s) : undefined;
 
   return (
     <div className="space-y-4">
+      {isFiltered && (
+        <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-2 text-xs">
+          <span className="text-foreground">
+            Filtro ativo: <strong>{filterLabel}</strong> · {totalCards} lead(s). Os KPIs abaixo refletem apenas este recorte.
+          </span>
+        </div>
+      )}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
         <KPI label="Total em Cadência" value={totalCards} />
         {FOLLOWUPS.map((s) => (
