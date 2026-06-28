@@ -13,7 +13,7 @@
 export const FEATURES = {
   dashboardManagerial: false,
   multiUser: false,
-  businessIntelligence: false,
+  businessIntelligence: true,
 } as const;
 
 /** Alias retro-compat — mantenha sincronizado com FEATURES.multiUser. */
