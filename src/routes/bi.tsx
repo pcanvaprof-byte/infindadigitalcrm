@@ -19,6 +19,7 @@ import { KpiGoalCard } from "@/components/bi/KpiGoalCard";
 import { ForecastCard } from "@/components/bi/ForecastCard";
 import { FunilExecutivo } from "@/components/bi/FunilExecutivo";
 import { FinanceiroPanel } from "@/components/bi/FinanceiroPanel";
+import { MarketingPanel } from "@/components/bi/MarketingPanel";
 
 // Metas comerciais default (em breve: configurável via /metas)
 const META_COMERCIAL = {
@@ -332,6 +333,19 @@ function BIPage() {
                 pipelineAberto={data.forecast?.pipeline_aberto ?? 0}
                 previsao30d={data.forecast?.previsao_30d ?? 0}
                 previsao90d={data.forecast?.previsao_90d ?? 0}
+              />
+            )}
+
+            {a.id === "marketing" && data?.kpis && (
+              <MarketingPanel
+                custoMarketing={data.kpis.custo_marketing ?? 0}
+                receitaRealizada={data.kpis.receita_realizada ?? 0}
+                cac={data.kpis.cac ?? 0}
+                ltv={data.kpis.ltv ?? 0}
+                roi={data.kpis.roi ?? 0}
+                paybackMeses={data.kpis.payback_meses ?? 0}
+                clientesAtivos={data.kpis.clientes_ativos ?? 0}
+                ticketMedio={data.kpis.ticket_medio ?? 0}
               />
             )}
 
