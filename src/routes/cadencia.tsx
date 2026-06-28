@@ -102,9 +102,9 @@ function CadenciaPage() {
     }
   }, [urlSearch.lead, leadsQ.data, navigate]);
 
-  const leads = useMemo(() => {
+  // Aplica filtros globais (UF + busca) — usado tanto no dashboard quanto no pipeline.
+  const leadsScoped = useMemo(() => {
     let all = leadsQ.data ?? [];
-    if (stageFilter) all = all.filter((l) => l.stage === stageFilter);
     if (ufFilter !== "all") {
       all = all.filter((l) => {
         const uf = ufOf(l);
@@ -118,7 +118,12 @@ function CadenciaPage() {
       );
     }
     return all;
-  }, [leadsQ.data, search, stageFilter, ufFilter, prospectUfQ.data]);
+  }, [leadsQ.data, search, ufFilter, prospectUfQ.data]);
+  // Pipeline também aplica o filtro de estágio.
+  const leads = useMemo(
+    () => (stageFilter ? leadsScoped.filter((l) => l.stage === stageFilter) : leadsScoped),
+    [leadsScoped, stageFilter],
+  );
 
   // Contagem de leads por UF presente na base (para mostrar no dropdown).
   const ufsDisponiveis = useMemo(() => {
@@ -245,6 +250,21 @@ function CadenciaPage() {
                 setStageFilter(s);
                 setTab("pipeline");
               }}
+              filteredLeads={ufFilter !== "all" || search.trim() ? leadsScoped : undefined}
+              filterLabel={
+                ufFilter === "all" && !search.trim()
+                  ? null
+                  : [
+                      ufFilter === "__none__"
+                        ? "Sem UF"
+                        : ufFilter !== "all"
+                          ? `Estado ${ufFilter}`
+                          : null,
+                      search.trim() ? `Busca "${search.trim()}"` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")
+              }
             />
           </TabsContent>
           <TabsContent value="pipeline" className="mt-4">
