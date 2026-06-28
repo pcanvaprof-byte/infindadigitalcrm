@@ -355,7 +355,7 @@ function ProspeccaoPage() {
     staleTime: 5_000,
   });
   const prospects = useMemo(
-    () => (Array.isArray(prospectsQ.data) ? prospectsQ.data : []).map(safeProspect),
+    () => (Array.isArray(prospectsQ.data) ? prospectsQ.data : []) as Prospect[],
     [prospectsQ.data],
   );
   const loading = prospectsQ.isLoading;
@@ -365,7 +365,7 @@ function ProspeccaoPage() {
 
   // Helper para optimistic updates no cache do Query.
   const setCache = (update: (prev: Prospect[]) => Prospect[]) =>
-    qc.setQueryData<Prospect[]>(crmKeys.prospects, (old) => update(Array.isArray(old) ? old.map(safeProspect) : []));
+    qc.setQueryData<Prospect[]>(crmKeys.prospects, (old) => update(Array.isArray(old) ? (old as Prospect[]) : []));
 
   useEffect(() => {
     if (typeof window === "undefined") return;
