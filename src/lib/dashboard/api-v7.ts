@@ -1,5 +1,11 @@
 import { supabase as sb } from "@/integrations/supabase/client";
 
+// As novas RPCs (v7) ainda nao estao no schema gerado em src/integrations/supabase/types.ts.
+// Usamos um proxy `any` so para essas chamadas, mantendo todo o resto com tipagem real.
+const rpc = (sb as unknown as {
+  rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
+}).rpc.bind(sb);
+
 export type Preset = "hoje" | "ontem" | "semana" | "mes" | "trimestre" | "ano";
 
 export interface DashboardFilters {
@@ -67,8 +73,8 @@ export async function fetchDashboardV7(filters: DashboardFilters): Promise<Dashb
   if (filters.from)       payload.from = filters.from;
   if (filters.to)         payload.to = filters.to;
   if (filters.owner_name) payload.owner_name = filters.owner_name;
-  const { data, error } = await sb.rpc("dashboard_metrics_v7", { filters: payload });
-  if (error) throw error;
+  const { data, error } = await rpc("dashboard_metrics_v7", { filters: payload });
+  if (error) throw error as Error;
   return data as unknown as DashboardV7;
 }
 
@@ -77,8 +83,8 @@ export interface FilterOptions {
 }
 
 export async function fetchFilterOptions(): Promise<FilterOptions> {
-  const { data, error } = await sb.rpc("dashboard_filters_options");
-  if (error) throw error;
+  const { data, error } = await rpc("dashboard_filters_options");
+  if (error) throw error as Error;
   return (data ?? { vendedores: [] }) as FilterOptions;
 }
 
@@ -87,7 +93,7 @@ export async function upsertOrgGoal(input: {
   meta_receita: number; meta_clientes: number;
   meta_contatos: number; custo_marketing: number;
 }): Promise<void> {
-  const { error } = await sb.rpc("upsert_org_goal", {
+  const { error } = await rpc("upsert_org_goal", {
     p_year: input.year,
     p_month: input.month,
     p_meta_receita: input.meta_receita,
@@ -95,7 +101,7 @@ export async function upsertOrgGoal(input: {
     p_meta_contatos: input.meta_contatos,
     p_custo_marketing: input.custo_marketing,
   });
-  if (error) throw error;
+  if (error) throw error as Error;
 }
 
 export const dashboardKeys = {
