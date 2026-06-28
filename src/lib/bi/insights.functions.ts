@@ -15,13 +15,21 @@ export const gerarInsightBI = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => Input.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    const sb = supabase as unknown as {
+      rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: { message: string } | null }>;
+      from: (t: string) => {
+        insert: (row: Record<string, unknown>) => {
+          select: (cols: string) => { single: () => Promise<{ data: unknown; error: { message: string } | null }> };
+        };
+      };
+    };
 
     // 1) carrega payload do dashboard (respeita RLS do usuário)
-    const { data: payload, error } = await supabase.rpc("bi_dashboard", { p_area: data.area });
+    const { data: payload, error } = await sb.rpc("bi_dashboard", { p_area: data.area });
     if (error) throw new Error(`bi_dashboard: ${error.message}`);
 
     // 2) descobre org ativa
-    const { data: orgId } = await supabase.rpc("current_org_id");
+    const { data: orgId } = await sb.rpc("current_org_id");
     if (!orgId) throw new Error("Organização ativa não definida");
 
     // 3) chama IA (Groq) — fallback determinístico se a chave não estiver presente
@@ -73,7 +81,7 @@ ${JSON.stringify(payload, null, 2)}`;
     }
 
     // 4) persiste
-    const { data: inserted, error: insErr } = await supabase
+    const { data: inserted, error: insErr } = await sb
       .from("ai_insights")
       .insert({
         organization_id: orgId as string,
