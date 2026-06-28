@@ -250,7 +250,7 @@ function CadenciaPage() {
                 setStageFilter(s);
                 setTab("pipeline");
               }}
-              filteredLeads={ufFilter !== "all" || search.trim() ? leads : undefined}
+              filteredLeads={ufFilter !== "all" || search.trim() ? leadsScoped : undefined}
               filterLabel={
                 ufFilter === "all" && !search.trim()
                   ? null
