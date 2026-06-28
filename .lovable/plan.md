@@ -1,123 +1,87 @@
-## Visão geral
+# Onda 6 — Maturidade e Adoção
 
-Vou evoluir o módulo `/bi` para ser o **Cockpit Executivo Premium** da INFINDA, consumindo apenas dados já existentes (CRM, Prospecção, Cadência, Operações, Propostas, Contratos). Sem novos módulos no menu, sem cadastros próprios.
+Antes de construir novas telas, consolidar o Cockpit transformando-o em produto multi-tenant configurável, com histórico, alertas, relatórios e insights inteligentes. Cinco fases sequenciais, cada uma utilizável sozinha.
 
-A implementação será dividida em 5 ondas, uma por aba, para garantir que cada entrega esteja estável antes da próxima.
+## Fase 1 — Metas Configuráveis por Organização
 
----
+Substituir os defaults hardcoded (`META_MENSAL`, `META_COMERCIAL`) por valores persistidos e editáveis.
 
-## Onda 1 — Diretoria (Cockpit principal)
+**Banco** (nova tabela única `bi_goals`):
+- `organization_id` (FK), `period_type` ('monthly' | 'quarterly' | 'yearly'), `period_start` (date), `metric` (enum), `target_value` (numeric)
+- Métricas: `receita`, `leads`, `reunioes`, `propostas`, `contratos`, `ticket_medio`, `roas`, `clientes_ativos`, `conversao_pct`
+- Índice único: (organization_id, period_type, period_start, metric)
+- RLS por `organization_id`; GRANTs para `authenticated` + `service_role`
+- Seed do mês corrente com os defaults atuais (700/100/50/20/15%/R$100k)
 
-Já existe `MetaHero` (meta mensal, projeção, gap, probabilidade). Vou completar:
+**UI** — nova rota `/configuracoes/metas`:
+- Tabela editável (mês ⇆ trimestre ⇆ ano) com salvamento inline por célula
+- Indicador "real vs meta" ao lado de cada linha
+- Item no menu lateral em "Configurações"
 
-1. **Card "Para bater a meta"** — cálculo automático com base no ticket médio e taxas de conversão históricas:
-   - Quanto falta em R$
-   - Quantos contratos faltam
-   - Quantos leads faltam (gap ÷ taxa_conversão)
-   - Quantas reuniões faltam
-2. **Card "Evolução do mês"** — ideal acumulado vs realizado, status (NO RITMO / ATENÇÃO / CRÍTICO), ritmo necessário para os dias restantes (R$/dia).
-3. **Bloco "Comparativo mês anterior"** — receita, contratos, ticket médio, leads (com Δ% verde/vermelho).
-4. **Cards executivos** — reorganizar os KPIs existentes em grid premium: Receita Acumulada, Receita Prevista, Clientes Ativos, Contratos Fechados, Ticket Médio, ROAS, Churn, Crescimento Mensal, MRR.
+**Integração BI**:
+- Hook `useMetas(period)` retornando metas resolvidas (fallback para defaults)
+- Substituir constantes em `bi.tsx`, `MetaHero`, `ParaBaterMeta`, `EvolucaoMes`, `KpiGoalCard` e `MarketingPanel`
 
-Backend: nova RPC `bi_diretoria_executive()` que agrega esses números a partir de `contratos`, `propostas`, `cad_leads`, `op_clientes` e snapshot do mês anterior.
+## Fase 2 — Snapshots Diários (`bi_daily_snapshots`)
 
----
+**Banco**:
+- Colunas: `organization_id`, `snapshot_date`, `receita`, `leads`, `contratos`, `propostas`, `reunioes`, `conversao_pct`, `clientes_ativos`, `roas`, `mrr`, `churn_score`, `infinda_score`
+- PK: (organization_id, snapshot_date)
+- Função `bi_capture_daily_snapshot(org_id)` que lê os mesmos cálculos do RPC v6 e faz UPSERT
+- Cron pg_cron diário 03:00 UTC executando para todas as orgs ativas
+- Backfill manual via server fn para popular histórico a partir de hoje
 
-## Onda 2 — Comercial (Forecast + Funil Executivo)
+**UI** (não bloqueia release):
+- Sparklines do dashboard passam a consumir histórico real
+- BI ganha seletor "Comparar com período anterior" (vs ontem / 7d / 30d)
 
-1. **KPIs com progresso vs meta** (Leads, Reuniões, Propostas, Contratos, Conversão) — barras animadas estilo ClickUp Goals.
-2. **Forecast Comercial** — projeção de contratos no fim do mês, gap, probabilidade.
-3. **Funil Executivo** — visualização vertical com taxa de conversão entre cada etapa (Leads → Contatos → Reuniões → Propostas → Contratos), destacando o estágio com maior queda.
+## Fase 3 — Centro de Alertas (sino executivo)
 
-Backend: estender `bi_dashboard('comercial')` com `metas_comercial`, `forecast_contratos` e `funil_executivo`.
+**Banco** (`bi_alerts`):
+- `organization_id`, `kind` (revenue_below / conversion_drop / churn_up / campaign_silent / contract_expiring), `severity`, `title`, `message`, `payload_json`, `created_at`, `read_at`, `dismissed_at`
+- RPC `bi_evaluate_alerts(org_id)` rodando junto do snapshot diário; compara últimos snapshots contra metas e contra média móvel
+- Regras iniciais:
+  - Receita > 15% abaixo do ritmo ideal acumulado
+  - Conversão caiu >5 pp vs últimos 30d
+  - Churn alto > 10% da base
+  - Campanha ativa sem touchpoint nos últimos 3 dias
+  - Contrato vencendo em ≤7 dias
 
----
+**UI**:
+- Ícone de sino no header (`AppShell`) com badge de contagem
+- Drawer lateral listando alertas com ações "Marcar como lido" / "Dispensar"
 
-## Onda 3 — Financeiro
+## Fase 4 — Relatório Executivo PDF
 
-1. KPIs: Receita realizada, prevista, recorrente (MRR), ticket médio, margem, inadimplência, crescimento mensal.
-2. **Forecast financeiro**: receita prevista, recorrente, margem, projeção trimestral.
-3. **Fluxo de caixa previsto** — próximas 12 semanas com base em contratos ativos e propostas em fechamento.
+Botão "Gerar relatório executivo" no BI.
 
-Backend: nova RPC `bi_financeiro_forecast()`.
+**Implementação**:
+- Server fn `generateExecutiveReportPdf({ month })` autenticada
+- Renderiza com `@react-pdf/renderer` (compatível com Worker) ou template HTML → Puppeteer-less (usa `pdfkit` puro)
+- Conteúdo: capa, KPIs vs metas, projeções, funil + gargalo, riscos (alertas), próximas ações, INFINDA SCORE
+- Estilo Cockpit Dark; logo INFINDA; cabeçalho com período e organização
+- Retorna URL assinada (Supabase Storage bucket `reports/`)
 
----
+## Fase 5 — Insights Inteligentes (LLM)
 
-## Onda 4 — Marketing
+Atualizar `AIInsightsPanel` para gerar diagnósticos prescritivos.
 
-1. KPIs: Investimento, Leads, CPL, CPA, ROAS, ROI, CAC, LTV.
-2. **Card Performance** — Investido vs Retorno, ROAS, CAC, com comparativo mês anterior.
-3. Reaproveitar `best_hours`, `best_channels`, `top_campaigns` já existentes.
+**Implementação**:
+- Server fn `generateExecutiveInsights({ area })` chamando Lovable AI Gateway (`google/gemini-2.5-flash`)
+- Prompt estruturado com: KPIs atuais, metas, snapshots (Δ vs 30d), funil com taxas, alertas ativos
+- Saída JSON: `[{ severity, title, body, recommendation }]`
+- Cache de 1h por (org, area) em `bi_insights_cache` para evitar custo
 
-Backend: agregar custo de marketing (Operações) com receita gerada (Contratos).
+## Ordem de entrega e validação
 
----
+1. **Fase 1** sozinha já remove os defaults e libera SaaS multi-cliente.
+2. **Fase 2** só passa a fazer sentido após Fase 1 (snapshots gravam meta vs realizado).
+3. **Fase 3** depende dos snapshots (média móvel).
+4. **Fase 4** depende de 1+2 (PDF usa metas + histórico).
+5. **Fase 5** depende de tudo acima (insights cruzam metas, histórico e alertas).
 
-## Onda 5 — Operações
+Cada fase é entregue isolada, com migration + UI + integração, testada antes de avançar.
 
-1. **INFINDA SCORE** — indicador proprietário (0-100) calculado por:
-   - Onboarding completo (peso 20)
-   - Implantação no prazo (peso 20)
-   - Campanhas ativas com performance (peso 25)
-   - Reuniões de relacionamento em dia (peso 15)
-   - Renovações no prazo (peso 20)
-   - Faixas: 90+ Excelente, 70+ Saudável, 50+ Atenção, <50 Crítico.
-2. **Saúde Operacional** — barras de progresso por área.
-3. KPIs: Onboarding, Implantação, Campanhas, Relacionamento, Renovação, Entregas, Pendências.
+## Decisão necessária
 
-Backend: nova RPC `bi_operacoes_health()` agregando dados de `op_*`.
-
----
-
-## Bloco transversal — Insights Executivos (IA)
-
-Substituir o título "Insights IA" por **"Insights Executivos"** (já feito na Onda 0). Refinar prompt para gerar alertas categorizados:
-- Alertas de meta (⚠ ritmo, ⚠ gap)
-- Alertas de conversão (⚠ taxa caiu / ✅ subiu)
-- Alertas financeiros
-- Alertas operacionais (Health Score baixo)
-- Recomendações práticas com call-to-action ("Faltam 2 contratos até dia 20").
-
----
-
-## Design system (ClickUp / HubSpot / Salesforce)
-
-- Progress bars animadas com gradiente
-- Cards premium glass com borda sutil
-- Semáforo verde/amarelo/vermelho via tokens `--success`, `--warning`, `--destructive`
-- Comparativos com setas Δ%
-- Sparklines em KPIs principais
-- Tudo via tokens existentes — sem cores hardcoded
-
----
-
-## Detalhes técnicos
-
-**Arquivos novos**:
-- `src/components/bi/ParaBaterMeta.tsx`
-- `src/components/bi/EvolucaoMes.tsx`
-- `src/components/bi/ComparativoMesAnterior.tsx`
-- `src/components/bi/KpiGoalCard.tsx` (KPI com barra de progresso vs meta)
-- `src/components/bi/FunilExecutivo.tsx`
-- `src/components/bi/ForecastCard.tsx`
-- `src/components/bi/InfindaScore.tsx`
-- `src/components/bi/SaudeOperacional.tsx`
-
-**Migrations**:
-- `supabase/migrations/20260801_bi_executive_rpcs.sql` — RPCs `bi_diretoria_executive`, `bi_comercial_forecast`, `bi_financeiro_forecast`, `bi_operacoes_health`.
-
-**API**:
-- Estender `src/lib/bi/api.ts` com tipos e fetchers das novas RPCs.
-
-**Restrições**:
-- Nenhuma tabela nova de cadastro. Apenas RPCs de leitura/agregação.
-- Tudo respeitando RLS por `organization_id`.
-- Sem mudança no menu lateral.
-
----
-
-## Ordem de entrega proposta
-
-Sugiro liberar **Onda 1 (Diretoria)** primeiro para você validar visual e cálculos, e na sequência avançar Comercial → Financeiro → Marketing → Operações. Cada onda é commitada de forma independente; se algo precisar de ajuste, isolamos sem afetar as outras abas.
-
-Posso começar pela Onda 1 agora?
+Posso iniciar pela **Fase 1 (Metas Configuráveis)** agora — é a única que destrava as demais. Confirmar?
