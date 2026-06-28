@@ -1,5 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { dashboardKeys, fetchFilterOptions, type DashboardFilters, type Preset } from "@/lib/dashboard/api-v7";
+import { dashboardKeys, fetchFilterOptions, type Preset } from "@/lib/dashboard/api-v7";
+import { dashboardV8Keys, listTeams } from "@/lib/dashboard/api-v8";
+import type { DashboardFiltersV8 } from "@/lib/dashboard/api-v8";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -18,18 +20,25 @@ const PRESETS: { value: Preset; label: string }[] = [
 export function FiltersBar({
   filters, onChange,
 }: {
-  filters: DashboardFilters;
-  onChange: (next: DashboardFilters) => void;
+  filters: DashboardFiltersV8;
+  onChange: (next: DashboardFiltersV8) => void;
 }) {
   const optsQ = useQuery({
     queryKey: dashboardKeys.options,
     queryFn: fetchFilterOptions,
     staleTime: 5 * 60_000,
   });
+  const teamsQ = useQuery({
+    queryKey: dashboardV8Keys.teams,
+    queryFn: listTeams,
+    staleTime: 5 * 60_000,
+  });
   const vendedores = optsQ.data?.vendedores ?? [];
+  const teams = teamsQ.data ?? [];
   const preset = filters.preset ?? "mes";
   const owner  = filters.owner_name ?? "__all__";
-  const hasFilters = Boolean(filters.owner_name) || preset !== "mes";
+  const team   = filters.team_id    ?? "__all__";
+  const hasFilters = Boolean(filters.owner_name) || Boolean(filters.team_id) || preset !== "mes";
 
   return (
     <div className="surface-card mb-4 flex flex-wrap items-center gap-2 p-3">
@@ -60,8 +69,24 @@ export function FiltersBar({
         </Select>
       </div>
 
+      <div>
+        <Select
+          value={team}
+          onValueChange={(v) => onChange({ ...filters, team_id: v === "__all__" ? null : v })}
+        >
+          <SelectTrigger className="h-8 w-[180px] text-xs"><SelectValue placeholder="Equipe" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">Todas equipes</SelectItem>
+            {teams.map((t) => (
+              <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
       {hasFilters && (
-        <Button variant="ghost" size="sm" className="ml-auto h-8 text-xs" onClick={() => onChange({ preset: "mes", owner_name: null })}>
+        <Button variant="ghost" size="sm" className="ml-auto h-8 text-xs"
+          onClick={() => onChange({ preset: "mes", owner_name: null, team_id: null })}>
           <X className="mr-1 h-3 w-3" /> Limpar
         </Button>
       )}
