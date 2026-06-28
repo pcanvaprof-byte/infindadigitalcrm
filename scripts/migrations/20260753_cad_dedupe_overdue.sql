@@ -19,7 +19,7 @@ begin
   for r in
     with atrasados as (
       select id, organization_id, public.cad_norm_phone(whatsapp) as ph,
-             stage, last_message_at, created_at
+             stage, next_action_at, created_at
       from public.cad_leads
       where next_action_at < now()
         and coalesce(stage::text,'') not in ('perdido','fechado','cliente')
@@ -34,7 +34,7 @@ begin
     from public.cad_leads
     where id = any(r.ids)
     order by public.cad_stage_rank(stage) desc nulls last,
-             coalesce(last_message_at, created_at) desc nulls last
+             coalesce(next_action_at, created_at) desc nulls last
     limit 1;
 
     v_losers := array(select unnest(r.ids) except select v_winner);
