@@ -232,6 +232,7 @@ function normalizeDashboardMetrics(value: unknown): DashboardMetrics {
       base: n(operacao.base),
       contatados: n(operacao.contatadas),
       respondidos: n(asObject(data.filtros).responderam),
+      novos: 0,
       interessados: n(operacao.interessadas),
       em_negociacao: 0,
       ativos: n(operacao.clientes),
