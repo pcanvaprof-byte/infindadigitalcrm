@@ -26,9 +26,12 @@ import {
   ComparacaoChart, MetasChart,
 } from "@/components/dashboard/Charts";
 import {
-  dashboardKeys, fetchDashboardV7,
-  type DashboardFilters, type DashboardV7,
-} from "@/lib/dashboard/api-v7";
+  dashboardV8Keys, fetchDashboardV8,
+  type DashboardFiltersV8, type DashboardV8,
+} from "@/lib/dashboard/api-v8";
+import { AlertsPanel } from "@/components/dashboard/AlertsPanel";
+import { TeamRankingChart } from "@/components/dashboard/TeamRankingChart";
+import { Badge } from "@/components/ui/badge";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -104,11 +107,11 @@ function fmtBRL(v: number): string {
 function DashboardPage() {
   const user = useRequiredUser();
   const navigate = useNavigate();
-  const [filters, setFilters] = useState<DashboardFilters>({ preset: "mes", owner_name: null });
+  const [filters, setFilters] = useState<DashboardFiltersV8>({ preset: "mes", owner_name: null, team_id: null });
 
   const q = useQuery({
-    queryKey: dashboardKeys.v7(filters),
-    queryFn: () => fetchDashboardV7(filters),
+    queryKey: dashboardV8Keys.v8(filters),
+    queryFn: () => fetchDashboardV8(filters),
     staleTime: 30_000,
   });
 
@@ -117,18 +120,24 @@ function DashboardPage() {
     ? "Visão gerencial consolidada"
     : "Seu desempenho e cadência";
 
-  const m = q.data as DashboardV7 | undefined;
+  const m = q.data as DashboardV8 | undefined;
   const errMsg = errorMessage(q.error);
   const noActiveOrg =
     errMsg.includes("no_active_org") || errMsg.includes("org_access_denied");
   const migrationPending =
     !noActiveOrg && (
+    errMsg.includes("dashboard_metrics_v8") ||
     errMsg.includes("dashboard_metrics_v7") ||
     errMsg.includes("dashboard_filters_options") ||
     errMsg.includes("organization_id") ||
     errMsg.includes("PGRST202") ||
     errMsg.includes("404")
     );
+  const role = m?.scope?.role ?? "vendedor";
+  const roleLabel: Record<string, string> = {
+    admin: "Administrador", diretor: "Diretor", gestor: "Gestor",
+    supervisor: "Supervisor", vendedor: "Vendedor", consultor: "Vendedor", none: "—",
+  };
 
   return (
     <AppShell
@@ -136,6 +145,9 @@ function DashboardPage() {
       subtitle={subtitle}
       actions={
         <>
+          <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
+            {roleLabel[role] ?? role}
+          </Badge>
           {m && <MetasDialog metas={m.metas} />}
           <Button
           className="btn-gradient hidden h-9 px-3 text-xs font-semibold sm:inline-flex"
@@ -153,11 +165,16 @@ function DashboardPage() {
       )}
       {migrationPending && (
         <div className="surface-card mb-4 border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-200">
-          <strong>Migration pendente:</strong> aplique <code>scripts/migrations/20260744_dashboard_v7_managerial.sql</code> no SQL Editor para ativar o Dashboard Gerencial v7.
+          <strong>Migrations pendentes:</strong> aplique <code>scripts/migrations/20260744_dashboard_v7_managerial.sql</code> e <code>20260745_dashboard_v8_multiuser.sql</code> no SQL Editor.
         </div>
       )}
 
       <FiltersBar filters={filters} onChange={setFilters} />
+
+      {/* Alertas automáticos */}
+      <div className="mb-4">
+        <AlertsPanel />
+      </div>
 
       {/* KPIs gerenciais — fonte: dashboard_metrics_v7 */}
       <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">KPIs gerenciais</h3>
@@ -245,6 +262,7 @@ function DashboardPage() {
             <EvolucaoMensalChart data={m.series.evolucao_mensal} />
             <FunilChart data={m.series.funil} />
             <RankingChart data={m.series.ranking} />
+            <TeamRankingChart filters={filters} />
             <ComparacaoChart comp={m.comparacao} />
             <MetasChart metas={m.metas} />
           </section>
