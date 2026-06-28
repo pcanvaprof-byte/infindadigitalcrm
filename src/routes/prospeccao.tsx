@@ -438,6 +438,18 @@ function ProspeccaoPage() {
     return list;
   }, [prospects]);
 
+  // Responsáveis derivados dinamicamente de prospects.owner_name + nome do
+   // usuário logado (fallback). Antes era hardcoded ["Valdinei","Danielly"].
+  const availableOwners = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of prospects) {
+      const o = (p.owner || "").trim();
+      if (o) set.add(o);
+    }
+    if (user?.name) set.add(user.name);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [prospects, user?.name]);
+
   const stats = useMemo(() => {
     const t = prospects.length;
     const contatadas = prospects.filter((p) => p.status !== "nao_contatado").length;
@@ -1061,9 +1073,13 @@ function ProspeccaoPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                {["Valdinei", "Danielly"].map((n) => (
-                  <DropdownMenuItem key={n} onClick={() => bulkAssign(n)} className="text-xs">{n}</DropdownMenuItem>
-                ))}
+                {availableOwners.length === 0 ? (
+                  <DropdownMenuItem disabled className="text-xs">Nenhum responsável cadastrado</DropdownMenuItem>
+                ) : (
+                  availableOwners.map((n) => (
+                    <DropdownMenuItem key={n} onClick={() => bulkAssign(n)} className="text-xs">{n}</DropdownMenuItem>
+                  ))
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
             <Button variant="outline" size="sm" className="h-8 text-xs"
