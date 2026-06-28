@@ -205,7 +205,7 @@ drop index if exists public.ux_cad_leads_org_whatsapp_norm;
 drop index if exists public.ux_cad_leads_org_telefone_norm;
 create unique index ux_cad_leads_org_whatsapp_norm
   on public.cad_leads(organization_id, public.cad_norm_phone(whatsapp))
-  where public.cad_norm_phone(whatsapp) is not null and lower(coalesce(stage,'')) <> 'perdido';
+  where public.cad_norm_phone(whatsapp) is not null and stage is distinct from 'perdido'::public.cad_stage;
 create unique index ux_cad_leads_org_telefone_norm
   on public.cad_leads(organization_id, public.cad_norm_phone(telefone))
-  where public.cad_norm_phone(telefone) is not null and lower(coalesce(stage,'')) <> 'perdido';
+  where public.cad_norm_phone(telefone) is not null and stage is distinct from 'perdido'::public.cad_stage;
