@@ -245,6 +245,21 @@ function CadenciaPage() {
                 setStageFilter(s);
                 setTab("pipeline");
               }}
+              filteredLeads={ufFilter !== "all" || search.trim() ? leads : undefined}
+              filterLabel={
+                ufFilter === "all" && !search.trim()
+                  ? null
+                  : [
+                      ufFilter === "__none__"
+                        ? "Sem UF"
+                        : ufFilter !== "all"
+                          ? `Estado ${ufFilter}`
+                          : null,
+                      search.trim() ? `Busca "${search.trim()}"` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")
+              }
             />
           </TabsContent>
           <TabsContent value="pipeline" className="mt-4">
