@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FEATURES } from "@/config/features";
@@ -6,7 +7,7 @@ import { AppShell } from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, TrendingUp, AlertTriangle, Target, DollarSign, Activity, Sparkles, Users, CalendarClock, FileText, FileSignature, Percent } from "lucide-react";
+import { Loader2, TrendingUp, AlertTriangle, Target, DollarSign, Activity, Sparkles, Users, CalendarClock, FileText, FileSignature, Percent, Settings2 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   LineChart, Line,
@@ -248,6 +249,13 @@ function BIPage() {
       actions={
         <div className="flex items-center gap-2">
           <Badge variant="secondary">{loading ? "Atualizando..." : "Pronto"}</Badge>
+          <Link
+            to="/metas-objetivos"
+            className="inline-flex items-center gap-1 rounded-md border border-border bg-card/60 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:border-primary/50"
+            title="Configurar metas e objetivos"
+          >
+            <Settings2 className="h-3.5 w-3.5" /> Metas
+          </Link>
           <ExportMenu filename={`bi-${area}`} sections={exportSections} />
         </div>
       }
