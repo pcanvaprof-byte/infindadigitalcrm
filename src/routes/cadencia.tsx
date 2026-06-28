@@ -19,7 +19,7 @@ import { TemplatesPanel } from "@/components/cadencia/TemplatesPanel";
 import { listLeads, createLead, importFromProspects, syncLeadStagesFromProspects } from "@/lib/cadencia/api";
 import type { CadLead, CadStage } from "@/lib/cadencia/types";
 import { CAD_STAGE_LABEL } from "@/lib/cadencia/types";
-import { leadUf, UF_LIST } from "@/lib/cadencia/uf";
+import { leadUf } from "@/lib/cadencia/uf";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X } from "lucide-react";
 
@@ -83,19 +83,18 @@ function CadenciaPage() {
     return all;
   }, [leadsQ.data, search, stageFilter, ufFilter]);
 
-  // UFs presentes nos leads carregados (para o dropdown só mostrar opções úteis).
+  // Contagem de leads por UF presente na base (para mostrar no dropdown).
   const ufsDisponiveis = useMemo(() => {
-    const set = new Set<string>();
-    let temSemUf = false;
+    const counts = new Map<string, number>();
+    let semUf = 0;
     for (const l of leadsQ.data ?? []) {
       const uf = leadUf(l);
-      if (uf) set.add(uf);
-      else temSemUf = true;
+      if (uf) counts.set(uf, (counts.get(uf) ?? 0) + 1);
+      else semUf += 1;
     }
-    return {
-      ufs: Array.from(set).sort(),
-      temSemUf,
-    };
+    const ufs = Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    return { ufs, semUf, total: (leadsQ.data ?? []).length };
   }, [leadsQ.data]);
 
   const invalidateAll = () => {
@@ -162,16 +161,16 @@ function CadenciaPage() {
               className="w-full sm:w-64"
             />
             <Select value={ufFilter} onValueChange={setUfFilter}>
-              <SelectTrigger className="w-full sm:w-32" aria-label="Filtrar por estado">
+              <SelectTrigger className="w-full sm:w-44" aria-label="Filtrar por estado">
                 <SelectValue placeholder="Estado" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos os estados</SelectItem>
-                {(ufsDisponiveis.ufs.length > 0 ? ufsDisponiveis.ufs : UF_LIST).map((uf) => (
-                  <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                <SelectItem value="all">Todos os estados ({ufsDisponiveis.total})</SelectItem>
+                {ufsDisponiveis.ufs.map(([uf, n]) => (
+                  <SelectItem key={uf} value={uf}>{uf} ({n})</SelectItem>
                 ))}
-                {ufsDisponiveis.temSemUf && (
-                  <SelectItem value="__none__">Sem UF</SelectItem>
+                {ufsDisponiveis.semUf > 0 && (
+                  <SelectItem value="__none__">Sem UF ({ufsDisponiveis.semUf})</SelectItem>
                 )}
               </SelectContent>
             </Select>
