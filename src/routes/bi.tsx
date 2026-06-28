@@ -291,7 +291,6 @@ function BIPage() {
 
             {a.id === "diretoria" && data?.kpis && (
               <>
-                {(() => null)()}
                 <MetaHero
                   realizado={data.kpis.receita_realizada ?? 0}
                   ticket={data.kpis.ticket_medio ?? 0}
