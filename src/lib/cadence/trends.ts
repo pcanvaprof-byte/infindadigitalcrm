@@ -12,6 +12,8 @@ export type KpiTrends = {
   prevWeek: { contatos: number; respostas: number; ativos: number };
   /** Totais da semana atual (D-7 .. agora) para delta WoW. */
   thisWeek: { contatos: number; respostas: number; ativos: number };
+  /** Total de leads ativos no funil de prospecção (exclui clientes e perdidos). */
+  baseLeads: number;
 };
 
 const EMPTY: KpiTrends = {
@@ -20,6 +22,7 @@ const EMPTY: KpiTrends = {
   ativos7d: [0, 0, 0, 0, 0, 0, 0],
   prevWeek: { contatos: 0, respostas: 0, ativos: 0 },
   thisWeek: { contatos: 0, respostas: 0, ativos: 0 },
+  baseLeads: 0,
 };
 
 function startOfDay(d: Date): Date {
@@ -124,12 +127,27 @@ export async function fetchKpiTrends(): Promise<KpiTrends> {
     ativos: ativosBuckets.slice(7).reduce((a, b) => a + b, 0),
   };
 
+  // Base = leads ativos no funil de prospecção.
+  // Exclui quem já foi convertido em cliente ou descartado, pois não pertence
+  // mais ao funil de aquisição.
+  let baseLeads = 0;
+  try {
+    const { count, error } = await sb
+      .from("prospects")
+      .select("id", { count: "exact", head: true })
+      .not("status", "in", "(cliente,perdido)");
+    if (!error && typeof count === "number") baseLeads = count;
+  } catch (e) {
+    console.warn("[trends] base leads count falhou:", e);
+  }
+
   return {
     contatos7d: contatosBuckets.slice(7),
     respostas7d: respostasBuckets.slice(7),
     ativos7d: ativosBuckets.slice(7),
     prevWeek,
     thisWeek,
+    baseLeads,
   };
 }
 
