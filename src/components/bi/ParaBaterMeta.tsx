@@ -12,10 +12,13 @@ interface Props {
   taxaConversao?: number | null;
   /** Taxa de conversão reunião→contrato (0–100). Default: 30% */
   taxaReuniao?: number | null;
+  /** Receita recorrente já garantida no mês (MRR). Reduz o gap antes do cálculo. */
+  recorrencia?: number;
 }
 
-export function ParaBaterMeta({ meta, realizado, ticket, taxaConversao, taxaReuniao }: Props) {
-  const gap = Math.max(0, meta - realizado);
+export function ParaBaterMeta({ meta, realizado, ticket, taxaConversao, taxaReuniao, recorrencia = 0 }: Props) {
+  // Gap REAL = meta − recorrência garantida − novos negócios já fechados.
+  const gap = Math.max(0, meta - recorrencia - realizado);
   const contratos = ticket > 0 ? Math.ceil(gap / ticket) : 0;
   const convPct = taxaConversao && taxaConversao > 0 ? taxaConversao : 5; // fallback prudente
   const reuPct = taxaReuniao && taxaReuniao > 0 ? taxaReuniao : 30;
@@ -23,10 +26,10 @@ export function ParaBaterMeta({ meta, realizado, ticket, taxaConversao, taxaReun
   const reunioes = contratos > 0 && reuPct > 0 ? Math.ceil((contratos * 100) / reuPct) : 0;
 
   const items = [
-    { icon: TrendingUp, label: "Em receita", value: fmtBRL(gap), tone: "text-rose-400" },
-    { icon: FileText, label: "Contratos", value: `${contratos}`, tone: "text-amber-400" },
-    { icon: Users, label: "Leads qualificados", value: `${leads}`, tone: "text-sky-400" },
-    { icon: CalendarClock, label: "Reuniões", value: `${reunioes}`, tone: "text-violet-400" },
+    { icon: TrendingUp, label: "Meta restante", value: fmtBRL(gap), tone: "text-rose-400" },
+    { icon: FileText, label: "Contratos novos", value: `${contratos}`, tone: "text-amber-400" },
+    { icon: Users, label: "Leads necessários", value: `${leads}`, tone: "text-sky-400" },
+    { icon: CalendarClock, label: "Reuniões necessárias", value: `${reunioes}`, tone: "text-violet-400" },
   ];
 
   return (
@@ -36,7 +39,7 @@ export function ParaBaterMeta({ meta, realizado, ticket, taxaConversao, taxaReun
           <Target className="h-3.5 w-3.5" /> Para bater a meta
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          Estimado a partir do ticket médio e taxas de conversão históricas
+          Calculado sobre a meta restante (após descontar recorrência garantida e contratos já fechados)
         </p>
         <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
           {items.map((it) => {
