@@ -107,6 +107,47 @@ export interface DashboardMetrics {
   };
 }
 
+type ProspectMetricRow = {
+  id: string;
+  status: string | null;
+  owner_name: string | null;
+  cadence_status: string | null;
+  last_contact_at: string | null;
+  next_contact_at: string | null;
+};
+
+type TouchpointMetricRow = {
+  prospect_id: string | null;
+  tipo: string | null;
+  resultado: string | null;
+  enviado_em: string | null;
+};
+
+type ClientMetricRow = {
+  id: string;
+  pipeline_stage: string | null;
+  updated_at: string | null;
+  next_action_date: string | null;
+  source_ref: string | null;
+};
+
+type CadLeadMetricRow = {
+  id: string;
+  prospect_id: string | null;
+  stage: string | null;
+  last_contact_at: string | null;
+  next_action_at: string | null;
+  last_response_at: string | null;
+};
+
+type CadMessageMetricRow = {
+  lead_id: string | null;
+  direction: string | null;
+  tipo: string | null;
+  status: string | null;
+  created_at: string | null;
+};
+
 export const EMPTY_DASHBOARD_METRICS: DashboardMetrics = {
   schema: "empty",
   contatos: { hoje: 0, semana: 0, mes: 0 },
@@ -255,6 +296,290 @@ function normalizeDashboardMetrics(value: unknown): DashboardMetrics {
   };
 }
 
+function isDashboardRpcBroken(error: unknown): boolean {
+  const maybe = error as { code?: unknown; message?: unknown; details?: unknown; hint?: unknown };
+  const text = [maybe?.code, maybe?.message, maybe?.details, maybe?.hint]
+    .filter(Boolean)
+    .map(String)
+    .join(" ");
+  return (
+    text.includes("assert_pipeline_stages_mapped") ||
+    text.includes("dashboard_metrics") ||
+    text.includes("PGRST202") ||
+    text.includes("42883") ||
+    text.includes("Could not find") ||
+    text.includes("does not exist") ||
+    text.includes("schema cache")
+  );
+}
+
+async function selectAllForMetrics<T>(table: string, columns: string): Promise<T[]> {
+  const pageSize = 1000;
+  const rows: T[] = [];
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await sb
+      .from(table)
+      .select(columns)
+      .range(from, from + pageSize - 1);
+    if (error) {
+      console.warn(`[dashboard] fallback ignorou ${table}:`, error.message);
+      return [];
+    }
+    const batch = (data ?? []) as T[];
+    rows.push(...batch);
+    if (batch.length < pageSize) break;
+  }
+  return rows;
+}
+
+function startOfDay(d = new Date()): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function startOfWeek(d = new Date()): Date {
+  const day = d.getDay();
+  const diff = day === 0 ? 6 : day - 1;
+  const out = startOfDay(d);
+  out.setDate(out.getDate() - diff);
+  return out;
+}
+
+function startOfMonth(d = new Date()): Date {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+function isAtOrAfter(value: string | null | undefined, since: Date): boolean {
+  if (!value) return false;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) && time >= since.getTime();
+}
+
+function isBefore(value: string | null | undefined, before: Date): boolean {
+  if (!value) return false;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) && time < before.getTime();
+}
+
+function pct(numerator: number, denominator: number, digits = 1): number {
+  if (!denominator) return 0;
+  const factor = 10 ** digits;
+  return Math.round((numerator / denominator) * 100 * factor) / factor;
+}
+
+function countWhere<T>(rows: T[], predicate: (row: T) => boolean): number {
+  return rows.reduce((acc, row) => acc + (predicate(row) ? 1 : 0), 0);
+}
+
+function maxBucket(...values: number[]): number {
+  return Math.max(0, ...values.map((value) => Number(value) || 0));
+}
+
+async function fetchDashboardMetricsFallback(): Promise<DashboardMetrics> {
+  const [prospects, touchpoints, clients, cadLeads, cadMessages] = await Promise.all([
+    selectAllForMetrics<ProspectMetricRow>(
+      "prospects",
+      "id,status,owner_name,cadence_status,last_contact_at,next_contact_at",
+    ),
+    selectAllForMetrics<TouchpointMetricRow>(
+      "prospect_touchpoints",
+      "prospect_id,tipo,resultado,enviado_em",
+    ),
+    selectAllForMetrics<ClientMetricRow>(
+      "clients",
+      "id,pipeline_stage,updated_at,next_action_date,source_ref",
+    ),
+    selectAllForMetrics<CadLeadMetricRow>(
+      "cad_leads",
+      "id,prospect_id,stage,last_contact_at,next_action_at,last_response_at",
+    ),
+    selectAllForMetrics<CadMessageMetricRow>(
+      "cad_messages",
+      "lead_id,direction,tipo,status,created_at",
+    ),
+  ]);
+
+  const now = new Date();
+  const day = startOfDay(now);
+  const week = startOfWeek(now);
+  const month = startOfMonth(now);
+
+  const leadToProspect = new Map(cadLeads.map((lead) => [lead.id, lead.prospect_id ?? lead.id]));
+  const cadContactIds = new Set<string>();
+  const cadResponseIds = new Set<string>();
+  let cadContatosHoje = 0;
+  let cadContatosSemana = 0;
+  let cadContatosMes = 0;
+  let cadRespostasHoje = 0;
+  let cadRespostasSemana = 0;
+  let cadRespostasMes = 0;
+
+  for (const msg of cadMessages) {
+    const entityId = msg.lead_id ? leadToProspect.get(msg.lead_id) ?? msg.lead_id : null;
+    if (!entityId) continue;
+    const direction = String(msg.direction ?? "");
+    const tipo = String(msg.tipo ?? "");
+    const status = String(msg.status ?? "");
+    const outbound = direction === "out" || ["whatsapp", "email", "ligacao"].includes(tipo);
+    const inbound = direction === "in" || status === "respondido";
+    if (outbound) {
+      cadContactIds.add(entityId);
+      if (isAtOrAfter(msg.created_at, day)) cadContatosHoje++;
+      if (isAtOrAfter(msg.created_at, week)) cadContatosSemana++;
+      if (isAtOrAfter(msg.created_at, month)) cadContatosMes++;
+    }
+    if (inbound) {
+      cadResponseIds.add(entityId);
+      if (isAtOrAfter(msg.created_at, day)) cadRespostasHoje++;
+      if (isAtOrAfter(msg.created_at, week)) cadRespostasSemana++;
+      if (isAtOrAfter(msg.created_at, month)) cadRespostasMes++;
+    }
+  }
+
+  const touchContactIds = new Set<string>();
+  const touchResponseIds = new Set<string>();
+  let touchContatosHoje = 0;
+  let touchContatosSemana = 0;
+  let touchContatosMes = 0;
+  let touchRespostasHoje = 0;
+  let touchRespostasSemana = 0;
+  let touchRespostasMes = 0;
+
+  for (const tp of touchpoints) {
+    if (!tp.prospect_id) continue;
+    const tipo = String(tp.tipo ?? "");
+    const resultado = String(tp.resultado ?? "");
+    const isContato = ["whatsapp", "ligacao", "email", "reuniao"].includes(tipo) && resultado !== "tentativa";
+    const isResposta = tipo === "resposta" || ["respondido", "interessado"].includes(resultado);
+    if (isContato) {
+      touchContactIds.add(tp.prospect_id);
+      if (isAtOrAfter(tp.enviado_em, day)) touchContatosHoje++;
+      if (isAtOrAfter(tp.enviado_em, week)) touchContatosSemana++;
+      if (isAtOrAfter(tp.enviado_em, month)) touchContatosMes++;
+    }
+    if (isResposta) {
+      touchResponseIds.add(tp.prospect_id);
+      if (isAtOrAfter(tp.enviado_em, day)) touchRespostasHoje++;
+      if (isAtOrAfter(tp.enviado_em, week)) touchRespostasSemana++;
+      if (isAtOrAfter(tp.enviado_em, month)) touchRespostasMes++;
+    }
+  }
+
+  const pipelineCounts = clients.reduce<Record<string, number>>((acc, row) => {
+    const stage = row.pipeline_stage ?? "";
+    if (stage) acc[stage] = (acc[stage] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const openStages = new Set([
+    "PROSPECCAO", "CADENCIA", "FECHADO", "REUNIAO_INICIAL", "PROPOSTA",
+    "CONTRATO", "ASSINATURA", "PAGAMENTO_CONFIRMADO", "IMPLANTACAO",
+  ]);
+  const advancedStages = new Set([
+    "REUNIAO_INICIAL", "PROPOSTA", "CONTRATO", "ASSINATURA",
+    "PAGAMENTO_CONFIRMADO", "IMPLANTACAO", "ATIVO",
+  ]);
+
+  const advancedIds = new Set<string>();
+  for (const client of clients) {
+    if (client.source_ref && advancedStages.has(String(client.pipeline_stage ?? ""))) {
+      advancedIds.add(client.source_ref);
+    }
+  }
+
+  const prospectStatus = (statuses: string[]) =>
+    countWhere(prospects, (p) => statuses.includes(String(p.status ?? "")));
+  const cadStage = (stages: string[]) =>
+    countWhere(cadLeads, (lead) => stages.includes(String(lead.stage ?? "")));
+  const clientStage = (stages: string[]) =>
+    countWhere(clients, (client) => stages.includes(String(client.pipeline_stage ?? "")));
+
+  const novos = maxBucket(
+    clientStage(["PROSPECCAO", "CADENCIA", "FECHADO"]),
+    prospectStatus(["", "novo", "nao_contatado", "primeiro_contato"]),
+    cadStage(["followup_1", "followup_2", "followup_3", "followup_4", "followup_5", "followup_6", "followup_7"]),
+  );
+  const interessados = maxBucket(
+    clientStage(["REUNIAO_INICIAL"]),
+    prospectStatus(["qualificado", "briefing_enviado", "diagnostico_pendente", "agendado"]),
+    cadStage(["interessado", "reuniao_agendada"]),
+  );
+  const emNegociacao = maxBucket(
+    clientStage(["PROPOSTA", "CONTRATO", "ASSINATURA", "PAGAMENTO_CONFIRMADO", "IMPLANTACAO"]),
+    prospectStatus(["em_negociacao", "proposta_pendente", "proposta_enviada"]),
+    cadStage(["proposta_enviada", "negociacao"]),
+  );
+  const ativos = maxBucket(
+    clientStage(["ATIVO"]),
+    prospectStatus(["fechado_ganho", "cliente", "aguardando_kickoff", "aguardando_producao", "em_producao", "entregue"]),
+    cadStage(["fechado"]),
+  );
+  const perdidos = maxBucket(
+    clientStage(["PERDIDO", "CHURNED"]),
+    prospectStatus(["perdido"]),
+    cadStage(["perdido"]),
+  );
+
+  const allContactIds = new Set([...touchContactIds, ...cadContactIds]);
+  const allResponseIds = new Set([...touchResponseIds, ...cadResponseIds, ...advancedIds]);
+  const base = maxBucket(prospects.length, cadLeads.length, clients.length);
+  const contatados = allContactIds.size;
+  const respondidos = allResponseIds.size;
+  const emNegociacaoMaisAtivos = emNegociacao + ativos;
+  const interesseMaisAvancados = interessados + emNegociacao + ativos;
+
+  return {
+    schema: "v6",
+    contatos: {
+      hoje: touchContatosHoje + cadContatosHoje,
+      semana: touchContatosSemana + cadContatosSemana,
+      mes: touchContatosMes + cadContatosMes,
+    },
+    respostas: {
+      hoje: touchRespostasHoje + cadRespostasHoje,
+      semana: touchRespostasSemana + cadRespostasSemana,
+      mes: touchRespostasMes + cadRespostasMes,
+      taxa: pct(respondidos, contatados),
+    },
+    resumo: {
+      base,
+      contatados,
+      respondidos,
+      novos,
+      interessados,
+      em_negociacao: emNegociacao,
+      ativos,
+      perdidos,
+    },
+    pipeline: pipelineCounts as DashboardMetrics["pipeline"],
+    gargalos: {
+      cadencia_atrasada: maxBucket(
+        countWhere(prospects, (p) => p.cadence_status === "ativo" && isBefore(p.next_contact_at, now)),
+        countWhere(cadLeads, (lead) => !["fechado", "perdido"].includes(String(lead.stage ?? "")) && isBefore(lead.next_action_at, now)),
+      ),
+      parados_30d: maxBucket(
+        countWhere(prospects, (p) => isBefore(p.last_contact_at, new Date(now.getTime() - 30 * 86400000))),
+        countWhere(cadLeads, (lead) => isBefore(lead.last_contact_at, new Date(now.getTime() - 30 * 86400000))),
+      ),
+      sem_responsavel: countWhere(prospects, (p) => !String(p.owner_name ?? "").trim()),
+      clients_parados_15d: countWhere(
+        clients,
+        (client) => openStages.has(String(client.pipeline_stage ?? "")) && isBefore(client.updated_at, new Date(now.getTime() - 15 * 86400000)),
+      ),
+      sem_proxima_acao: countWhere(
+        clients,
+        (client) => openStages.has(String(client.pipeline_stage ?? "")) && !client.next_action_date,
+      ),
+    },
+    conversao: {
+      base_contato: pct(contatados, base),
+      contato_resposta: pct(respondidos, contatados),
+      resposta_interesse: pct(interesseMaisAvancados, respondidos),
+      interesse_proposta: pct(emNegociacaoMaisAtivos, interesseMaisAvancados),
+      proposta_ativo: pct(ativos, emNegociacaoMaisAtivos),
+    },
+  };
+}
+
 export const cadenceKeys = {
   dashboard: ["cadence", "dashboard"] as const,
   acoesHoje: ["cadence", "acoes-hoje"] as const,
@@ -338,7 +663,10 @@ export async function registerResponse(
 
 export async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
   const { data, error } = await sb.rpc("dashboard_metrics");
-  if (error) throw error;
+  if (error) {
+    if (isDashboardRpcBroken(error)) return fetchDashboardMetricsFallback();
+    throw error;
+  }
   return normalizeDashboardMetrics(data);
 }
 
