@@ -53,6 +53,13 @@ function Page() {
       leads: form.leads_goal,
       meetings: form.meetings_goal,
       ticket: form.ticket_goal,
+      payroll: form.payroll_cost,
+      infra: form.infra_cost,
+      taxesPct: form.taxes_pct,
+      weeklyRevenue: form.weekly_revenue_goal,
+      dailyVisits: form.daily_visits_goal,
+      dailyContacts: form.daily_contacts_goal,
+      weeklyDispatches: form.weekly_dispatches_goal,
     });
     setSaving(false);
     if (r.ok) {
@@ -93,6 +100,28 @@ function Page() {
               <Mini label="Meta total" value={fmtBRL(form.revenue_goal)} tone="text-foreground" />
               <Mini label="Recorrência" value={fmtBRL(form.recurring_revenue_goal)} tone="text-emerald-400" />
               <Mini label="Novos contratos necessários" value={fmtBRL(restante)} tone="text-primary" />
+            </div>
+
+            <div className="pt-2">
+              <h3 className="text-sm font-medium text-foreground mb-2">Ritmo semanal e diário</h3>
+              <div className="grid gap-4 md:grid-cols-2">
+                <Field label="Meta semanal de receita (R$)" value={form.weekly_revenue_goal} onChange={set("weekly_revenue_goal")} />
+                <Field label="Meta semanal de disparos" value={form.weekly_dispatches_goal} onChange={set("weekly_dispatches_goal")} integer />
+                <Field label="Meta diária de visitas" value={form.daily_visits_goal} onChange={set("daily_visits_goal")} integer />
+                <Field label="Meta diária de contatos" value={form.daily_contacts_goal} onChange={set("daily_contacts_goal")} integer />
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <h3 className="text-sm font-medium text-foreground mb-2">Custos operacionais (para Lucro real)</h3>
+              <div className="grid gap-4 md:grid-cols-3">
+                <Field label="Folha mensal (R$)" value={form.payroll_cost} onChange={set("payroll_cost")} />
+                <Field label="Infraestrutura mensal (R$)" value={form.infra_cost} onChange={set("infra_cost")} />
+                <Field label="Impostos sobre receita (%)" value={form.taxes_pct} onChange={set("taxes_pct")} />
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Lucro real = Receita − (Marketing + Folha + Infra + Impostos). O custo de marketing já vem dos lançamentos do BI.
+              </p>
             </div>
 
             <div className="flex justify-end">
