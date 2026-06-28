@@ -168,9 +168,12 @@ create table if not exists public.dashboard_alerts (
 -- UNIQUE com expressão precisa ser índice (Postgres não aceita
 -- expressões em UNIQUE de tabela). COALESCE garante dedupe quando
 -- scope_ref é NULL (NULLs não colidem em índices únicos comuns).
+-- `date(timestamptz)` depende do TimeZone da sessão -> não é IMMUTABLE
+-- e o Postgres recusa em índices. Forçamos UTC para tornar imutável.
 create unique index if not exists dashboard_alerts_dedupe_idx
   on public.dashboard_alerts (
-    organization_id, kind, scope, coalesce(scope_ref, ''), (date(created_at))
+    organization_id, kind, scope, coalesce(scope_ref, ''),
+    ((created_at at time zone 'UTC')::date)
   );
 
 create index if not exists idx_alerts_org_open
