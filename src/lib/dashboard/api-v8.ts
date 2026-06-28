@@ -112,7 +112,7 @@ function withV8Scope(data: DashboardV7): DashboardV8 {
   const existing = data as DashboardV7 & Partial<DashboardV8>;
   return {
     ...data,
-    schema: existing.schema === "v8" ? "v8" : "v7",
+    schema: String(existing.schema) === "v8" ? "v8" : "v7",
     scope: existing.scope ?? {
       org_id: data.org_id,
       user_id: null,
