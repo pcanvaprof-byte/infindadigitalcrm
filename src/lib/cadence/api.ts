@@ -148,6 +148,10 @@ type CadMessageMetricRow = {
   created_at: string | null;
 };
 
+type MetricSource = "rpc" | "fallback";
+
+let lastDashboardMetricSource: MetricSource = "rpc";
+
 export const EMPTY_DASHBOARD_METRICS: DashboardMetrics = {
   schema: "empty",
   contatos: { hoje: 0, semana: 0, mes: 0 },
@@ -664,10 +668,18 @@ export async function registerResponse(
 export async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
   const { data, error } = await sb.rpc("dashboard_metrics");
   if (error) {
-    if (isDashboardRpcBroken(error)) return fetchDashboardMetricsFallback();
+    if (isDashboardRpcBroken(error)) {
+      lastDashboardMetricSource = "fallback";
+      return fetchDashboardMetricsFallback();
+    }
     throw error;
   }
+  lastDashboardMetricSource = "rpc";
   return normalizeDashboardMetrics(data);
+}
+
+export function getLastDashboardMetricSource(): MetricSource {
+  return lastDashboardMetricSource;
 }
 
 export async function fetchAcoesHoje(limit = 100): Promise<AcaoHoje[]> {
