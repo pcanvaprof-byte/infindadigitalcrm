@@ -18,6 +18,7 @@ import { EvolucaoMes } from "@/components/bi/EvolucaoMes";
 import { KpiGoalCard } from "@/components/bi/KpiGoalCard";
 import { ForecastCard } from "@/components/bi/ForecastCard";
 import { FunilExecutivo } from "@/components/bi/FunilExecutivo";
+import { FinanceiroPanel } from "@/components/bi/FinanceiroPanel";
 
 // Metas comerciais default (em breve: configurável via /metas)
 const META_COMERCIAL = {
@@ -319,6 +320,20 @@ function BIPage() {
                 </div>
               );
             })()}
+
+            {a.id === "financeiro" && data?.kpis && (
+              <FinanceiroPanel
+                mrr={data.kpis.mrr ?? 0}
+                arr={data.kpis.arr ?? 0}
+                receitaRealizada={data.kpis.receita_realizada ?? 0}
+                receitaPrevistaMes={data.kpis.receita_prevista_mes ?? 0}
+                custoMarketing={data.kpis.custo_marketing ?? 0}
+                ticketMedio={data.kpis.ticket_medio ?? 0}
+                pipelineAberto={data.forecast?.pipeline_aberto ?? 0}
+                previsao30d={data.forecast?.previsao_30d ?? 0}
+                previsao90d={data.forecast?.previsao_90d ?? 0}
+              />
+            )}
 
             {data?.kpis && (
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
