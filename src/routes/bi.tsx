@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { FEATURES } from "@/config/features";
+import { AppShell } from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, TrendingUp, AlertTriangle, Target, DollarSign, Activity } from "lucide-react";
+import { Loader2, TrendingUp, AlertTriangle, Target, DollarSign, Activity, Sparkles } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   LineChart, Line,
@@ -24,12 +25,14 @@ export const Route = createFileRoute("/bi")({
 function BIPageGate() {
   if (!FEATURES.businessIntelligence) {
     return (
-      <div className="p-6 text-sm text-muted-foreground">
-        <strong>Business Intelligence está desativado.</strong>
-        <p className="mt-2">
-          Reative em <code>src/config/features.ts</code> (<code>FEATURES.businessIntelligence = true</code>).
-        </p>
-      </div>
+      <AppShell title="Business Intelligence" subtitle="Centro executivo">
+        <div className="p-6 text-sm text-muted-foreground">
+          <strong>Business Intelligence está desativado.</strong>
+          <p className="mt-2">
+            Reative em <code>src/config/features.ts</code> (<code>FEATURES.businessIntelligence = true</code>).
+          </p>
+        </div>
+      </AppShell>
     );
   }
   return <BIPage />;
@@ -56,6 +59,16 @@ const fmtNum = (n: number | null | undefined) =>
 const fmtPct = (n: number | null | undefined) =>
   `${Number.isFinite(n as number) ? (n as number) : 0}%`;
 
+// Meta mensal default (em breve: configurável via /metas)
+const META_MENSAL = 100_000;
+
+function diasNoMes(d = new Date()) {
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+}
+function diaAtual(d = new Date()) {
+  return d.getDate();
+}
+
 function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <Card>
@@ -63,6 +76,78 @@ function Kpi({ label, value, hint }: { label: string; value: string; hint?: stri
         <p className="text-xs uppercase tracking-wider text-muted-foreground">{label}</p>
         <p className="text-2xl font-semibold mt-1">{value}</p>
         {hint && <p className="text-xs text-muted-foreground mt-1">{hint}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
+function MetaHero({ realizado, ticket }: { realizado: number; ticket: number }) {
+  const meta = META_MENSAL;
+  const total = diasNoMes();
+  const dia = diaAtual();
+  const ritmo = dia > 0 ? realizado / dia : 0;
+  const projetado = Math.round(ritmo * total);
+  const gap = Math.max(0, meta - projetado);
+  const pctReal = Math.min(100, Math.round((realizado / meta) * 100));
+  const pctIdeal = Math.round((dia / total) * 100);
+  const prob = Math.max(0, Math.min(100, Math.round((projetado / meta) * 100)));
+  const status = prob >= 100 ? "no ritmo" : prob >= 85 ? "atenção" : "crítico";
+  const statusTone =
+    status === "no ritmo" ? "text-emerald-400" : status === "atenção" ? "text-amber-400" : "text-rose-400";
+  const idealAcum = Math.round((meta * dia) / total);
+  const diffIdeal = realizado - idealAcum;
+  const contratosFaltam = ticket > 0 ? Math.max(0, Math.ceil((meta - realizado) / ticket)) : 0;
+
+  return (
+    <Card className="overflow-hidden border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card">
+      <CardContent className="p-6 grid gap-6 md:grid-cols-[1.4fr_1fr]">
+        <div>
+          <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-primary/80">
+            <Target className="h-3.5 w-3.5" /> Meta do mês
+          </div>
+          <div className="mt-3 flex items-baseline gap-3 flex-wrap">
+            <span className="text-3xl font-semibold">{fmtBRL(realizado)}</span>
+            <span className="text-sm text-muted-foreground">de {fmtBRL(meta)}</span>
+            <Badge variant="secondary" className={statusTone}>{pctReal}% atingido</Badge>
+          </div>
+          <div className="mt-4 h-2.5 w-full rounded-full bg-muted/40 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-primary to-primary/60 transition-all"
+              style={{ width: `${pctReal}%` }}
+            />
+          </div>
+          <div className="mt-1 flex justify-between text-[11px] text-muted-foreground tabular-nums">
+            <span>Dia {dia} / {total}</span>
+            <span>Ideal acumulado: {pctIdeal}%</span>
+          </div>
+          <p className="mt-4 text-xs text-muted-foreground">
+            Projeção final: <strong className="text-foreground">{fmtBRL(projetado)}</strong> ·
+            Probabilidade de bater: <strong className={statusTone}>{prob}%</strong>
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 content-start">
+          <div className="rounded-lg border border-border bg-card/60 p-3">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Gap p/ meta</p>
+            <p className="mt-1 text-xl font-semibold text-rose-400">{fmtBRL(Math.max(0, meta - realizado))}</p>
+          </div>
+          <div className="rounded-lg border border-border bg-card/60 p-3">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Gap projeção</p>
+            <p className={`mt-1 text-xl font-semibold ${gap > 0 ? "text-amber-400" : "text-emerald-400"}`}>
+              {fmtBRL(gap)}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border bg-card/60 p-3">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Δ vs ideal</p>
+            <p className={`mt-1 text-xl font-semibold ${diffIdeal >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+              {diffIdeal >= 0 ? "+" : ""}{fmtBRL(diffIdeal)}
+            </p>
+          </div>
+          <div className="rounded-lg border border-border bg-card/60 p-3">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Faltam fechar</p>
+            <p className="mt-1 text-xl font-semibold">{contratosFaltam} contratos</p>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
@@ -111,19 +196,17 @@ function BIPage() {
   }, [data]);
 
   return (
-    <div className="p-4 md:p-6 space-y-5">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Business Intelligence</h1>
-          <p className="text-sm text-muted-foreground">
-            Inteligência de dados, previsões e recomendações por área
-          </p>
-        </div>
+    <AppShell
+      title="Business Intelligence"
+      subtitle="Cockpit executivo · metas, previsão e ações"
+      actions={
         <div className="flex items-center gap-2">
           <Badge variant="secondary">{loading ? "Atualizando..." : "Pronto"}</Badge>
           <ExportMenu filename={`bi-${area}`} sections={exportSections} />
         </div>
-      </header>
+      }
+    >
+    <div className="space-y-5">
 
       <Tabs value={area} onValueChange={(v) => setArea(v as BIArea)}>
         <nav
@@ -158,6 +241,13 @@ function BIPage() {
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
               </div>
+            )}
+
+            {a.id === "diretoria" && data?.kpis && (
+              <MetaHero
+                realizado={data.kpis.receita_realizada ?? 0}
+                ticket={data.kpis.ticket_medio ?? 0}
+              />
             )}
 
             {data?.kpis && (
@@ -316,10 +406,20 @@ function BIPage() {
               </Card>
             )}
 
-            <AIInsightsPanel area={a.id} />
+            <Card className="border-primary/20">
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" /> Insights executivos
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AIInsightsPanel area={a.id} />
+              </CardContent>
+            </Card>
           </TabsContent>
         ))}
       </Tabs>
     </div>
+    </AppShell>
   );
 }
