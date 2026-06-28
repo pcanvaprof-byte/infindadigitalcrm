@@ -7,6 +7,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CAD_STAGES, CAD_STAGE_LABEL, CAD_TEMP_LABEL, type CadLead, type CadStage, type CadTemp } from "@/lib/cadencia/types";
 import { moveStage, registerResponse, updateLead, setTemperatura, deleteLead } from "@/lib/cadencia/api";
+import { addInteractionRemote } from "@/lib/prospects-api";
 import { LeadTimeline } from "./LeadTimeline";
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
@@ -21,6 +22,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Etapas que implicam que houve resposta do cliente
 const STAGES_REQUIRE_RESPONSE: CadStage[] = [
@@ -39,6 +41,7 @@ export function LeadDrawer({
   const [respText, setRespText] = useState("");
   const [pendingStage, setPendingStage] = useState<CadStage | null>(null);
   const [pendingRespText, setPendingRespText] = useState("");
+  const [pendingSpokeResp, setPendingSpokeResp] = useState(false);
 
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ["cad-leads"] });
@@ -80,6 +83,7 @@ export function LeadDrawer({
     if (STAGES_REQUIRE_RESPONSE.includes(next)) {
       setPendingStage(next);
       setPendingRespText("");
+      setPendingSpokeResp(false);
     } else {
       moveM.mutate(next);
     }
@@ -89,14 +93,27 @@ export function LeadDrawer({
     if (!pendingStage || !lead) return;
     const next = pendingStage;
     const txt = pendingRespText.trim();
+    const spoke = pendingSpokeResp;
     setPendingStage(null);
     try {
       if (registerResp) {
         await registerResponse(lead.id, txt || "[resposta registrada na mudança de etapa]");
       }
+      if (spoke && lead.prospect_id) {
+        const respNome = lead.responsavel || "responsável";
+        await addInteractionRemote(
+          lead.prospect_id,
+          "ligacao",
+          `Falou com o responsável (${respNome}) — etapa: ${CAD_STAGE_LABEL[next]}`,
+          "Sistema",
+        );
+      }
       await moveStage(lead.id, next);
       invalidate();
-      toast.success(registerResp ? "Resposta registrada e etapa atualizada" : "Etapa atualizada");
+      const parts = [];
+      if (registerResp) parts.push("resposta");
+      if (spoke) parts.push("contato com responsável");
+      toast.success(parts.length ? `Etapa atualizada (${parts.join(" + ")})` : "Etapa atualizada");
     } catch (e) {
       toast.error((e as Error).message);
     }
@@ -193,6 +210,20 @@ export function LeadDrawer({
             onChange={(e) => setPendingRespText(e.target.value)}
             rows={3}
           />
+          <label className="mt-2 flex items-start gap-2 rounded-md border p-3 text-sm cursor-pointer">
+            <Checkbox
+              checked={pendingSpokeResp}
+              onCheckedChange={(v) => setPendingSpokeResp(v === true)}
+              className="mt-0.5"
+            />
+            <span>
+              <b>Falei com o responsável</b>
+              {lead?.responsavel ? <> ({lead.responsavel})</> : null}
+              <span className="block text-xs text-muted-foreground">
+                Registra um contato direto com o decisor no histórico do lead.
+              </span>
+            </span>
+          </label>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <Button variant="outline" onClick={() => confirmStageChange(false)}>
