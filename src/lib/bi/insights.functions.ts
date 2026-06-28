@@ -97,5 +97,7 @@ ${JSON.stringify(payload, null, 2)}`;
       .single();
     if (insErr) throw new Error(insErr.message);
 
-    return inserted;
+    return (inserted ?? { id: "", summary, recommendations, area: data.area, created_at: new Date().toISOString() }) as {
+      id: string; summary: string; recommendations: string[]; area: string; created_at: string;
+    };
   });
