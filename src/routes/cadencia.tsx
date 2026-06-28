@@ -19,6 +19,8 @@ import { TemplatesPanel } from "@/components/cadencia/TemplatesPanel";
 import { listLeads, createLead, importFromProspects, syncLeadStagesFromProspects } from "@/lib/cadencia/api";
 import type { CadLead, CadStage } from "@/lib/cadencia/types";
 import { CAD_STAGE_LABEL } from "@/lib/cadencia/types";
+import { leadUf, UF_LIST } from "@/lib/cadencia/uf";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X } from "lucide-react";
 
 export const Route = createFileRoute("/cadencia")({
@@ -41,6 +43,7 @@ function CadenciaPage() {
   const [tab, setTab] = useState<"dashboard" | "pipeline" | "templates">("dashboard");
   const [search, setSearch] = useState("");
   const [stageFilter, setStageFilter] = useState<CadStage | null>(null);
+  const [ufFilter, setUfFilter] = useState<string>("all");
   const [openNew, setOpenNew] = useState(false);
   const [newL, setNewL] = useState({ empresa: "", responsavel: "", cargo: "", telefone: "", whatsapp: "", email: "" });
 
@@ -65,6 +68,12 @@ function CadenciaPage() {
   const leads = useMemo(() => {
     let all = leadsQ.data ?? [];
     if (stageFilter) all = all.filter((l) => l.stage === stageFilter);
+    if (ufFilter !== "all") {
+      all = all.filter((l) => {
+        const uf = leadUf(l);
+        return ufFilter === "__none__" ? !uf : uf === ufFilter;
+      });
+    }
     if (search.trim()) {
       const s = search.toLowerCase();
       all = all.filter((l) =>
@@ -72,7 +81,22 @@ function CadenciaPage() {
       );
     }
     return all;
-  }, [leadsQ.data, search, stageFilter]);
+  }, [leadsQ.data, search, stageFilter, ufFilter]);
+
+  // UFs presentes nos leads carregados (para o dropdown só mostrar opções úteis).
+  const ufsDisponiveis = useMemo(() => {
+    const set = new Set<string>();
+    let temSemUf = false;
+    for (const l of leadsQ.data ?? []) {
+      const uf = leadUf(l);
+      if (uf) set.add(uf);
+      else temSemUf = true;
+    }
+    return {
+      ufs: Array.from(set).sort(),
+      temSemUf,
+    };
+  }, [leadsQ.data]);
 
   const invalidateAll = () => {
     qc.invalidateQueries({ queryKey: ["cad-leads"] });
@@ -137,6 +161,20 @@ function CadenciaPage() {
               onChange={(e) => setSearch(e.target.value)}
               className="w-full sm:w-64"
             />
+            <Select value={ufFilter} onValueChange={setUfFilter}>
+              <SelectTrigger className="w-full sm:w-32" aria-label="Filtrar por estado">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os estados</SelectItem>
+                {(ufsDisponiveis.ufs.length > 0 ? ufsDisponiveis.ufs : UF_LIST).map((uf) => (
+                  <SelectItem key={uf} value={uf}>{uf}</SelectItem>
+                ))}
+                {ufsDisponiveis.temSemUf && (
+                  <SelectItem value="__none__">Sem UF</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
             <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center">
               <Button variant="outline" size="sm" onClick={() => importM.mutate()} disabled={importM.isPending} className="w-full sm:w-auto">
                 <Download className="h-4 w-4 sm:mr-2" />
