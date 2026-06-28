@@ -6,15 +6,13 @@ select count(*) as total_atrasados
 from public.cad_leads
 where next_action_at is not null
   and next_action_at < now()
-  and stage is distinct from 'perdido'::public.cad_stage
-  and stage is distinct from 'cliente'::public.cad_stage;
+  and coalesce(stage::text, '') not in ('perdido', 'fechado', 'cliente');
 
 -- 2) Quebra por estágio
 select stage, count(*) as qt
 from public.cad_leads
 where next_action_at < now()
-  and stage is distinct from 'perdido'::public.cad_stage
-  and stage is distinct from 'cliente'::public.cad_stage
+  and coalesce(stage::text, '') not in ('perdido', 'fechado', 'cliente')
 group by stage
 order by qt desc;
 
@@ -30,8 +28,7 @@ select
   count(*) as qt
 from public.cad_leads
 where next_action_at < now()
-  and stage is distinct from 'perdido'::public.cad_stage
-  and stage is distinct from 'cliente'::public.cad_stage
+  and coalesce(stage::text, '') not in ('perdido', 'fechado', 'cliente')
 group by 1 order by 1;
 
 -- 4) Quantos sem owner / sem org
@@ -41,16 +38,14 @@ select
   count(*) as total
 from public.cad_leads
 where next_action_at < now()
-  and stage is distinct from 'perdido'::public.cad_stage
-  and stage is distinct from 'cliente'::public.cad_stage;
+  and coalesce(stage::text, '') not in ('perdido', 'fechado', 'cliente');
 
 -- 5) Duplicados remanescentes entre os atrasados (por telefone normalizado)
 with atrasados as (
   select id, organization_id, public.cad_norm_phone(whatsapp) as ph, empresa, stage
   from public.cad_leads
   where next_action_at < now()
-    and stage is distinct from 'perdido'::public.cad_stage
-    and stage is distinct from 'cliente'::public.cad_stage
+    and coalesce(stage::text, '') not in ('perdido', 'fechado', 'cliente')
     and public.cad_norm_phone(whatsapp) is not null
 )
 select organization_id, ph, count(*) as cards, array_agg(empresa) as empresas
@@ -65,8 +60,7 @@ with atrasados as (
   select id, organization_id, lower(regexp_replace(coalesce(empresa,''),'[^a-z0-9]+','','g')) as nm, stage
   from public.cad_leads
   where next_action_at < now()
-    and stage is distinct from 'perdido'::public.cad_stage
-    and stage is distinct from 'cliente'::public.cad_stage
+    and coalesce(stage::text, '') not in ('perdido', 'fechado', 'cliente')
 )
 select organization_id, nm, count(*) as cards
 from atrasados
@@ -80,14 +74,13 @@ limit 50;
 select count(*) as zumbis_novo
 from public.cad_leads
 where next_action_at < now() - interval '1 day'
-  and stage = 'novo'::public.cad_stage;
+  and stage::text = 'novo';
 
 -- 8) Amostra crua (20 mais antigos)
 select id, empresa, stage, owner_id, organization_id,
        next_action_at, now() - next_action_at as atraso, last_message_at
 from public.cad_leads
 where next_action_at < now()
-  and stage is distinct from 'perdido'::public.cad_stage
-  and stage is distinct from 'cliente'::public.cad_stage
+  and coalesce(stage::text, '') not in ('perdido', 'fechado', 'cliente')
 order by next_action_at asc
 limit 20;
