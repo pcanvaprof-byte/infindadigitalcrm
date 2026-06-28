@@ -43,8 +43,18 @@ const AREAS: Array<{ id: BIArea; label: string; icon: typeof TrendingUp }> = [
   { id: "operacoes",  label: "Operações",  icon: AlertTriangle },
 ];
 
-const fmtBRL = (n: number) =>
-  n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+const fmtBRL = (n: number | null | undefined) =>
+  (Number.isFinite(n as number) ? (n as number) : 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    maximumFractionDigits: 0,
+  });
+
+const fmtNum = (n: number | null | undefined) =>
+  Number.isFinite(n as number) ? String(n) : "0";
+
+const fmtPct = (n: number | null | undefined) =>
+  `${Number.isFinite(n as number) ? (n as number) : 0}%`;
 
 function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
@@ -126,14 +136,14 @@ function BIPage() {
 
             {data?.kpis && (
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                <Kpi label="Clientes ativos" value={String(data.kpis.clientes_ativos)} />
+                <Kpi label="Clientes ativos" value={fmtNum(data.kpis.clientes_ativos)} />
                 <Kpi label="MRR" value={fmtBRL(data.kpis.mrr)} />
                 <Kpi label="ARR" value={fmtBRL(data.kpis.arr)} />
                 <Kpi label="Ticket médio" value={fmtBRL(data.kpis.ticket_medio)} />
                 <Kpi label="LTV" value={fmtBRL(data.kpis.ltv)} hint="ticket × 12" />
                 <Kpi label="CAC" value={fmtBRL(data.kpis.cac)} hint="custo / novos no mês" />
-                <Kpi label="ROI" value={`${data.kpis.roi}%`} />
-                <Kpi label="Payback (meses)" value={String(data.kpis.payback_meses)} />
+                <Kpi label="ROI" value={fmtPct(data.kpis.roi)} />
+                <Kpi label="Payback (meses)" value={fmtNum(data.kpis.payback_meses)} />
                 <Kpi label="Receita realizada" value={fmtBRL(data.kpis.receita_realizada)} />
                 <Kpi label="Receita prevista (mês)" value={fmtBRL(data.kpis.receita_prevista_mes)} />
                 <Kpi label="Custo marketing" value={fmtBRL(data.kpis.custo_marketing)} />
@@ -145,7 +155,7 @@ function BIPage() {
                 <CardHeader><CardTitle className="text-base">Previsão de receita</CardTitle></CardHeader>
                 <CardContent className="grid grid-cols-2 md:grid-cols-5 gap-3">
                   <Kpi label="Pipeline aberto" value={fmtBRL(data.forecast.pipeline_aberto)} />
-                  <Kpi label="Conversão hist." value={`${data.forecast.taxa_conversao_historica}%`} />
+                  <Kpi label="Conversão hist." value={fmtPct(data.forecast.taxa_conversao_historica)} />
                   <Kpi label="Previsão 30d" value={fmtBRL(data.forecast.previsao_30d)} />
                   <Kpi label="Previsão 90d" value={fmtBRL(data.forecast.previsao_90d)} />
                   <Kpi label="MRR" value={fmtBRL(data.forecast.mrr)} />
@@ -178,11 +188,11 @@ function BIPage() {
                 <CardHeader><CardTitle className="text-base">Risco de churn</CardTitle></CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-3 gap-3 mb-3">
-                    <Kpi label="Alto" value={String(data.churn.alto)} />
-                    <Kpi label="Médio" value={String(data.churn.medio)} />
-                    <Kpi label="Baixo" value={String(data.churn.baixo)} />
+                    <Kpi label="Alto" value={fmtNum(data.churn.alto)} />
+                    <Kpi label="Médio" value={fmtNum(data.churn.medio)} />
+                    <Kpi label="Baixo" value={fmtNum(data.churn.baixo)} />
                   </div>
-                  {data.churn.detalhes.length > 0 && (
+                  {(data.churn.detalhes?.length ?? 0) > 0 && (
                     <div className="text-sm divide-y rounded-md border">
                       <div className="grid grid-cols-12 px-3 py-2 font-medium bg-muted/30">
                         <span className="col-span-5">Empresa</span>
@@ -190,7 +200,7 @@ function BIPage() {
                         <span className="col-span-2">Dias inativo</span>
                         <span className="col-span-2">Risco</span>
                       </div>
-                      {data.churn.detalhes.slice(0, 10).map((d) => (
+                      {(data.churn.detalhes ?? []).slice(0, 10).map((d) => (
                         <div key={d.id} className="grid grid-cols-12 px-3 py-2">
                           <span className="col-span-5 truncate">{d.empresa}</span>
                           <span className="col-span-3">{fmtBRL(d.valor)}</span>
@@ -274,7 +284,7 @@ function BIPage() {
               <Card>
                 <CardHeader><CardTitle className="text-base">Oportunidades perdidas</CardTitle></CardHeader>
                 <CardContent className="grid grid-cols-2 gap-3">
-                  <Kpi label="Total perdidos" value={String(data.lost.total)} />
+                  <Kpi label="Total perdidos" value={fmtNum(data.lost.total)} />
                   <Kpi label="Valor perdido" value={fmtBRL(data.lost.valor_perdido)} />
                 </CardContent>
               </Card>
