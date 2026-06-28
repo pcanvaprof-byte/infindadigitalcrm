@@ -69,16 +69,27 @@ group by organization_id, prospect_id having count(*) > 1;
 
 -- 4. RPC de dedupe ---------------------------------------------------------
 do $$
-declare r record;
+declare ddl text;
 begin
-  for r in select oid::regprocedure as sig from pg_proc
-           where proname = 'cad_admin_dedupe_full'
-             and pronamespace = 'public'::regnamespace
+  for ddl in
+    select format(
+      'drop function if exists %I.%I(%s) cascade',
+      n.nspname,
+      p.proname,
+      pg_get_function_identity_arguments(p.oid)
+    )
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname = 'cad_admin_dedupe_full'
   loop
-    execute 'drop function ' || r.sig || ' cascade';
+    execute ddl;
   end loop;
 end$$;
-create or replace function public.cad_admin_dedupe_full()
+
+drop function if exists public.cad_admin_dedupe_full() cascade;
+
+create function public.cad_admin_dedupe_full()
 returns table(grupo text, mantidos int, removidos int)
 language plpgsql security definer set search_path=public as $$
 declare
