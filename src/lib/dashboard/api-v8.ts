@@ -17,7 +17,7 @@ export interface UserScope {
   my_owner: string | null;
 }
 
-export interface DashboardV8 extends DashboardV7 {
+export interface DashboardV8 extends Omit<DashboardV7, "schema"> {
   schema: "v8" | "v7";
   scope: UserScope;
   owners_in_scope: string[];
