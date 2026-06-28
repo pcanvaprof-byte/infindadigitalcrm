@@ -1,8 +1,10 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth, useRequiredUser } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
   Building2,
@@ -21,7 +23,39 @@ import { FollowupComparativoWidget } from "@/components/cadence/FollowupComparat
 import { fetchDashboardMetrics, type DashboardMetrics } from "@/lib/cadence/api";
 import { FEATURES } from "@/config/features";
 
+type Period = "hoje" | "semana" | "mes" | "previsao";
+const PERIOD_LABEL: Record<Period, string> = {
+  hoje: "Hoje",
+  semana: "Semana",
+  mes: "Mês",
+  previsao: "Previsão",
+};
+
+function projectMonth(value: number): number {
+  const now = new Date();
+  const day = now.getDate();
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  if (!day || !value) return 0;
+  return Math.round((value / day) * daysInMonth);
+}
+
+function pickBucket(
+  bucket: { hoje: number; semana: number; mes: number },
+  period: Period,
+): { value: number; isProjection: boolean } {
+  if (period === "hoje")     return { value: bucket.hoje, isProjection: false };
+  if (period === "semana")   return { value: bucket.semana, isProjection: false };
+  if (period === "mes")      return { value: bucket.mes, isProjection: false };
+  return { value: projectMonth(bucket.mes), isProjection: true };
+}
+
 export const Route = createFileRoute("/dashboard")({
+  validateSearch: (s: Record<string, unknown>) => {
+    const p = String(s.p ?? "mes");
+    const period: Period = (["hoje","semana","mes","previsao"] as const).includes(p as Period)
+      ? (p as Period) : "mes";
+    return { p: period };
+  },
   head: () => ({
     meta: [{ title: "Dashboard — INFINDA" }],
   }),
@@ -33,13 +67,14 @@ export const Route = createFileRoute("/dashboard")({
 });
 
 function Kpi({
-  label, value, icon: Icon, suffix, tone = "default",
+  label, value, icon: Icon, suffix, tone = "default", hint,
 }: {
   label: string;
   value: number | string;
   icon: typeof Building2;
   suffix?: string;
   tone?: "default" | "warn" | "danger" | "ok";
+  hint?: string;
 }) {
   const ring =
     tone === "warn"   ? "border-amber-500/30" :
@@ -52,6 +87,11 @@ function Kpi({
         <span className="grid h-9 w-9 place-items-center rounded-lg bg-accent">
           <Icon className="h-4 w-4 text-primary-glow" />
         </span>
+        {hint && (
+          <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-[1px] text-[10px] font-semibold uppercase tracking-wider text-amber-300">
+            {hint}
+          </span>
+        )}
       </div>
       <p className="mt-4 text-xs text-muted-foreground">{label}</p>
       <p className="mt-1 text-2xl font-bold tracking-tight tabular-nums">
@@ -91,6 +131,8 @@ function errorMessage(error: unknown): string {
 function DashboardPage() {
   const user = useRequiredUser();
   const navigate = useNavigate();
+  const search = Route.useSearch() as { p: Period };
+  const period: Period = search.p;
 
   const q = useQuery({
     queryKey: ["dashboard", "v6"] as const,
@@ -104,6 +146,21 @@ function DashboardPage() {
   const errMsg = errorMessage(q.error);
   const noActiveOrg =
     errMsg.includes("no_active_org") || errMsg.includes("org_access_denied");
+
+  const contato = useMemo(
+    () => pickBucket(m?.contatos ?? { hoje: 0, semana: 0, mes: 0 }, period),
+    [m, period],
+  );
+  const resposta = useMemo(
+    () => pickBucket(m?.respostas ?? { hoje: 0, semana: 0, mes: 0, taxa: 0 } as any, period),
+    [m, period],
+  );
+  const taxa = m?.respostas.taxa ?? 0;
+  const isProj = period === "previsao";
+  const periodLabel = PERIOD_LABEL[period];
+
+  const setPeriod = (next: Period) =>
+    navigate({ to: "/dashboard", search: { p: next } });
 
   return (
     <AppShell
@@ -124,9 +181,41 @@ function DashboardPage() {
         </div>
       )}
 
+      {/* Filtro global de período */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="text-xs text-muted-foreground">
+          Período ativo:&nbsp;
+          <span className="font-semibold text-foreground">{periodLabel}</span>
+          {isProj && (
+            <span className="ml-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-[1px] text-[10px] font-semibold uppercase tracking-wider text-amber-300">
+              projeção
+            </span>
+          )}
+        </div>
+        <div className="inline-flex rounded-lg border border-border bg-accent/30 p-1">
+          {(["hoje","semana","mes","previsao"] as const).map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => setPeriod(opt)}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-xs font-semibold transition",
+                period === opt
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {PERIOD_LABEL[opt]}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Operação */}
-      {/* Resumo — fonte: prospects + clients (Lifecycle) */}
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resumo</h3>
+      {/* Resumo — fonte: prospects + clients (Lifecycle) — valores acumulados */}
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        Resumo <span className="ml-2 text-[10px] font-normal normal-case text-muted-foreground/70">(acumulado)</span>
+      </h3>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
         <Kpi label="Empresas na base"   value={m?.resumo.base          ?? 0} icon={Building2} />
         <Kpi label="Contatados"         value={m?.resumo.contatados    ?? 0} icon={MessageSquare} />
@@ -137,25 +226,36 @@ function DashboardPage() {
         <Kpi label="Clientes ativos"    value={m?.resumo.ativos        ?? 0} icon={CheckCircle2} tone="ok" />
       </section>
 
-      {/* Contatos — fonte: prospect_touchpoints */}
+      {/* Contatos — fonte: prospect_touchpoints — filtrado pelo período */}
       <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Contatos realizados
+        Contatos realizados <span className="ml-2 text-[10px] font-normal normal-case text-muted-foreground/70">({periodLabel.toLowerCase()})</span>
       </h3>
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-3">
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Kpi
+          label={isProj ? "Contatos previstos no mês" : `Contatos (${periodLabel.toLowerCase()})`}
+          value={contato.value}
+          icon={MessageSquare}
+          hint={isProj ? "projeção" : undefined}
+        />
         <Kpi label="Hoje"   value={m?.contatos.hoje   ?? 0} icon={MessageSquare} />
-        <Kpi label="Semana" value={m?.contatos.semana ?? 0} icon={MessageSquare} />
         <Kpi label="Mês"    value={m?.contatos.mes    ?? 0} icon={MessageSquare} />
       </section>
 
-      {/* Respostas — fonte: prospect_touchpoints (tipo=resposta | resultado=respondido/interessado) */}
+      {/* Respostas — fonte: prospect_touchpoints — filtrado pelo período */}
       <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        Respostas recebidas
+        Respostas recebidas <span className="ml-2 text-[10px] font-normal normal-case text-muted-foreground/70">({periodLabel.toLowerCase()})</span>
       </h3>
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi label="Hoje"           value={m?.respostas.hoje   ?? 0} icon={Inbox} tone="ok" />
-        <Kpi label="Semana"         value={m?.respostas.semana ?? 0} icon={Inbox} tone="ok" />
-        <Kpi label="Mês"            value={m?.respostas.mes    ?? 0} icon={Inbox} tone="ok" />
-        <Kpi label="Taxa de resposta" value={m?.respostas.taxa ?? 0} suffix="%" icon={Percent} tone="ok" />
+      <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Kpi
+          label={isProj ? "Respostas previstas no mês" : `Respostas (${periodLabel.toLowerCase()})`}
+          value={resposta.value}
+          icon={Inbox}
+          tone="ok"
+          hint={isProj ? "projeção" : undefined}
+        />
+        <Kpi label="Hoje"   value={m?.respostas.hoje   ?? 0} icon={Inbox} tone="ok" />
+        <Kpi label="Mês"    value={m?.respostas.mes    ?? 0} icon={Inbox} tone="ok" />
+        <Kpi label="Taxa de resposta" value={taxa} suffix="%" icon={Percent} tone="ok" />
       </section>
 
       {/* Gargalos — fonte: prospects (cadência) + clients (Lifecycle) */}
