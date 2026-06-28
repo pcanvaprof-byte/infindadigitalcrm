@@ -4,6 +4,24 @@ import { Card } from "@/components/ui/card";
 import { fetchMetrics, listLeads } from "@/lib/cadencia/api";
 import { CAD_STAGES, CAD_STAGE_LABEL, type CadStage, type CadLead } from "@/lib/cadencia/types";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
+import { supabase } from "@/integrations/supabase/client";
+
+// Conta direto na tabela (head:true não baixa rows) — usado para detectar
+// divergência entre o que o cliente carrega (paginado) e o total real.
+async function fetchCadLeadsAudit() {
+  const db = supabase as unknown as { from: (t: string) => any };
+  const [{ count: total, error: e1 }, withMsg, withoutMsg] = await Promise.all([
+    db.from("cad_leads").select("id", { count: "exact", head: true }),
+    db.from("cad_leads").select("id", { count: "exact", head: true }).not("last_contact_at", "is", null),
+    db.from("cad_leads").select("id", { count: "exact", head: true }).is("last_contact_at", null),
+  ]);
+  if (e1) throw new Error(e1.message);
+  return {
+    total: total ?? 0,
+    com_disparo: withMsg.count ?? 0,
+    sem_disparo: withoutMsg.count ?? 0,
+  };
+}
 
 function KPI({ label, value, onClick, active }: { label: string; value: string | number; onClick?: () => void; active?: boolean }) {
   if (onClick) {
@@ -41,6 +59,11 @@ export function DashboardCadencia({
   const leadsQ = useQuery({ queryKey: ["cad-leads"], queryFn: listLeads, refetchInterval: 30_000 });
   const m = q.data;
   const effectiveLeads = filteredLeads ?? leadsQ.data ?? [];
+  const auditQ = useQuery({
+    queryKey: ["cad-leads-audit"],
+    queryFn: fetchCadLeadsAudit,
+    refetchInterval: 60_000,
+  });
   const cardCounts = useMemo(() => {
     const counts: Partial<Record<CadStage, number>> = {};
     for (const lead of effectiveLeads) {
@@ -54,6 +77,9 @@ export function DashboardCadencia({
   const by: Partial<Record<CadStage, number>> = cardCounts;
   const isAudited = !!leadsQ.data;
   const isFiltered = !!filterLabel;
+  const auditTotal = auditQ.data?.total ?? null;
+  const auditDelta = auditTotal != null ? auditTotal - (leadsQ.data?.length ?? 0) : 0;
+  const auditOk = auditTotal != null && auditDelta === 0;
   const stageHandler = (s: CadStage) => onStageSelect && (by[s] ?? 0) > 0 ? () => onStageSelect(s) : undefined;
 
   return (
@@ -95,20 +121,50 @@ export function DashboardCadencia({
               Confere se os números do dashboard batem com os cards carregados no pipeline.
             </div>
           </div>
-          <div className={`w-fit rounded-md border px-2 py-1 text-xs font-medium ${isAudited ? "border-primary/30 bg-primary/10 text-primary" : "border-muted text-muted-foreground"}`}>
-            {isAudited ? "Batendo" : "Carregando"}
+          <div className={`w-fit rounded-md border px-2 py-1 text-xs font-medium ${
+            !isAudited || auditQ.isLoading
+              ? "border-muted text-muted-foreground"
+              : auditOk
+                ? "border-primary/30 bg-primary/10 text-primary"
+                : "border-destructive/40 bg-destructive/10 text-destructive"
+          }`}>
+            {!isAudited || auditQ.isLoading
+              ? "Carregando"
+              : auditOk
+                ? "Batendo"
+                : `Divergência: ${auditDelta > 0 ? "+" : ""}${auditDelta}`}
           </div>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
           <div className="rounded-md border border-border bg-muted/20 p-2">
-            <div className="text-muted-foreground">Total em cadência</div>
-            <div className="text-lg font-semibold text-foreground">{totalCards}</div>
+            <div className="text-muted-foreground">Cards exibidos</div>
+            <div className="text-lg font-semibold text-foreground">{leadsQ.data?.length ?? 0}</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/20 p-2">
+            <div className="text-muted-foreground">Total cad_leads (DB)</div>
+            <div className="text-lg font-semibold text-foreground">{auditTotal ?? "—"}</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/20 p-2">
+            <div className="text-muted-foreground">Com disparo registrado</div>
+            <div className="text-lg font-semibold text-foreground">{auditQ.data?.com_disparo ?? "—"}</div>
+          </div>
+          <div className="rounded-md border border-border bg-muted/20 p-2">
+            <div className="text-muted-foreground">Sem disparo (órfãos)</div>
+            <div className="text-lg font-semibold text-foreground">{auditQ.data?.sem_disparo ?? "—"}</div>
           </div>
           <div className="rounded-md border border-border bg-muted/20 p-2">
             <div className="text-muted-foreground">Enviadas registradas</div>
             <div className="text-lg font-semibold text-foreground">{m?.total_mensagens ?? 0}</div>
           </div>
         </div>
+        {!auditOk && auditTotal != null && (
+          <div className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+            Existem {Math.abs(auditDelta)} lead(s) em <code>cad_leads</code> que não aparecem no Kanban/Dashboard.
+            Causas comuns: (1) <strong>filtro UF/busca</strong> ativo no header; (2) leads <strong>sem disparo</strong>
+            (last_contact_at NULL) que são filtrados pela visão de cadência; (3) leads vinculados a outra organização via RLS.
+            Use "Atualizar" ou "Limpar responsáveis" para reconciliar.
+          </div>
+        )}
         <div className="mt-3 flex flex-wrap gap-2 text-xs">
           {CAD_STAGES.map((stage) => {
             const cardCount = cardCounts[stage] ?? 0;
