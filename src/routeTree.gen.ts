@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TarefasRouteImport } from './routes/tarefas'
 import { Route as ProspeccaoRouteImport } from './routes/prospeccao'
 import { Route as PropostasRouteImport } from './routes/propostas'
+import { Route as MetasObjetivosRouteImport } from './routes/metas-objetivos'
 import { Route as MetasRouteImport } from './routes/metas'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as KickoffRouteImport } from './routes/kickoff'
@@ -65,6 +66,11 @@ const ProspeccaoRoute = ProspeccaoRouteImport.update({
 const PropostasRoute = PropostasRouteImport.update({
   id: '/propostas',
   path: '/propostas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MetasObjetivosRoute = MetasObjetivosRouteImport.update({
+  id: '/metas-objetivos',
+  path: '/metas-objetivos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MetasRoute = MetasRouteImport.update({
@@ -281,6 +287,7 @@ export interface FileRoutesByFullPath {
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
+  '/metas-objetivos': typeof MetasObjetivosRoute
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
@@ -325,6 +332,7 @@ export interface FileRoutesByTo {
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
+  '/metas-objetivos': typeof MetasObjetivosRoute
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
@@ -369,6 +377,7 @@ export interface FileRoutesById {
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
+  '/metas-objetivos': typeof MetasObjetivosRoute
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
@@ -415,6 +424,7 @@ export interface FileRouteTypes {
     | '/kickoff'
     | '/login'
     | '/metas'
+    | '/metas-objetivos'
     | '/propostas'
     | '/prospeccao'
     | '/tarefas'
@@ -459,6 +469,7 @@ export interface FileRouteTypes {
     | '/kickoff'
     | '/login'
     | '/metas'
+    | '/metas-objetivos'
     | '/propostas'
     | '/prospeccao'
     | '/tarefas'
@@ -502,6 +513,7 @@ export interface FileRouteTypes {
     | '/kickoff'
     | '/login'
     | '/metas'
+    | '/metas-objetivos'
     | '/propostas'
     | '/prospeccao'
     | '/tarefas'
@@ -547,6 +559,7 @@ export interface RootRouteChildren {
   KickoffRoute: typeof KickoffRoute
   LoginRoute: typeof LoginRoute
   MetasRoute: typeof MetasRoute
+  MetasObjetivosRoute: typeof MetasObjetivosRoute
   PropostasRoute: typeof PropostasRouteWithChildren
   ProspeccaoRoute: typeof ProspeccaoRoute
   TarefasRoute: typeof TarefasRoute
@@ -589,6 +602,13 @@ declare module '@tanstack/react-router' {
       path: '/propostas'
       fullPath: '/propostas'
       preLoaderRoute: typeof PropostasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/metas-objetivos': {
+      id: '/metas-objetivos'
+      path: '/metas-objetivos'
+      fullPath: '/metas-objetivos'
+      preLoaderRoute: typeof MetasObjetivosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/metas': {
@@ -961,6 +981,7 @@ const rootRouteChildren: RootRouteChildren = {
   KickoffRoute: KickoffRoute,
   LoginRoute: LoginRoute,
   MetasRoute: MetasRoute,
+  MetasObjetivosRoute: MetasObjetivosRoute,
   PropostasRoute: PropostasRouteWithChildren,
   ProspeccaoRoute: ProspeccaoRoute,
   TarefasRoute: TarefasRoute,
