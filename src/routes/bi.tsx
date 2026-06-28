@@ -114,16 +114,22 @@ function BIPage() {
       </header>
 
       <Tabs value={area} onValueChange={(v) => setArea(v as BIArea)}>
-        <TabsList className="flex flex-wrap">
-          {AREAS.map((a) => {
-            const Icon = a.icon;
-            return (
-              <TabsTrigger key={a.id} value={a.id} className="gap-2">
-                <Icon className="h-4 w-4" /> {a.label}
-              </TabsTrigger>
-            );
-          })}
-        </TabsList>
+        <div className="-mx-3 sm:-mx-6 px-3 sm:px-6 sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border">
+          <TabsList className="flex w-max gap-1 overflow-x-auto bg-transparent p-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {AREAS.map((a) => {
+              const Icon = a.icon;
+              return (
+                <TabsTrigger
+                  key={a.id}
+                  value={a.id}
+                  className="shrink-0 gap-2 rounded-full data-[state=active]:bg-primary/10 data-[state=active]:text-foreground"
+                >
+                  <Icon className="h-4 w-4" /> {a.label}
+                </TabsTrigger>
+              );
+            })}
+          </TabsList>
+        </div>
 
         {AREAS.map((a) => (
           <TabsContent key={a.id} value={a.id} className="mt-4 space-y-5">
