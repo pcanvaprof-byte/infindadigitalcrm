@@ -451,7 +451,7 @@ function DashboardPage() {
       {/* 2 — North Star Metrics */}
       <section className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-3">
         <NorthStar
-          label={isProj ? "Contatos previstos no mês" : `Contatos (${periodLabel.toLowerCase()})`}
+          label={isProj ? "Disparos previstos no mês" : `Disparos (${periodLabel.toLowerCase()})`}
           value={contato.value}
           icon={Zap}
           spark={sparkContatos}
