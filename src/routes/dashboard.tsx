@@ -1,38 +1,25 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth, useRequiredUser } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import {
-  AlertTriangle, Award,
+  AlertTriangle,
   Building2,
   CheckCircle2,
-  Clock, DollarSign,
-  Handshake, Hourglass,
+  Clock,
+  Handshake,
   Inbox,
   MessageSquare,
   Percent,
-  Plus, Activity,
+  Plus,
   Repeat,
-  TrendingUp, Trophy,
+  TrendingUp,
   UserX,
 } from "lucide-react";
 import { FollowupComparativoWidget } from "@/components/cadence/FollowupComparativoWidget";
-import { FiltersBar } from "@/components/dashboard/FiltersBar";
-import { MetasDialog } from "@/components/dashboard/MetasDialog";
-import {
-  EvolucaoDiariaChart, EvolucaoMensalChart, FunilChart, RankingChart,
-  ComparacaoChart, MetasChart,
-} from "@/components/dashboard/Charts";
-import {
-  dashboardV8Keys, fetchDashboardV8,
-  type DashboardFiltersV8, type DashboardV8,
-} from "@/lib/dashboard/api-v8";
-import { AlertsPanel } from "@/components/dashboard/AlertsPanel";
-import { TeamRankingChart } from "@/components/dashboard/TeamRankingChart";
-import { Badge } from "@/components/ui/badge";
-import { MULTI_USER_MODE } from "@/config/features";
+import { fetchDashboardMetrics, type DashboardMetrics } from "@/lib/cadence/api";
+import { FEATURES } from "@/config/features";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -101,64 +88,34 @@ function errorMessage(error: unknown): string {
   return String(error);
 }
 
-function fmtBRL(v: number): string {
-  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
-}
-
 function DashboardPage() {
   const user = useRequiredUser();
   const navigate = useNavigate();
-  const [filters, setFilters] = useState<DashboardFiltersV8>({ preset: "mes", owner_name: null, team_id: null });
 
   const q = useQuery({
-    queryKey: dashboardV8Keys.v8(filters),
-    queryFn: () => fetchDashboardV8(filters),
+    queryKey: ["dashboard", "v6"] as const,
+    queryFn: () => fetchDashboardMetrics(),
     staleTime: 30_000,
   });
 
-  const isAdmin = user.role === "admin";
-  const subtitle = isAdmin
-    ? "Visão gerencial consolidada"
-    : "Seu desempenho e cadência";
+  const subtitle = "Seu desempenho e cadência";
 
-  const m = q.data as DashboardV8 | undefined;
+  const m = q.data as DashboardMetrics | undefined;
   const errMsg = errorMessage(q.error);
   const noActiveOrg =
     errMsg.includes("no_active_org") || errMsg.includes("org_access_denied");
-  const migrationPending =
-    !noActiveOrg && (
-    errMsg.includes("dashboard_metrics_v8") ||
-    errMsg.includes("dashboard_metrics_v7") ||
-    errMsg.includes("dashboard_filters_options") ||
-    errMsg.includes("organization_id") ||
-    errMsg.includes("PGRST202") ||
-    errMsg.includes("404")
-    );
-  const role = m?.scope?.role ?? "vendedor";
-  const roleLabel: Record<string, string> = {
-    admin: "Administrador", diretor: "Diretor", gestor: "Gestor",
-    supervisor: "Supervisor", vendedor: "Vendedor", consultor: "Vendedor", none: "—",
-  };
 
   return (
     <AppShell
       title={`Olá, ${user.name.split(" ")[0]} 👋`}
       subtitle={subtitle}
       actions={
-        <>
-          {MULTI_USER_MODE && (
-            <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
-              {roleLabel[role] ?? role}
-            </Badge>
-          )}
-          {MULTI_USER_MODE && m && <MetasDialog metas={m.metas} />}
-          <Button
+        <Button
           className="btn-gradient hidden h-9 px-3 text-xs font-semibold sm:inline-flex"
           onClick={() => navigate({ to: "/prospeccao", search: { new: 1 } as never })}
         >
           <Plus className="mr-1.5 h-4 w-4" /> Nova oportunidade
-          </Button>
-        </>
+        </Button>
       }
     >
       {noActiveOrg && (
@@ -166,46 +123,10 @@ function DashboardPage() {
           <strong>Sem organização ativa:</strong> selecione uma organização no seletor do header para ver os KPIs. O Dashboard agora exige escopo de organização (sem fallback por usuário).
         </div>
       )}
-      {migrationPending && (
-        <div className="surface-card mb-4 border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-200">
-          <strong>Migrations pendentes:</strong> aplique <code>scripts/migrations/20260744_dashboard_v7_managerial.sql</code> e <code>20260745_dashboard_v8_multiuser.sql</code> no SQL Editor.
-        </div>
-      )}
-
-      {MULTI_USER_MODE && (
-        <FiltersBar filters={filters} onChange={setFilters} />
-      )}
-
-      {MULTI_USER_MODE && (
-        <div className="mb-4">
-          <AlertsPanel />
-        </div>
-      )}
-
-      {/* KPIs gerenciais — fonte: dashboard_metrics_v7 */}
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">KPIs gerenciais</h3>
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <Kpi label="Taxa de resposta"     value={m?.kpis_gerencial.taxa_resposta ?? 0}    suffix="%" icon={Percent}   tone="ok" />
-        <Kpi label="Taxa de conversão"    value={m?.kpis_gerencial.taxa_conversao ?? 0}   suffix="%" icon={TrendingUp} tone="ok" />
-        <Kpi label="Taxa de fechamento"   value={m?.kpis_gerencial.taxa_fechamento ?? 0}  suffix="%" icon={Trophy}    tone="ok" />
-        <Kpi label="Ticket médio"         value={fmtBRL(m?.kpis_gerencial.ticket_medio ?? 0)} icon={DollarSign} />
-        <Kpi label="Receita (período)"    value={fmtBRL(m?.kpis_gerencial.receita_periodo ?? 0)} icon={DollarSign} tone="ok" />
-        <Kpi label="Ciclo médio venda"    value={m?.kpis_gerencial.ciclo_medio_venda_d ?? 0}            suffix=" d" icon={Hourglass} />
-        <Kpi label="Tempo até fechamento" value={m?.kpis_gerencial.tempo_medio_fechamento_d ?? 0}       suffix=" d" icon={Clock} />
-        <Kpi label="Tempo 1ª resposta"    value={m?.kpis_gerencial.tempo_medio_primeira_resposta_d ?? 0} suffix=" d" icon={Activity} />
-        <Kpi label="Clientes ganhos"      value={m?.kpis_gerencial.clientes_ganhos ?? 0}   icon={Award}        tone="ok" />
-        <Kpi label="Clientes perdidos"    value={m?.kpis_gerencial.clientes_perdidos ?? 0} icon={UserX}        tone="danger" />
-        <Kpi
-          label="ROI comercial"
-          value={m?.kpis_gerencial.roi_comercial == null ? "—" : `${m.kpis_gerencial.roi_comercial}%`}
-          icon={Percent}
-          tone={(m?.kpis_gerencial.roi_comercial ?? 0) >= 0 ? "ok" : "danger"}
-        />
-      </section>
 
       {/* Operação */}
       {/* Resumo — fonte: prospects + clients (Lifecycle) */}
-      <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resumo</h3>
+      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resumo</h3>
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
         <Kpi label="Empresas na base"   value={m?.resumo.base          ?? 0} icon={Building2} />
         <Kpi label="Contatados"         value={m?.resumo.contatados    ?? 0} icon={MessageSquare} />
@@ -259,21 +180,14 @@ function DashboardPage() {
         </div>
       </section>
 
-      {/* Gráficos gerenciais */}
-      {m && (
-        <>
-          <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Gráficos gerenciais</h3>
-          <section className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-            <EvolucaoDiariaChart data={m.series.evolucao_diaria} />
-            <EvolucaoMensalChart data={m.series.evolucao_mensal} />
-            <FunilChart data={m.series.funil} />
-            {MULTI_USER_MODE && <RankingChart data={m.series.ranking} />}
-            {MULTI_USER_MODE && <TeamRankingChart filters={filters} />}
-            <ComparacaoChart comp={m.comparacao} />
-            {MULTI_USER_MODE && <MetasChart metas={m.metas} />}
-          </section>
-        </>
-      )}
+      {/*
+        v7 (dashboard gerencial), v8 (multiusuário) e BI permanecem disponíveis
+        no código em src/lib/dashboard/api-v7.ts, api-v8.ts, src/components/dashboard/*
+        e src/lib/bi/* — desativados via FEATURES (src/config/features.ts).
+        Não importar nem chamar enquanto FEATURES.dashboardManagerial /
+        FEATURES.multiUser / FEATURES.businessIntelligence estiverem false.
+      */}
+      {FEATURES.dashboardManagerial /* placeholder reservado para reativação futura */ ? null : null}
 
       {/* Follow-ups: previsto x realizado */}
       <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
