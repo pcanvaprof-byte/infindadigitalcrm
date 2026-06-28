@@ -151,6 +151,7 @@ function DashboardPage() {
   const errMsg = errorMessage(q.error);
   const migrationPending =
     errMsg.includes("dashboard_metrics") ||
+    errMsg.includes("organization_id") ||
     errMsg.includes("function") ||
     errMsg.includes("404") ||
     q.data?.schema === "legacy";
@@ -170,7 +171,7 @@ function DashboardPage() {
     >
       {migrationPending && (
         <div className="surface-card mb-4 border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-200">
-          <strong>Dashboard em modo compatibilidade:</strong> a RPC <code>dashboard_metrics()</code> ainda não está disponível no cache da API. Rode <code>scripts/migrations/20260738_dashboard_metrics_v3_schema_cache_hotfix.sql</code> no SQL Editor.
+          <strong>Dashboard em modo compatibilidade:</strong> aplique <code>scripts/migrations/20260739_fix_dashboard_zero_prospects_org.sql</code> no SQL Editor para restaurar os KPIs por organização.
         </div>
       )}
 
