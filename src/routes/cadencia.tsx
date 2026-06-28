@@ -20,6 +20,7 @@ import { listLeads, createLead, importFromProspects, syncLeadStagesFromProspects
 import type { CadLead, CadStage } from "@/lib/cadencia/types";
 import { CAD_STAGE_LABEL } from "@/lib/cadencia/types";
 import { leadUf } from "@/lib/cadencia/uf";
+import { supabase } from "@/integrations/supabase/client";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X } from "lucide-react";
 
@@ -52,6 +53,42 @@ function CadenciaPage() {
 
   const leadsQ = useQuery({ queryKey: ["cad-leads"], queryFn: listLeads });
 
+  // UF real vem de prospects.state. Mapeamos prospect_id → UF (uppercase).
+  // Fallback: DDD do telefone/whatsapp via leadUf().
+  const prospectIds = useMemo(
+    () => Array.from(new Set((leadsQ.data ?? []).map((l) => l.prospect_id).filter((x): x is string => !!x))),
+    [leadsQ.data],
+  );
+  const prospectUfQ = useQuery({
+    queryKey: ["cad-prospect-ufs", prospectIds],
+    enabled: prospectIds.length > 0,
+    queryFn: async () => {
+      const map = new Map<string, string>();
+      const chunkSize = 500;
+      for (let i = 0; i < prospectIds.length; i += chunkSize) {
+        const chunk = prospectIds.slice(i, i + chunkSize);
+        const { data, error } = await supabase
+          .from("prospects")
+          .select("id,state")
+          .in("id", chunk);
+        if (error) throw new Error(error.message);
+        for (const r of (data ?? []) as Array<{ id: string; state: string | null }>) {
+          const uf = (r.state ?? "").trim().toUpperCase();
+          if (uf.length === 2) map.set(r.id, uf);
+        }
+      }
+      return map;
+    },
+  });
+
+  const ufOf = (lead: CadLead): string | null => {
+    if (lead.prospect_id) {
+      const fromProspect = prospectUfQ.data?.get(lead.prospect_id);
+      if (fromProspect) return fromProspect;
+    }
+    return leadUf(lead);
+  };
+
   // Abre o LeadDrawer automaticamente quando vier via ?lead=<id> (ex.: clique
   // em notificação). Limpa o search param após abrir para evitar reabertura
   // ao fechar o drawer.
@@ -70,7 +107,7 @@ function CadenciaPage() {
     if (stageFilter) all = all.filter((l) => l.stage === stageFilter);
     if (ufFilter !== "all") {
       all = all.filter((l) => {
-        const uf = leadUf(l);
+        const uf = ufOf(l);
         return ufFilter === "__none__" ? !uf : uf === ufFilter;
       });
     }
@@ -81,21 +118,21 @@ function CadenciaPage() {
       );
     }
     return all;
-  }, [leadsQ.data, search, stageFilter, ufFilter]);
+  }, [leadsQ.data, search, stageFilter, ufFilter, prospectUfQ.data]);
 
   // Contagem de leads por UF presente na base (para mostrar no dropdown).
   const ufsDisponiveis = useMemo(() => {
     const counts = new Map<string, number>();
     let semUf = 0;
     for (const l of leadsQ.data ?? []) {
-      const uf = leadUf(l);
+      const uf = ufOf(l);
       if (uf) counts.set(uf, (counts.get(uf) ?? 0) + 1);
       else semUf += 1;
     }
     const ufs = Array.from(counts.entries())
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
     return { ufs, semUf, total: (leadsQ.data ?? []).length };
-  }, [leadsQ.data]);
+  }, [leadsQ.data, prospectUfQ.data]);
 
   const invalidateAll = () => {
     qc.invalidateQueries({ queryKey: ["cad-leads"] });
