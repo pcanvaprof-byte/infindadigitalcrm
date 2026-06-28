@@ -270,8 +270,7 @@ export async function addInteractionRemote(
   // Fonte única: grava em prospect_touchpoints.
   // 'status' e 'nota' viram resultado='enviado' (não disparam avanço de cadência via trigger).
   // 'whatsapp'|'ligacao'|'email' chamados aqui (fora de logAttempt) também são 'enviado'.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await dbExt
     .from("prospect_touchpoints")
     .insert({
       prospect_id: prospectId,
@@ -313,8 +312,7 @@ export async function addInteractionsBatch(
     resultado: "enviado",
     by_name: i.byName,
   }));
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await dbExt
     .from("prospect_touchpoints")
     .insert(payload)
     .select("id, prospect_id, tipo, mensagem, by_name, enviado_em");
