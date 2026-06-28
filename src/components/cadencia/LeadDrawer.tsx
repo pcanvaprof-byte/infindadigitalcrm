@@ -22,6 +22,9 @@ export function LeadDrawer({
     qc.invalidateQueries({ queryKey: ["cad-messages"] });
     qc.invalidateQueries({ queryKey: ["cad-metrics"] });
     qc.invalidateQueries({ queryKey: ["prospects"] });
+    // Dashboard usa ["dashboard", "v6"] e ["dashboard", "trends-14d"].
+    // Invalida tudo que começa com "dashboard" para refletir KPIs em tempo real.
+    qc.invalidateQueries({ queryKey: ["dashboard"] });
   };
 
   const moveM = useMutation({
