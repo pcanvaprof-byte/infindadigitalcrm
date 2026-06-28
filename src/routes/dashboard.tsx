@@ -32,6 +32,7 @@ import {
 import { AlertsPanel } from "@/components/dashboard/AlertsPanel";
 import { TeamRankingChart } from "@/components/dashboard/TeamRankingChart";
 import { Badge } from "@/components/ui/badge";
+import { MULTI_USER_MODE } from "@/config/features";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -145,10 +146,12 @@ function DashboardPage() {
       subtitle={subtitle}
       actions={
         <>
-          <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
-            {roleLabel[role] ?? role}
-          </Badge>
-          {m && <MetasDialog metas={m.metas} />}
+          {MULTI_USER_MODE && (
+            <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
+              {roleLabel[role] ?? role}
+            </Badge>
+          )}
+          {MULTI_USER_MODE && m && <MetasDialog metas={m.metas} />}
           <Button
           className="btn-gradient hidden h-9 px-3 text-xs font-semibold sm:inline-flex"
           onClick={() => navigate({ to: "/prospeccao", search: { new: 1 } as never })}
@@ -169,12 +172,15 @@ function DashboardPage() {
         </div>
       )}
 
-      <FiltersBar filters={filters} onChange={setFilters} />
+      {MULTI_USER_MODE && (
+        <FiltersBar filters={filters} onChange={setFilters} />
+      )}
 
-      {/* Alertas automáticos */}
-      <div className="mb-4">
-        <AlertsPanel />
-      </div>
+      {MULTI_USER_MODE && (
+        <div className="mb-4">
+          <AlertsPanel />
+        </div>
+      )}
 
       {/* KPIs gerenciais — fonte: dashboard_metrics_v7 */}
       <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">KPIs gerenciais</h3>
@@ -261,10 +267,10 @@ function DashboardPage() {
             <EvolucaoDiariaChart data={m.series.evolucao_diaria} />
             <EvolucaoMensalChart data={m.series.evolucao_mensal} />
             <FunilChart data={m.series.funil} />
-            <RankingChart data={m.series.ranking} />
-            <TeamRankingChart filters={filters} />
+            {MULTI_USER_MODE && <RankingChart data={m.series.ranking} />}
+            {MULTI_USER_MODE && <TeamRankingChart filters={filters} />}
             <ComparacaoChart comp={m.comparacao} />
-            <MetasChart metas={m.metas} />
+            {MULTI_USER_MODE && <MetasChart metas={m.metas} />}
           </section>
         </>
       )}
