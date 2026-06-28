@@ -72,7 +72,7 @@ export interface AcaoHoje {
 }
 
 export interface DashboardMetrics {
-  schema?: "v4" | "v2" | "legacy" | "empty";
+  schema?: "v5" | "v4" | "v2" | "legacy" | "empty";
   contatos:  { hoje: number; semana: number; mes: number };
   respostas: { hoje: number; semana: number; mes: number; taxa: number };
   resumo: {
