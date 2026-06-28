@@ -26,7 +26,9 @@ import { Textarea } from "@/components/ui/textarea";
 const STAGES_REQUIRE_RESPONSE: CadStage[] = [
   "interessado",
   "reuniao_agendada",
-  "ganho",
+  "proposta_enviada",
+  "negociacao",
+  "fechado",
   "perdido",
 ];
 
