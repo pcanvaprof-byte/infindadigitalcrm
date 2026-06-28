@@ -7,17 +7,16 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
-  Building2,
-  CheckCircle2,
+  ArrowRight,
+  ArrowUpRight,
+  ArrowDownRight,
   Clock,
-  Handshake,
-  Inbox,
-  MessageSquare,
-  Percent,
   Plus,
-  Repeat,
+  Target,
   TrendingUp,
-  UserX,
+  Users,
+  Wallet,
+  Zap,
 } from "lucide-react";
 import { FollowupComparativoWidget } from "@/components/cadence/FollowupComparativoWidget";
 import { fetchDashboardMetrics, type DashboardMetrics } from "@/lib/cadence/api";
