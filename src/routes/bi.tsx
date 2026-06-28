@@ -43,8 +43,18 @@ const AREAS: Array<{ id: BIArea; label: string; icon: typeof TrendingUp }> = [
   { id: "operacoes",  label: "Operações",  icon: AlertTriangle },
 ];
 
-const fmtBRL = (n: number) =>
-  n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+const fmtBRL = (n: number | null | undefined) =>
+  (Number.isFinite(n as number) ? (n as number) : 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    maximumFractionDigits: 0,
+  });
+
+const fmtNum = (n: number | null | undefined) =>
+  Number.isFinite(n as number) ? String(n) : "0";
+
+const fmtPct = (n: number | null | undefined) =>
+  `${Number.isFinite(n as number) ? (n as number) : 0}%`;
 
 function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
