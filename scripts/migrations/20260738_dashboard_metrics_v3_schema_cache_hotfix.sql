@@ -1,25 +1,17 @@
 -- ============================================================
--- Dashboard v3 — escopo por organização + KPIs mutuamente exclusivos
+-- Dashboard v3 hotfix — recria RPC sem parâmetros e força reload do cache
 --
--- Mudanças vs v2 (20260722):
---  1) Escopo unificado por organization_id = current_org_id()
---     (fallback para user_id quando a org ainda não existir no banco).
---  2) "Responderam" passa a contar também leads que avançaram no funil
---     (clients em REUNIAO_INICIAL+) como proxy real de resposta, além
---     do touchpoint inbound (tipo='resposta' / resultado respondido|interessado).
---  3) "Interessados" agora exclui ATIVO (e também exclui em_negociacao,
---     para ser mutuamente exclusivo).
---  4) Padroniza os 3 buckets do funil (mutuamente exclusivos):
---       interessados  = REUNIAO_INICIAL
---       em_negociacao = PROPOSTA, CONTRATO, ASSINATURA, PAGAMENTO_CONFIRMADO, IMPLANTACAO
---       ativos        = ATIVO
+-- Use quando o SQL da v3 roda com sucesso, mas o app ainda recebe:
+-- PGRST202 / Could not find function public.dashboard_metrics without parameters
 -- ============================================================
 
 begin;
 
 set local check_function_bodies = off;
 
-create or replace function public.dashboard_metrics()
+drop function if exists public.dashboard_metrics();
+
+create function public.dashboard_metrics()
 returns jsonb
 language plpgsql
 stable
@@ -31,7 +23,6 @@ declare
 begin
   return (
   with
-  -- Escopo por organização quando disponível; senão cai para user_id
   p as (
     select * from prospects
      where (v_org is not null and organization_id = v_org)
@@ -55,7 +46,6 @@ begin
         or tp.resultado in ('respondido','interessado')
   ),
   contatados as (select distinct prospect_id from t_out),
-  -- Responderam: touchpoint inbound OU client que avançou no funil
   respondidos_tp as (select distinct prospect_id from t_in),
   clients_advanced as (
     select distinct coalesce(source_ref, id) as ref_id
@@ -69,7 +59,6 @@ begin
     union
     select ref_id from clients_advanced
   ),
-  -- Buckets mutuamente exclusivos
   interessados as (
     select * from c where pipeline_stage = 'REUNIAO_INICIAL'
   ),
@@ -156,6 +145,7 @@ $$;
 
 grant execute on function public.dashboard_metrics() to authenticated;
 
+-- Força o PostgREST/Supabase API a recarregar a função recém-criada.
 notify pgrst, 'reload schema';
 
 commit;

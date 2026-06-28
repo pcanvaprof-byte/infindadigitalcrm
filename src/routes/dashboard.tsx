@@ -170,7 +170,7 @@ function DashboardPage() {
     >
       {migrationPending && (
         <div className="surface-card mb-4 border border-amber-500/30 bg-amber-500/5 p-4 text-xs text-amber-200">
-          <strong>Dashboard em modo compatibilidade:</strong> aplique <code>scripts/migrations/20260722_dashboard_metrics_v2.sql</code> no SQL Editor do Supabase para usar somente <code>prospect_touchpoints</code> e <code>clients</code> como fontes oficiais.
+          <strong>Dashboard em modo compatibilidade:</strong> a RPC <code>dashboard_metrics()</code> ainda não está disponível no cache da API. Rode <code>scripts/migrations/20260738_dashboard_metrics_v3_schema_cache_hotfix.sql</code> no SQL Editor.
         </div>
       )}
 
