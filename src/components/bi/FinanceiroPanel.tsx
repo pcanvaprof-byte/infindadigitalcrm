@@ -28,18 +28,22 @@ export function FinanceiroPanel({
   custoMarketing, ticketMedio, pipelineAberto, previsao30d, previsao90d,
 }: Props) {
   // Margem operacional (receita - custo de marketing)
-  const margemBruta = receitaRealizada - custoMarketing;
-  const margemPct = receitaRealizada > 0 ? (margemBruta / receitaRealizada) * 100 : 0;
+  // ATENÇÃO: isto é margem de AQUISIÇÃO (só desconta marketing), não margem operacional real.
+  const margemAquisicao = receitaRealizada - custoMarketing;
+  const margemAquisicaoPct = receitaRealizada > 0 ? (margemAquisicao / receitaRealizada) * 100 : 0;
 
   // Crescimento previsto (próximos 30d vs realizado mês corrente)
   const crescimentoPct = receitaRealizada > 0
     ? ((previsao30d - receitaRealizada) / receitaRealizada) * 100
     : 0;
 
-  // Fluxo de caixa previsto (90 dias)
-  const fluxoCaixa90d = receitaRealizada + previsao90d;
+  // Fluxo de caixa previsto (90 dias) — previsao_90d já é o total dos próximos 90 dias.
+  // Realizado é o que já entrou. Para evitar dupla contagem, somamos apenas
+  // realizado + previsto incremental dos 60d além dos primeiros 30d.
+  const incremento60a90 = Math.max(0, previsao90d - previsao30d);
+  const fluxoCaixa90d = receitaRealizada + previsao30d + incremento60a90;
 
-  const margemTone = margemPct >= 60 ? "text-emerald-400" : margemPct >= 30 ? "text-amber-400" : "text-rose-400";
+  const margemTone = margemAquisicaoPct >= 60 ? "text-emerald-400" : margemAquisicaoPct >= 30 ? "text-amber-400" : "text-rose-400";
   const crescTone = crescimentoPct >= 0 ? "text-emerald-400" : "text-rose-400";
 
   return (
@@ -77,18 +81,21 @@ export function FinanceiroPanel({
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
-              <PieChart className="h-4 w-4 text-primary" /> Margem operacional
+              <PieChart className="h-4 w-4 text-primary" /> Margem de aquisição
             </CardTitle>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Receita − custo de marketing (não inclui folha, infra, impostos)
+            </p>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-baseline gap-2">
-              <span className={`text-3xl font-semibold ${margemTone}`}>{margemPct.toFixed(1)}%</span>
-              <Badge variant="secondary" className={margemTone}>{fmtBRL(margemBruta)}</Badge>
+              <span className={`text-3xl font-semibold ${margemTone}`}>{margemAquisicaoPct.toFixed(1)}%</span>
+              <Badge variant="secondary" className={margemTone}>{fmtBRL(margemAquisicao)}</Badge>
             </div>
             <div className="h-2 w-full rounded-full bg-muted/40 overflow-hidden">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600"
-                style={{ width: `${Math.max(0, Math.min(100, margemPct))}%` }}
+                style={{ width: `${Math.max(0, Math.min(100, margemAquisicaoPct))}%` }}
               />
             </div>
             <div className="grid grid-cols-2 gap-2 text-xs">
