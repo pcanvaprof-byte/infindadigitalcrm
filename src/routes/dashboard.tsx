@@ -352,11 +352,19 @@ function DashboardPage() {
 
   /* Funil unificado */
   const baseN = m?.resumo.base ?? 0;
-  const contatadosN = m?.resumo.contatados ?? 0;
-  const respondidosN = m?.resumo.respondidos ?? 0;
-  const interessadosN = m?.resumo.interessados ?? 0;
-  const negociacaoN = m?.resumo.em_negociacao ?? 0;
+  // Rollup cumulativo: cada etapa deve ser >= a próxima (funil monotônico).
+  // Sem isso, "Responderam" pode ficar menor que "Interessados" porque o RPC
+  // só conta quem está atualmente no estágio respondido, ignorando quem já
+  // avançou. Garantimos consistência somando os estágios subsequentes.
   const clientesN = ativos;
+  const rawNeg = m?.resumo.em_negociacao ?? 0;
+  const rawInt = m?.resumo.interessados ?? 0;
+  const rawResp = m?.resumo.respondidos ?? 0;
+  const rawCont = m?.resumo.contatados ?? 0;
+  const negociacaoN = Math.max(rawNeg, clientesN);
+  const interessadosN = Math.max(rawInt, negociacaoN);
+  const respondidosN = Math.max(rawResp, interessadosN);
+  const contatadosN = Math.max(rawCont, respondidosN);
   const safePct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : null);
   const stages: FunnelStage[] = [
     { key: "base",   label: "Base",         value: baseN,         convPct: safePct(contatadosN, baseN) },
