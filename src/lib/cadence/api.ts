@@ -73,8 +73,8 @@ export interface AcaoHoje {
 
 export interface DashboardMetrics {
   schema?: "v6" | "v5" | "v4" | "v2" | "legacy" | "empty";
-  contatos:  { hoje: number; semana: number; mes: number };
-  respostas: { hoje: number; semana: number; mes: number; taxa: number };
+  contatos:  { hoje: number; semana: number; mes: number; ultimos_7d: number };
+  respostas: { hoje: number; semana: number; mes: number; ultimos_7d: number; taxa: number };
   resumo: {
     base: number;
     contatados: number;
@@ -154,8 +154,8 @@ let lastDashboardMetricSource: MetricSource = "rpc";
 
 export const EMPTY_DASHBOARD_METRICS: DashboardMetrics = {
   schema: "empty",
-  contatos: { hoje: 0, semana: 0, mes: 0 },
-  respostas: { hoje: 0, semana: 0, mes: 0, taxa: 0 },
+  contatos: { hoje: 0, semana: 0, mes: 0, ultimos_7d: 0 },
+  respostas: { hoje: 0, semana: 0, mes: 0, ultimos_7d: 0, taxa: 0 },
   resumo: {
     base: 0,
     contatados: 0,
@@ -218,11 +218,13 @@ function normalizeDashboardMetrics(value: unknown): DashboardMetrics {
         hoje: n(contatos.hoje),
         semana: n(contatos.semana),
         mes: n(contatos.mes),
+        ultimos_7d: n(contatos.ultimos_7d ?? contatos.semana),
       },
       respostas: {
         hoje: n(respostas.hoje),
         semana: n(respostas.semana),
         mes: n(respostas.mes),
+        ultimos_7d: n(respostas.ultimos_7d ?? respostas.semana),
         taxa: n(respostas.taxa),
       },
       resumo: {
@@ -266,11 +268,13 @@ function normalizeDashboardMetrics(value: unknown): DashboardMetrics {
       hoje: n(cadencia.hoje),
       semana: n(cadencia.semana),
       mes: n(cadencia.mes),
+      ultimos_7d: n(cadencia.semana),
     },
     respostas: {
       hoje: 0,
       semana: 0,
       mes: 0,
+      ultimos_7d: 0,
       taxa: n(cadencia.taxa_resposta),
     },
     resumo: {
@@ -406,6 +410,7 @@ async function fetchDashboardMetricsFallback(): Promise<DashboardMetrics> {
   const day = startOfDay(now);
   const week = startOfWeek(now);
   const month = startOfMonth(now);
+  const rolling7d = new Date(now.getTime() - 7 * 86400000);
 
   const leadToProspect = new Map(cadLeads.map((lead) => [lead.id, lead.prospect_id ?? lead.id]));
   const cadContactIds = new Set<string>();
@@ -413,9 +418,11 @@ async function fetchDashboardMetricsFallback(): Promise<DashboardMetrics> {
   let cadContatosHoje = 0;
   let cadContatosSemana = 0;
   let cadContatosMes = 0;
+  let cadContatos7d = 0;
   let cadRespostasHoje = 0;
   let cadRespostasSemana = 0;
   let cadRespostasMes = 0;
+  let cadRespostas7d = 0;
 
   for (const msg of cadMessages) {
     const entityId = msg.lead_id ? leadToProspect.get(msg.lead_id) ?? msg.lead_id : null;
@@ -430,12 +437,14 @@ async function fetchDashboardMetricsFallback(): Promise<DashboardMetrics> {
       if (isAtOrAfter(msg.created_at, day)) cadContatosHoje++;
       if (isAtOrAfter(msg.created_at, week)) cadContatosSemana++;
       if (isAtOrAfter(msg.created_at, month)) cadContatosMes++;
+      if (isAtOrAfter(msg.created_at, rolling7d)) cadContatos7d++;
     }
     if (inbound) {
       cadResponseIds.add(entityId);
       if (isAtOrAfter(msg.created_at, day)) cadRespostasHoje++;
       if (isAtOrAfter(msg.created_at, week)) cadRespostasSemana++;
       if (isAtOrAfter(msg.created_at, month)) cadRespostasMes++;
+      if (isAtOrAfter(msg.created_at, rolling7d)) cadRespostas7d++;
     }
   }
 
@@ -444,9 +453,11 @@ async function fetchDashboardMetricsFallback(): Promise<DashboardMetrics> {
   let touchContatosHoje = 0;
   let touchContatosSemana = 0;
   let touchContatosMes = 0;
+  let touchContatos7d = 0;
   let touchRespostasHoje = 0;
   let touchRespostasSemana = 0;
   let touchRespostasMes = 0;
+  let touchRespostas7d = 0;
 
   for (const tp of touchpoints) {
     if (!tp.prospect_id) continue;
@@ -459,12 +470,14 @@ async function fetchDashboardMetricsFallback(): Promise<DashboardMetrics> {
       if (isAtOrAfter(tp.enviado_em, day)) touchContatosHoje++;
       if (isAtOrAfter(tp.enviado_em, week)) touchContatosSemana++;
       if (isAtOrAfter(tp.enviado_em, month)) touchContatosMes++;
+      if (isAtOrAfter(tp.enviado_em, rolling7d)) touchContatos7d++;
     }
     if (isResposta) {
       touchResponseIds.add(tp.prospect_id);
       if (isAtOrAfter(tp.enviado_em, day)) touchRespostasHoje++;
       if (isAtOrAfter(tp.enviado_em, week)) touchRespostasSemana++;
       if (isAtOrAfter(tp.enviado_em, month)) touchRespostasMes++;
+      if (isAtOrAfter(tp.enviado_em, rolling7d)) touchRespostas7d++;
     }
   }
 
@@ -537,11 +550,13 @@ async function fetchDashboardMetricsFallback(): Promise<DashboardMetrics> {
       hoje: touchContatosHoje + cadContatosHoje,
       semana: touchContatosSemana + cadContatosSemana,
       mes: touchContatosMes + cadContatosMes,
+      ultimos_7d: touchContatos7d + cadContatos7d,
     },
     respostas: {
       hoje: touchRespostasHoje + cadRespostasHoje,
       semana: touchRespostasSemana + cadRespostasSemana,
       mes: touchRespostasMes + cadRespostasMes,
+      ultimos_7d: touchRespostas7d + cadRespostas7d,
       taxa: pct(respondidos, contatados),
     },
     resumo: {

@@ -40,24 +40,24 @@ const PERIOD_LABEL: Record<Period, string> = {
  *  - Dia < 3 do mês: amostra insuficiente, retorna o acumulado sem projetar.
  *  - Caso contrário: acumulado + (média_diária_7d × dias_restantes).
  */
-function projectMonth(mes: number, semana: number): number {
+function projectMonth(mes: number, ultimos7d: number): number {
   const now = new Date();
   const day = now.getDate();
   const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   if (day < 3) return mes;
-  const rate7d = semana / 7;
+  const rate7d = ultimos7d / 7;
   const remaining = Math.max(0, daysInMonth - day);
   return Math.round(mes + rate7d * remaining);
 }
 
 function pickBucket(
-  bucket: { hoje: number; semana: number; mes: number },
+  bucket: { hoje: number; semana: number; mes: number; ultimos_7d?: number },
   period: Period,
 ): { value: number; isProjection: boolean } {
   if (period === "hoje")     return { value: bucket.hoje, isProjection: false };
   if (period === "semana")   return { value: bucket.semana, isProjection: false };
   if (period === "mes")      return { value: bucket.mes, isProjection: false };
-  return { value: projectMonth(bucket.mes, bucket.semana), isProjection: true };
+  return { value: projectMonth(bucket.mes, bucket.ultimos_7d ?? bucket.semana), isProjection: true };
 }
 
 export const Route = createFileRoute("/dashboard")({
@@ -159,11 +159,11 @@ function DashboardPage() {
     errMsg.includes("no_active_org") || errMsg.includes("org_access_denied");
 
   const contato = useMemo(
-    () => pickBucket(m?.contatos ?? { hoje: 0, semana: 0, mes: 0 }, period),
+    () => pickBucket(m?.contatos ?? { hoje: 0, semana: 0, mes: 0, ultimos_7d: 0 }, period),
     [m, period],
   );
   const resposta = useMemo(
-    () => pickBucket(m?.respostas ?? { hoje: 0, semana: 0, mes: 0, taxa: 0 } as any, period),
+    () => pickBucket(m?.respostas ?? { hoje: 0, semana: 0, mes: 0, ultimos_7d: 0, taxa: 0 } as any, period),
     [m, period],
   );
   const taxa = m?.respostas.taxa ?? 0;
