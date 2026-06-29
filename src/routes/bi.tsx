@@ -31,7 +31,8 @@ import { SemanaPanel } from "@/components/bi/SemanaPanel";
 import { CascataOperacional } from "@/components/bi/CascataOperacional";
 import { GargalosPanel } from "@/components/bi/GargalosPanel";
 import { PrevisaoPanel } from "@/components/bi/PrevisaoPanel";
-import { PerformanceSemanaPanel, DEFAULT_WEEK_GOALS } from "@/components/bi/PerformanceSemanaPanel";
+import { PerformanceSemanaPanel } from "@/components/bi/PerformanceSemanaPanel";
+import { readExpenses, expensesByKind, EXPENSES_EVENT, type OperationalExpense } from "@/lib/bi/expenses";
 import { MeiosProspeccaoPanel } from "@/components/bi/MeiosProspeccaoPanel";
 import {
   ComercialCharts, FinanceiroCharts, MarketingCharts, OperacoesCharts,
@@ -381,6 +382,20 @@ function BIPage() {
     placeholderData: DEFAULT_GOALS,
   });
 
+  // Despesas operacionais — fonte real do lucro
+  const expensesQuery = useQuery<OperationalExpense[]>({
+    queryKey: ["bi", "expenses"],
+    queryFn: async () => readExpenses(),
+    staleTime: Infinity,
+  });
+  useEffect(() => {
+    const handler = () => queryClient.invalidateQueries({ queryKey: ["bi", "expenses"] });
+    window.addEventListener(EXPENSES_EVENT, handler);
+    return () => window.removeEventListener(EXPENSES_EVENT, handler);
+    // queryClient declarado adiante; capturamos via closure abaixo.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Previsão por período — recalcula quando muda Hoje/Semana/Mês/Trimestre.
   const previsaoQuery = useQuery<ForecastBreakdown>({
     queryKey: ["bi", "previsao", period.key, period.from.toISOString(), period.to.toISOString()],
@@ -411,6 +426,13 @@ function BIPage() {
           : String(errRaw))
     : null;
   const goals = goalsQuery.data ?? DEFAULT_GOALS;
+  const expenses = expensesQuery.data ?? [];
+  const expBreak = expensesByKind(expenses);
+  const hasExpenses = expBreak.count > 0;
+  const folhaCalc = hasExpenses ? expBreak.pessoal : (goals.payroll_cost || 0);
+  const infraCalc = hasExpenses ? expBreak.infra : (goals.infra_cost || 0);
+  const veiculosCalc = expBreak.veiculo;
+  const outrosCalc = expBreak.outro;
 
   // Merge: se a RPC não trouxe kpis, usa o fallback client-side (Diretoria).
   const fb = diretoriaFallback.data;
@@ -541,13 +563,13 @@ function BIPage() {
                 <PerformanceSemanaPanel
                   period={period}
                   goals={{
-                    receita: goals.weekly_revenue_goal || DEFAULT_WEEK_GOALS.receita,
-                    contratos: goals.weekly_contracts_goal || DEFAULT_WEEK_GOALS.contratos,
-                    empresas: goals.weekly_companies_goal || DEFAULT_WEEK_GOALS.empresas,
-                    disparos: goals.weekly_dispatches_goal || DEFAULT_WEEK_GOALS.disparos,
-                    novosContatos: goals.weekly_new_contacts_goal || DEFAULT_WEEK_GOALS.novosContatos,
-                    videos: goals.weekly_videos_goal || DEFAULT_WEEK_GOALS.videos,
-                    parcerias: goals.weekly_partnerships_goal || DEFAULT_WEEK_GOALS.parcerias,
+                    receita: goals.weekly_revenue_goal,
+                    contratos: goals.weekly_contracts_goal,
+                    empresas: goals.weekly_companies_goal,
+                    disparos: goals.weekly_dispatches_goal,
+                    novosContatos: goals.weekly_new_contacts_goal,
+                    videos: goals.weekly_videos_goal,
+                    parcerias: goals.weekly_partnerships_goal,
                   }}
                 />
                 <div className="grid gap-5 lg:grid-cols-[1.2fr_1fr]">
@@ -678,9 +700,12 @@ function BIPage() {
                 pipelineAberto={data?.forecast?.pipeline_aberto ?? 0}
                 previsao30d={data?.forecast?.previsao_30d ?? 0}
                 previsao90d={data?.forecast?.previsao_90d ?? 0}
-                folha={goals.payroll_cost}
-                infra={goals.infra_cost}
+                folha={folhaCalc}
+                infra={infraCalc}
+                veiculos={veiculosCalc}
+                outros={outrosCalc}
                 taxasPct={goals.taxes_pct}
+                expensesSource={hasExpenses ? "expenses" : "goals"}
               />
             )}
             {a.id === "financeiro" && <FinanceiroCharts period={period} />}

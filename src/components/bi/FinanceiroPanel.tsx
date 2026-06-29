@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { DollarSign, TrendingUp, Wallet, PieChart, Repeat, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { DollarSign, TrendingUp, Wallet, PieChart, Repeat, ArrowUpRight, ArrowDownRight, Receipt } from "lucide-react";
 
 const fmtBRL = (n: number | null | undefined) =>
   (Number.isFinite(n as number) ? (n as number) : 0).toLocaleString("pt-BR", {
@@ -23,18 +23,23 @@ type Props = {
   previsao90d: number;
   folha?: number;
   infra?: number;
+  veiculos?: number;
+  outros?: number;
   taxasPct?: number;
+  expensesSource?: "expenses" | "goals";
 };
 
 export function FinanceiroPanel({
   mrr, arr, receitaRealizada, receitaPrevistaMes,
   custoMarketing, ticketMedio, pipelineAberto, previsao30d, previsao90d,
-  folha = 0, infra = 0, taxasPct = 0,
+  folha = 0, infra = 0, veiculos = 0, outros = 0, taxasPct = 0, expensesSource = "goals",
 }: Props) {
-  // Lucro real = Receita - (Marketing + Folha + Infra + Impostos sobre receita)
+  // Lucro operacional = Receita - (Marketing + Pessoal + Infra + Veículos + Outros + Impostos)
   const impostos = receitaRealizada * (Math.max(0, taxasPct) / 100);
-  const opex = custoMarketing + folha + infra + impostos;
+  const despesasOpex = folha + infra + veiculos + outros;
+  const opex = custoMarketing + despesasOpex + impostos;
   const lucroReal = receitaRealizada - opex;
+  const despesasTotal = despesasOpex;
   const lucroPct = receitaRealizada > 0 ? (lucroReal / receitaRealizada) * 100 : 0;
 
   // Crescimento previsto (próximos 30d vs realizado mês corrente)
@@ -89,7 +94,7 @@ export function FinanceiroPanel({
               <PieChart className="h-4 w-4 text-primary" /> Lucro real
             </CardTitle>
             <p className="text-[10px] text-muted-foreground mt-1">
-              Receita − (Marketing + Folha + Infra + Impostos)
+              Receita − (Marketing + Pessoal + Infra + Veículos + Outros + Impostos)
             </p>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -112,13 +117,9 @@ export function FinanceiroPanel({
                 <p className="text-muted-foreground">Marketing</p>
                 <p className="font-medium text-foreground">{fmtBRL(custoMarketing)}</p>
               </div>
-              <div className="rounded border border-border/60 bg-card/40 p-2">
-                <p className="text-muted-foreground">Folha</p>
-                <p className="font-medium text-foreground">{fmtBRL(folha)}</p>
-              </div>
-              <div className="rounded border border-border/60 bg-card/40 p-2">
-                <p className="text-muted-foreground">Infra</p>
-                <p className="font-medium text-foreground">{fmtBRL(infra)}</p>
+              <div className="rounded border border-border/60 bg-card/40 p-2 col-span-2">
+                <p className="text-muted-foreground">Despesas operacionais</p>
+                <p className="font-medium text-foreground">{fmtBRL(despesasTotal)}</p>
               </div>
               <div className="rounded border border-border/60 bg-card/40 p-2 col-span-2">
                 <p className="text-muted-foreground">Impostos ({taxasPct.toFixed(1)}%)</p>
@@ -211,6 +212,53 @@ export function FinanceiroPanel({
               <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Ticket médio</p>
               <p className="mt-1 text-xl font-semibold">{fmtBRL(ticketMedio)}</p>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Despesas operacionais — fonte: bi.expenses */}
+      <Card>
+        <CardHeader className="pb-3 flex flex-row items-start justify-between gap-2">
+          <div>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Receipt className="h-4 w-4 text-primary" /> Despesas operacionais
+            </CardTitle>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              {expensesSource === "expenses"
+                ? "Fonte: Business › Configurações Operacionais"
+                : "Fonte: metas (sem despesas cadastradas)"}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total recorrente</p>
+            <p className="text-xl font-semibold tabular-nums">{fmtBRL(despesasTotal)}</p>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="rounded-lg border border-border bg-card/60 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Pessoal</p>
+              <p className="mt-1 text-lg font-semibold tabular-nums">{fmtBRL(folha)}</p>
+            </div>
+            <div className="rounded-lg border border-border bg-card/60 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Veículos</p>
+              <p className="mt-1 text-lg font-semibold tabular-nums">{fmtBRL(veiculos)}</p>
+            </div>
+            <div className="rounded-lg border border-border bg-card/60 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Infra</p>
+              <p className="mt-1 text-lg font-semibold tabular-nums">{fmtBRL(infra)}</p>
+            </div>
+            <div className="rounded-lg border border-border bg-card/60 p-3">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Outros</p>
+              <p className="mt-1 text-lg font-semibold tabular-nums">{fmtBRL(outros)}</p>
+            </div>
+          </div>
+          <div className="mt-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+            <p className="text-[10px] uppercase tracking-wider text-emerald-400/90">Lucro operacional previsto</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums text-emerald-300">{fmtBRL(lucroReal)}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Receita {fmtBRL(receitaRealizada)} − Marketing {fmtBRL(custoMarketing)} − Despesas {fmtBRL(despesasTotal)} − Impostos {fmtBRL(impostos)}
+            </p>
           </div>
         </CardContent>
       </Card>

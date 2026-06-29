@@ -125,26 +125,31 @@ export async function saveMonthlyGoals(input: {
 }): Promise<{ ok: boolean; error?: string }> {
   // Persistência local imediata — garante que a meta editada seja refletida no Cockpit
   // mesmo quando a RPC `bi_set_monthly_goals` não está disponível no banco.
-  writeLocalOverrides({
+  // Persistência local — só grava campos REALMENTE informados. Nunca sobrescreve
+  // com defaults silenciosos, que apagariam edições anteriores do usuário.
+  const overrides: Partial<BIGoals> = {
     revenue_goal: input.revenue,
     recurring_revenue_goal: input.recurring,
     contracts_goal: input.contracts,
     leads_goal: input.leads,
     meetings_goal: input.meetings,
     ticket_goal: input.ticket,
-    payroll_cost: input.payroll ?? 0,
-    infra_cost: input.infra ?? 0,
-    taxes_pct: input.taxesPct ?? 0,
-    weekly_revenue_goal: input.weeklyRevenue ?? 17000,
-    daily_visits_goal: input.dailyVisits ?? 30,
-    daily_contacts_goal: input.dailyContacts ?? 40,
-    weekly_dispatches_goal: input.weeklyDispatches ?? 240,
-    ...(input.weeklyContracts !== undefined && { weekly_contracts_goal: input.weeklyContracts }),
-    ...(input.weeklyCompanies !== undefined && { weekly_companies_goal: input.weeklyCompanies }),
-    ...(input.weeklyVideos !== undefined && { weekly_videos_goal: input.weeklyVideos }),
-    ...(input.weeklyPartnerships !== undefined && { weekly_partnerships_goal: input.weeklyPartnerships }),
-    ...(input.weeklyNewContacts !== undefined && { weekly_new_contacts_goal: input.weeklyNewContacts }),
-  });
+  };
+  if (input.payroll !== undefined) overrides.payroll_cost = input.payroll;
+  if (input.infra !== undefined) overrides.infra_cost = input.infra;
+  if (input.taxesPct !== undefined) overrides.taxes_pct = input.taxesPct;
+  if (input.weeklyRevenue !== undefined) overrides.weekly_revenue_goal = input.weeklyRevenue;
+  if (input.dailyVisits !== undefined) overrides.daily_visits_goal = input.dailyVisits;
+  if (input.dailyContacts !== undefined) overrides.daily_contacts_goal = input.dailyContacts;
+  if (input.weeklyDispatches !== undefined) overrides.weekly_dispatches_goal = input.weeklyDispatches;
+  if (input.weeklyContracts !== undefined) overrides.weekly_contracts_goal = input.weeklyContracts;
+  if (input.weeklyCompanies !== undefined) overrides.weekly_companies_goal = input.weeklyCompanies;
+  if (input.weeklyVideos !== undefined) overrides.weekly_videos_goal = input.weeklyVideos;
+  if (input.weeklyPartnerships !== undefined) overrides.weekly_partnerships_goal = input.weeklyPartnerships;
+  if (input.weeklyNewContacts !== undefined) overrides.weekly_new_contacts_goal = input.weeklyNewContacts;
+  writeLocalOverrides(overrides);
+
+  // Tenta persistir remotamente. Erros são propagados (sem mascarar).
   try {
     const { error } = await rpc("bi_set_monthly_goals", {
       p_year: input.year,
@@ -155,21 +160,23 @@ export async function saveMonthlyGoals(input: {
       p_leads: input.leads,
       p_meetings: input.meetings,
       p_ticket: input.ticket,
-      p_payroll: input.payroll ?? 0,
-      p_infra: input.infra ?? 0,
-      p_taxes_pct: input.taxesPct ?? 0,
-      p_weekly_revenue: input.weeklyRevenue ?? 17000,
-      p_daily_visits: input.dailyVisits ?? 30,
-      p_daily_contacts: input.dailyContacts ?? 40,
-      p_weekly_dispatches: input.weeklyDispatches ?? 240,
+      p_payroll: input.payroll,
+      p_infra: input.infra,
+      p_taxes_pct: input.taxesPct,
+      p_weekly_revenue: input.weeklyRevenue,
+      p_daily_visits: input.dailyVisits,
+      p_daily_contacts: input.dailyContacts,
+      p_weekly_dispatches: input.weeklyDispatches,
     });
     if (error) {
-      // RPC indisponível — meta já salva localmente; sinaliza sucesso parcial.
-      return { ok: true };
+      const msg = (error as { message?: string }).message ?? "RPC bi_set_monthly_goals indisponível";
+      // Persistência local ok — sucesso parcial sinalizado claramente.
+      return { ok: true, error: `Salvo localmente (${msg})` };
     }
     return { ok: true };
   } catch (e) {
-    void e;
-    return { ok: true };
+    console.error("[saveMonthlyGoals] RPC falhou:", e);
+    const msg = e instanceof Error ? e.message : String(e);
+    return { ok: true, error: `Salvo localmente (${msg})` };
   }
 }

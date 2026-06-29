@@ -18,16 +18,6 @@ type Goals = {
   parcerias: number;
 };
 
-export const DEFAULT_WEEK_GOALS: Goals = {
-  receita: 17000,
-  contratos: 4,
-  empresas: 180,
-  disparos: 240,
-  novosContatos: 50,
-  videos: 2,
-  parcerias: 1,
-};
-
 function tone(pct: number) {
   if (pct >= 100) return { bar: "bg-emerald-500", text: "text-emerald-400", label: "no ritmo" };
   if (pct >= 70)  return { bar: "bg-amber-500",   text: "text-amber-400",   label: "atenção" };
@@ -62,9 +52,9 @@ function Row({
 }
 
 export function PerformanceSemanaPanel({
-  goals = DEFAULT_WEEK_GOALS,
+  goals,
   period,
-}: { goals?: Goals; period?: ResolvedPeriod }) {
+}: { goals: Goals; period?: ResolvedPeriod }) {
   const usingRange = !!period && period.key !== "semana";
   const q = useQuery<WeekMetrics>({
     queryKey: ["bi", "perf", period?.key ?? "semana", period?.from?.toDateString(), period?.to?.toDateString()],

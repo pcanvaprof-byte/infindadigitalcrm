@@ -63,6 +63,26 @@ export function totalExpenses(list = readExpenses()): number {
   return list.reduce((sum, e) => sum + (e.recurring ? e.amount : 0), 0);
 }
 
+export interface ExpensesBreakdown {
+  pessoal: number;
+  infra: number;
+  veiculo: number;
+  outro: number;
+  total: number;
+  count: number;
+}
+
+export function expensesByKind(list = readExpenses()): ExpensesBreakdown {
+  const b: ExpensesBreakdown = { pessoal: 0, infra: 0, veiculo: 0, outro: 0, total: 0, count: 0 };
+  for (const e of list) {
+    if (!e.recurring) continue;
+    b[e.kind] += e.amount;
+    b.total += e.amount;
+    b.count += 1;
+  }
+  return b;
+}
+
 export function newExpense(): OperationalExpense {
   return {
     id: typeof crypto !== "undefined" && "randomUUID" in crypto

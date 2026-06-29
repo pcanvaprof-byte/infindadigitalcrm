@@ -24,6 +24,7 @@ import {
   Target,
   Megaphone,
   Wallet,
+  RotateCcw,
 } from "lucide-react";
 import { fetchBIGoals, saveMonthlyGoals, DEFAULT_GOALS, type BIGoals } from "@/lib/bi/goals";
 import {
@@ -31,6 +32,7 @@ import {
   writeExpenses,
   totalExpenses,
   newExpense,
+  DEFAULT_EXPENSES,
   type OperationalExpense,
   type ExpenseKind,
 } from "@/lib/bi/expenses";
@@ -113,6 +115,26 @@ function Page() {
   const removeExp = (id: string) => saveExpenses(expenses.filter((e) => e.id !== id));
   const addExp = () => saveExpenses([...expenses, newExpense()]);
 
+  const onRestoreDefaults = () => {
+    if (typeof window === "undefined") return;
+    const ok = window.confirm(
+      "Restaurar padrões INFINDA? Isso apaga edições locais de metas, despesas, canais e previsão neste navegador."
+    );
+    if (!ok) return;
+    try {
+      window.localStorage.removeItem("bi.goals.overrides.v1");
+      window.localStorage.removeItem("bi.expenses.v1");
+      window.localStorage.removeItem("bi.meios.metas.v1");
+      window.localStorage.removeItem("bi.forecast.settings.v1");
+    } catch (err) {
+      console.error("[restoreDefaults] falha ao limpar localStorage", err);
+    }
+    setForm(DEFAULT_GOALS);
+    saveExpenses([...DEFAULT_EXPENSES]);
+    qc.invalidateQueries({ queryKey: ["bi"] });
+    setMsg("Padrões INFINDA restaurados.");
+  };
+
   return (
     <AppShell
       title="Configurações Operacionais"
@@ -179,7 +201,10 @@ function Page() {
           </CardContent>
         </Card>
 
-        <div className="flex justify-end">
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button variant="outline" onClick={onRestoreDefaults}>
+            <RotateCcw className="mr-2 h-4 w-4" /> Restaurar padrões
+          </Button>
           <Button onClick={onSaveGoals} disabled={savingGoals}>
             <Save className="mr-2 h-4 w-4" /> {savingGoals ? "Salvando…" : "Salvar metas"}
           </Button>
