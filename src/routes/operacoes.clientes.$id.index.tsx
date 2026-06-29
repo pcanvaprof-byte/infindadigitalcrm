@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { getClient, listPlanTemplates, updateClient } from "@/modules/lifecycle/api";
 import { STAGE_LABEL } from "@/modules/lifecycle/types";
+import { jsPDF } from "jspdf";
 
 export const Route = createFileRoute("/operacoes/clientes/$id/")({
   ssr: false,
@@ -139,7 +140,12 @@ function ResumoPage() {
         <p className="text-xs text-muted-foreground">
           {c.cnpj ? `CNPJ ${c.cnpj}` : "CNPJ não informado"}
         </p>
-        <EditClientDialog clientId={id} />
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => downloadFichaPDF(c, items)}>
+            Baixar PDF
+          </Button>
+          <EditClientDialog clientId={id} />
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {items.map((it) => (
