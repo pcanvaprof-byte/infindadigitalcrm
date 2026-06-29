@@ -36,7 +36,15 @@ import {
 } from "@/components/bi/AreaCharts";
 import { PeriodSelector } from "@/components/bi/PeriodSelector";
 import { DrillDownProvider, useDrillDown } from "@/hooks/useDrillDown";
-import { periodSearchSchema, resolvePeriod, scaleGoal, type ResolvedPeriod, type PeriodKey } from "@/lib/bi/period";
+import {
+  periodSearchSchema,
+  resolvePeriod,
+  scaleGoal,
+  scaleWeeklyGoal,
+  goalScopeLabel,
+  type ResolvedPeriod,
+  type PeriodKey,
+} from "@/lib/bi/period";
 import type { ReactNode } from "react";
 import type { DrillKind } from "@/lib/bi/drilldown";
 import type { CascataStepId } from "@/components/bi/CascataOperacional";
