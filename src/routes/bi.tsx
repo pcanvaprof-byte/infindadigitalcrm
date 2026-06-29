@@ -461,6 +461,14 @@ function BIPage() {
             <Settings2 className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Metas</span>
           </Link>
+          <Link
+            to="/bi/configuracoes"
+            className="inline-flex items-center gap-1 rounded-md border border-border bg-card/60 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:border-primary/50"
+            title="Configurações operacionais"
+          >
+            <Settings2 className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Configurações</span>
+          </Link>
           <ExportMenu filename={`bi-${area}`} sections={exportSections} />
         </div>
       }

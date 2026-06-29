@@ -45,6 +45,7 @@ import { Route as CatalogoNovoRouteImport } from './routes/catalogo.novo'
 import { Route as CatalogoIdRouteImport } from './routes/catalogo.$id'
 import { Route as BriefingsIdRouteImport } from './routes/briefings.$id'
 import { Route as BriefingTokenRouteImport } from './routes/briefing.$token'
+import { Route as BiConfiguracoesRouteImport } from './routes/bi.configuracoes'
 import { Route as OperacoesClientesIdRouteImport } from './routes/operacoes.clientes.$id'
 import { Route as OperacoesClientesIdIndexRouteImport } from './routes/operacoes.clientes.$id.index'
 import { Route as OperacoesClientesIdOperacoesRouteImport } from './routes/operacoes.clientes.$id.operacoes'
@@ -233,6 +234,11 @@ const BriefingTokenRoute = BriefingTokenRouteImport.update({
   path: '/briefing/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BiConfiguracoesRoute = BiConfiguracoesRouteImport.update({
+  id: '/configuracoes',
+  path: '/configuracoes',
+  getParentRoute: () => BiRoute,
+} as any)
 const OperacoesClientesIdRoute = OperacoesClientesIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -277,7 +283,7 @@ const OperacoesClientesIdComercialRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/bi': typeof BiRoute
+  '/bi': typeof BiRouteWithChildren
   '/briefings': typeof BriefingsRouteWithChildren
   '/cadencia': typeof CadenciaRoute
   '/catalogo': typeof CatalogoRouteWithChildren
@@ -291,6 +297,7 @@ export interface FileRoutesByFullPath {
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
+  '/bi/configuracoes': typeof BiConfiguracoesRoute
   '/briefing/$token': typeof BriefingTokenRoute
   '/briefings/$id': typeof BriefingsIdRoute
   '/catalogo/$id': typeof CatalogoIdRoute
@@ -322,7 +329,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/bi': typeof BiRoute
+  '/bi': typeof BiRouteWithChildren
   '/briefings': typeof BriefingsRouteWithChildren
   '/cadencia': typeof CadenciaRoute
   '/catalogo': typeof CatalogoRouteWithChildren
@@ -336,6 +343,7 @@ export interface FileRoutesByTo {
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
+  '/bi/configuracoes': typeof BiConfiguracoesRoute
   '/briefing/$token': typeof BriefingTokenRoute
   '/briefings/$id': typeof BriefingsIdRoute
   '/catalogo/$id': typeof CatalogoIdRoute
@@ -367,7 +375,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/bi': typeof BiRoute
+  '/bi': typeof BiRouteWithChildren
   '/briefings': typeof BriefingsRouteWithChildren
   '/cadencia': typeof CadenciaRoute
   '/catalogo': typeof CatalogoRouteWithChildren
@@ -381,6 +389,7 @@ export interface FileRoutesById {
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
+  '/bi/configuracoes': typeof BiConfiguracoesRoute
   '/briefing/$token': typeof BriefingTokenRoute
   '/briefings/$id': typeof BriefingsIdRoute
   '/catalogo/$id': typeof CatalogoIdRoute
@@ -428,6 +437,7 @@ export interface FileRouteTypes {
     | '/propostas'
     | '/prospeccao'
     | '/tarefas'
+    | '/bi/configuracoes'
     | '/briefing/$token'
     | '/briefings/$id'
     | '/catalogo/$id'
@@ -473,6 +483,7 @@ export interface FileRouteTypes {
     | '/propostas'
     | '/prospeccao'
     | '/tarefas'
+    | '/bi/configuracoes'
     | '/briefing/$token'
     | '/briefings/$id'
     | '/catalogo/$id'
@@ -517,6 +528,7 @@ export interface FileRouteTypes {
     | '/propostas'
     | '/prospeccao'
     | '/tarefas'
+    | '/bi/configuracoes'
     | '/briefing/$token'
     | '/briefings/$id'
     | '/catalogo/$id'
@@ -549,7 +561,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  BiRoute: typeof BiRoute
+  BiRoute: typeof BiRouteWithChildren
   BriefingsRoute: typeof BriefingsRouteWithChildren
   CadenciaRoute: typeof CadenciaRoute
   CatalogoRoute: typeof CatalogoRouteWithChildren
@@ -835,6 +847,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BriefingTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/bi/configuracoes': {
+      id: '/bi/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/bi/configuracoes'
+      preLoaderRoute: typeof BiConfiguracoesRouteImport
+      parentRoute: typeof BiRoute
+    }
     '/operacoes/clientes/$id': {
       id: '/operacoes/clientes/$id'
       path: '/$id'
@@ -886,6 +905,16 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface BiRouteChildren {
+  BiConfiguracoesRoute: typeof BiConfiguracoesRoute
+}
+
+const BiRouteChildren: BiRouteChildren = {
+  BiConfiguracoesRoute: BiConfiguracoesRoute,
+}
+
+const BiRouteWithChildren = BiRoute._addFileChildren(BiRouteChildren)
 
 interface BriefingsRouteChildren {
   BriefingsIdRoute: typeof BriefingsIdRoute
@@ -971,7 +1000,7 @@ const OperacoesClientesRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  BiRoute: BiRoute,
+  BiRoute: BiRouteWithChildren,
   BriefingsRoute: BriefingsRouteWithChildren,
   CadenciaRoute: CadenciaRoute,
   CatalogoRoute: CatalogoRouteWithChildren,
