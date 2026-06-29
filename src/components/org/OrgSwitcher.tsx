@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { listMyOrganizations, setActiveOrganization, type Organization } from "@/lib/org/api";
 import { toast } from "sonner";
+import { resetOrgIdCache } from "@/lib/bi/tz";
 
 export function OrgSwitcher() {
   const qc = useQueryClient();
@@ -27,6 +28,7 @@ export function OrgSwitcher() {
   const switchMut = useMutation({
     mutationFn: (id: string) => setActiveOrganization(id),
     onSuccess: async () => {
+      resetOrgIdCache();
       toast.success("Organização ativa atualizada");
       await qc.invalidateQueries();
     },
