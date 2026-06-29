@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Link, useSearch } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { FORECAST_SETTINGS_EVENT } from "@/lib/bi/forecast-settings";
 import { FEATURES } from "@/config/features";
 import { AppShell } from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -388,6 +389,15 @@ function BIPage() {
     placeholderData: (prev) => prev,
   });
 
+  // Quando o usuário muda fallback/janela/mínimo de amostra, invalidamos a previsão
+  // para que a probabilidade reflita imediatamente a nova configuração.
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    const handler = () => queryClient.invalidateQueries({ queryKey: ["bi", "previsao"] });
+    window.addEventListener(FORECAST_SETTINGS_EVENT, handler);
+    return () => window.removeEventListener(FORECAST_SETTINGS_EVENT, handler);
+  }, [queryClient]);
+
   const data = dashQuery.data ?? null;
   const loading = dashQuery.isLoading || dashQuery.isFetching;
   const errRaw = dashQuery.error;
@@ -580,6 +590,9 @@ function BIPage() {
                       ? Math.min(1, data.forecast.taxa_conversao_historica / 100)
                       : undefined)
                   }
+                  probabilidadeSource={previsaoQuery.data?.probabilidadeSource}
+                  probabilidadeMotivo={previsaoQuery.data?.probabilidadeMotivo}
+                  amostra={previsaoQuery.data?.amostra}
                   meta={scaleGoal(goals.revenue_goal, period)}
                   periodLabel={period.label}
                   rangeLabel={period.rangeLabel}
