@@ -31,7 +31,7 @@ export interface BIGoals {
 /** Fallback INFINDA — mantém UI funcional antes da migration rodar. */
 export const DEFAULT_GOALS: BIGoals = {
   revenue_goal: 68000,
-  recurring_revenue_goal: 10000,
+  recurring_revenue_goal: 0,
   contracts_goal: 16,
   leads_goal: 700,
   meetings_goal: 100,
