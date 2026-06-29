@@ -1,5 +1,6 @@
 import { supabase as sb } from "@/integrations/supabase/client";
 import type { ResolvedPeriod } from "./period";
+import { localTimestamp, getCurrentOrgId } from "./tz";
 
 export type DrillKind =
   | "contracts"
@@ -35,16 +36,30 @@ export interface DrillResult {
   valueLabel?: string;
 }
 
-const fmtDateISO = (d: Date) => d.toISOString();
+const fmtDateISO = (d: Date) => localTimestamp(d);
 
 async function safeSelect<T = Record<string, unknown>>(
   table: string,
   columns: string,
   filter?: (q: unknown) => unknown,
+  opts: { scopeOrg?: boolean } = { scopeOrg: true },
 ): Promise<T[]> {
   try {
     let q = sb.from(table as never).select(columns);
     if (filter) q = filter(q) as typeof q;
+    if (opts.scopeOrg !== false) {
+      const orgId = await getCurrentOrgId();
+      if (orgId) {
+        try {
+          q = (q as unknown as { eq: (c: string, v: string) => typeof q }).eq(
+            "organization_id",
+            orgId,
+          ) as typeof q;
+        } catch {
+          /* tabela sem coluna organization_id — segue sem filtro extra */
+        }
+      }
+    }
     const { data, error } = await q;
     if (error) return [];
     return (data ?? []) as unknown as T[];
@@ -265,11 +280,20 @@ async function fetchTouchpoints(
 // PROSPECTS novos
 // ============================================================
 async function fetchProspectsNew(period: ResolvedPeriod): Promise<DrillResult> {
-  const rows = await safeSelect<Record<string, unknown>>(
-    "prospects",
+  // Fonte canônica atual é cad_leads; mantém fallback para a tabela legada
+  // `prospects` apenas se cad_leads vier vazia.
+  let rows = await safeSelect<Record<string, unknown>>(
+    "cad_leads",
     "id, empresa, responsavel, whatsapp, status, created_at",
     dateBetween("created_at", period),
   );
+  if (rows.length === 0) {
+    rows = await safeSelect<Record<string, unknown>>(
+      "prospects",
+      "id, empresa, responsavel, whatsapp, status, created_at",
+      dateBetween("created_at", period),
+    );
+  }
   return {
     columns: [
       { key: "empresa", label: "Empresa" },
