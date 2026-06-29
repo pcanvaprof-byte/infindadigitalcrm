@@ -383,6 +383,62 @@ function EditClientDialog({ clientId }: { clientId: string }) {
           </div>
         </section>
 
+        <section className="space-y-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Site / Produto adicional
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Valor da venda do site (R$)">
+              <Input
+                type="number"
+                inputMode="decimal"
+                placeholder="Ex.: 2500"
+                value={form.site_one_time_value}
+                onChange={(e) => setForm({ ...form, site_one_time_value: e.target.value })}
+              />
+            </Field>
+            <Field label="Recorrência do site (R$/mês)">
+              <Input
+                type="number"
+                inputMode="decimal"
+                placeholder="Ex.: 150"
+                value={form.site_recurring_value}
+                onChange={(e) => setForm({ ...form, site_recurring_value: e.target.value })}
+              />
+            </Field>
+            <Field label="Pagamento da venda do site">
+              <Select
+                value={form.site_payment_status}
+                onValueChange={(v) => setForm({ ...form, site_payment_status: v })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nao_aplica">Não se aplica</SelectItem>
+                  <SelectItem value="a_vista">À vista</SelectItem>
+                  <SelectItem value="parcelado">Parcelado</SelectItem>
+                  <SelectItem value="incluso">Incluso no plano</SelectItem>
+                  <SelectItem value="pendente">Pendente</SelectItem>
+                  <SelectItem value="pago">Pago</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+        </section>
+
+        <section className="space-y-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Outras informações
+          </p>
+          <Field label="Observações do contrato">
+            <Textarea
+              rows={3}
+              value={form.contract_notes}
+              onChange={(e) => setForm({ ...form, contract_notes: e.target.value })}
+              placeholder="Escopo extra, condições especiais, descontos, integrações…"
+            />
+          </Field>
+        </section>
+
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)}>Cancelar</Button>
           <Button disabled={saveM.isPending} onClick={() => saveM.mutate()}>
