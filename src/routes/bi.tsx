@@ -548,7 +548,10 @@ function BIPage() {
                   realizado={diretoriaKpis.receita_realizada ?? 0}
                   ticket={diretoriaKpis.ticket_medio ?? 0}
                   meta={scaleGoal(goals.revenue_goal, period)}
-                  recorrencia={Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal)}
+                  recorrencia={scaleGoal(
+                    Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal),
+                    period,
+                  )}
                   period={period}
                 />
                 <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
@@ -579,14 +582,22 @@ function BIPage() {
                   <CascataCard
                     meta={scaleGoal(goals.revenue_goal, period)}
                     realizado={diretoriaKpis.receita_realizada ?? 0}
-                    recorrencia={Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal)}
+                    recorrencia={scaleGoal(
+                      Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal),
+                      period,
+                    )}
                     ticket={diretoriaKpis.ticket_medio ?? 0}
                     taxaConversao={data?.forecast?.taxa_conversao_historica ?? null}
                   />
                   <GargalosCard
                     items={[
                       { label: `Receita ${goalScopeLabel(period)}`, scope: period.label,
-                        value: Math.round((diretoriaKpis.mrr ?? 0) + (diretoriaKpis.receita_realizada ?? 0)),
+                        value: Math.round(
+                          scaleGoal(
+                            Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal),
+                            period,
+                          ) + (diretoriaKpis.receita_realizada ?? 0),
+                        ),
                         goal: scaleGoal(goals.revenue_goal, period),
                         drill: { kind: "contracts" as const, title: "Contratos do período", crumb: "Diretoria · Receita" } },
                       { label: "Receita da semana", scope: "semana",
