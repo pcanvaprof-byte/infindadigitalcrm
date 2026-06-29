@@ -30,6 +30,7 @@ import {
   Calculator,
 } from "lucide-react";
 import { fetchBIGoals, saveMonthlyGoals, DEFAULT_GOALS, type BIGoals } from "@/lib/bi/goals";
+import { fetchDiretoriaKpis } from "@/lib/bi/diretoria";
 import {
   readExpenses,
   writeExpenses,
@@ -64,6 +65,7 @@ function Page() {
   const [expenses, setExpenses] = useState<OperationalExpense[]>(() => readExpenses());
   const [savingGoals, setSavingGoals] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [autoMrr, setAutoMrr] = useState<{ loading: boolean; info?: string }>({ loading: false });
 
   useEffect(() => { if (goalsQ.data) setForm(goalsQ.data); }, [goalsQ.data]);
 
@@ -129,6 +131,23 @@ function Page() {
 
   const removeExp = (id: string) => saveExpenses(expenses.filter((e) => e.id !== id));
   const addExp = () => saveExpenses([...expenses, newExpense()]);
+
+  const onAutoCalcMrr = async () => {
+    setAutoMrr({ loading: true });
+    try {
+      const k = await fetchDiretoriaKpis();
+      setForm((f) => ({ ...f, recurring_revenue_goal: k.mrr }));
+      setAutoMrr({
+        loading: false,
+        info: k.mrr > 0
+          ? `MRR detectado: ${fmtBRL(k.mrr)} (${k.clientes_ativos} contratos ativos)`
+          : `Nenhum contrato ativo encontrado — MRR = ${fmtBRL(0)}`,
+      });
+    } catch (err) {
+      console.error("[autoCalcMrr]", err);
+      setAutoMrr({ loading: false, info: "Falha ao calcular MRR." });
+    }
+  };
 
   const onRestoreDefaults = () => {
     if (typeof window === "undefined") return;
@@ -211,7 +230,30 @@ function Page() {
           <CardContent className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <Field label="Receita mensal (R$)" value={form.revenue_goal} onChange={setNum("revenue_goal")} />
             <Field label="Receita semanal (R$)" value={form.weekly_revenue_goal} onChange={setNum("weekly_revenue_goal")} />
-            <Field label="Recorrência mensal — MRR garantido (R$)" value={form.recurring_revenue_goal} onChange={setNum("recurring_revenue_goal")} />
+            <div className="space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs text-muted-foreground">
+                  Recorrência mensal — MRR garantido (R$)
+                </Label>
+                <button
+                  type="button"
+                  onClick={onAutoCalcMrr}
+                  disabled={autoMrr.loading}
+                  className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-primary hover:underline disabled:opacity-50"
+                >
+                  <Calculator className="h-3 w-3" />
+                  {autoMrr.loading ? "Calculando…" : "Auto"}
+                </button>
+              </div>
+              <Input
+                inputMode="decimal"
+                value={form.recurring_revenue_goal}
+                onChange={(ev) => setNum("recurring_revenue_goal")(ev.target.value)}
+              />
+              <p className="text-[10px] text-muted-foreground">
+                {autoMrr.info ?? "Soma de monthly_value dos contratos ativos. Clique em Auto para preencher."}
+              </p>
+            </div>
             <Field label="Ticket médio esperado (R$)" value={form.ticket_goal} onChange={setNum("ticket_goal")} />
             <Field label="Impostos sobre receita (%)" value={form.taxes_pct} onChange={setNum("taxes_pct")} />
             <Field label="Infraestrutura mensal (R$)" value={form.infra_cost} onChange={setNum("infra_cost")} />
