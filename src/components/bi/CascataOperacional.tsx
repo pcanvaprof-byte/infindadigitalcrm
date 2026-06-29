@@ -4,6 +4,14 @@ import { Target, FileSignature, CalendarClock, PhoneCall, Building2, Send, Arrow
 const fmtBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
+export type CascataStepId =
+  | "meta"
+  | "contratos"
+  | "reunioes"
+  | "contatos"
+  | "empresas"
+  | "disparos";
+
 interface Props {
   meta: number;
   realizado: number;
@@ -15,6 +23,7 @@ interface Props {
   taxaReuniao?: number | null;
   /** % conversão contato→reunião (0–100). Fallback 20 */
   taxaContato?: number | null;
+  onDrillDown?: (step: CascataStepId) => void;
 }
 
 /**
@@ -22,7 +31,7 @@ interface Props {
  * contratos → reuniões → contatos → empresas → disparos necessários.
  */
 export function CascataOperacional({
-  meta, realizado, recorrencia = 0, ticket, taxaConversao, taxaReuniao, taxaContato,
+  meta, realizado, recorrencia = 0, ticket, taxaConversao, taxaReuniao, taxaContato, onDrillDown,
 }: Props) {
   const gap = Math.max(0, meta - recorrencia - Math.max(0, realizado));
   const convPct = taxaConversao && taxaConversao > 0 ? taxaConversao : 5;
@@ -38,13 +47,13 @@ export function CascataOperacional({
   // disparos ≈ 1.4× empresas (overhead de tentativas)
   const disparos = Math.ceil(empresas * 1.4);
 
-  const steps = [
-    { icon: Target,         label: "Meta restante",         value: fmtBRL(gap),       tone: "text-rose-400" },
-    { icon: FileSignature,  label: "Contratos necessários", value: String(contratos), tone: "text-amber-400" },
-    { icon: CalendarClock,  label: "Reuniões necessárias",  value: String(reunioes),  tone: "text-violet-400" },
-    { icon: PhoneCall,      label: "Contatos necessários",  value: String(contatos),  tone: "text-sky-400" },
-    { icon: Building2,      label: "Empresas necessárias",  value: String(empresas),  tone: "text-emerald-400" },
-    { icon: Send,           label: "Disparos necessários",  value: String(disparos),  tone: "text-primary" },
+  const steps: { id: CascataStepId; icon: typeof Target; label: string; value: string; tone: string }[] = [
+    { id: "meta",      icon: Target,         label: "Meta restante",         value: fmtBRL(gap),       tone: "text-rose-400" },
+    { id: "contratos", icon: FileSignature,  label: "Contratos necessários", value: String(contratos), tone: "text-amber-400" },
+    { id: "reunioes",  icon: CalendarClock,  label: "Reuniões necessárias",  value: String(reunioes),  tone: "text-violet-400" },
+    { id: "contatos",  icon: PhoneCall,      label: "Contatos necessários",  value: String(contatos),  tone: "text-sky-400" },
+    { id: "empresas",  icon: Building2,      label: "Empresas necessárias",  value: String(empresas),  tone: "text-emerald-400" },
+    { id: "disparos",  icon: Send,           label: "Disparos necessários",  value: String(disparos),  tone: "text-primary" },
   ];
 
   return (
@@ -60,9 +69,29 @@ export function CascataOperacional({
         <div className="mt-5 flex flex-col gap-2">
           {steps.map((s, i) => {
             const Icon = s.icon;
+            const clickable = !!onDrillDown;
             return (
               <div key={s.label}>
-                <div className="rounded-xl border border-border bg-card/60 px-4 py-3 flex items-center justify-between">
+                <div
+                  role={clickable ? "button" : undefined}
+                  tabIndex={clickable ? 0 : undefined}
+                  onClick={clickable ? () => onDrillDown?.(s.id) : undefined}
+                  onKeyDown={
+                    clickable
+                      ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onDrillDown?.(s.id);
+                          }
+                        }
+                      : undefined
+                  }
+                  className={`rounded-xl border bg-card/60 px-4 py-3 flex items-center justify-between transition-all ${
+                    clickable
+                      ? "border-border hover:border-primary/50 hover:bg-accent/20 cursor-pointer"
+                      : "border-border"
+                  }`}
+                >
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-lg border border-border bg-background/60 grid place-items-center text-muted-foreground">
                       <Icon className="h-4 w-4" />
