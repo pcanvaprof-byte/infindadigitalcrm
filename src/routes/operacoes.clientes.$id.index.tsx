@@ -70,6 +70,22 @@ function ResumoPage() {
           : "Sim"
         : "Não",
     },
+    {
+      label: "Venda do site (única)",
+      value:
+        c.site_one_time_value != null
+          ? `R$ ${Number(c.site_one_time_value).toFixed(2)}${
+              c.site_payment_status ? ` · ${c.site_payment_status}` : ""
+            }`
+          : "—",
+    },
+    {
+      label: "Recorrência do site",
+      value:
+        c.site_recurring_value != null
+          ? `R$ ${Number(c.site_recurring_value).toFixed(2)}/mês`
+          : "—",
+    },
   ];
 
   return (
@@ -115,6 +131,10 @@ function EditClientDialog({ clientId }: { clientId: string }) {
     is_permuta: false,
     permuta_value: "",
     permuta_description: "",
+    site_one_time_value: "",
+    site_recurring_value: "",
+    site_payment_status: "nao_aplica",
+    contract_notes: "",
   });
 
   useEffect(() => {
@@ -137,6 +157,12 @@ function EditClientDialog({ clientId }: { clientId: string }) {
       is_permuta: !!c.is_permuta,
       permuta_value: c.permuta_value != null ? String(c.permuta_value) : "",
       permuta_description: c.permuta_description ?? "",
+      site_one_time_value:
+        c.site_one_time_value != null ? String(c.site_one_time_value) : "",
+      site_recurring_value:
+        c.site_recurring_value != null ? String(c.site_recurring_value) : "",
+      site_payment_status: c.site_payment_status ?? "nao_aplica",
+      contract_notes: c.contract_notes ?? "",
     });
   }, [open, cq.data]);
 
@@ -166,6 +192,13 @@ function EditClientDialog({ clientId }: { clientId: string }) {
         is_permuta: form.is_permuta,
         permuta_value: form.is_permuta && form.permuta_value ? Number(form.permuta_value) : null,
         permuta_description: form.is_permuta ? form.permuta_description.trim() || null : null,
+        site_one_time_value: form.site_one_time_value ? Number(form.site_one_time_value) : null,
+        site_recurring_value: form.site_recurring_value ? Number(form.site_recurring_value) : null,
+        site_payment_status:
+          form.site_one_time_value || form.site_recurring_value
+            ? form.site_payment_status
+            : null,
+        contract_notes: form.contract_notes.trim() || null,
       });
     },
     onSuccess: () => {
