@@ -981,10 +981,6 @@ function ProspeccaoPage() {
         </div>
       </section>
 
-      <div className="mt-6">
-        <AcoesHojeWidget />
-      </div>
-
       {/* Toolbar */}
       <section className="mt-6 surface-card p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
