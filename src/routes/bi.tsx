@@ -17,7 +17,6 @@ import { fetchBIGoals, DEFAULT_GOALS, type BIGoals } from "@/lib/bi/goals";
 import { fetchDiretoriaKpis, type DiretoriaKpis } from "@/lib/bi/diretoria";
 import { AIInsightsPanel } from "@/components/bi/AIInsightsPanel";
 import { ExportMenu, type ExportSection } from "@/components/bi/ExportMenu";
-import { ParaBaterMeta } from "@/components/bi/ParaBaterMeta";
 import { EvolucaoMes } from "@/components/bi/EvolucaoMes";
 import { KpiGoalCard } from "@/components/bi/KpiGoalCard";
 import { ForecastCard } from "@/components/bi/ForecastCard";
