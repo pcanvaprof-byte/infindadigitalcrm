@@ -91,26 +91,51 @@ function ClientesPage() {
   });
 
   async function openClient(c: OpCliente) {
-    const existing = lcBySource.get(c.id);
-    if (existing) {
-      navigate({ to: "/operacoes/clientes/$id", params: { id: existing.id } });
-      return;
-    }
     try {
       setOpening(c.id);
-      const lc = await createLifecycleClient({
+      // 1) já vinculado por source_ref?
+      const linked = lcBySource.get(c.id);
+      if (linked) {
+        navigate({ to: "/operacoes/clientes/$id", params: { id: linked.id } });
+        return;
+      }
+      const db = supabase as unknown as { from: (t: string) => any };
+      // 2) tenta achar um lifecycle existente pelo mesmo nome/empresa
+      //    (ex.: criado por importação de contratos) e vincula
+      const company = (c.empresa || c.nome || "").trim();
+      let lcId: string | null = null;
+      if (company) {
+        const { data: matches } = await db
+          .from("clients")
+          .select("id, source_ref")
+          .ilike("company", company)
+          .limit(1);
+        if (matches && matches.length > 0) {
+          lcId = matches[0].id as string;
+          if (matches[0].source_ref !== c.id) {
+            await db
+              .from("clients")
+              .update({ source_ref: c.id, created_from: "operacoes" })
+              .eq("id", lcId);
+          }
+        }
+      }
+      // 3) caso contrário, cria um novo já vinculado
+      if (!lcId) {
+        const lc = await createLifecycleClient({
         company: c.empresa || c.nome,
         contact_name: c.nome,
         email: c.email ?? undefined,
         phone: c.telefone ?? c.whatsapp ?? undefined,
       });
-      // vincula ao op_cliente para o estágio aparecer na listagem
-      await (supabase as unknown as { from: (t: string) => any })
-        .from("clients")
-        .update({ created_from: "operacoes", source_ref: c.id })
-        .eq("id", lc.id);
+        await db
+          .from("clients")
+          .update({ created_from: "operacoes", source_ref: c.id })
+          .eq("id", lc.id);
+        lcId = lc.id;
+      }
       qc.invalidateQueries({ queryKey: ["lc-clients"] });
-      navigate({ to: "/operacoes/clientes/$id", params: { id: lc.id } });
+      navigate({ to: "/operacoes/clientes/$id", params: { id: lcId } });
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
