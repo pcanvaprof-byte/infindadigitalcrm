@@ -580,6 +580,9 @@ function BIPage() {
                       ? Math.min(1, data.forecast.taxa_conversao_historica / 100)
                       : undefined)
                   }
+                  probabilidadeSource={previsaoQuery.data?.probabilidadeSource}
+                  probabilidadeMotivo={previsaoQuery.data?.probabilidadeMotivo}
+                  amostra={previsaoQuery.data?.amostra}
                   meta={scaleGoal(goals.revenue_goal, period)}
                   periodLabel={period.label}
                   rangeLabel={period.rangeLabel}
