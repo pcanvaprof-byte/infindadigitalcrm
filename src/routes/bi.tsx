@@ -650,6 +650,7 @@ function BIPage() {
                   />
 
                   {stages.length > 0 && <FunilCard stages={stages} />}
+                  <MeiosProspeccaoPanel period={period} />
                   <ComercialCharts period={period} />
                 </div>
               );
