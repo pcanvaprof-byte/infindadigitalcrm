@@ -27,7 +27,9 @@ export async function getCurrentOrgId(): Promise<string | null> {
   if (_orgIdPromise) return _orgIdPromise;
   _orgIdPromise = (async () => {
     try {
-      const { data, error } = await sb.rpc("current_org_id");
+      const { data, error } = await (sb as unknown as {
+        rpc: (name: string) => Promise<{ data: unknown; error: unknown }>;
+      }).rpc("current_org_id");
       if (error) return (_orgIdCache = null);
       const id = (data ?? null) as string | null;
       _orgIdCache = id;
