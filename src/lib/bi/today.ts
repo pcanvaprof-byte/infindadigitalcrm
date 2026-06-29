@@ -80,7 +80,7 @@ async function fetchRangeMetricsRaw(ini: string, fim: string | undefined): Promi
     if (fim) out = out.lte(col, fim);
     return out;
   };
-  const [cad, tp, cnt, tpRows, novos] = await Promise.all([
+  const [cad, tp, cnt, tpRows, novosProspects, novosCadOnly] = await Promise.all([
     between(sb.from("cad_messages" as never).select("id", { count: "exact", head: true }), "created_at"),
     between(sb.from("prospect_touchpoints" as never).select("id", { count: "exact", head: true }), "enviado_em").in(
       "tipo",
@@ -89,6 +89,12 @@ async function fetchRangeMetricsRaw(ini: string, fim: string | undefined): Promi
     between(sb.from("op_contracts" as never).select("monthly_value, contract_value, signed_at"), "signed_at"),
     between(sb.from("prospect_touchpoints" as never).select("prospect_id"), "enviado_em").in("tipo", OUTBOUND_TYPES),
     between(sb.from("prospects" as never).select("id", { count: "exact", head: true }), "created_at"),
+    // Leads que entraram direto pela cadência/disparo e ainda não viraram prospect.
+    // `prospect_id` é UNIQUE quando não nulo → evita contagem dupla com prospects.
+    between(sb.from("cad_leads" as never).select("id", { count: "exact", head: true }), "created_at").is(
+      "prospect_id",
+      null,
+    ),
   ]);
   type Contract = { monthly_value?: number | null; contract_value?: number | null };
   const contratos = ((cnt as unknown as { data: Contract[] | null }).data ?? []) as Contract[];
@@ -98,13 +104,16 @@ async function fetchRangeMetricsRaw(ini: string, fim: string | undefined): Promi
   );
   const tpData = ((tpRows as unknown as { data: Array<{ prospect_id: string | null }> | null }).data ?? []);
   const empresasTrabalhadas = new Set(tpData.map((r) => r.prospect_id).filter(Boolean)).size;
+  const novosProspectsCount = (novosProspects as unknown as { count: number | null }).count ?? 0;
+  const novosCadCount = (novosCadOnly as unknown as { count: number | null }).count ?? 0;
   return {
     receita,
     disparos: (cad as unknown as { count: number | null }).count ?? 0,
     contatos: (tp as unknown as { count: number | null }).count ?? 0,
     contratos: contratos.length,
     empresasTrabalhadas,
-    novosContatos: (novos as unknown as { count: number | null }).count ?? 0,
+    // União: cadastros + leads vindos da cadência sem prospect ainda.
+    novosContatos: novosProspectsCount + novosCadCount,
     videos: 0,
     parcerias: 0,
   };
