@@ -1,5 +1,6 @@
 import { supabase as sb } from "@/integrations/supabase/client";
 import { localTimestamp } from "./tz";
+import { fetchClientsAsContracts } from "./clients-source";
 
 /**
  * KPIs essenciais da aba Diretoria, calculados client-side a partir
@@ -45,6 +46,12 @@ export async function fetchDiretoriaKpis(): Promise<DiretoriaKpis> {
   let rows = await safeSelect("contracts", "monthly_value, contract_value, value, signed_at, status");
   if (!rows) rows = await safeSelect("op_contracts", "monthly_value, contract_value, signed_at, status");
   if (!rows) rows = [];
+
+  // Fonte adicional: clientes do lifecycle (Ficha 360°) — garante que edições
+  // em Operações/Clientes reflitam imediatamente no BI mesmo sem registro em
+  // `contracts`/`op_contracts`.
+  const clientRows = (await fetchClientsAsContracts()) as unknown as ContractRow[];
+  rows = [...rows, ...clientRows];
 
   const ini = startOfMonthIso();
   const isActive = (s?: string | null) => {
