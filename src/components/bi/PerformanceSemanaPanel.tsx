@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,7 +33,7 @@ function Row({
   goal: number;
   formatter?: (n: number) => string;
   hint?: string;
-  footer?: React.ReactNode;
+  footer?: ReactNode;
 }) {
   const pct = goal > 0 ? Math.round((done / goal) * 100) : 0;
   const t = tone(pct);
