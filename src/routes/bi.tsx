@@ -526,6 +526,7 @@ function BIPage() {
                   </ScopeWrapper>
                 </div>
                 <PerformanceSemanaPanel
+                  period={period}
                   goals={{
                     receita: goals.weekly_revenue_goal || DEFAULT_WEEK_GOALS.receita,
                     contratos: goals.weekly_contracts_goal || DEFAULT_WEEK_GOALS.contratos,
@@ -598,7 +599,8 @@ function BIPage() {
                   rangeLabel={period.rangeLabel}
                 />
                 <EvolucaoMes
-                  meta={goals.revenue_goal}
+                  period={period}
+                  meta={scaleGoal(goals.revenue_goal, period)}
                   realizado={diretoriaKpis.receita_realizada ?? 0}
                 />
               </>
