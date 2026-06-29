@@ -385,6 +385,7 @@ function BIPage() {
     staleTime: 60_000,
     gcTime: 10 * 60_000,
     refetchOnWindowFocus: false,
+    placeholderData: (prev) => prev,
   });
 
   const data = dashQuery.data ?? null;
