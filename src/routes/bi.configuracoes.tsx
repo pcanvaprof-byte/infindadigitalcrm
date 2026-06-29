@@ -341,6 +341,37 @@ function Field({
   );
 }
 
+function PreviewTile({
+  label,
+  value,
+  hint,
+  tone,
+  icon,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+  tone: "primary" | "success" | "danger";
+  icon: React.ReactNode;
+}) {
+  const toneCls =
+    tone === "success"
+      ? "text-emerald-400"
+      : tone === "danger"
+      ? "text-rose-400"
+      : "text-primary";
+  return (
+    <div className="rounded-lg border border-border/60 bg-background/40 p-3">
+      <div className={`flex items-center gap-1.5 text-[10px] uppercase tracking-wider ${toneCls}`}>
+        {icon}
+        <span>{label}</span>
+      </div>
+      <p className={`mt-1 text-lg font-semibold tabular-nums ${toneCls}`}>{value}</p>
+      <p className="text-[10px] text-muted-foreground">{hint}</p>
+    </div>
+  );
+}
+
 const KIND_LABEL: Record<ExpenseKind, string> = {
   pessoal: "Pessoal",
   infra: "Infra",
