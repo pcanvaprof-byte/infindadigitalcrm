@@ -15,6 +15,7 @@ import {
 import { fetchBIDashboard, type BIArea, type BIDashboardPayload } from "@/lib/bi/api";
 import { fetchBIGoals, DEFAULT_GOALS, type BIGoals } from "@/lib/bi/goals";
 import { fetchDiretoriaKpis, type DiretoriaKpis } from "@/lib/bi/diretoria";
+import { fetchForecastForPeriod, type ForecastBreakdown } from "@/lib/bi/forecast";
 import { AIInsightsPanel } from "@/components/bi/AIInsightsPanel";
 import { ExportMenu, type ExportSection } from "@/components/bi/ExportMenu";
 import { EvolucaoMes } from "@/components/bi/EvolucaoMes";
@@ -35,7 +36,7 @@ import {
 } from "@/components/bi/AreaCharts";
 import { PeriodSelector } from "@/components/bi/PeriodSelector";
 import { DrillDownProvider, useDrillDown } from "@/hooks/useDrillDown";
-import { periodSearchSchema, resolvePeriod, type ResolvedPeriod, type PeriodKey } from "@/lib/bi/period";
+import { periodSearchSchema, resolvePeriod, scaleGoal, type ResolvedPeriod, type PeriodKey } from "@/lib/bi/period";
 import type { ReactNode } from "react";
 import type { DrillKind } from "@/lib/bi/drilldown";
 import type { CascataStepId } from "@/components/bi/CascataOperacional";
@@ -368,6 +369,15 @@ function BIPage() {
     placeholderData: DEFAULT_GOALS,
   });
 
+  // Previsão por período — recalcula quando muda Hoje/Semana/Mês/Trimestre.
+  const previsaoQuery = useQuery<ForecastBreakdown>({
+    queryKey: ["bi", "previsao", period.key, period.from.toISOString(), period.to.toISOString()],
+    queryFn: () => fetchForecastForPeriod(period),
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+
   const data = dashQuery.data ?? null;
   const loading = dashQuery.isLoading || dashQuery.isFetching;
   const errRaw = dashQuery.error;
@@ -540,10 +550,29 @@ function BIPage() {
                   />
                 </div>
                 <PrevisaoPanel
-                  recorrencia={Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal)}
-                  fechado={diretoriaKpis.receita_realizada ?? 0}
-                  pipelineAberto={data?.forecast?.pipeline_aberto ?? 0}
-                  meta={goals.revenue_goal}
+                  recorrencia={
+                    previsaoQuery.data?.recorrencia
+                    ?? Math.round(
+                      Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal) * (period.days / 30),
+                    )
+                  }
+                  fechado={previsaoQuery.data?.fechado ?? (diretoriaKpis.receita_realizada ?? 0)}
+                  pipelineAberto={
+                    previsaoQuery.data?.pipelineAberto ?? (data?.forecast?.pipeline_aberto ?? 0)
+                  }
+                  pipelineProbabilidade={
+                    previsaoQuery.data?.pipelineProbabilidade
+                    ?? (data?.forecast?.taxa_conversao_historica
+                      ? Math.min(1, data.forecast.taxa_conversao_historica / 100)
+                      : undefined)
+                  }
+                  meta={
+                    period.key === "mes"
+                      ? goals.revenue_goal
+                      : scaleGoal(goals.revenue_goal, period)
+                  }
+                  periodLabel={period.label}
+                  rangeLabel={period.rangeLabel}
                 />
                 <EvolucaoMes
                   meta={goals.revenue_goal}
