@@ -53,7 +53,6 @@ export function AcoesHojeWidget() {
         <div className="flex items-center gap-2">
           <Flame className="h-4 w-4 text-rose-300" />
           <h3 className="text-sm font-semibold">Ações de hoje</h3>
-          <Badge variant="outline" className="text-[10px]">{rows.length}</Badge>
         </div>
         <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
           Cadência ativa · próximas 24h
