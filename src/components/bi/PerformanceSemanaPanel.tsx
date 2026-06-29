@@ -25,16 +25,26 @@ function tone(pct: number) {
 }
 
 function Row({
-  label, done, goal, formatter,
-}: { label: string; done: number; goal: number; formatter?: (n: number) => string }) {
+  label, done, goal, formatter, hint, footer,
+}: {
+  label: string;
+  done: number;
+  goal: number;
+  formatter?: (n: number) => string;
+  hint?: string;
+  footer?: React.ReactNode;
+}) {
   const pct = goal > 0 ? Math.round((done / goal) * 100) : 0;
   const t = tone(pct);
   const fmt = formatter ?? ((n: number) => String(n));
   const falta = Math.max(0, goal - done);
   return (
-    <div className="rounded-lg border border-border bg-card/60 p-3">
+    <div className="rounded-lg border border-border bg-card/60 p-3" title={hint}>
       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-        <span className="uppercase tracking-wider">{label}</span>
+        <span className="uppercase tracking-wider inline-flex items-center gap-1">
+          {label}
+          {hint && <span className="text-muted-foreground/60 cursor-help" aria-label={hint}>ⓘ</span>}
+        </span>
         <Badge variant="secondary" className={t.text}>{pct}%</Badge>
       </div>
       <div className="mt-1.5 flex items-baseline gap-2">
@@ -47,6 +57,7 @@ function Row({
       <p className="mt-1 text-[10px] text-muted-foreground">
         {falta > 0 ? <>Faltam <strong className="text-foreground">{fmt(falta)}</strong></> : "Meta da semana batida"}
       </p>
+      {footer}
     </div>
   );
 }
@@ -76,7 +87,9 @@ export function PerformanceSemanaPanel({
   };
   const d = q.data ?? {
     receita: 0, disparos: 0, contatos: 0,
-    contratos: 0, empresasTrabalhadas: 0, novosContatos: 0, videos: 0, parcerias: 0,
+    contratos: 0, empresasTrabalhadas: 0,
+    novosContatos: 0, novosCadastrados: 0, novosViaDisparo: 0,
+    videos: 0, parcerias: 0,
   };
 
   return (
@@ -94,7 +107,24 @@ export function PerformanceSemanaPanel({
         <Row label="Contratos"          done={d.contratos}           goal={g.contratos} />
         <Row label="Empresas trabalhadas" done={d.empresasTrabalhadas} goal={g.empresas} />
         <Row label="Disparos"           done={d.disparos}            goal={g.disparos} />
-        <Row label="Novos contatos"     done={d.novosContatos}       goal={g.novosContatos} />
+        <Row
+          label="Novos contatos"
+          done={d.novosContatos}
+          goal={g.novosContatos}
+          hint={
+            "Soma de duas fontes sem duplicar:\n" +
+            "• Cadastrados: prospects criados no período (formulário, visita, indicação).\n" +
+            "• Via disparo: cad_leads criados no período SEM prospect_id (ainda não viraram cadastro).\n" +
+            "cad_leads já vinculados a um prospect são ignorados — eles entram pela fonte 'Cadastrados'."
+          }
+          footer={
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              Cadastrados <strong className="text-foreground tabular-nums">{d.novosCadastrados}</strong>
+              <span className="mx-1 opacity-50">·</span>
+              Via disparo <strong className="text-foreground tabular-nums">{d.novosViaDisparo}</strong>
+            </p>
+          }
+        />
         <Row label="Vídeos"             done={d.videos}              goal={g.videos} />
         <Row label="Parcerias"          done={d.parcerias}           goal={g.parcerias} />
       </CardContent>
