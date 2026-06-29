@@ -8,7 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { fetchBIGoals, saveMonthlyGoals, DEFAULT_GOALS, type BIGoals } from "@/lib/bi/goals";
-import { ArrowLeft, Save, Target } from "lucide-react";
+import { ArrowLeft, Save, Target, Radio, RotateCcw } from "lucide-react";
+import {
+  readChannelGoals,
+  writeChannelGoals,
+  SOURCE_LABEL,
+  type ProspectSource,
+} from "@/lib/bi/meios";
 
 export const Route = createFileRoute("/metas-objetivos")({
   head: () => ({ meta: [{ title: "Metas e Objetivos — INFINDA" }] }),
@@ -132,12 +138,97 @@ function Page() {
           </CardContent>
         </Card>
 
+        <ChannelGoalsCard />
+
         <p className="text-[11px] text-muted-foreground">
           A recorrência é considerada como garantida automaticamente nos cálculos do Cockpit. O gap comercial e a página
           "Para bater a meta" passam a usar <strong>meta − recorrência − receita realizada</strong> em vez de meta total.
         </p>
       </div>
     </AppShell>
+  );
+}
+
+const CHANNEL_ORDER: ProspectSource[] = [
+  "visita",
+  "whatsapp",
+  "cadencia",
+  "indicacao",
+  "parceria",
+  "conteudo",
+  "remarketing",
+  "trafego",
+  "outros",
+];
+
+function ChannelGoalsCard() {
+  const qc = useQueryClient();
+  const [goals, setGoals] = useState<Record<ProspectSource, number>>(() => readChannelGoals());
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  const total = CHANNEL_ORDER.reduce((sum, k) => sum + (goals[k] || 0), 0);
+
+  const setOne = (k: ProspectSource, v: string) => {
+    const n = Number(v.replace(/[^\d-]/g, "")) || 0;
+    setGoals((g) => ({ ...g, [k]: Math.max(0, n) }));
+  };
+
+  const onSave = () => {
+    writeChannelGoals(goals);
+    setSavedAt(Date.now());
+    qc.invalidateQueries({ queryKey: ["bi", "meios"] });
+  };
+
+  const onReset = () => {
+    const empty = CHANNEL_ORDER.reduce(
+      (acc, k) => ({ ...acc, [k]: 0 }),
+      {} as Record<ProspectSource, number>,
+    );
+    setGoals(empty);
+  };
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Radio className="h-4 w-4 text-primary" /> Metas por canal · Meios de Prospecção
+        </CardTitle>
+        <span className="text-[11px] text-muted-foreground">
+          Total previsto: <span className="text-foreground tabular-nums">{total}</span> leads/mês
+        </span>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+          {CHANNEL_ORDER.map((k) => (
+            <div key={k} className="space-y-1">
+              <Label className="text-xs text-muted-foreground">{SOURCE_LABEL[k]}</Label>
+              <Input
+                inputMode="numeric"
+                value={goals[k] ?? 0}
+                onChange={(e) => setOne(k, e.target.value)}
+              />
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+          <p className="text-[11px] text-muted-foreground">
+            Define a meta mensal de leads por canal usada nas barras de progresso de "Meios de Prospecção".
+            Armazenado localmente neste navegador.
+          </p>
+          <div className="flex items-center gap-2">
+            {savedAt && (
+              <span className="text-[11px] text-emerald-400">Salvo ✓</span>
+            )}
+            <Button variant="outline" size="sm" onClick={onReset}>
+              <RotateCcw className="mr-1 h-3.5 w-3.5" /> Zerar
+            </Button>
+            <Button size="sm" onClick={onSave}>
+              <Save className="mr-1 h-3.5 w-3.5" /> Salvar canais
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
