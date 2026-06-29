@@ -212,6 +212,12 @@ function MetaHero({
 
 function BIPage() {
   const [area, setArea] = useState<BIArea>("diretoria");
+  const search = useSearch({ from: "/bi" });
+  const period = useMemo<ResolvedPeriod>(
+    () => resolvePeriod((search.period ?? "mes") as PeriodKey, search.from, search.to),
+    [search.period, search.from, search.to],
+  );
+  const areaLabel = AREAS.find((a) => a.id === area)?.label ?? "BI";
 
   const dashQuery = useQuery<BIDashboardPayload>({
     queryKey: ["bi", "dashboard", area],
@@ -285,11 +291,13 @@ function BIPage() {
   }, [data]);
 
   return (
+    <DrillDownProvider period={period} areaLabel={areaLabel}>
     <AppShell
       title="Business Intelligence"
       subtitle="Cockpit executivo · metas, previsão e ações"
       actions={
         <div className="flex items-center gap-2">
+          <PeriodSelector period={period} />
           <Badge variant="secondary">{loading ? "Atualizando..." : "Pronto"}</Badge>
           <Link
             to="/metas-objetivos"
@@ -643,5 +651,6 @@ function BIPage() {
       </Tabs>
     </div>
     </AppShell>
+    </DrillDownProvider>
   );
 }
