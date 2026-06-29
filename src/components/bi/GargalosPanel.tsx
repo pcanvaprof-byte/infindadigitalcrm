@@ -10,6 +10,8 @@ interface Item {
   goal: number;
   /** Texto curto opcional (ex: "hoje", "semana") */
   scope?: string;
+  /** Callback opcional ao clicar no item (drill-down). */
+  onDrillDown?: () => void;
 }
 
 interface Props {
@@ -60,8 +62,27 @@ export function GargalosPanel({ items, max = 5 }: Props) {
               : it.p >= 70 ? "bg-amber-500/70"
               : "bg-rose-500/70";
             const width = Math.min(100, Math.max(2, it.p));
+            const clickable = !!it.onDrillDown;
             return (
-              <div key={it.label} className="rounded-lg border border-border bg-card/60 p-3">
+              <div
+                key={it.label}
+                role={clickable ? "button" : undefined}
+                tabIndex={clickable ? 0 : undefined}
+                onClick={clickable ? it.onDrillDown : undefined}
+                onKeyDown={
+                  clickable
+                    ? (e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          it.onDrillDown?.();
+                        }
+                      }
+                    : undefined
+                }
+                className={`rounded-lg border bg-card/60 p-3 transition ${
+                  clickable ? "border-border hover:border-primary/50 hover:bg-accent/20 cursor-pointer" : "border-border"
+                }`}
+              >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-sm">
                     <Icon className={`h-4 w-4 ${tone}`} />

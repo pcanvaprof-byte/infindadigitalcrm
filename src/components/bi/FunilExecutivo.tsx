@@ -8,7 +8,13 @@ export interface FunilStage {
  * Cada etapa = card. Densidade alta, gargalo marcado com ring indigo sutil.
  * Paleta travada: bg #08090A, surface #1C1D1F, border #2E2E33, text #E1E1E6, accent #5E6AD2.
  */
-export function FunilExecutivo({ stages }: { stages: FunilStage[] }) {
+export function FunilExecutivo({
+  stages,
+  onStageClick,
+}: {
+  stages: FunilStage[];
+  onStageClick?: (stage: FunilStage) => void;
+}) {
   if (!stages?.length) return null;
 
   // Maior queda relativa = gargalo
@@ -61,15 +67,30 @@ export function FunilExecutivo({ stages }: { stages: FunilStage[] }) {
           const isWorst = i === worstIdx;
           const isHero = i === 0;
 
+          const clickable = !!onStageClick;
           return (
             <div
               key={s.stage}
+              role={clickable ? "button" : undefined}
+              tabIndex={clickable ? 0 : undefined}
+              onClick={clickable ? () => onStageClick?.(s) : undefined}
+              onKeyDown={
+                clickable
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onStageClick?.(s);
+                      }
+                    }
+                  : undefined
+              }
               className={[
                 "group relative col-span-12 flex flex-col justify-between rounded-2xl border bg-[#1C1D1F] p-5 transition-all duration-200",
                 SPAN_CLASS[spans[i]] ?? "md:col-span-4",
                 isWorst
                   ? "border-[#5E6AD2]/45 shadow-[0_0_24px_-8px_rgba(94,106,210,0.35)]"
                   : "border-[#2E2E33] hover:border-[#2E2E33]/80 hover:-translate-y-px",
+                clickable ? "cursor-pointer hover:!border-[#5E6AD2]/60" : "",
               ].join(" ")}
               style={{ animation: `fadeUp 320ms ease-out both`, animationDelay: `${i * 60}ms` }}
             >
