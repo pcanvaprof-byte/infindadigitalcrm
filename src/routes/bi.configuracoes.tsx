@@ -201,7 +201,10 @@ function Page() {
           </CardContent>
         </Card>
 
-        <div className="flex justify-end">
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button variant="outline" onClick={onRestoreDefaults}>
+            <RotateCcw className="mr-2 h-4 w-4" /> Restaurar padrões
+          </Button>
           <Button onClick={onSaveGoals} disabled={savingGoals}>
             <Save className="mr-2 h-4 w-4" /> {savingGoals ? "Salvando…" : "Salvar metas"}
           </Button>
