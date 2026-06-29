@@ -87,6 +87,10 @@ export type LifecycleClient = {
   is_permuta: boolean;
   permuta_value: number | null;
   permuta_description: string | null;
+  site_one_time_value: number | null;
+  site_recurring_value: number | null;
+  site_payment_status: string | null;
+  contract_notes: string | null;
   created_at: string;
   updated_at: string;
 };
