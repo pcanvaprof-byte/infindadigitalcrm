@@ -82,6 +82,11 @@ export type LifecycleClient = {
   churned_at: string | null;
   plano_code: string | null;
   mensalidade: number | null;
+  contract_term_months: number | null;
+  contract_end_at: string | null;
+  is_permuta: boolean;
+  permuta_value: number | null;
+  permuta_description: string | null;
   created_at: string;
   updated_at: string;
 };

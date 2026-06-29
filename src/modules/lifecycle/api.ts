@@ -134,6 +134,11 @@ export async function updateClient(
       | "activated_at"
       | "next_action_date"
       | "current_step"
+      | "contract_term_months"
+      | "contract_end_at"
+      | "is_permuta"
+      | "permuta_value"
+      | "permuta_description"
     >
   >,
 ): Promise<LifecycleClient> {
