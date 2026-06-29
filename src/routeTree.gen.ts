@@ -27,19 +27,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as OperacoesIndexRouteImport } from './routes/operacoes.index'
 import { Route as PropostasIdRouteImport } from './routes/propostas.$id'
 import { Route as PropostaTokenRouteImport } from './routes/proposta.$token'
-import { Route as OperacoesTrafegoRouteImport } from './routes/operacoes.trafego'
-import { Route as OperacoesRenovacoesRouteImport } from './routes/operacoes.renovacoes'
-import { Route as OperacoesRelatoriosRouteImport } from './routes/operacoes.relatorios'
-import { Route as OperacoesRelacionamentoRouteImport } from './routes/operacoes.relacionamento'
-import { Route as OperacoesOnboardingRouteImport } from './routes/operacoes.onboarding'
-import { Route as OperacoesKanbanRouteImport } from './routes/operacoes.kanban'
-import { Route as OperacoesImplantacaoRouteImport } from './routes/operacoes.implantacao'
-import { Route as OperacoesFinanceiroRouteImport } from './routes/operacoes.financeiro'
-import { Route as OperacoesDashboardRouteImport } from './routes/operacoes.dashboard'
-import { Route as OperacoesCredenciaisRouteImport } from './routes/operacoes.credenciais'
 import { Route as OperacoesClientesRouteImport } from './routes/operacoes.clientes'
-import { Route as OperacoesCampanhasRouteImport } from './routes/operacoes.campanhas'
-import { Route as OperacoesAgendaRouteImport } from './routes/operacoes.agenda'
 import { Route as ContratosIdRouteImport } from './routes/contratos.$id'
 import { Route as CatalogoNovoRouteImport } from './routes/catalogo.novo'
 import { Route as CatalogoIdRouteImport } from './routes/catalogo.$id'
@@ -48,11 +36,15 @@ import { Route as BriefingTokenRouteImport } from './routes/briefing.$token'
 import { Route as BiConfiguracoesRouteImport } from './routes/bi.configuracoes'
 import { Route as OperacoesClientesIdRouteImport } from './routes/operacoes.clientes.$id'
 import { Route as OperacoesClientesIdIndexRouteImport } from './routes/operacoes.clientes.$id.index'
-import { Route as OperacoesClientesIdOperacoesRouteImport } from './routes/operacoes.clientes.$id.operacoes'
+import { Route as OperacoesClientesIdRenovacoesRouteImport } from './routes/operacoes.clientes.$id.renovacoes'
+import { Route as OperacoesClientesIdRelacionamentoRouteImport } from './routes/operacoes.clientes.$id.relacionamento'
+import { Route as OperacoesClientesIdOnboardingRouteImport } from './routes/operacoes.clientes.$id.onboarding'
+import { Route as OperacoesClientesIdImplantacaoRouteImport } from './routes/operacoes.clientes.$id.implantacao'
 import { Route as OperacoesClientesIdHistoricoRouteImport } from './routes/operacoes.clientes.$id.historico'
 import { Route as OperacoesClientesIdFinanceiroRouteImport } from './routes/operacoes.clientes.$id.financeiro'
 import { Route as OperacoesClientesIdDocumentosRouteImport } from './routes/operacoes.clientes.$id.documentos'
 import { Route as OperacoesClientesIdComercialRouteImport } from './routes/operacoes.clientes.$id.comercial'
+import { Route as OperacoesClientesIdCampanhasRouteImport } from './routes/operacoes.clientes.$id.campanhas'
 
 const TarefasRoute = TarefasRouteImport.update({
   id: '/tarefas',
@@ -144,69 +136,9 @@ const PropostaTokenRoute = PropostaTokenRouteImport.update({
   path: '/proposta/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OperacoesTrafegoRoute = OperacoesTrafegoRouteImport.update({
-  id: '/operacoes/trafego',
-  path: '/operacoes/trafego',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OperacoesRenovacoesRoute = OperacoesRenovacoesRouteImport.update({
-  id: '/operacoes/renovacoes',
-  path: '/operacoes/renovacoes',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OperacoesRelatoriosRoute = OperacoesRelatoriosRouteImport.update({
-  id: '/operacoes/relatorios',
-  path: '/operacoes/relatorios',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OperacoesRelacionamentoRoute = OperacoesRelacionamentoRouteImport.update({
-  id: '/operacoes/relacionamento',
-  path: '/operacoes/relacionamento',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OperacoesOnboardingRoute = OperacoesOnboardingRouteImport.update({
-  id: '/operacoes/onboarding',
-  path: '/operacoes/onboarding',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OperacoesKanbanRoute = OperacoesKanbanRouteImport.update({
-  id: '/operacoes/kanban',
-  path: '/operacoes/kanban',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OperacoesImplantacaoRoute = OperacoesImplantacaoRouteImport.update({
-  id: '/operacoes/implantacao',
-  path: '/operacoes/implantacao',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OperacoesFinanceiroRoute = OperacoesFinanceiroRouteImport.update({
-  id: '/operacoes/financeiro',
-  path: '/operacoes/financeiro',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OperacoesDashboardRoute = OperacoesDashboardRouteImport.update({
-  id: '/operacoes/dashboard',
-  path: '/operacoes/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OperacoesCredenciaisRoute = OperacoesCredenciaisRouteImport.update({
-  id: '/operacoes/credenciais',
-  path: '/operacoes/credenciais',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const OperacoesClientesRoute = OperacoesClientesRouteImport.update({
   id: '/operacoes/clientes',
   path: '/operacoes/clientes',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OperacoesCampanhasRoute = OperacoesCampanhasRouteImport.update({
-  id: '/operacoes/campanhas',
-  path: '/operacoes/campanhas',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OperacoesAgendaRoute = OperacoesAgendaRouteImport.update({
-  id: '/operacoes/agenda',
-  path: '/operacoes/agenda',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContratosIdRoute = ContratosIdRouteImport.update({
@@ -250,10 +182,28 @@ const OperacoesClientesIdIndexRoute =
     path: '/',
     getParentRoute: () => OperacoesClientesIdRoute,
   } as any)
-const OperacoesClientesIdOperacoesRoute =
-  OperacoesClientesIdOperacoesRouteImport.update({
-    id: '/operacoes',
-    path: '/operacoes',
+const OperacoesClientesIdRenovacoesRoute =
+  OperacoesClientesIdRenovacoesRouteImport.update({
+    id: '/renovacoes',
+    path: '/renovacoes',
+    getParentRoute: () => OperacoesClientesIdRoute,
+  } as any)
+const OperacoesClientesIdRelacionamentoRoute =
+  OperacoesClientesIdRelacionamentoRouteImport.update({
+    id: '/relacionamento',
+    path: '/relacionamento',
+    getParentRoute: () => OperacoesClientesIdRoute,
+  } as any)
+const OperacoesClientesIdOnboardingRoute =
+  OperacoesClientesIdOnboardingRouteImport.update({
+    id: '/onboarding',
+    path: '/onboarding',
+    getParentRoute: () => OperacoesClientesIdRoute,
+  } as any)
+const OperacoesClientesIdImplantacaoRoute =
+  OperacoesClientesIdImplantacaoRouteImport.update({
+    id: '/implantacao',
+    path: '/implantacao',
     getParentRoute: () => OperacoesClientesIdRoute,
   } as any)
 const OperacoesClientesIdHistoricoRoute =
@@ -280,6 +230,12 @@ const OperacoesClientesIdComercialRoute =
     path: '/comercial',
     getParentRoute: () => OperacoesClientesIdRoute,
   } as any)
+const OperacoesClientesIdCampanhasRoute =
+  OperacoesClientesIdCampanhasRouteImport.update({
+    id: '/campanhas',
+    path: '/campanhas',
+    getParentRoute: () => OperacoesClientesIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -303,28 +259,20 @@ export interface FileRoutesByFullPath {
   '/catalogo/$id': typeof CatalogoIdRoute
   '/catalogo/novo': typeof CatalogoNovoRoute
   '/contratos/$id': typeof ContratosIdRoute
-  '/operacoes/agenda': typeof OperacoesAgendaRoute
-  '/operacoes/campanhas': typeof OperacoesCampanhasRoute
   '/operacoes/clientes': typeof OperacoesClientesRouteWithChildren
-  '/operacoes/credenciais': typeof OperacoesCredenciaisRoute
-  '/operacoes/dashboard': typeof OperacoesDashboardRoute
-  '/operacoes/financeiro': typeof OperacoesFinanceiroRoute
-  '/operacoes/implantacao': typeof OperacoesImplantacaoRoute
-  '/operacoes/kanban': typeof OperacoesKanbanRoute
-  '/operacoes/onboarding': typeof OperacoesOnboardingRoute
-  '/operacoes/relacionamento': typeof OperacoesRelacionamentoRoute
-  '/operacoes/relatorios': typeof OperacoesRelatoriosRoute
-  '/operacoes/renovacoes': typeof OperacoesRenovacoesRoute
-  '/operacoes/trafego': typeof OperacoesTrafegoRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
   '/operacoes/': typeof OperacoesIndexRoute
   '/operacoes/clientes/$id': typeof OperacoesClientesIdRouteWithChildren
+  '/operacoes/clientes/$id/campanhas': typeof OperacoesClientesIdCampanhasRoute
   '/operacoes/clientes/$id/comercial': typeof OperacoesClientesIdComercialRoute
   '/operacoes/clientes/$id/documentos': typeof OperacoesClientesIdDocumentosRoute
   '/operacoes/clientes/$id/financeiro': typeof OperacoesClientesIdFinanceiroRoute
   '/operacoes/clientes/$id/historico': typeof OperacoesClientesIdHistoricoRoute
-  '/operacoes/clientes/$id/operacoes': typeof OperacoesClientesIdOperacoesRoute
+  '/operacoes/clientes/$id/implantacao': typeof OperacoesClientesIdImplantacaoRoute
+  '/operacoes/clientes/$id/onboarding': typeof OperacoesClientesIdOnboardingRoute
+  '/operacoes/clientes/$id/relacionamento': typeof OperacoesClientesIdRelacionamentoRoute
+  '/operacoes/clientes/$id/renovacoes': typeof OperacoesClientesIdRenovacoesRoute
   '/operacoes/clientes/$id/': typeof OperacoesClientesIdIndexRoute
 }
 export interface FileRoutesByTo {
@@ -349,27 +297,19 @@ export interface FileRoutesByTo {
   '/catalogo/$id': typeof CatalogoIdRoute
   '/catalogo/novo': typeof CatalogoNovoRoute
   '/contratos/$id': typeof ContratosIdRoute
-  '/operacoes/agenda': typeof OperacoesAgendaRoute
-  '/operacoes/campanhas': typeof OperacoesCampanhasRoute
   '/operacoes/clientes': typeof OperacoesClientesRouteWithChildren
-  '/operacoes/credenciais': typeof OperacoesCredenciaisRoute
-  '/operacoes/dashboard': typeof OperacoesDashboardRoute
-  '/operacoes/financeiro': typeof OperacoesFinanceiroRoute
-  '/operacoes/implantacao': typeof OperacoesImplantacaoRoute
-  '/operacoes/kanban': typeof OperacoesKanbanRoute
-  '/operacoes/onboarding': typeof OperacoesOnboardingRoute
-  '/operacoes/relacionamento': typeof OperacoesRelacionamentoRoute
-  '/operacoes/relatorios': typeof OperacoesRelatoriosRoute
-  '/operacoes/renovacoes': typeof OperacoesRenovacoesRoute
-  '/operacoes/trafego': typeof OperacoesTrafegoRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
   '/operacoes': typeof OperacoesIndexRoute
+  '/operacoes/clientes/$id/campanhas': typeof OperacoesClientesIdCampanhasRoute
   '/operacoes/clientes/$id/comercial': typeof OperacoesClientesIdComercialRoute
   '/operacoes/clientes/$id/documentos': typeof OperacoesClientesIdDocumentosRoute
   '/operacoes/clientes/$id/financeiro': typeof OperacoesClientesIdFinanceiroRoute
   '/operacoes/clientes/$id/historico': typeof OperacoesClientesIdHistoricoRoute
-  '/operacoes/clientes/$id/operacoes': typeof OperacoesClientesIdOperacoesRoute
+  '/operacoes/clientes/$id/implantacao': typeof OperacoesClientesIdImplantacaoRoute
+  '/operacoes/clientes/$id/onboarding': typeof OperacoesClientesIdOnboardingRoute
+  '/operacoes/clientes/$id/relacionamento': typeof OperacoesClientesIdRelacionamentoRoute
+  '/operacoes/clientes/$id/renovacoes': typeof OperacoesClientesIdRenovacoesRoute
   '/operacoes/clientes/$id': typeof OperacoesClientesIdIndexRoute
 }
 export interface FileRoutesById {
@@ -395,28 +335,20 @@ export interface FileRoutesById {
   '/catalogo/$id': typeof CatalogoIdRoute
   '/catalogo/novo': typeof CatalogoNovoRoute
   '/contratos/$id': typeof ContratosIdRoute
-  '/operacoes/agenda': typeof OperacoesAgendaRoute
-  '/operacoes/campanhas': typeof OperacoesCampanhasRoute
   '/operacoes/clientes': typeof OperacoesClientesRouteWithChildren
-  '/operacoes/credenciais': typeof OperacoesCredenciaisRoute
-  '/operacoes/dashboard': typeof OperacoesDashboardRoute
-  '/operacoes/financeiro': typeof OperacoesFinanceiroRoute
-  '/operacoes/implantacao': typeof OperacoesImplantacaoRoute
-  '/operacoes/kanban': typeof OperacoesKanbanRoute
-  '/operacoes/onboarding': typeof OperacoesOnboardingRoute
-  '/operacoes/relacionamento': typeof OperacoesRelacionamentoRoute
-  '/operacoes/relatorios': typeof OperacoesRelatoriosRoute
-  '/operacoes/renovacoes': typeof OperacoesRenovacoesRoute
-  '/operacoes/trafego': typeof OperacoesTrafegoRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
   '/operacoes/': typeof OperacoesIndexRoute
   '/operacoes/clientes/$id': typeof OperacoesClientesIdRouteWithChildren
+  '/operacoes/clientes/$id/campanhas': typeof OperacoesClientesIdCampanhasRoute
   '/operacoes/clientes/$id/comercial': typeof OperacoesClientesIdComercialRoute
   '/operacoes/clientes/$id/documentos': typeof OperacoesClientesIdDocumentosRoute
   '/operacoes/clientes/$id/financeiro': typeof OperacoesClientesIdFinanceiroRoute
   '/operacoes/clientes/$id/historico': typeof OperacoesClientesIdHistoricoRoute
-  '/operacoes/clientes/$id/operacoes': typeof OperacoesClientesIdOperacoesRoute
+  '/operacoes/clientes/$id/implantacao': typeof OperacoesClientesIdImplantacaoRoute
+  '/operacoes/clientes/$id/onboarding': typeof OperacoesClientesIdOnboardingRoute
+  '/operacoes/clientes/$id/relacionamento': typeof OperacoesClientesIdRelacionamentoRoute
+  '/operacoes/clientes/$id/renovacoes': typeof OperacoesClientesIdRenovacoesRoute
   '/operacoes/clientes/$id/': typeof OperacoesClientesIdIndexRoute
 }
 export interface FileRouteTypes {
@@ -443,28 +375,20 @@ export interface FileRouteTypes {
     | '/catalogo/$id'
     | '/catalogo/novo'
     | '/contratos/$id'
-    | '/operacoes/agenda'
-    | '/operacoes/campanhas'
     | '/operacoes/clientes'
-    | '/operacoes/credenciais'
-    | '/operacoes/dashboard'
-    | '/operacoes/financeiro'
-    | '/operacoes/implantacao'
-    | '/operacoes/kanban'
-    | '/operacoes/onboarding'
-    | '/operacoes/relacionamento'
-    | '/operacoes/relatorios'
-    | '/operacoes/renovacoes'
-    | '/operacoes/trafego'
     | '/proposta/$token'
     | '/propostas/$id'
     | '/operacoes/'
     | '/operacoes/clientes/$id'
+    | '/operacoes/clientes/$id/campanhas'
     | '/operacoes/clientes/$id/comercial'
     | '/operacoes/clientes/$id/documentos'
     | '/operacoes/clientes/$id/financeiro'
     | '/operacoes/clientes/$id/historico'
-    | '/operacoes/clientes/$id/operacoes'
+    | '/operacoes/clientes/$id/implantacao'
+    | '/operacoes/clientes/$id/onboarding'
+    | '/operacoes/clientes/$id/relacionamento'
+    | '/operacoes/clientes/$id/renovacoes'
     | '/operacoes/clientes/$id/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -489,27 +413,19 @@ export interface FileRouteTypes {
     | '/catalogo/$id'
     | '/catalogo/novo'
     | '/contratos/$id'
-    | '/operacoes/agenda'
-    | '/operacoes/campanhas'
     | '/operacoes/clientes'
-    | '/operacoes/credenciais'
-    | '/operacoes/dashboard'
-    | '/operacoes/financeiro'
-    | '/operacoes/implantacao'
-    | '/operacoes/kanban'
-    | '/operacoes/onboarding'
-    | '/operacoes/relacionamento'
-    | '/operacoes/relatorios'
-    | '/operacoes/renovacoes'
-    | '/operacoes/trafego'
     | '/proposta/$token'
     | '/propostas/$id'
     | '/operacoes'
+    | '/operacoes/clientes/$id/campanhas'
     | '/operacoes/clientes/$id/comercial'
     | '/operacoes/clientes/$id/documentos'
     | '/operacoes/clientes/$id/financeiro'
     | '/operacoes/clientes/$id/historico'
-    | '/operacoes/clientes/$id/operacoes'
+    | '/operacoes/clientes/$id/implantacao'
+    | '/operacoes/clientes/$id/onboarding'
+    | '/operacoes/clientes/$id/relacionamento'
+    | '/operacoes/clientes/$id/renovacoes'
     | '/operacoes/clientes/$id'
   id:
     | '__root__'
@@ -534,28 +450,20 @@ export interface FileRouteTypes {
     | '/catalogo/$id'
     | '/catalogo/novo'
     | '/contratos/$id'
-    | '/operacoes/agenda'
-    | '/operacoes/campanhas'
     | '/operacoes/clientes'
-    | '/operacoes/credenciais'
-    | '/operacoes/dashboard'
-    | '/operacoes/financeiro'
-    | '/operacoes/implantacao'
-    | '/operacoes/kanban'
-    | '/operacoes/onboarding'
-    | '/operacoes/relacionamento'
-    | '/operacoes/relatorios'
-    | '/operacoes/renovacoes'
-    | '/operacoes/trafego'
     | '/proposta/$token'
     | '/propostas/$id'
     | '/operacoes/'
     | '/operacoes/clientes/$id'
+    | '/operacoes/clientes/$id/campanhas'
     | '/operacoes/clientes/$id/comercial'
     | '/operacoes/clientes/$id/documentos'
     | '/operacoes/clientes/$id/financeiro'
     | '/operacoes/clientes/$id/historico'
-    | '/operacoes/clientes/$id/operacoes'
+    | '/operacoes/clientes/$id/implantacao'
+    | '/operacoes/clientes/$id/onboarding'
+    | '/operacoes/clientes/$id/relacionamento'
+    | '/operacoes/clientes/$id/renovacoes'
     | '/operacoes/clientes/$id/'
   fileRoutesById: FileRoutesById
 }
@@ -576,19 +484,7 @@ export interface RootRouteChildren {
   ProspeccaoRoute: typeof ProspeccaoRoute
   TarefasRoute: typeof TarefasRoute
   BriefingTokenRoute: typeof BriefingTokenRoute
-  OperacoesAgendaRoute: typeof OperacoesAgendaRoute
-  OperacoesCampanhasRoute: typeof OperacoesCampanhasRoute
   OperacoesClientesRoute: typeof OperacoesClientesRouteWithChildren
-  OperacoesCredenciaisRoute: typeof OperacoesCredenciaisRoute
-  OperacoesDashboardRoute: typeof OperacoesDashboardRoute
-  OperacoesFinanceiroRoute: typeof OperacoesFinanceiroRoute
-  OperacoesImplantacaoRoute: typeof OperacoesImplantacaoRoute
-  OperacoesKanbanRoute: typeof OperacoesKanbanRoute
-  OperacoesOnboardingRoute: typeof OperacoesOnboardingRoute
-  OperacoesRelacionamentoRoute: typeof OperacoesRelacionamentoRoute
-  OperacoesRelatoriosRoute: typeof OperacoesRelatoriosRoute
-  OperacoesRenovacoesRoute: typeof OperacoesRenovacoesRoute
-  OperacoesTrafegoRoute: typeof OperacoesTrafegoRoute
   PropostaTokenRoute: typeof PropostaTokenRoute
   OperacoesIndexRoute: typeof OperacoesIndexRoute
 }
@@ -721,95 +617,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PropostaTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/operacoes/trafego': {
-      id: '/operacoes/trafego'
-      path: '/operacoes/trafego'
-      fullPath: '/operacoes/trafego'
-      preLoaderRoute: typeof OperacoesTrafegoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operacoes/renovacoes': {
-      id: '/operacoes/renovacoes'
-      path: '/operacoes/renovacoes'
-      fullPath: '/operacoes/renovacoes'
-      preLoaderRoute: typeof OperacoesRenovacoesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operacoes/relatorios': {
-      id: '/operacoes/relatorios'
-      path: '/operacoes/relatorios'
-      fullPath: '/operacoes/relatorios'
-      preLoaderRoute: typeof OperacoesRelatoriosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operacoes/relacionamento': {
-      id: '/operacoes/relacionamento'
-      path: '/operacoes/relacionamento'
-      fullPath: '/operacoes/relacionamento'
-      preLoaderRoute: typeof OperacoesRelacionamentoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operacoes/onboarding': {
-      id: '/operacoes/onboarding'
-      path: '/operacoes/onboarding'
-      fullPath: '/operacoes/onboarding'
-      preLoaderRoute: typeof OperacoesOnboardingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operacoes/kanban': {
-      id: '/operacoes/kanban'
-      path: '/operacoes/kanban'
-      fullPath: '/operacoes/kanban'
-      preLoaderRoute: typeof OperacoesKanbanRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operacoes/implantacao': {
-      id: '/operacoes/implantacao'
-      path: '/operacoes/implantacao'
-      fullPath: '/operacoes/implantacao'
-      preLoaderRoute: typeof OperacoesImplantacaoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operacoes/financeiro': {
-      id: '/operacoes/financeiro'
-      path: '/operacoes/financeiro'
-      fullPath: '/operacoes/financeiro'
-      preLoaderRoute: typeof OperacoesFinanceiroRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operacoes/dashboard': {
-      id: '/operacoes/dashboard'
-      path: '/operacoes/dashboard'
-      fullPath: '/operacoes/dashboard'
-      preLoaderRoute: typeof OperacoesDashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operacoes/credenciais': {
-      id: '/operacoes/credenciais'
-      path: '/operacoes/credenciais'
-      fullPath: '/operacoes/credenciais'
-      preLoaderRoute: typeof OperacoesCredenciaisRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/operacoes/clientes': {
       id: '/operacoes/clientes'
       path: '/operacoes/clientes'
       fullPath: '/operacoes/clientes'
       preLoaderRoute: typeof OperacoesClientesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operacoes/campanhas': {
-      id: '/operacoes/campanhas'
-      path: '/operacoes/campanhas'
-      fullPath: '/operacoes/campanhas'
-      preLoaderRoute: typeof OperacoesCampanhasRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operacoes/agenda': {
-      id: '/operacoes/agenda'
-      path: '/operacoes/agenda'
-      fullPath: '/operacoes/agenda'
-      preLoaderRoute: typeof OperacoesAgendaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contratos/$id': {
@@ -868,11 +680,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OperacoesClientesIdIndexRouteImport
       parentRoute: typeof OperacoesClientesIdRoute
     }
-    '/operacoes/clientes/$id/operacoes': {
-      id: '/operacoes/clientes/$id/operacoes'
-      path: '/operacoes'
-      fullPath: '/operacoes/clientes/$id/operacoes'
-      preLoaderRoute: typeof OperacoesClientesIdOperacoesRouteImport
+    '/operacoes/clientes/$id/renovacoes': {
+      id: '/operacoes/clientes/$id/renovacoes'
+      path: '/renovacoes'
+      fullPath: '/operacoes/clientes/$id/renovacoes'
+      preLoaderRoute: typeof OperacoesClientesIdRenovacoesRouteImport
+      parentRoute: typeof OperacoesClientesIdRoute
+    }
+    '/operacoes/clientes/$id/relacionamento': {
+      id: '/operacoes/clientes/$id/relacionamento'
+      path: '/relacionamento'
+      fullPath: '/operacoes/clientes/$id/relacionamento'
+      preLoaderRoute: typeof OperacoesClientesIdRelacionamentoRouteImport
+      parentRoute: typeof OperacoesClientesIdRoute
+    }
+    '/operacoes/clientes/$id/onboarding': {
+      id: '/operacoes/clientes/$id/onboarding'
+      path: '/onboarding'
+      fullPath: '/operacoes/clientes/$id/onboarding'
+      preLoaderRoute: typeof OperacoesClientesIdOnboardingRouteImport
+      parentRoute: typeof OperacoesClientesIdRoute
+    }
+    '/operacoes/clientes/$id/implantacao': {
+      id: '/operacoes/clientes/$id/implantacao'
+      path: '/implantacao'
+      fullPath: '/operacoes/clientes/$id/implantacao'
+      preLoaderRoute: typeof OperacoesClientesIdImplantacaoRouteImport
       parentRoute: typeof OperacoesClientesIdRoute
     }
     '/operacoes/clientes/$id/historico': {
@@ -901,6 +734,13 @@ declare module '@tanstack/react-router' {
       path: '/comercial'
       fullPath: '/operacoes/clientes/$id/comercial'
       preLoaderRoute: typeof OperacoesClientesIdComercialRouteImport
+      parentRoute: typeof OperacoesClientesIdRoute
+    }
+    '/operacoes/clientes/$id/campanhas': {
+      id: '/operacoes/clientes/$id/campanhas'
+      path: '/campanhas'
+      fullPath: '/operacoes/clientes/$id/campanhas'
+      preLoaderRoute: typeof OperacoesClientesIdCampanhasRouteImport
       parentRoute: typeof OperacoesClientesIdRoute
     }
   }
@@ -967,20 +807,29 @@ const PropostasRouteWithChildren = PropostasRoute._addFileChildren(
 )
 
 interface OperacoesClientesIdRouteChildren {
+  OperacoesClientesIdCampanhasRoute: typeof OperacoesClientesIdCampanhasRoute
   OperacoesClientesIdComercialRoute: typeof OperacoesClientesIdComercialRoute
   OperacoesClientesIdDocumentosRoute: typeof OperacoesClientesIdDocumentosRoute
   OperacoesClientesIdFinanceiroRoute: typeof OperacoesClientesIdFinanceiroRoute
   OperacoesClientesIdHistoricoRoute: typeof OperacoesClientesIdHistoricoRoute
-  OperacoesClientesIdOperacoesRoute: typeof OperacoesClientesIdOperacoesRoute
+  OperacoesClientesIdImplantacaoRoute: typeof OperacoesClientesIdImplantacaoRoute
+  OperacoesClientesIdOnboardingRoute: typeof OperacoesClientesIdOnboardingRoute
+  OperacoesClientesIdRelacionamentoRoute: typeof OperacoesClientesIdRelacionamentoRoute
+  OperacoesClientesIdRenovacoesRoute: typeof OperacoesClientesIdRenovacoesRoute
   OperacoesClientesIdIndexRoute: typeof OperacoesClientesIdIndexRoute
 }
 
 const OperacoesClientesIdRouteChildren: OperacoesClientesIdRouteChildren = {
+  OperacoesClientesIdCampanhasRoute: OperacoesClientesIdCampanhasRoute,
   OperacoesClientesIdComercialRoute: OperacoesClientesIdComercialRoute,
   OperacoesClientesIdDocumentosRoute: OperacoesClientesIdDocumentosRoute,
   OperacoesClientesIdFinanceiroRoute: OperacoesClientesIdFinanceiroRoute,
   OperacoesClientesIdHistoricoRoute: OperacoesClientesIdHistoricoRoute,
-  OperacoesClientesIdOperacoesRoute: OperacoesClientesIdOperacoesRoute,
+  OperacoesClientesIdImplantacaoRoute: OperacoesClientesIdImplantacaoRoute,
+  OperacoesClientesIdOnboardingRoute: OperacoesClientesIdOnboardingRoute,
+  OperacoesClientesIdRelacionamentoRoute:
+    OperacoesClientesIdRelacionamentoRoute,
+  OperacoesClientesIdRenovacoesRoute: OperacoesClientesIdRenovacoesRoute,
   OperacoesClientesIdIndexRoute: OperacoesClientesIdIndexRoute,
 }
 
@@ -1015,19 +864,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProspeccaoRoute: ProspeccaoRoute,
   TarefasRoute: TarefasRoute,
   BriefingTokenRoute: BriefingTokenRoute,
-  OperacoesAgendaRoute: OperacoesAgendaRoute,
-  OperacoesCampanhasRoute: OperacoesCampanhasRoute,
   OperacoesClientesRoute: OperacoesClientesRouteWithChildren,
-  OperacoesCredenciaisRoute: OperacoesCredenciaisRoute,
-  OperacoesDashboardRoute: OperacoesDashboardRoute,
-  OperacoesFinanceiroRoute: OperacoesFinanceiroRoute,
-  OperacoesImplantacaoRoute: OperacoesImplantacaoRoute,
-  OperacoesKanbanRoute: OperacoesKanbanRoute,
-  OperacoesOnboardingRoute: OperacoesOnboardingRoute,
-  OperacoesRelacionamentoRoute: OperacoesRelacionamentoRoute,
-  OperacoesRelatoriosRoute: OperacoesRelatoriosRoute,
-  OperacoesRenovacoesRoute: OperacoesRenovacoesRoute,
-  OperacoesTrafegoRoute: OperacoesTrafegoRoute,
   PropostaTokenRoute: PropostaTokenRoute,
   OperacoesIndexRoute: OperacoesIndexRoute,
 }

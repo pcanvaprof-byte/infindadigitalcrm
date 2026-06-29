@@ -1,10 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { AppShell } from "@/components/AppShell";
-import { RequireAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -14,7 +11,6 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { OperacoesLayout } from "@/modules/operacoes/components/OperacoesLayout";
 import { listClientes } from "@/modules/operacoes/api";
 import {
   createInteraction, deleteInteraction, listInteractions,
@@ -22,22 +18,9 @@ import {
 } from "@/modules/operacoes/fase2.api";
 import { OP_INTERACTION_TYPES, type OpInteractionType } from "@/modules/operacoes/fase2.types";
 
-export const Route = createFileRoute("/operacoes/relacionamento")({
-  ssr: false,
-  head: () => ({ meta: [{ title: "Operações · Relacionamento — INFINDA" }] }),
-  component: () => (
-    <RequireAuth>
-      <AppShell title="Operações" subtitle="Relacionamento">
-        <RelacionamentoPage />
-      </AppShell>
-    </RequireAuth>
-  ),
-});
-
-function RelacionamentoPage() {
+export function RelacionamentoView({ clientId }: { clientId?: string }) {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
-  const [clientId, setClientId] = useState("");
   const [type, setType] = useState<OpInteractionType | "">("");
   const [creating, setCreating] = useState(false);
 
@@ -62,9 +45,11 @@ function RelacionamentoPage() {
   }, [itQ.data, type, search, clientesQ.data]);
 
   const now = Date.now();
-  const pendingDue = (fuQ.data ?? []).filter(
-    (i) => i.next_followup_at && new Date(i.next_followup_at).getTime() <= now + 14 * 24 * 3600 * 1000,
-  );
+  const pendingDue = (fuQ.data ?? [])
+    .filter((i) => !clientId || i.client_id === clientId)
+    .filter(
+      (i) => i.next_followup_at && new Date(i.next_followup_at).getTime() <= now + 14 * 24 * 3600 * 1000,
+    );
 
   const delM = useMutation({
     mutationFn: (id: string) => deleteInteraction(id),
@@ -78,7 +63,7 @@ function RelacionamentoPage() {
   });
 
   return (
-    <OperacoesLayout description="Timeline de contatos, reuniões, suporte e solicitações por cliente.">
+    <div>
       <div className="mb-3 grid gap-3 lg:grid-cols-3">
         <Card className="p-4 lg:col-span-2">
           <div className="mb-2 flex items-center justify-between">
@@ -92,7 +77,7 @@ function RelacionamentoPage() {
             {pendingDue.slice(0, 6).map((i) => (
               <li key={i.id} className="flex items-center justify-between rounded-lg border border-border/60 bg-background/30 px-3 py-2 text-sm">
                 <span className="truncate">
-                  <strong>{clienteName(i.client_id)}</strong> — {i.title}
+                  {!clientId && <strong>{clienteName(i.client_id)} — </strong>}{i.title}
                 </span>
                 <span className="ml-2 shrink-0 text-[11px] text-muted-foreground">
                   {i.next_followup_at ? new Date(i.next_followup_at).toLocaleString("pt-BR") : ""}
@@ -110,15 +95,8 @@ function RelacionamentoPage() {
         </Card>
       </div>
 
-      <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+      <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Input placeholder="Buscar…" value={search} onChange={(e) => setSearch(e.target.value)} />
-        <Select value={clientId || "__all"} onValueChange={(v) => setClientId(v === "__all" ? "" : v)}>
-          <SelectTrigger><SelectValue placeholder="Cliente" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="__all">Todos clientes</SelectItem>
-            {(clientesQ.data ?? []).map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
-          </SelectContent>
-        </Select>
         <Select value={type || "__all"} onValueChange={(v) => setType(v === "__all" ? "" : v as OpInteractionType)}>
           <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
           <SelectContent>
@@ -144,7 +122,7 @@ function RelacionamentoPage() {
                   {i.title}
                 </div>
                 <div className="text-[11px] text-muted-foreground">
-                  {clienteName(i.client_id)} · {new Date(i.interaction_date).toLocaleString("pt-BR")}
+                  {!clientId && <>{clienteName(i.client_id)} · </>}{new Date(i.interaction_date).toLocaleString("pt-BR")}
                   {i.next_followup_at && (
                     <> · próximo: {new Date(i.next_followup_at).toLocaleString("pt-BR")}</>
                   )}
@@ -166,26 +144,28 @@ function RelacionamentoPage() {
         open={creating}
         onOpenChange={setCreating}
         clientes={clientesQ.data ?? []}
+        lockedClientId={clientId}
         onSaved={() => {
           qc.invalidateQueries({ queryKey: ["op-interactions"] });
           qc.invalidateQueries({ queryKey: ["op-followups"] });
           qc.invalidateQueries({ queryKey: ["op-exec-metrics"] });
         }}
       />
-    </OperacoesLayout>
+    </div>
   );
 }
 
 function InteractionDialog({
-  open, onOpenChange, clientes, onSaved,
+  open, onOpenChange, clientes, onSaved, lockedClientId,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   clientes: { id: string; nome: string }[];
   onSaved: () => void;
+  lockedClientId?: string;
 }) {
   const [form, setForm] = useState({
-    client_id: "",
+    client_id: lockedClientId ?? "",
     interaction_type: "WhatsApp" as OpInteractionType,
     title: "",
     notes: "",
@@ -219,13 +199,15 @@ function InteractionDialog({
         </DialogHeader>
         <div className="grid gap-3">
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-muted-foreground">Cliente *</label>
-              <Select value={form.client_id || undefined} onValueChange={(v) => setForm((f) => ({ ...f, client_id: v }))}>
-                <SelectTrigger><SelectValue placeholder="Selecionar…" /></SelectTrigger>
-                <SelectContent>{clientes.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
+            {!lockedClientId && (
+              <div>
+                <label className="text-xs text-muted-foreground">Cliente *</label>
+                <Select value={form.client_id || undefined} onValueChange={(v) => setForm((f) => ({ ...f, client_id: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar…" /></SelectTrigger>
+                  <SelectContent>{clientes.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <label className="text-xs text-muted-foreground">Tipo</label>
               <Select value={form.interaction_type} onValueChange={(v) => setForm((f) => ({ ...f, interaction_type: v as OpInteractionType }))}>

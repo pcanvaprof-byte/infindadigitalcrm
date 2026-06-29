@@ -1,10 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { AppShell } from "@/components/AppShell";
-import { RequireAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -14,7 +11,6 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { OperacoesLayout } from "@/modules/operacoes/components/OperacoesLayout";
 import { listClientes } from "@/modules/operacoes/api";
 import {
   deleteRenewal, listRenewals, upsertRenewal,
@@ -22,18 +18,6 @@ import {
 import type {
   OpContractRenewal, OpRenewalComputedStatus, OpRenewalStoredStatus, OpRenewalView,
 } from "@/modules/operacoes/fase2.types";
-
-export const Route = createFileRoute("/operacoes/renovacoes")({
-  ssr: false,
-  head: () => ({ meta: [{ title: "Operações · Renovações — INFINDA" }] }),
-  component: () => (
-    <RequireAuth>
-      <AppShell title="Operações" subtitle="Renovações">
-        <RenovacoesPage />
-      </AppShell>
-    </RequireAuth>
-  ),
-});
 
 const STATUS_STYLES: Record<OpRenewalComputedStatus, string> = {
   "Ativo": "bg-emerald-500/15 text-emerald-400",
@@ -44,7 +28,7 @@ const STATUS_STYLES: Record<OpRenewalComputedStatus, string> = {
   "Cancelado": "bg-muted text-muted-foreground",
 };
 
-function RenovacoesPage() {
+export function RenovacoesView({ clientId }: { clientId?: string }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState<OpRenewalView | null>(null);
   const [creating, setCreating] = useState(false);
@@ -54,7 +38,12 @@ function RenovacoesPage() {
 
   const clienteName = (id: string) => clientesQ.data?.find((c) => c.id === id)?.nome ?? "—";
 
-  const counters = (ren.data ?? []).reduce(
+  const filtered = useMemo(() => {
+    const all = ren.data ?? [];
+    return clientId ? all.filter((r) => r.client_id === clientId) : all;
+  }, [ren.data, clientId]);
+
+  const counters = filtered.reduce(
     (a, r) => ({ ...a, [r.computed_status]: (a[r.computed_status] ?? 0) + 1 }),
     {} as Record<OpRenewalComputedStatus, number>,
   );
@@ -70,7 +59,7 @@ function RenovacoesPage() {
   });
 
   return (
-    <OperacoesLayout description="Vencimentos e renovações de contratos por cliente. Alertas calculados em tempo real.">
+    <div>
       <div className="mb-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
         <KpiCard label="Ativos" value={counters["Ativo"] ?? 0} />
         <KpiCard label="Próx. Vencimento" value={counters["Próximo Vencimento"] ?? 0} />
@@ -89,7 +78,7 @@ function RenovacoesPage() {
           <table className="w-full text-sm">
             <thead className="bg-background/40 text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 text-left">Cliente</th>
+                {!clientId && <th className="px-3 py-2 text-left">Cliente</th>}
                 <th className="px-3 py-2 text-left">Início</th>
                 <th className="px-3 py-2 text-left">Fim</th>
                 <th className="px-3 py-2 text-right">Dias</th>
@@ -99,12 +88,12 @@ function RenovacoesPage() {
             </thead>
             <tbody>
               {ren.isLoading && <tr><td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">Carregando…</td></tr>}
-              {!ren.isLoading && (ren.data ?? []).length === 0 && (
+              {!ren.isLoading && filtered.length === 0 && (
                 <tr><td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">Nenhum contrato cadastrado.</td></tr>
               )}
-              {(ren.data ?? []).map((r) => (
+              {filtered.map((r) => (
                 <tr key={r.id} className="border-t border-border/60 hover:bg-background/30">
-                  <td className="px-3 py-2 font-medium text-foreground">{clienteName(r.client_id)}</td>
+                  {!clientId && <td className="px-3 py-2 font-medium text-foreground">{clienteName(r.client_id)}</td>}
                   <td className="px-3 py-2 text-muted-foreground">
                     {r.contract_start ? new Date(r.contract_start + "T00:00").toLocaleDateString("pt-BR") : "—"}
                   </td>
@@ -142,12 +131,13 @@ function RenovacoesPage() {
         onOpenChange={(v) => { if (!v) { setCreating(false); setEditing(null); } }}
         renewal={editing}
         clientes={clientesQ.data ?? []}
+        lockedClientId={clientId}
         onSaved={() => {
           qc.invalidateQueries({ queryKey: ["op-renewals"] });
           qc.invalidateQueries({ queryKey: ["op-exec-metrics"] });
         }}
       />
-    </OperacoesLayout>
+    </div>
   );
 }
 
@@ -161,16 +151,17 @@ function KpiCard({ label, value }: { label: string; value: number }) {
 }
 
 function RenewalDialog({
-  open, onOpenChange, renewal, clientes, onSaved,
+  open, onOpenChange, renewal, clientes, onSaved, lockedClientId,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   renewal: OpRenewalView | null;
   clientes: { id: string; nome: string }[];
   onSaved: () => void;
+  lockedClientId?: string;
 }) {
   const [form, setForm] = useState({
-    client_id: "", contract_start: "", contract_end: "",
+    client_id: lockedClientId ?? "", contract_start: "", contract_end: "",
     renewal_status: "ativo" as OpRenewalStoredStatus,
     notes: "",
   });
@@ -184,9 +175,9 @@ function RenewalDialog({
         notes: renewal.notes ?? "",
       });
     } else if (open) {
-      setForm({ client_id: "", contract_start: "", contract_end: "", renewal_status: "ativo", notes: "" });
+      setForm({ client_id: lockedClientId ?? "", contract_start: "", contract_end: "", renewal_status: "ativo", notes: "" });
     }
-  }, [renewal, open]);
+  }, [renewal, open, lockedClientId]);
 
   const m = useMutation({
     mutationFn: () => upsertRenewal({
@@ -208,13 +199,15 @@ function RenewalDialog({
           <DialogTitle>{renewal ? "Editar contrato" : "Novo contrato"}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3">
-          <div>
-            <label className="text-xs text-muted-foreground">Cliente *</label>
-            <Select value={form.client_id || undefined} onValueChange={(v) => setForm((f) => ({ ...f, client_id: v }))} disabled={!!renewal}>
-              <SelectTrigger><SelectValue placeholder="Selecionar…" /></SelectTrigger>
-              <SelectContent>{clientes.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}</SelectContent>
-            </Select>
-          </div>
+          {!lockedClientId && (
+            <div>
+              <label className="text-xs text-muted-foreground">Cliente *</label>
+              <Select value={form.client_id || undefined} onValueChange={(v) => setForm((f) => ({ ...f, client_id: v }))} disabled={!!renewal}>
+                <SelectTrigger><SelectValue placeholder="Selecionar…" /></SelectTrigger>
+                <SelectContent>{clientes.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}</SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs text-muted-foreground">Início</label>

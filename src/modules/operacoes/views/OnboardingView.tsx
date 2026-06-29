@@ -1,23 +1,16 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { AppShell } from "@/components/AppShell";
-import { RequireAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BriefingsDashboard } from "@/components/BriefingsDashboard";
-import { OnboardingChecklist } from "@/components/operacoes/OnboardingChecklist";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { OperacoesLayout } from "@/modules/operacoes/components/OperacoesLayout";
 import { listClientes } from "@/modules/operacoes/api";
 import {
   listOnboardings, listOnboardingProgress, upsertOnboarding,
@@ -26,18 +19,6 @@ import {
   OP_ONBOARDING_STATUS_LABEL, type OpOnboarding, type OpOnboardingStatus,
 } from "@/modules/operacoes/fase2.types";
 
-export const Route = createFileRoute("/operacoes/onboarding")({
-  ssr: false,
-  head: () => ({ meta: [{ title: "Operações · Onboarding — INFINDA" }] }),
-  component: () => (
-    <RequireAuth>
-      <AppShell title="Operações" subtitle="Onboarding">
-        <OnboardingPage />
-      </AppShell>
-    </RequireAuth>
-  ),
-});
-
 const STATUS_STYLES: Record<OpOnboardingStatus, string> = {
   pendente: "bg-muted text-muted-foreground",
   aguardando_cliente: "bg-amber-500/15 text-amber-400",
@@ -45,11 +26,10 @@ const STATUS_STYLES: Record<OpOnboardingStatus, string> = {
   concluido: "bg-emerald-500/15 text-emerald-400",
 };
 
-function OnboardingPage() {
+export function OnboardingView({ clientId }: { clientId?: string }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState<OpOnboarding | null>(null);
   const [creating, setCreating] = useState(false);
-  const [tab, setTab] = useState<"onboarding" | "briefings" | "kickoff">("onboarding");
 
   const clientesQ = useQuery({ queryKey: ["op-clientes"], queryFn: listClientes });
   const onbQ = useQuery({ queryKey: ["op-onboarding"], queryFn: listOnboardings });
@@ -66,18 +46,14 @@ function OnboardingPage() {
   const clienteName = (id: string) =>
     clientesQ.data?.find((c) => c.id === id)?.nome ?? "—";
 
-  return (
-    <OperacoesLayout description="Centralize redes sociais, credenciais e integrações de cada cliente para começar a operação.">
-      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="mb-4">
-        <TabsList>
-          <TabsTrigger value="onboarding">Onboarding</TabsTrigger>
-          <TabsTrigger value="briefings">Briefings Comerciais</TabsTrigger>
-          <TabsTrigger value="kickoff">Kickoff de Produção</TabsTrigger>
-        </TabsList>
+  const filtered = useMemo(() => {
+    const all = onbQ.data ?? [];
+    return clientId ? all.filter((o) => o.client_id === clientId) : all;
+  }, [onbQ.data, clientId]);
 
-        <TabsContent value="onboarding" className="mt-4">
-          <OnboardingChecklist />
-          <div className="mb-3 flex items-center justify-end">
+  return (
+    <div>
+      <div className="mb-3 flex items-center justify-end">
         <Button onClick={() => setCreating(true)} disabled={!clientesQ.data?.length}>
           <Plus className="mr-2 h-4 w-4" /> Novo onboarding
         </Button>
@@ -88,7 +64,7 @@ function OnboardingPage() {
           <table className="w-full text-sm">
             <thead className="bg-background/40 text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
-                <th className="px-3 py-2 text-left">Cliente</th>
+                {!clientId && <th className="px-3 py-2 text-left">Cliente</th>}
                 <th className="px-3 py-2 text-left">Empresa</th>
                 <th className="px-3 py-2 text-left">Progresso</th>
                 <th className="px-3 py-2 text-left">Status</th>
@@ -100,14 +76,14 @@ function OnboardingPage() {
               {onbQ.isLoading && (
                 <tr><td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">Carregando…</td></tr>
               )}
-              {!onbQ.isLoading && (onbQ.data ?? []).length === 0 && (
+              {!onbQ.isLoading && filtered.length === 0 && (
                 <tr><td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">Nenhum onboarding cadastrado.</td></tr>
               )}
-              {(onbQ.data ?? []).map((o) => {
+              {filtered.map((o) => {
                 const p = progressById.get(o.id) ?? { done: 0, total: 4, pct: 0 };
                 return (
                   <tr key={o.id} className="border-t border-border/60 hover:bg-background/30">
-                    <td className="px-3 py-2 font-medium text-foreground">{clienteName(o.client_id)}</td>
+                    {!clientId && <td className="px-3 py-2 font-medium text-foreground">{clienteName(o.client_id)}</td>}
                     <td className="px-3 py-2 text-muted-foreground">{o.company_name ?? "—"}</td>
                     <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
@@ -143,37 +119,29 @@ function OnboardingPage() {
         onOpenChange={(v) => { if (!v) { setCreating(false); setEditing(null); } }}
         onboarding={editing}
         clientes={clientesQ.data ?? []}
+        lockedClientId={clientId}
         onSaved={() => {
           qc.invalidateQueries({ queryKey: ["op-onboarding"] });
           qc.invalidateQueries({ queryKey: ["op-onboarding-progress"] });
           qc.invalidateQueries({ queryKey: ["op-exec-metrics"] });
         }}
       />
-        </TabsContent>
-
-        <TabsContent value="briefings" className="mt-4">
-          <BriefingsDashboard tipo="briefing_comercial" embedded syncLifecycleStage />
-        </TabsContent>
-
-        <TabsContent value="kickoff" className="mt-4">
-          <BriefingsDashboard tipo="kickoff_producao" embedded syncLifecycleStage />
-        </TabsContent>
-      </Tabs>
-    </OperacoesLayout>
+    </div>
   );
 }
 
 function OnboardingDialog({
-  open, onOpenChange, onboarding, clientes, onSaved,
+  open, onOpenChange, onboarding, clientes, onSaved, lockedClientId,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onboarding: OpOnboarding | null;
   clientes: { id: string; nome: string }[];
   onSaved: () => void;
+  lockedClientId?: string;
 }) {
   const empty = {
-    client_id: "",
+    client_id: lockedClientId ?? "",
     company_name: "", cnpj: "", website: "",
     instagram: "", facebook: "", youtube: "",
     meta_ads_connected: false, google_ads_connected: false,
@@ -201,10 +169,10 @@ function OnboardingDialog({
         status: onboarding.status,
       });
     } else if (open) {
-      setForm(empty);
+      setForm({ ...empty, client_id: lockedClientId ?? "" });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onboarding, open]);
+  }, [onboarding, open, lockedClientId]);
 
   const m = useMutation({
     mutationFn: () => upsertOnboarding({ ...form, id: onboarding?.id }),
@@ -230,21 +198,23 @@ function OnboardingDialog({
           <DialogTitle>{onboarding ? "Editar onboarding" : "Novo onboarding"}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3">
-          <div>
-            <label className="text-xs text-muted-foreground">Cliente *</label>
-            <Select
-              value={form.client_id || undefined}
-              onValueChange={(v) => setForm((f) => ({ ...f, client_id: v }))}
-              disabled={!!onboarding}
-            >
-              <SelectTrigger><SelectValue placeholder="Selecionar cliente…" /></SelectTrigger>
-              <SelectContent>
-                {clientes.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {!lockedClientId && (
+            <div>
+              <label className="text-xs text-muted-foreground">Cliente *</label>
+              <Select
+                value={form.client_id || undefined}
+                onValueChange={(v) => setForm((f) => ({ ...f, client_id: v }))}
+                disabled={!!onboarding}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecionar cliente…" /></SelectTrigger>
+                <SelectContent>
+                  {clientes.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Empresa" v={form.company_name} on={(v) => setForm((f) => ({ ...f, company_name: v }))} />
             <Field label="CNPJ" v={form.cnpj} on={(v) => setForm((f) => ({ ...f, cnpj: v }))} />

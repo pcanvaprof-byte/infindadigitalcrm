@@ -1,10 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { AppShell } from "@/components/AppShell";
-import { RequireAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -14,7 +11,6 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { OperacoesLayout } from "@/modules/operacoes/components/OperacoesLayout";
 import { listClientes } from "@/modules/operacoes/api";
 import {
   deleteOpCampaign, listOpCampaigns, upsertOpCampaign,
@@ -23,18 +19,6 @@ import {
   OP_CAMPAIGN_PLATFORMS, OP_CAMPAIGN_STATUS_LABEL,
   type OpCampaign, type OpCampaignPlatform, type OpCampaignStatus,
 } from "@/modules/operacoes/fase2.types";
-
-export const Route = createFileRoute("/operacoes/campanhas")({
-  ssr: false,
-  head: () => ({ meta: [{ title: "Operações · Campanhas — INFINDA" }] }),
-  component: () => (
-    <RequireAuth>
-      <AppShell title="Operações" subtitle="Campanhas">
-        <CampanhasPage />
-      </AppShell>
-    </RequireAuth>
-  ),
-});
 
 const STATUS_STYLES: Record<OpCampaignStatus, string> = {
   rascunho: "bg-muted text-muted-foreground",
@@ -46,9 +30,8 @@ const STATUS_STYLES: Record<OpCampaignStatus, string> = {
 const fmt = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
 
-function CampanhasPage() {
+export function CampanhasView({ clientId }: { clientId?: string }) {
   const qc = useQueryClient();
-  const [clientId, setClientId] = useState("");
   const [status, setStatus] = useState<OpCampaignStatus | "">("");
   const [editing, setEditing] = useState<OpCampaign | null>(null);
   const [creating, setCreating] = useState(false);
@@ -58,8 +41,6 @@ function CampanhasPage() {
     queryKey: ["op-campaigns", { clientId, status }],
     queryFn: () => listOpCampaigns({ clientId: clientId || undefined, status: status || undefined }),
   });
-
-  const clienteName = (id: string) => clientesQ.data?.find((c) => c.id === id)?.nome ?? "—";
 
   const delM = useMutation({
     mutationFn: (id: string) => deleteOpCampaign(id),
@@ -81,7 +62,7 @@ function CampanhasPage() {
   );
 
   return (
-    <OperacoesLayout description="Gestão estratégica de campanhas — orçamento, investimento, resultados e custo por resultado.">
+    <div>
       <div className="mb-3 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard label="Verba mensal" value={fmt(totals.monthly)} />
         <KpiCard label="Investido" value={fmt(totals.invest)} />
@@ -90,24 +71,15 @@ function CampanhasPage() {
       </div>
 
       <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex gap-2">
-          <Select value={clientId || "__all"} onValueChange={(v) => setClientId(v === "__all" ? "" : v)}>
-            <SelectTrigger className="w-48"><SelectValue placeholder="Cliente" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all">Todos clientes</SelectItem>
-              {(clientesQ.data ?? []).map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={status || "__all"} onValueChange={(v) => setStatus(v === "__all" ? "" : v as OpCampaignStatus)}>
-            <SelectTrigger className="w-44"><SelectValue placeholder="Status" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__all">Todos status</SelectItem>
-              {Object.entries(OP_CAMPAIGN_STATUS_LABEL).map(([k, v]) => (
-                <SelectItem key={k} value={k}>{v}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <Select value={status || "__all"} onValueChange={(v) => setStatus(v === "__all" ? "" : v as OpCampaignStatus)}>
+          <SelectTrigger className="w-44"><SelectValue placeholder="Status" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all">Todos status</SelectItem>
+            {Object.entries(OP_CAMPAIGN_STATUS_LABEL).map(([k, v]) => (
+              <SelectItem key={k} value={k}>{v}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Button onClick={() => setCreating(true)} disabled={!clientesQ.data?.length}>
           <Plus className="mr-2 h-4 w-4" /> Nova campanha
         </Button>
@@ -119,7 +91,6 @@ function CampanhasPage() {
             <thead className="bg-background/40 text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 text-left">Campanha</th>
-                <th className="px-3 py-2 text-left">Cliente</th>
                 <th className="px-3 py-2 text-left">Plataforma</th>
                 <th className="px-3 py-2 text-right">Verba/mês</th>
                 <th className="px-3 py-2 text-right">Investido</th>
@@ -130,14 +101,13 @@ function CampanhasPage() {
               </tr>
             </thead>
             <tbody>
-              {camps.isLoading && <tr><td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">Carregando…</td></tr>}
+              {camps.isLoading && <tr><td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">Carregando…</td></tr>}
               {!camps.isLoading && (camps.data ?? []).length === 0 && (
-                <tr><td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">Nenhuma campanha.</td></tr>
+                <tr><td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">Nenhuma campanha.</td></tr>
               )}
               {(camps.data ?? []).map((c) => (
                 <tr key={c.id} className="border-t border-border/60 hover:bg-background/30">
                   <td className="px-3 py-2 font-medium text-foreground">{c.campaign_name}</td>
-                  <td className="px-3 py-2 text-muted-foreground">{clienteName(c.client_id)}</td>
                   <td className="px-3 py-2 text-muted-foreground">{c.platform}</td>
                   <td className="px-3 py-2 text-right">{fmt(Number(c.monthly_budget || 0))}</td>
                   <td className="px-3 py-2 text-right">{fmt(Number(c.investment_to_date || 0))}</td>
@@ -171,12 +141,13 @@ function CampanhasPage() {
         onOpenChange={(v) => { if (!v) { setCreating(false); setEditing(null); } }}
         campaign={editing}
         clientes={clientesQ.data ?? []}
+        lockedClientId={clientId}
         onSaved={() => {
           qc.invalidateQueries({ queryKey: ["op-campaigns"] });
           qc.invalidateQueries({ queryKey: ["op-exec-metrics"] });
         }}
       />
-    </OperacoesLayout>
+    </div>
   );
 }
 
@@ -190,16 +161,17 @@ function KpiCard({ label, value }: { label: string; value: string }) {
 }
 
 function CampaignDialog({
-  open, onOpenChange, campaign, clientes, onSaved,
+  open, onOpenChange, campaign, clientes, onSaved, lockedClientId,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   campaign: OpCampaign | null;
   clientes: { id: string; nome: string }[];
   onSaved: () => void;
+  lockedClientId?: string;
 }) {
   const empty = {
-    client_id: "", campaign_name: "",
+    client_id: lockedClientId ?? "", campaign_name: "",
     platform: "Meta Ads" as OpCampaignPlatform,
     objective: "",
     daily_budget: 0, monthly_budget: 0,
@@ -225,9 +197,9 @@ function CampaignDialog({
         start_date: campaign.start_date ?? "",
         end_date: campaign.end_date ?? "",
       });
-    } else if (open) setForm(empty);
+    } else if (open) setForm({ ...empty, client_id: lockedClientId ?? "" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [campaign, open]);
+  }, [campaign, open, lockedClientId]);
 
   const m = useMutation({
     mutationFn: () => upsertOpCampaign({ ...form, id: campaign?.id }),
@@ -247,13 +219,15 @@ function CampaignDialog({
         </DialogHeader>
         <div className="grid gap-3">
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-muted-foreground">Cliente *</label>
-              <Select value={form.client_id || undefined} onValueChange={(v) => setForm((f) => ({ ...f, client_id: v }))} disabled={!!campaign}>
-                <SelectTrigger><SelectValue placeholder="Selecionar…" /></SelectTrigger>
-                <SelectContent>{clientes.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
+            {!lockedClientId && (
+              <div>
+                <label className="text-xs text-muted-foreground">Cliente *</label>
+                <Select value={form.client_id || undefined} onValueChange={(v) => setForm((f) => ({ ...f, client_id: v }))} disabled={!!campaign}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar…" /></SelectTrigger>
+                  <SelectContent>{clientes.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <label className="text-xs text-muted-foreground">Plataforma</label>
               <Select value={form.platform} onValueChange={(v) => setForm((f) => ({ ...f, platform: v as OpCampaignPlatform }))}>

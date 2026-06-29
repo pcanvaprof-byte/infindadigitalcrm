@@ -1,10 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { AppShell } from "@/components/AppShell";
-import { RequireAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -14,7 +11,6 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { OperacoesLayout } from "@/modules/operacoes/components/OperacoesLayout";
 import { listClientes } from "@/modules/operacoes/api";
 import {
   createDeployment, deleteDeployment, listDeployments, updateDeployment,
@@ -24,18 +20,6 @@ import {
   type OpDeployment, type OpDeploymentCategory, type OpDeploymentPriority,
   type OpDeploymentStatus,
 } from "@/modules/operacoes/fase2.types";
-
-export const Route = createFileRoute("/operacoes/implantacao")({
-  ssr: false,
-  head: () => ({ meta: [{ title: "Operações · Implantação — INFINDA" }] }),
-  component: () => (
-    <RequireAuth>
-      <AppShell title="Operações" subtitle="Implantação">
-        <ImplantacaoPage />
-      </AppShell>
-    </RequireAuth>
-  ),
-});
 
 const PRIORITY_STYLES: Record<OpDeploymentPriority, string> = {
   "Baixa": "bg-muted text-muted-foreground",
@@ -50,10 +34,9 @@ const STATUS_STYLES: Record<OpDeploymentStatus, string> = {
   concluido: "bg-emerald-500/15 text-emerald-400",
 };
 
-function ImplantacaoPage() {
+export function ImplantacaoView({ clientId }: { clientId?: string }) {
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
-  const [clientId, setClientId] = useState<string>("");
   const [category, setCategory] = useState<OpDeploymentCategory | "">("");
   const [status, setStatus] = useState<OpDeploymentStatus | "">("");
   const [priority, setPriority] = useState<OpDeploymentPriority | "">("");
@@ -71,8 +54,6 @@ function ImplantacaoPage() {
       search: search || undefined,
     }),
   });
-
-  const clienteName = (id: string) => clientesQ.data?.find((c) => c.id === id)?.nome ?? "—";
 
   const progressByClient = useMemo(() => {
     const m = new Map<string, { done: number; total: number }>();
@@ -96,18 +77,13 @@ function ImplantacaoPage() {
   });
 
   return (
-    <OperacoesLayout description="Tarefas de implantação por cliente — Pixel, CAPI, Analytics, GTM, LP, anúncios e automações.">
-      <div className="mb-3 grid grid-cols-2 gap-2 lg:grid-cols-6">
+    <div>
+      <div className="mb-3 grid grid-cols-2 gap-2 lg:grid-cols-5">
         <Input
           placeholder="Buscar título…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="col-span-2"
-        />
-        <SelectFilter
-          value={clientId} onChange={setClientId}
-          placeholder="Cliente"
-          options={[{ value: "", label: "Todos clientes" }, ...(clientesQ.data ?? []).map((c) => ({ value: c.id, label: c.nome }))]}
         />
         <SelectFilter
           value={category} onChange={(v) => setCategory(v as OpDeploymentCategory | "")}
@@ -137,26 +113,24 @@ function ImplantacaoPage() {
             <thead className="bg-background/40 text-xs uppercase tracking-wider text-muted-foreground">
               <tr>
                 <th className="px-3 py-2 text-left">Título</th>
-                <th className="px-3 py-2 text-left">Cliente</th>
                 <th className="px-3 py-2 text-left">Categoria</th>
                 <th className="px-3 py-2 text-left">Prioridade</th>
                 <th className="px-3 py-2 text-left">Status</th>
                 <th className="px-3 py-2 text-left">Prazo</th>
-                <th className="px-3 py-2 text-left">Progresso (cliente)</th>
+                <th className="px-3 py-2 text-left">Progresso</th>
                 <th className="px-3 py-2" />
               </tr>
             </thead>
             <tbody>
-              {depQ.isLoading && <tr><td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">Carregando…</td></tr>}
+              {depQ.isLoading && <tr><td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">Carregando…</td></tr>}
               {!depQ.isLoading && (depQ.data ?? []).length === 0 && (
-                <tr><td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">Nenhuma tarefa.</td></tr>
+                <tr><td colSpan={7} className="px-3 py-8 text-center text-muted-foreground">Nenhuma tarefa.</td></tr>
               )}
               {(depQ.data ?? []).map((d) => {
                 const p = progressByClient.get(d.client_id) ?? { done: 0, total: 1 };
                 return (
                   <tr key={d.id} className="border-t border-border/60 hover:bg-background/30">
                     <td className="px-3 py-2 font-medium text-foreground">{d.title}</td>
-                    <td className="px-3 py-2 text-muted-foreground">{clienteName(d.client_id)}</td>
                     <td className="px-3 py-2 text-muted-foreground">{d.category}</td>
                     <td className="px-3 py-2">
                       <span className={`rounded-full px-2 py-0.5 text-[11px] ${PRIORITY_STYLES[d.priority]}`}>{d.priority}</span>
@@ -196,12 +170,13 @@ function ImplantacaoPage() {
         onOpenChange={(v) => { if (!v) { setCreating(false); setEditing(null); } }}
         deployment={editing}
         clientes={clientesQ.data ?? []}
+        lockedClientId={clientId}
         onSaved={() => {
           qc.invalidateQueries({ queryKey: ["op-deployments"] });
           qc.invalidateQueries({ queryKey: ["op-exec-metrics"] });
         }}
       />
-    </OperacoesLayout>
+    </div>
   );
 }
 
@@ -225,16 +200,17 @@ function SelectFilter({
 }
 
 function DeploymentDialog({
-  open, onOpenChange, deployment, clientes, onSaved,
+  open, onOpenChange, deployment, clientes, onSaved, lockedClientId,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   deployment: OpDeployment | null;
   clientes: { id: string; nome: string }[];
   onSaved: () => void;
+  lockedClientId?: string;
 }) {
   const empty = {
-    client_id: "", title: "", description: "",
+    client_id: lockedClientId ?? "", title: "", description: "",
     category: "Pixel" as OpDeploymentCategory,
     status: "nao_iniciado" as OpDeploymentStatus,
     priority: "Normal" as OpDeploymentPriority,
@@ -253,9 +229,9 @@ function DeploymentDialog({
         priority: deployment.priority,
         due_date: deployment.due_date ?? "",
       });
-    } else if (open) setForm(empty);
+    } else if (open) setForm({ ...empty, client_id: lockedClientId ?? "" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deployment, open]);
+  }, [deployment, open, lockedClientId]);
 
   const m = useMutation({
     mutationFn: () => deployment
@@ -276,19 +252,21 @@ function DeploymentDialog({
           <DialogTitle>{deployment ? "Editar tarefa" : "Nova tarefa"}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-3">
-          <div>
-            <label className="text-xs text-muted-foreground">Cliente *</label>
-            <Select
-              value={form.client_id || undefined}
-              onValueChange={(v) => setForm((f) => ({ ...f, client_id: v }))}
-              disabled={!!deployment}
-            >
-              <SelectTrigger><SelectValue placeholder="Selecionar…" /></SelectTrigger>
-              <SelectContent>
-                {clientes.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
+          {!lockedClientId && (
+            <div>
+              <label className="text-xs text-muted-foreground">Cliente *</label>
+              <Select
+                value={form.client_id || undefined}
+                onValueChange={(v) => setForm((f) => ({ ...f, client_id: v }))}
+                disabled={!!deployment}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecionar…" /></SelectTrigger>
+                <SelectContent>
+                  {clientes.map((c) => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div>
             <label className="text-xs text-muted-foreground">Título *</label>
             <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />

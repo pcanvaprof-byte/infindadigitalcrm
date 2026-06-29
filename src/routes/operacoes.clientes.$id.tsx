@@ -33,9 +33,13 @@ export const Route = createFileRoute("/operacoes/clientes/$id")({
 
 const TABS = [
   { to: "", label: "Resumo" },
+  { to: "onboarding", label: "Onboarding" },
+  { to: "implantacao", label: "Implantação" },
+  { to: "campanhas", label: "Campanhas" },
+  { to: "relacionamento", label: "Relacionamento" },
+  { to: "renovacoes", label: "Renovações" },
   { to: "comercial", label: "Comercial" },
   { to: "documentos", label: "Documentos" },
-  { to: "operacoes", label: "Operações" },
   { to: "financeiro", label: "Financeiro" },
   { to: "historico", label: "Histórico" },
 ] as const;
