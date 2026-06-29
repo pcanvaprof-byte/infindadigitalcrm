@@ -16,7 +16,7 @@ import { createClient as createLifecycleClient, listClients as listLifecycleClie
 import { supabase } from "@/integrations/supabase/client";
 import { STAGE_LABEL, STAGE_TONE } from "@/modules/lifecycle/types";
 
-export const Route = createFileRoute("/operacoes/clientes")({
+export const Route = createFileRoute("/operacoes/clientes/")({
   ssr: false,
   head: () => ({ meta: [{ title: "Operações · Clientes — INFINDA" }] }),
   component: () => (
