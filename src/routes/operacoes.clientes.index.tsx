@@ -1,7 +1,7 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Plus, Trash2 } from "lucide-react";
+import { Download, Plus, Trash2, FileSearch } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/lib/auth-context";
@@ -171,6 +171,12 @@ function ClientesPage() {
           className="sm:max-w-sm"
         />
         <div className="flex gap-2">
+          <Button asChild variant="ghost">
+            <Link to="/operacoes/auditoria-lifecycle">
+              <FileSearch className="mr-2 h-4 w-4" />
+              Auditoria
+            </Link>
+          </Button>
           <Button
             variant="outline"
             onClick={() => importM.mutate()}
