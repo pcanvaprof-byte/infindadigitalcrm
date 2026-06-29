@@ -114,3 +114,36 @@ export async function createClient(input: {
   if (error) throw new Error(error.message);
   return data as LifecycleClient;
 }
+
+export async function updateClient(
+  id: string,
+  patch: Partial<
+    Pick<
+      LifecycleClient,
+      | "company"
+      | "cnpj"
+      | "contact_name"
+      | "email"
+      | "phone"
+      | "whatsapp"
+      | "plano_code"
+      | "mensalidade"
+      | "financial_status"
+      | "lc_contract_status"
+      | "onboarding_status"
+      | "activated_at"
+      | "next_action_date"
+      | "current_step"
+    >
+  >,
+): Promise<LifecycleClient> {
+  const payload: Record<string, unknown> = { ...patch, updated_at: new Date().toISOString() };
+  const { data, error } = await db
+    .from("clients")
+    .update(payload)
+    .eq("id", id)
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  return data as LifecycleClient;
+}
