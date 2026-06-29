@@ -15,6 +15,7 @@ import {
   type PeriodKey,
   type ResolvedPeriod,
 } from "@/lib/bi/period";
+import { localDateKey } from "@/lib/bi/tz";
 
 const ORDER: PeriodKey[] = ["hoje", "semana", "mes", "trimestre", "30d", "90d"];
 
@@ -43,8 +44,8 @@ export function PeriodSelector({ period }: { period: ResolvedPeriod }) {
     navigate({
       search: () => ({
         period: "custom" as const,
-        from: range.from!.toISOString().slice(0, 10),
-        to: range.to!.toISOString().slice(0, 10),
+        from: localDateKey(range.from!),
+        to: localDateKey(range.to!),
       }),
       replace: true,
     });

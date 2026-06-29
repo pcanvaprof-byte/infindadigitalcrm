@@ -1,4 +1,5 @@
 import { supabase as sb } from "@/integrations/supabase/client";
+import { localTimestamp } from "./tz";
 
 /**
  * KPIs essenciais da aba Diretoria, calculados client-side a partir
@@ -18,7 +19,7 @@ export interface DiretoriaKpis {
 function startOfMonthIso(d = new Date()): string {
   const x = new Date(d.getFullYear(), d.getMonth(), 1);
   x.setHours(0, 0, 0, 0);
-  return x.toISOString();
+  return localTimestamp(x);
 }
 
 type ContractRow = {

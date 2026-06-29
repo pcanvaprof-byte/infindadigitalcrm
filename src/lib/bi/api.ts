@@ -28,21 +28,14 @@ export interface BIDashboardPayload {
 }
 
 export async function fetchBIDashboard(area: BIArea): Promise<BIDashboardPayload> {
-  // RPC pode estar com defeito server-side (ex.: "column 'empresa' does not exist").
-  // Não derruba a tela: devolve payload vazio e deixa o cliente usar fallbacks.
-  try {
-    const { data, error } = await rpc("bi_dashboard", { p_area: area });
-    if (error) {
-      // eslint-disable-next-line no-console
-      console.warn("[bi_dashboard] RPC falhou — usando fallback client-side:", error);
-      return {};
-    }
-    return (data as BIDashboardPayload) ?? {};
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.warn("[bi_dashboard] exceção — usando fallback client-side:", e);
-    return {};
-  }
+  // Auditoria 2026-06-29: a RPC `bi_dashboard` não existe no banco (pg_proc vazio),
+  // por isso retornava 42703 "column 'empresa' does not exist" em todas as abas e
+  // fazia o app cair em fallback client-side a cada render. Enquanto a RPC não for
+  // (re)criada, devolvemos payload vazio diretamente — os painéis já consomem as
+  // fontes canônicas (`fetchDiretoriaKpis`, `fetchForecastForPeriod`, charts).
+  void area;
+  void rpc;
+  return {};
 }
 
 export interface AIInsight {

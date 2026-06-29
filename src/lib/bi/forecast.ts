@@ -2,6 +2,7 @@
 import { supabase as sb } from "@/integrations/supabase/client";
 import type { ResolvedPeriod } from "./period";
 import { getForecastSettings } from "./forecast-settings";
+import { localTimestamp } from "./tz";
 
 export interface ForecastBreakdown {
   recorrencia: number;       // MRR escalonado pela duração do período (em meses)
@@ -78,8 +79,8 @@ export async function fetchForecastForPeriod(period: ResolvedPeriod): Promise<Fo
   // Recorrência proporcional ao tamanho do período (em meses, base 30 dias)
   const recorrencia = Math.round(mrr * (period.days / 30));
 
-  const fromIso = period.from.toISOString();
-  const toIso = period.to.toISOString();
+  const fromIso = localTimestamp(period.from);
+  const toIso = localTimestamp(period.to);
   const fechado = Math.round(
     contracts
       .filter((r) => {
@@ -107,7 +108,7 @@ export async function fetchForecastForPeriod(period: ResolvedPeriod): Promise<Fo
   const janelaDias = settings.windowDays;
   const minimoAmostra = settings.minSample;
   const fallback = settings.fallback;
-  const since = new Date(Date.now() - janelaDias * 86400000).toISOString();
+  const since = localTimestamp(new Date(Date.now() - janelaDias * 86400000));
   const contratosRecentes = contracts.filter((r) => r.signed_at && String(r.signed_at) >= since).length;
   const propostasRecentes = proposals.filter((r) => r.created_at && String(r.created_at) >= since).length;
 
