@@ -28,9 +28,21 @@ export interface BIDashboardPayload {
 }
 
 export async function fetchBIDashboard(area: BIArea): Promise<BIDashboardPayload> {
-  const { data, error } = await rpc("bi_dashboard", { p_area: area });
-  if (error) throw error as Error;
-  return (data as BIDashboardPayload) ?? {};
+  // RPC pode estar com defeito server-side (ex.: "column 'empresa' does not exist").
+  // Não derruba a tela: devolve payload vazio e deixa o cliente usar fallbacks.
+  try {
+    const { data, error } = await rpc("bi_dashboard", { p_area: area });
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.warn("[bi_dashboard] RPC falhou — usando fallback client-side:", error);
+      return {};
+    }
+    return (data as BIDashboardPayload) ?? {};
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn("[bi_dashboard] exceção — usando fallback client-side:", e);
+    return {};
+  }
 }
 
 export interface AIInsight {
