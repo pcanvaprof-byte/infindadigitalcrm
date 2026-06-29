@@ -3,6 +3,7 @@ import { supabase as sb } from "@/integrations/supabase/client";
 import type { ResolvedPeriod } from "./period";
 import { getForecastSettings } from "./forecast-settings";
 import { localTimestamp } from "./tz";
+import { fetchClientsAsContracts } from "./clients-source";
 
 export interface ForecastBreakdown {
   recorrencia: number;       // MRR escalonado pela duração do período (em meses)
@@ -73,6 +74,9 @@ export async function fetchForecastForPeriod(period: ResolvedPeriod): Promise<Fo
   const settings = getForecastSettings();
   let contracts = await safeSelect("contracts", "monthly_value, contract_value, value, signed_at, status");
   if (contracts.length === 0) contracts = await safeSelect("op_contracts", "monthly_value, contract_value, signed_at, status");
+  // Inclui lifecycle clients (Ficha 360°) para que edições em Operações
+  // afetem Recorrência/Fechado em tempo real.
+  contracts = [...contracts, ...((await fetchClientsAsContracts()) as unknown as AnyRow[])];
 
   const ativos = contracts.filter((r) => isActive(r.status));
   const mrr = ativos.reduce((a, r) => a + num(r.monthly_value), 0);

@@ -1,5 +1,6 @@
 import { supabase as sb } from "@/integrations/supabase/client";
 import { localTimestamp } from "./tz";
+import { fetchClientsAsContracts } from "./clients-source";
 
 export interface TodayMetrics {
   visitas: number;    // touchpoints tipo=reuniao hoje
@@ -111,7 +112,15 @@ async function fetchRangeMetricsRaw(ini: string, fim: string | undefined): Promi
   ]);
   type Contract = { monthly_value?: number | null; contract_value?: number | null };
   const contratos = ((cnt as unknown as { data: Contract[] | null }).data ?? []) as Contract[];
-  const receita = contratos.reduce(
+  // Adiciona clientes do lifecycle (Ficha 360°) cuja ativação caiu no período.
+  const clientRows = await fetchClientsAsContracts();
+  const clientesNoPeriodo = clientRows.filter((r) => {
+    if (!r.signed_at) return false;
+    const s = String(r.signed_at);
+    return s >= ini && (!fim || s <= fim);
+  });
+  const todosContratos: Contract[] = [...contratos, ...clientesNoPeriodo];
+  const receita = todosContratos.reduce(
     (acc, c) => acc + Number(c.monthly_value ?? c.contract_value ?? 0),
     0,
   );
@@ -134,7 +143,7 @@ async function fetchRangeMetricsRaw(ini: string, fim: string | undefined): Promi
     receita,
     disparos: (cad as unknown as { count: number | null }).count ?? 0,
     contatos: (tp as unknown as { count: number | null }).count ?? 0,
-    contratos: contratos.length,
+    contratos: todosContratos.length,
     empresasTrabalhadas,
     // União: cadastros + leads vindos da cadência sem prospect ainda.
     novosContatos: novosProspectsCount + novosCadCount,

@@ -135,6 +135,13 @@ export async function fetchFinanceiroMonthly(months = 6): Promise<MonthlyRevenue
       (q) => (q as unknown as { gte: (c: string, v: string) => unknown }).gte("signed_at", ini),
     );
   }
+  // Lifecycle clients (Ficha 360°) também alimentam Receita mensal.
+  const { fetchClientsAsContracts } = await import("./clients-source");
+  const clientRows = (await fetchClientsAsContracts()) as unknown as ContractRow[];
+  rows = [
+    ...rows,
+    ...clientRows.filter((r) => r.signed_at && String(r.signed_at) >= ini),
+  ];
 
   const recMap = new Map<string, { receita: number; contratos: number }>();
   for (const r of rows) {
