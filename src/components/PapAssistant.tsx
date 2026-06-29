@@ -8,6 +8,7 @@ import { papChat } from "@/lib/pap-assistant.functions";
 import { loadAllProspects, insertProspect } from "@/lib/prospects-api";
 import { listPlanTemplates } from "@/modules/lifecycle/api";
 import type { Prospect } from "@/lib/mock-prospects";
+import { addReminder, bootReminders } from "@/lib/pap-reminders";
 
 type ChatMsg = {
   role: "system" | "user" | "assistant" | "tool";
@@ -20,15 +21,27 @@ type ChatMsg = {
 };
 
 const SYSTEM_PROMPT = `Você é o assistente de vendas porta-a-porta (PAP) da INFINDA.
-Ajude o vendedor a cadastrar prospects, consultar a base, sugerir planos, gerar propostas e registrar visitas/follow-ups, de forma rápida e objetiva, em português do Brasil.
+Ajude o vendedor a cadastrar prospects, consultar a base, sugerir planos, gerar propostas, registrar visitas e criar follow-ups com lembrete, de forma rápida e objetiva, em português do Brasil.
 
-Regras:
-- Pergunte apenas o essencial. Campos mínimos para cadastrar: empresa e (whatsapp OU telefone). CNPJ, responsável, segmento, cidade/UF são desejáveis mas opcionais.
+Regras gerais:
 - SEMPRE chame "search_prospects" antes de criar para evitar duplicidade por CNPJ, telefone ou nome semelhante. Se houver match plausível, confirme com o vendedor.
 - Para sugerir plano, chame "list_plans" e recomende 1–2 baseando-se em porte/segmento informados; explique em 1 linha.
-- Para registrar uma visita ou follow-up, chame "log_visit" com observações curtas e o próximo contato (ISO date opcional).
 - Após criar/atualizar, confirme com um resumo curto e o que fazer a seguir.
-- Não invente dados. Se faltar algo, pergunte.`;
+- Não invente dados. Se faltar algo, pergunte.
+
+Fluxo de cadastro PAP (siga em ordem, uma pergunta por vez, pulando o que já foi dito):
+  1) Nome da empresa (obrigatório)
+  2) Nome do responsável / contato
+  3) Telefone ou WhatsApp (pelo menos um — obrigatório)
+  4) E-mail (se houver — opcional)
+  5) Origem (PAP por padrão; pode ser indicação, evento, etc.)
+  6) Interesse (qual produto/serviço chamou atenção)
+  7) Preferências (horário de contato, canal preferido, observações da visita)
+Depois chame "create_prospect" preenchendo os campos. Coloque interesse + preferências em "notes".
+
+Follow-up:
+- Quando o vendedor pedir lembrete/retorno, chame "create_followup" com prospect_id, due_at (ISO, ex.: "2026-07-01T14:00:00-03:00"), notes (o que combinar) e opcionalmente remind_before_min (minutos antes do horário para um alerta prévio, ex.: 30).
+- Se faltar a data/hora, pergunte. Confirme em linguagem natural ("agendado para amanhã às 10h").`;
 
 const TOOLS = [
   {
@@ -47,7 +60,7 @@ const TOOLS = [
     type: "function",
     function: {
       name: "create_prospect",
-      description: "Cria um novo prospect no CRM.",
+      description: "Cria um novo prospect no CRM. Use após coletar nome, telefone/whatsapp, e-mail (se houver), origem, interesse e preferências.",
       parameters: {
         type: "object",
         properties: {
@@ -60,8 +73,11 @@ const TOOLS = [
           segment: { type: "string" },
           city: { type: "string" },
           state: { type: "string" },
+          source: { type: "string", description: "Origem do lead (ex.: PAP, indicação, evento). Default: PAP" },
+          interest: { type: "string", description: "Produto/serviço de interesse" },
+          preferences: { type: "string", description: "Horário/canal preferido e observações da visita" },
           potential: { type: "string", enum: ["alto", "medio", "baixo"] },
-          notes: { type: "string", description: "Anotação inicial da visita PAP (opcional)" },
+          notes: { type: "string", description: "Anotação inicial livre (opcional). Se ausente, será montada com interesse + preferências." },
         },
         required: ["company"],
       },
@@ -88,6 +104,27 @@ const TOOLS = [
           next_contact_at: { type: "string", description: "Data/hora ISO (opcional)" },
         },
         required: ["prospect_id", "notes"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_followup",
+      description:
+        "Cria uma tarefa de follow-up para o vendedor com data/hora, observações e lembrete (notificação no navegador + toast).",
+      parameters: {
+        type: "object",
+        properties: {
+          prospect_id: { type: "string", description: "ID do prospect já existente (use search_prospects para obter)." },
+          due_at: { type: "string", description: "Data/hora ISO do follow-up. Ex.: 2026-07-01T14:00:00-03:00" },
+          notes: { type: "string", description: "O que falar/fazer no retorno." },
+          remind_before_min: {
+            type: "number",
+            description: "Minutos antes do horário para um alerta prévio. Opcional (ex.: 15, 30, 60).",
+          },
+        },
+        required: ["prospect_id", "due_at", "notes"],
       },
     },
   },
@@ -129,6 +166,12 @@ async function runTool(name: string, args: any): Promise<unknown> {
     return { count: ranked.length, results: ranked };
   }
   if (name === "create_prospect") {
+    const composedNotes = (
+      args.notes ||
+      [args.interest ? `Interesse: ${args.interest}` : "", args.preferences ? `Preferências: ${args.preferences}` : ""]
+        .filter(Boolean)
+        .join(" | ")
+    ) as string;
     const p = await insertProspect({
       company: String(args.company || "").trim(),
       cnpj: args.cnpj || "",
@@ -140,7 +183,7 @@ async function runTool(name: string, args: any): Promise<unknown> {
       instagram: "",
       city: args.city || "",
       state: args.state || "",
-      source: "PAP",
+      source: (args.source as string) || "PAP",
       potential: (args.potential as any) || "medio",
       status: "primeiro_contato",
       updatedAt: null,
@@ -150,6 +193,14 @@ async function runTool(name: string, args: any): Promise<unknown> {
       lastContactAt: null,
       nextContactAt: null,
     } as any);
+    if (composedNotes) {
+      try {
+        const { addInteractionRemote } = await import("@/lib/prospects-api");
+        await addInteractionRemote(p.id, "nota", `[PAP] ${composedNotes}`, "Assistente PAP");
+      } catch (e) {
+        console.warn("[PAP] falha ao gravar nota inicial", e);
+      }
+    }
     return { ok: true, id: p.id, company: p.company };
   }
   if (name === "list_plans") {
@@ -164,6 +215,31 @@ async function runTool(name: string, args: any): Promise<unknown> {
     }
     return { ok: true };
   }
+  if (name === "create_followup") {
+    const { addInteractionRemote, updateProspect, loadAllProspects: load } = await import("@/lib/prospects-api");
+    const due = String(args.due_at || "");
+    if (!due || isNaN(new Date(due).getTime())) {
+      return { error: "due_at inválido. Use ISO 8601 (ex.: 2026-07-01T14:00:00-03:00)." };
+    }
+    const all = await load();
+    const target = all.find((x) => x.id === args.prospect_id);
+    if (!target) return { error: "prospect_id não encontrado." };
+    await addInteractionRemote(
+      args.prospect_id,
+      "nota",
+      `[FOLLOW-UP @ ${new Date(due).toLocaleString("pt-BR")}] ${args.notes || ""}`,
+      "Assistente PAP",
+    );
+    await updateProspect(args.prospect_id, { nextContactAt: due } as any);
+    const r = await addReminder({
+      prospectId: args.prospect_id,
+      company: target.company,
+      notes: String(args.notes || ""),
+      dueAt: new Date(due).toISOString(),
+      remindBeforeMin: typeof args.remind_before_min === "number" ? args.remind_before_min : undefined,
+    });
+    return { ok: true, reminder_id: r.id, due_at: r.dueAt, company: target.company };
+  }
   return { error: `tool desconhecida: ${name}` };
 }
 
@@ -171,6 +247,9 @@ export function PapAssistant() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [input, setInput] = useState("");
+  useEffect(() => {
+    bootReminders();
+  }, []);
   const [msgs, setMsgs] = useState<ChatMsg[]>([
     {
       role: "assistant",
