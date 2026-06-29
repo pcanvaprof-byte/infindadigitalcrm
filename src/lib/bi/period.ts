@@ -146,6 +146,54 @@ export function resolvePeriod(
 
 /** Multiplica uma meta proporcionalmente ao tamanho do período vs 30 dias. */
 export function scaleGoal(monthlyGoal: number, period: ResolvedPeriod) {
-  const factor = period.days / 30;
-  return Math.max(0, Math.round(monthlyGoal * factor));
+  return Math.max(0, Math.round(monthlyGoal * monthlyFactor(period)));
+}
+
+/** Fator multiplicador para converter uma meta mensal no período resolvido. */
+export function monthlyFactor(period: ResolvedPeriod): number {
+  switch (period.key) {
+    case "hoje":
+      // Distribui a meta mensal pelos dias úteis (~22) do mês.
+      return 1 / 22;
+    case "semana":
+      // 4.345 semanas em um mês médio.
+      return 1 / 4.345;
+    case "mes":
+    case "30d":
+      return 1;
+    case "trimestre":
+    case "90d":
+      return 3;
+    case "custom":
+    default:
+      return period.days / 30;
+  }
+}
+
+/** Converte uma meta semanal no escopo do período (semana é a base). */
+export function scaleWeeklyGoal(weeklyGoal: number, period: ResolvedPeriod) {
+  // Semana = base; mês = 4.345 semanas; trimestre = 13.04; dia = 1/5 da semana.
+  const factorByKey: Record<PeriodKey, number> = {
+    hoje: 1 / 5,
+    semana: 1,
+    mes: 4.345,
+    trimestre: 13.04,
+    "30d": 4.345,
+    "90d": 13.04,
+    custom: period.days / 7,
+  };
+  return Math.max(0, Math.round(weeklyGoal * factorByKey[period.key]));
+}
+
+/** Rótulo curto do escopo da meta de acordo com o período. */
+export function goalScopeLabel(period: ResolvedPeriod): string {
+  switch (period.key) {
+    case "hoje":      return "do dia";
+    case "semana":    return "da semana";
+    case "mes":       return "do mês";
+    case "trimestre": return "do trimestre";
+    case "30d":       return "dos últimos 30 dias";
+    case "90d":       return "dos últimos 90 dias";
+    case "custom":    return "do período";
+  }
 }

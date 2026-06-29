@@ -36,7 +36,15 @@ import {
 } from "@/components/bi/AreaCharts";
 import { PeriodSelector } from "@/components/bi/PeriodSelector";
 import { DrillDownProvider, useDrillDown } from "@/hooks/useDrillDown";
-import { periodSearchSchema, resolvePeriod, scaleGoal, type ResolvedPeriod, type PeriodKey } from "@/lib/bi/period";
+import {
+  periodSearchSchema,
+  resolvePeriod,
+  scaleGoal,
+  scaleWeeklyGoal,
+  goalScopeLabel,
+  type ResolvedPeriod,
+  type PeriodKey,
+} from "@/lib/bi/period";
 import type { ReactNode } from "react";
 import type { DrillKind } from "@/lib/bi/drilldown";
 import type { CascataStepId } from "@/components/bi/CascataOperacional";
@@ -244,12 +252,13 @@ function Kpi({ label, value, hint }: { label: string; value: string; hint?: stri
 }
 
 function MetaHero({
-  realizado, ticket, meta, recorrencia,
-}: { realizado: number; ticket: number; meta: number; recorrencia: number }) {
+  realizado, ticket, meta, recorrencia, period,
+}: { realizado: number; ticket: number; meta: number; recorrencia: number; period?: ResolvedPeriod }) {
   const total = diasUteisNoMes();
   const dia = diasUteisAteHoje();
   const totalCal = diasNoMes();
   const diaCal = diaAtual();
+  const scopeLabel = period ? goalScopeLabel(period) : "do mês";
   // Realizado total = recorrência garantida + novos negócios já fechados no mês.
   const novos = Math.max(0, realizado);
   const realizadoTotal = recorrencia + novos;
@@ -277,7 +286,7 @@ function MetaHero({
       <CardContent className="p-6 grid gap-6 md:grid-cols-[1.4fr_1fr]">
         <div>
           <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-primary/80">
-            <Target className="h-3.5 w-3.5" /> Meta total do mês
+            <Target className="h-3.5 w-3.5" /> Meta total {scopeLabel}
           </div>
           <div className="mt-3 flex items-baseline gap-3 flex-wrap">
             <span className="text-3xl font-semibold">{fmtBRL(realizadoTotal)}</span>
@@ -489,8 +498,9 @@ function BIPage() {
                 <MetaHero
                   realizado={diretoriaKpis.receita_realizada ?? 0}
                   ticket={diretoriaKpis.ticket_medio ?? 0}
-                  meta={goals.revenue_goal}
+                  meta={scaleGoal(goals.revenue_goal, period)}
                   recorrencia={Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal)}
+                  period={period}
                 />
                 <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
                   <ScopeWrapper active={period.key === "hoje"} scopeLabel="Hoje">
@@ -517,7 +527,7 @@ function BIPage() {
                 />
                 <div className="grid gap-5 lg:grid-cols-[1.2fr_1fr]">
                   <CascataCard
-                    meta={goals.revenue_goal}
+                    meta={scaleGoal(goals.revenue_goal, period)}
                     realizado={diretoriaKpis.receita_realizada ?? 0}
                     recorrencia={Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal)}
                     ticket={diretoriaKpis.ticket_medio ?? 0}
@@ -525,26 +535,26 @@ function BIPage() {
                   />
                   <GargalosCard
                     items={[
-                      { label: "Receita do mês", scope: "mês",
+                      { label: `Receita ${goalScopeLabel(period)}`, scope: period.label,
                         value: Math.round((diretoriaKpis.mrr ?? 0) + (diretoriaKpis.receita_realizada ?? 0)),
-                        goal: goals.revenue_goal,
+                        goal: scaleGoal(goals.revenue_goal, period),
                         drill: { kind: "contracts" as const, title: "Contratos do período", crumb: "Diretoria · Receita" } },
                       { label: "Receita da semana", scope: "semana",
                         value: Math.round(diretoriaKpis.receita_realizada ?? 0),
                         goal: goals.weekly_revenue_goal,
                         drill: { kind: "contracts" as const, title: "Contratos do período", crumb: "Diretoria · Receita" } },
-                      { label: "Contratos", scope: "mês",
+                      { label: "Contratos", scope: period.label,
                         value: (data?.funnel ?? []).find((s) => /contrat|fech/i.test(s.stage))?.clientes ?? 0,
-                        goal: goals.contracts_goal,
+                        goal: scaleGoal(goals.contracts_goal, period),
                         drill: { kind: "contracts" as const, title: "Contratos do período", crumb: "Diretoria · Contratos" } },
-                      { label: "Reuniões", scope: "mês",
+                      { label: "Reuniões", scope: period.label,
                         value: (data?.funnel ?? []).find((s) => /reuni/i.test(s.stage))?.clientes ?? 0,
-                        goal: goals.meetings_goal,
+                        goal: scaleGoal(goals.meetings_goal, period),
                         drill: { kind: "touchpoints-channel" as const, title: "Reuniões registradas", crumb: "Diretoria · Reuniões" } },
-                      { label: "Leads", scope: "mês",
+                      { label: "Leads", scope: period.label,
                         value: (data?.funnel ?? []).find((s) => /lead|prospec/i.test(s.stage))?.clientes
                           ?? (data?.funnel?.[0]?.clientes ?? 0),
-                        goal: goals.leads_goal,
+                        goal: scaleGoal(goals.leads_goal, period),
                         drill: { kind: "prospects-new" as const, title: "Leads novos do período", crumb: "Diretoria · Leads" } },
                     ]}
                   />
@@ -566,11 +576,7 @@ function BIPage() {
                       ? Math.min(1, data.forecast.taxa_conversao_historica / 100)
                       : undefined)
                   }
-                  meta={
-                    period.key === "mes"
-                      ? goals.revenue_goal
-                      : scaleGoal(goals.revenue_goal, period)
-                  }
+                  meta={scaleGoal(goals.revenue_goal, period)}
                   periodLabel={period.label}
                   rangeLabel={period.rangeLabel}
                 />
@@ -598,13 +604,13 @@ function BIPage() {
               return (
                 <div className="space-y-5">
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                    <DrillKpi label="Leads"     value={leads}    goal={goals.leads_goal}     icon={Users}
+                    <DrillKpi label="Leads"     value={leads}    goal={scaleGoal(goals.leads_goal, period)}     icon={Users}
                       drill={{ kind: "prospects-new", title: "Leads novos do período", crumb: "Comercial · Leads" }} />
-                    <DrillKpi label="Reuniões"  value={reunioes} goal={goals.meetings_goal}  icon={CalendarClock}
+                    <DrillKpi label="Reuniões"  value={reunioes} goal={scaleGoal(goals.meetings_goal, period)}  icon={CalendarClock}
                       drill={{ kind: "touchpoints-channel", title: "Reuniões registradas", crumb: "Comercial · Reuniões" }} />
-                    <DrillKpi label="Propostas" value={propostas} goal={goals.proposals_goal} icon={FileText}
+                    <DrillKpi label="Propostas" value={propostas} goal={scaleGoal(goals.proposals_goal, period)} icon={FileText}
                       drill={{ kind: "proposals", title: "Propostas do período", crumb: "Comercial · Propostas" }} />
-                    <DrillKpi label="Contratos" value={contratos} goal={goals.contracts_goal} icon={FileSignature}
+                    <DrillKpi label="Contratos" value={contratos} goal={scaleGoal(goals.contracts_goal, period)} icon={FileSignature}
                       drill={{ kind: "contracts", title: "Contratos do período", crumb: "Comercial · Contratos" }} />
                     <DrillKpi
                       label="Conversão"
@@ -617,7 +623,7 @@ function BIPage() {
                   </div>
 
                   <ForecastCard
-                    meta={goals.contracts_goal}
+                    meta={scaleGoal(goals.contracts_goal, period)}
                     projecao={projetadoContratos}
                     unidade="contratos"
                   />
