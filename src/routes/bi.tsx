@@ -15,6 +15,7 @@ import {
 import { fetchBIDashboard, type BIArea, type BIDashboardPayload } from "@/lib/bi/api";
 import { fetchBIGoals, DEFAULT_GOALS, type BIGoals } from "@/lib/bi/goals";
 import { fetchDiretoriaKpis, type DiretoriaKpis } from "@/lib/bi/diretoria";
+import { fetchForecastForPeriod, type ForecastBreakdown } from "@/lib/bi/forecast";
 import { AIInsightsPanel } from "@/components/bi/AIInsightsPanel";
 import { ExportMenu, type ExportSection } from "@/components/bi/ExportMenu";
 import { EvolucaoMes } from "@/components/bi/EvolucaoMes";
@@ -35,7 +36,7 @@ import {
 } from "@/components/bi/AreaCharts";
 import { PeriodSelector } from "@/components/bi/PeriodSelector";
 import { DrillDownProvider, useDrillDown } from "@/hooks/useDrillDown";
-import { periodSearchSchema, resolvePeriod, type ResolvedPeriod, type PeriodKey } from "@/lib/bi/period";
+import { periodSearchSchema, resolvePeriod, scaleGoal, type ResolvedPeriod, type PeriodKey } from "@/lib/bi/period";
 import type { ReactNode } from "react";
 import type { DrillKind } from "@/lib/bi/drilldown";
 import type { CascataStepId } from "@/components/bi/CascataOperacional";
