@@ -42,6 +42,32 @@ function ResumoPage() {
       ? Math.floor((Date.now() - new Date(c.activated_at).getTime()) / 86400000)
       : null;
 
+  // Calcula término previsto a partir de activated_at + contract_term_months,
+  // funcionando mesmo se o banco ainda não tiver a coluna contract_end_at.
+  const endDate = (() => {
+    if (c.contract_end_at) return new Date(c.contract_end_at);
+    if (c.activated_at && c.contract_term_months) {
+      const s = new Date(c.activated_at);
+      return new Date(s.getFullYear(), s.getMonth() + Number(c.contract_term_months), s.getDate());
+    }
+    return null;
+  })();
+
+  const mensal = Number(c.mensalidade ?? 0);
+  const siteRec = Number(c.site_recurring_value ?? 0);
+  const siteOne = Number(c.site_one_time_value ?? 0);
+  const term = Number(c.contract_term_months ?? 0);
+  const valorTotal = term > 0 ? (mensal + siteRec) * term + siteOne : null;
+
+  const SITE_STATUS_LABEL: Record<string, string> = {
+    nao_aplica: "Não se aplica",
+    a_vista: "À vista",
+    parcelado: "Parcelado",
+    incluso: "Incluso no plano",
+    pendente: "Pendente",
+    pago: "Pago",
+  };
+
   const items = [
     { label: "Plano", value: c.plano_code ?? "—" },
     {
@@ -60,7 +86,7 @@ function ResumoPage() {
     },
     {
       label: "Término previsto",
-      value: c.contract_end_at ? new Date(c.contract_end_at).toLocaleDateString("pt-BR") : "—",
+      value: endDate ? endDate.toLocaleDateString("pt-BR") : "—",
     },
     {
       label: "Permuta",
@@ -75,7 +101,9 @@ function ResumoPage() {
       value:
         c.site_one_time_value != null
           ? `R$ ${Number(c.site_one_time_value).toFixed(2)}${
-              c.site_payment_status ? ` · ${c.site_payment_status}` : ""
+              c.site_payment_status
+                ? ` · ${SITE_STATUS_LABEL[c.site_payment_status] ?? c.site_payment_status}`
+                : ""
             }`
           : "—",
     },
@@ -85,6 +113,23 @@ function ResumoPage() {
         c.site_recurring_value != null
           ? `R$ ${Number(c.site_recurring_value).toFixed(2)}/mês`
           : "—",
+    },
+    {
+      label: "Status pgto. site",
+      value: c.site_payment_status
+        ? SITE_STATUS_LABEL[c.site_payment_status] ?? c.site_payment_status
+        : "—",
+    },
+    {
+      label: "Valor total do contrato",
+      value:
+        valorTotal != null
+          ? `R$ ${valorTotal.toFixed(2)}`
+          : "—",
+    },
+    {
+      label: "Observações",
+      value: c.contract_notes ? c.contract_notes : "—",
     },
   ];
 
