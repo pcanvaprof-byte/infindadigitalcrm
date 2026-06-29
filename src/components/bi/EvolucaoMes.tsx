@@ -1,5 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Activity, TrendingDown, TrendingUp, AlertTriangle } from "lucide-react";
+import type { ResolvedPeriod } from "@/lib/bi/period";
 
 const fmtBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -7,14 +8,31 @@ const fmtBRL = (n: number) =>
 interface Props {
   meta: number;
   realizado: number;
+  period?: ResolvedPeriod;
 }
 
-export function EvolucaoMes({ meta, realizado }: Props) {
+export function EvolucaoMes({ meta, realizado, period }: Props) {
   const now = new Date();
-  const total = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const dia = now.getDate();
-  const restantes = Math.max(1, total - dia);
-  const idealAcum = Math.round((meta * dia) / total);
+  // Define janela de avaliação a partir do filtro global; default = mês corrente.
+  const from = period?.from ?? new Date(now.getFullYear(), now.getMonth(), 1);
+  const to = period?.to ?? new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  const totalDias = Math.max(
+    1,
+    Math.round((+new Date(to.getFullYear(), to.getMonth(), to.getDate()) -
+      +new Date(from.getFullYear(), from.getMonth(), from.getDate())) /
+      86_400_000) + 1,
+  );
+  const decorridos = Math.max(
+    1,
+    Math.min(
+      totalDias,
+      Math.round((+new Date(now.getFullYear(), now.getMonth(), now.getDate()) -
+        +new Date(from.getFullYear(), from.getMonth(), from.getDate())) /
+        86_400_000) + 1,
+    ),
+  );
+  const restantes = Math.max(1, totalDias - decorridos);
+  const idealAcum = Math.round((meta * decorridos) / totalDias);
   const diff = realizado - idealAcum;
   const diffPct = idealAcum > 0 ? Math.round((diff / idealAcum) * 100) : 0;
   const ritmoNecessario = Math.max(0, Math.ceil((meta - realizado) / restantes));
@@ -30,7 +48,7 @@ export function EvolucaoMes({ meta, realizado }: Props) {
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-            <Activity className="h-3.5 w-3.5" /> Evolução do mês
+            <Activity className="h-3.5 w-3.5" /> Evolução — {period?.label ?? "Este mês"}
           </div>
           <div className={`flex items-center gap-1.5 text-sm font-medium ${status.tone}`}>
             <StatusIcon className="h-4 w-4" />
@@ -39,8 +57,8 @@ export function EvolucaoMes({ meta, realizado }: Props) {
         </div>
 
         <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Cell label={`Hoje · dia ${dia}/${total}`} value={fmtBRL(realizado)} hint="Realizado" />
-          <Cell label="Ideal acumulado" value={fmtBRL(idealAcum)} hint={`${Math.round((dia / total) * 100)}% do mês`} />
+          <Cell label={`Dia ${decorridos}/${totalDias}`} value={fmtBRL(realizado)} hint="Realizado" />
+          <Cell label="Ideal acumulado" value={fmtBRL(idealAcum)} hint={`${Math.round((decorridos / totalDias) * 100)}% do período`} />
           <Cell
             label="Diferença"
             value={`${diff >= 0 ? "+" : ""}${fmtBRL(diff)}`}
