@@ -37,6 +37,71 @@ import { PeriodSelector } from "@/components/bi/PeriodSelector";
 import { DrillDownProvider, useDrillDown } from "@/hooks/useDrillDown";
 import { periodSearchSchema, resolvePeriod, type ResolvedPeriod, type PeriodKey } from "@/lib/bi/period";
 import type { ReactNode } from "react";
+import type { DrillKind } from "@/lib/bi/drilldown";
+import type { CascataStepId } from "@/components/bi/CascataOperacional";
+
+/** Wrapper que injeta o handler de drill-down em qualquer card KPI. */
+function DrillKpi(
+  props: React.ComponentProps<typeof KpiGoalCard> & {
+    drill?: { kind: DrillKind; title: string; crumb?: string; params?: Record<string, unknown> };
+  },
+) {
+  const { drill, ...rest } = props;
+  const dd = useDrillDown();
+  return (
+    <KpiGoalCard
+      {...rest}
+      onDrillDown={
+        drill
+          ? () =>
+              dd.open({
+                id: `${drill.kind}-${drill.title}`,
+                kind: drill.kind,
+                title: drill.title,
+                crumb: drill.crumb,
+                params: drill.params,
+              })
+          : undefined
+      }
+    />
+  );
+}
+
+/** Wrap painel "Hoje/Semana" com badge de escopo. */
+function ScopeWrapper({
+  active,
+  scopeLabel,
+  children,
+}: {
+  active: boolean;
+  scopeLabel: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="relative">
+      <div
+        className={`absolute right-3 top-3 z-10 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-wider ${
+          active
+            ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-300"
+            : "border-border bg-card/80 text-muted-foreground"
+        }`}
+        title={active ? "Contexto ativo" : "Sempre visível — fora do período filtrado"}
+      >
+        {scopeLabel}
+      </div>
+      <div className={active ? "" : "opacity-70"}>{children}</div>
+    </div>
+  );
+}
+
+const STEP_TO_DRILL: Record<CascataStepId, { kind: DrillKind; title: string; crumb: string }> = {
+  meta:      { kind: "contracts",     title: "Contratos do período",  crumb: "Diretoria · Meta" },
+  contratos: { kind: "contracts",     title: "Contratos do período",  crumb: "Diretoria · Contratos" },
+  reunioes:  { kind: "touchpoints-channel", title: "Reuniões registradas", crumb: "Diretoria · Reuniões" },
+  contatos:  { kind: "touchpoints",   title: "Touchpoints do período", crumb: "Diretoria · Contatos" },
+  empresas:  { kind: "empresas",      title: "Empresas trabalhadas",   crumb: "Diretoria · Empresas" },
+  disparos:  { kind: "dispatches",    title: "Disparos de cadência",   crumb: "Diretoria · Disparos" },
+};
 
 export const Route = createFileRoute("/bi")({
   component: BIPageGate,
