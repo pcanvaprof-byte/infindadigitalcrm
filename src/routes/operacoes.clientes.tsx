@@ -1,7 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, Pencil, Plus, Trash2 } from "lucide-react";
+import { Download, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/lib/auth-context";
@@ -12,7 +12,8 @@ import { OperacoesLayout } from "@/modules/operacoes/components/OperacoesLayout"
 import { ClienteFormDialog } from "@/modules/operacoes/components/ClienteFormDialog";
 import { deleteCliente, importClientesFromContratos, listClientes } from "@/modules/operacoes/api";
 import { OP_CLIENTE_STATUS_LABEL, type OpCliente } from "@/modules/operacoes/types";
-import { listClients as listLifecycleClients } from "@/modules/lifecycle/api";
+import { createClient as createLifecycleClient, listClients as listLifecycleClients } from "@/modules/lifecycle/api";
+import { supabase } from "@/integrations/supabase/client";
 import { STAGE_LABEL, STAGE_TONE } from "@/modules/lifecycle/types";
 
 export const Route = createFileRoute("/operacoes/clientes")({
@@ -36,9 +37,10 @@ const STATUS_STYLES: Record<string, string> = {
 
 function ClientesPage() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
-  const [editing, setEditing] = useState<OpCliente | null>(null);
   const [creating, setCreating] = useState(false);
+  const [opening, setOpening] = useState<string | null>(null);
 
   const q = useQuery({ queryKey: ["op-clientes"], queryFn: listClientes });
   const lc = useQuery({ queryKey: ["lc-clients"], queryFn: () => listLifecycleClients() });
@@ -87,6 +89,34 @@ function ClientesPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  async function openClient(c: OpCliente) {
+    const existing = lcBySource.get(c.id);
+    if (existing) {
+      navigate({ to: "/operacoes/clientes/$id", params: { id: existing.id } });
+      return;
+    }
+    try {
+      setOpening(c.id);
+      const lc = await createLifecycleClient({
+        company: c.empresa || c.nome,
+        contact_name: c.nome,
+        email: c.email ?? undefined,
+        phone: c.telefone ?? c.whatsapp ?? undefined,
+      });
+      // vincula ao op_cliente para o estágio aparecer na listagem
+      await (supabase as unknown as { from: (t: string) => any })
+        .from("clients")
+        .update({ created_from: "operacoes", source_ref: c.id })
+        .eq("id", lc.id);
+      qc.invalidateQueries({ queryKey: ["lc-clients"] });
+      navigate({ to: "/operacoes/clientes/$id", params: { id: lc.id } });
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setOpening(null);
+    }
+  }
 
   return (
     <OperacoesLayout description="Cadastro centralizado dos clientes da operação. Vincule contas de tráfego, entregas e métricas.">
@@ -143,19 +173,23 @@ function ClientesPage() {
               )}
               {filtered.map((c) => {
                 const lcRef = lcBySource.get(c.id);
-                const NameCell = lcRef ? (
-                  <Link
-                    to="/operacoes/clientes/$id"
-                    params={{ id: lcRef.id }}
-                    className="font-medium text-primary hover:underline"
+                const NameCell = (
+                  <button
+                    type="button"
+                    onClick={() => openClient(c)}
+                    disabled={opening === c.id}
+                    className="text-left font-medium text-primary hover:underline disabled:opacity-60"
                   >
                     {c.nome}
-                  </Link>
-                ) : (
-                  <span className="font-medium text-foreground">{c.nome}</span>
+                    {opening === c.id ? " …" : ""}
+                  </button>
                 );
                 return (
-                <tr key={c.id} className="border-t border-border/60 hover:bg-background/30">
+                <tr
+                  key={c.id}
+                  className="cursor-pointer border-t border-border/60 hover:bg-background/30"
+                  onClick={() => openClient(c)}
+                >
                   <td className="px-3 py-2">{NameCell}</td>
                   <td className="px-3 py-2 text-muted-foreground">{c.empresa ?? "—"}</td>
                   <td className="px-3 py-2 text-muted-foreground">
@@ -178,10 +212,7 @@ function ClientesPage() {
                       {OP_CLIENTE_STATUS_LABEL[c.status]}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-right">
-                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditing(c)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
+                  <td className="px-3 py-2 text-right" onClick={(e) => e.stopPropagation()}>
                     <Button
                       size="icon"
                       variant="ghost"
@@ -202,11 +233,6 @@ function ClientesPage() {
       </Card>
 
       <ClienteFormDialog open={creating} onOpenChange={setCreating} />
-      <ClienteFormDialog
-        open={!!editing}
-        onOpenChange={(v) => !v && setEditing(null)}
-        cliente={editing}
-      />
     </OperacoesLayout>
   );
 }
