@@ -70,6 +70,22 @@ function ResumoPage() {
           : "Sim"
         : "Não",
     },
+    {
+      label: "Venda do site (única)",
+      value:
+        c.site_one_time_value != null
+          ? `R$ ${Number(c.site_one_time_value).toFixed(2)}${
+              c.site_payment_status ? ` · ${c.site_payment_status}` : ""
+            }`
+          : "—",
+    },
+    {
+      label: "Recorrência do site",
+      value:
+        c.site_recurring_value != null
+          ? `R$ ${Number(c.site_recurring_value).toFixed(2)}/mês`
+          : "—",
+    },
   ];
 
   return (
@@ -115,6 +131,10 @@ function EditClientDialog({ clientId }: { clientId: string }) {
     is_permuta: false,
     permuta_value: "",
     permuta_description: "",
+    site_one_time_value: "",
+    site_recurring_value: "",
+    site_payment_status: "nao_aplica",
+    contract_notes: "",
   });
 
   useEffect(() => {
@@ -137,6 +157,12 @@ function EditClientDialog({ clientId }: { clientId: string }) {
       is_permuta: !!c.is_permuta,
       permuta_value: c.permuta_value != null ? String(c.permuta_value) : "",
       permuta_description: c.permuta_description ?? "",
+      site_one_time_value:
+        c.site_one_time_value != null ? String(c.site_one_time_value) : "",
+      site_recurring_value:
+        c.site_recurring_value != null ? String(c.site_recurring_value) : "",
+      site_payment_status: c.site_payment_status ?? "nao_aplica",
+      contract_notes: c.contract_notes ?? "",
     });
   }, [open, cq.data]);
 
@@ -166,6 +192,13 @@ function EditClientDialog({ clientId }: { clientId: string }) {
         is_permuta: form.is_permuta,
         permuta_value: form.is_permuta && form.permuta_value ? Number(form.permuta_value) : null,
         permuta_description: form.is_permuta ? form.permuta_description.trim() || null : null,
+        site_one_time_value: form.site_one_time_value ? Number(form.site_one_time_value) : null,
+        site_recurring_value: form.site_recurring_value ? Number(form.site_recurring_value) : null,
+        site_payment_status:
+          form.site_one_time_value || form.site_recurring_value
+            ? form.site_payment_status
+            : null,
+        contract_notes: form.contract_notes.trim() || null,
       });
     },
     onSuccess: () => {
@@ -348,6 +381,62 @@ function EditClientDialog({ clientId }: { clientId: string }) {
               </div>
             )}
           </div>
+        </section>
+
+        <section className="space-y-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Site / Produto adicional
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Valor da venda do site (R$)">
+              <Input
+                type="number"
+                inputMode="decimal"
+                placeholder="Ex.: 2500"
+                value={form.site_one_time_value}
+                onChange={(e) => setForm({ ...form, site_one_time_value: e.target.value })}
+              />
+            </Field>
+            <Field label="Recorrência do site (R$/mês)">
+              <Input
+                type="number"
+                inputMode="decimal"
+                placeholder="Ex.: 150"
+                value={form.site_recurring_value}
+                onChange={(e) => setForm({ ...form, site_recurring_value: e.target.value })}
+              />
+            </Field>
+            <Field label="Pagamento da venda do site">
+              <Select
+                value={form.site_payment_status}
+                onValueChange={(v) => setForm({ ...form, site_payment_status: v })}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nao_aplica">Não se aplica</SelectItem>
+                  <SelectItem value="a_vista">À vista</SelectItem>
+                  <SelectItem value="parcelado">Parcelado</SelectItem>
+                  <SelectItem value="incluso">Incluso no plano</SelectItem>
+                  <SelectItem value="pendente">Pendente</SelectItem>
+                  <SelectItem value="pago">Pago</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+        </section>
+
+        <section className="space-y-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Outras informações
+          </p>
+          <Field label="Observações do contrato">
+            <Textarea
+              rows={3}
+              value={form.contract_notes}
+              onChange={(e) => setForm({ ...form, contract_notes: e.target.value })}
+              placeholder="Escopo extra, condições especiais, descontos, integrações…"
+            />
+          </Field>
         </section>
 
         <DialogFooter>
