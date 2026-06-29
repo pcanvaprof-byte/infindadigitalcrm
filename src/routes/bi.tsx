@@ -8,7 +8,7 @@ import { AppShell } from "@/components/AppShell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, TrendingUp, AlertTriangle, Target, DollarSign, Activity, Sparkles, Users, CalendarClock, FileText, FileSignature, Percent, Settings2 } from "lucide-react";
+import { Loader2, TrendingUp, AlertTriangle, Target, DollarSign, Activity, Sparkles, Users, CalendarClock, FileText, FileSignature, Percent, Settings2, Network } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   LineChart, Line,
@@ -32,6 +32,7 @@ import { CascataOperacional } from "@/components/bi/CascataOperacional";
 import { GargalosPanel } from "@/components/bi/GargalosPanel";
 import { PrevisaoPanel } from "@/components/bi/PrevisaoPanel";
 import { PerformanceSemanaPanel, DEFAULT_WEEK_GOALS } from "@/components/bi/PerformanceSemanaPanel";
+import { MeiosProspeccaoPanel } from "@/components/bi/MeiosProspeccaoPanel";
 import {
   ComercialCharts, FinanceiroCharts, MarketingCharts, OperacoesCharts,
 } from "@/components/bi/AreaCharts";
@@ -199,6 +200,7 @@ const AREAS: Array<{ id: BIArea; label: string; icon: typeof TrendingUp }> = [
   { id: "financeiro", label: "Financeiro", icon: DollarSign },
   { id: "marketing",  label: "Marketing",  icon: Activity },
   { id: "operacoes",  label: "Operações",  icon: AlertTriangle },
+  { id: "meios",      label: "Meios de Prospecção", icon: Network },
 ];
 
 const fmtBRL = (n: number | null | undefined) =>
