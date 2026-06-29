@@ -700,9 +700,12 @@ function BIPage() {
                 pipelineAberto={data?.forecast?.pipeline_aberto ?? 0}
                 previsao30d={data?.forecast?.previsao_30d ?? 0}
                 previsao90d={data?.forecast?.previsao_90d ?? 0}
-                folha={goals.payroll_cost}
-                infra={goals.infra_cost}
+                folha={folhaCalc}
+                infra={infraCalc}
+                veiculos={veiculosCalc}
+                outros={outrosCalc}
                 taxasPct={goals.taxes_pct}
+                expensesSource={hasExpenses ? "expenses" : "goals"}
               />
             )}
             {a.id === "financeiro" && <FinanceiroCharts period={period} />}
