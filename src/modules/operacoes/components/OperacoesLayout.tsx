@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { OperacoesTabs } from "./OperacoesTabs";
 import { useAutoSyncContratos } from "../hooks/useAutoSyncContratos";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
@@ -25,8 +24,7 @@ export function OperacoesLayout({
   const { lastSync, syncing, runNow } = useAutoSyncContratos();
   return (
     <div className="space-y-4">
-      <OperacoesTabs />
-      <div className="-mt-1 flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         {description ? (
           <p className="max-w-2xl text-sm text-muted-foreground">{description}</p>
         ) : (
