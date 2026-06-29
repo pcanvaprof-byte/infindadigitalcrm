@@ -827,6 +827,8 @@ function BIPage() {
               </Card>
             )}
 
+            {a.id === "meios" && <MeiosProspeccaoPanel period={period} />}
+
             <Card className="border-primary/20">
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
