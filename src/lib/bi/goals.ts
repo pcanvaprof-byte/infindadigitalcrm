@@ -117,6 +117,11 @@ export async function saveMonthlyGoals(input: {
   dailyVisits?: number;
   dailyContacts?: number;
   weeklyDispatches?: number;
+  weeklyContracts?: number;
+  weeklyCompanies?: number;
+  weeklyVideos?: number;
+  weeklyPartnerships?: number;
+  weeklyNewContacts?: number;
 }): Promise<{ ok: boolean; error?: string }> {
   // Persistência local imediata — garante que a meta editada seja refletida no Cockpit
   // mesmo quando a RPC `bi_set_monthly_goals` não está disponível no banco.
@@ -134,6 +139,11 @@ export async function saveMonthlyGoals(input: {
     daily_visits_goal: input.dailyVisits ?? 30,
     daily_contacts_goal: input.dailyContacts ?? 40,
     weekly_dispatches_goal: input.weeklyDispatches ?? 240,
+    ...(input.weeklyContracts !== undefined && { weekly_contracts_goal: input.weeklyContracts }),
+    ...(input.weeklyCompanies !== undefined && { weekly_companies_goal: input.weeklyCompanies }),
+    ...(input.weeklyVideos !== undefined && { weekly_videos_goal: input.weeklyVideos }),
+    ...(input.weeklyPartnerships !== undefined && { weekly_partnerships_goal: input.weeklyPartnerships }),
+    ...(input.weeklyNewContacts !== undefined && { weekly_new_contacts_goal: input.weeklyNewContacts }),
   });
   try {
     const { error } = await rpc("bi_set_monthly_goals", {
