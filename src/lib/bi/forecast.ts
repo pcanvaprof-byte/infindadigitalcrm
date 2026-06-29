@@ -1,12 +1,25 @@
 // Period-aware forecast data — mirrors the Previsão card on /bi
 import { supabase as sb } from "@/integrations/supabase/client";
 import type { ResolvedPeriod } from "./period";
+import { getForecastSettings } from "./forecast-settings";
 
 export interface ForecastBreakdown {
   recorrencia: number;       // MRR escalonado pela duração do período (em meses)
   fechado: number;           // Σ contract_value dos contratos assinados dentro do range
   pipelineAberto: number;    // Σ valor estimado de propostas em aberto (snapshot atual)
-  pipelineProbabilidade: number; // Taxa histórica (0–1). Fallback 0.25
+  pipelineProbabilidade: number; // Taxa aplicada (0–1)
+  /** Origem da probabilidade aplicada — usado pela UI para explicar o número. */
+  probabilidadeSource: "historico" | "fallback";
+  /** Motivo curto quando caímos no fallback. */
+  probabilidadeMotivo?: string;
+  /** Amostra dos últimos 90 dias (independente do período selecionado). */
+  amostra: {
+    janelaDias: number;
+    contratosRecentes: number;
+    propostasRecentes: number;
+    minimoAmostra: number;
+    fallbackAplicado: number;
+  };
 }
 
 type AnyRow = Record<string, unknown>;
@@ -56,6 +69,7 @@ function proposalValue(r: AnyRow): number {
 }
 
 export async function fetchForecastForPeriod(period: ResolvedPeriod): Promise<ForecastBreakdown> {
+  const settings = getForecastSettings();
   let contracts = await safeSelect("contracts", "monthly_value, contract_value, value, signed_at, status");
   if (contracts.length === 0) contracts = await safeSelect("op_contracts", "monthly_value, contract_value, signed_at, status");
 
@@ -86,18 +100,48 @@ export async function fetchForecastForPeriod(period: ResolvedPeriod): Promise<Fo
   const abertas = proposals.filter((r) => isOpenProposal(r.status));
   const pipelineAberto = Math.round(abertas.reduce((a, r) => a + proposalValue(r), 0));
 
-  // Probabilidade histórica: contratos assinados nos últimos 90d / propostas criadas nos últimos 90d
-  const since = new Date(Date.now() - 90 * 86400000).toISOString();
+  // Probabilidade histórica: contratos assinados nos últimos 90d / propostas criadas nos últimos 90d.
+  // A janela é SEMPRE 90d (não muda com o filtro de período) para manter a probabilidade
+  // estável entre Hoje/Semana/Mês/Trimestre. Quando a amostra é insuficiente, aplicamos
+  // o fallback configurável e expomos o motivo para a UI exibir.
+  const janelaDias = settings.windowDays;
+  const minimoAmostra = settings.minSample;
+  const fallback = settings.fallback;
+  const since = new Date(Date.now() - janelaDias * 86400000).toISOString();
   const contratosRecentes = contracts.filter((r) => r.signed_at && String(r.signed_at) >= since).length;
   const propostasRecentes = proposals.filter((r) => r.created_at && String(r.created_at) >= since).length;
-  let prob = propostasRecentes > 0 ? contratosRecentes / propostasRecentes : 0.25;
-  if (!Number.isFinite(prob) || prob <= 0) prob = 0.25;
-  if (prob > 1) prob = 1;
+
+  let prob = fallback;
+  let source: "historico" | "fallback" = "fallback";
+  let motivo: string | undefined;
+
+  if (propostasRecentes === 0) {
+    motivo = `Sem propostas criadas nos últimos ${janelaDias} dias — usando fallback configurado.`;
+  } else if (propostasRecentes < minimoAmostra) {
+    motivo = `Amostra insuficiente (${propostasRecentes}/${minimoAmostra} propostas em ${janelaDias} d) — usando fallback configurado.`;
+  } else {
+    const taxa = contratosRecentes / propostasRecentes;
+    if (!Number.isFinite(taxa) || taxa <= 0) {
+      motivo = `Nenhum contrato fechado nos últimos ${janelaDias} dias — usando fallback configurado.`;
+    } else {
+      prob = Math.min(1, taxa);
+      source = "historico";
+    }
+  }
 
   return {
     recorrencia,
     fechado,
     pipelineAberto,
     pipelineProbabilidade: Math.round(prob * 100) / 100,
+    probabilidadeSource: source,
+    probabilidadeMotivo: motivo,
+    amostra: {
+      janelaDias,
+      contratosRecentes,
+      propostasRecentes,
+      minimoAmostra,
+      fallbackAplicado: fallback,
+    },
   };
 }
