@@ -30,6 +30,9 @@ import { CascataOperacional } from "@/components/bi/CascataOperacional";
 import { GargalosPanel } from "@/components/bi/GargalosPanel";
 import { PrevisaoPanel } from "@/components/bi/PrevisaoPanel";
 import { PerformanceSemanaPanel, DEFAULT_WEEK_GOALS } from "@/components/bi/PerformanceSemanaPanel";
+import {
+  ComercialCharts, FinanceiroCharts, MarketingCharts, OperacoesCharts,
+} from "@/components/bi/AreaCharts";
 
 export const Route = createFileRoute("/bi")({
   component: BIPageGate,
@@ -444,6 +447,7 @@ function BIPage() {
                   />
 
                   {stages.length > 0 && <FunilExecutivo stages={stages} />}
+                  <ComercialCharts />
                 </div>
               );
             })()}
@@ -464,6 +468,7 @@ function BIPage() {
                 taxasPct={goals.taxes_pct}
               />
             )}
+            {a.id === "financeiro" && <FinanceiroCharts />}
 
             {a.id === "marketing" && (diretoriaKpis || data?.kpis) && (
               <MarketingPanel
@@ -477,6 +482,7 @@ function BIPage() {
                 ticketMedio={data?.kpis?.ticket_medio ?? diretoriaKpis?.ticket_medio ?? 0}
               />
             )}
+            {a.id === "marketing" && <MarketingCharts />}
 
             {a.id === "operacoes" && (diretoriaKpis || data?.kpis) && (
               <OperacoesPanel
@@ -488,6 +494,7 @@ function BIPage() {
                 taxaConversaoHistorica={data?.forecast?.taxa_conversao_historica ?? null}
               />
             )}
+            {a.id === "operacoes" && <OperacoesCharts />}
 
             {a.id === "operacoes" && data?.funnel && data.funnel.length > 0 && (
               <Card>
