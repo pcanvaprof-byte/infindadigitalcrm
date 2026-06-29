@@ -13,6 +13,8 @@ import {
   fetchOperacoesDaily,
   fetchOperacoesStatusMix,
 } from "@/lib/bi/charts";
+import { useDrillDown } from "@/hooks/useDrillDown";
+import type { ResolvedPeriod } from "@/lib/bi/period";
 
 const fmtBRL = (n: number) =>
   Number(n || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -61,10 +63,11 @@ function ChartShell({
 }
 
 // ---------------- COMERCIAL ----------------
-export function ComercialCharts() {
+export function ComercialCharts({ period }: { period?: ResolvedPeriod } = {}) {
+  const drill = useDrillDown();
   const q = useQuery({
-    queryKey: ["bi", "charts", "comercial-daily"],
-    queryFn: () => fetchComercialDaily(14),
+    queryKey: ["bi", "charts", "comercial-daily", period?.key ?? "default"],
+    queryFn: () => fetchComercialDaily(Math.min(60, Math.max(7, period?.days ?? 14))),
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
   });
@@ -72,11 +75,11 @@ export function ComercialCharts() {
   const empty = data.every((d) => d.novosLeads === 0 && d.touchpoints === 0);
   return (
     <ChartShell
-      title="Atividade comercial — últimos 14 dias"
+      title={`Atividade comercial — ${period?.label ?? "últimos 14 dias"}`}
       subtitle="Novos leads cadastrados e touchpoints (outbound) por dia"
       isLoading={q.isLoading}
       isEmpty={empty}
-      emptyText="Sem leads ou touchpoints nos últimos 14 dias."
+      emptyText="Sem leads ou touchpoints no período selecionado."
     >
       <BarChart data={data}>
         <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
@@ -84,15 +87,44 @@ export function ComercialCharts() {
         <YAxis fontSize={11} allowDecimals={false} />
         <Tooltip {...tooltipStyle} />
         <Legend wrapperStyle={{ fontSize: 11 }} />
-        <Bar dataKey="novosLeads" name="Novos leads" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-        <Bar dataKey="touchpoints" name="Touchpoints" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} />
+        <Bar
+          dataKey="novosLeads"
+          name="Novos leads"
+          fill="hsl(var(--primary))"
+          radius={[4, 4, 0, 0]}
+          onClick={() =>
+            drill.open({
+              id: "prospects-new",
+              kind: "prospects-new",
+              title: "Novos leads no período",
+              crumb: "Comercial · Novos leads",
+            })
+          }
+          cursor="pointer"
+        />
+        <Bar
+          dataKey="touchpoints"
+          name="Touchpoints"
+          fill="hsl(var(--muted-foreground))"
+          radius={[4, 4, 0, 0]}
+          onClick={() =>
+            drill.open({
+              id: "touchpoints",
+              kind: "touchpoints",
+              title: "Touchpoints no período",
+              crumb: "Comercial · Touchpoints",
+            })
+          }
+          cursor="pointer"
+        />
       </BarChart>
     </ChartShell>
   );
 }
 
 // ---------------- FINANCEIRO ----------------
-export function FinanceiroCharts() {
+export function FinanceiroCharts({ period: _p }: { period?: ResolvedPeriod } = {}) {
+  const drill = useDrillDown();
   const q = useQuery({
     queryKey: ["bi", "charts", "financeiro-monthly"],
     queryFn: () => fetchFinanceiroMonthly(6),
@@ -101,6 +133,7 @@ export function FinanceiroCharts() {
   });
   const data = q.data ?? [];
   const empty = data.every((d) => d.receita === 0 && d.contratos === 0);
+  void _p;
   return (
     <ChartShell
       title="Receita assinada — últimos 6 meses"
@@ -110,7 +143,17 @@ export function FinanceiroCharts() {
       emptyText="Sem contratos assinados no período."
       height={300}
     >
-      <AreaChart data={data}>
+      <AreaChart
+        data={data}
+        onClick={() =>
+          drill.open({
+            id: "contracts",
+            kind: "contracts",
+            title: "Contratos no período",
+            crumb: "Financeiro · Contratos",
+          })
+        }
+      >
         <defs>
           <linearGradient id="rev" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
@@ -139,16 +182,17 @@ export function FinanceiroCharts() {
 }
 
 // ---------------- MARKETING ----------------
-export function MarketingCharts() {
+export function MarketingCharts({ period }: { period?: ResolvedPeriod } = {}) {
+  const drill = useDrillDown();
   const disp = useQuery({
-    queryKey: ["bi", "charts", "mkt-dispatches"],
-    queryFn: () => fetchMarketingDispatches(14),
+    queryKey: ["bi", "charts", "mkt-dispatches", period?.key ?? "default"],
+    queryFn: () => fetchMarketingDispatches(Math.min(60, Math.max(7, period?.days ?? 14))),
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
   });
   const mix = useQuery({
-    queryKey: ["bi", "charts", "mkt-channel-mix"],
-    queryFn: () => fetchMarketingChannelMix(30),
+    queryKey: ["bi", "charts", "mkt-channel-mix", period?.key ?? "default"],
+    queryFn: () => fetchMarketingChannelMix(Math.min(120, Math.max(7, period?.days ?? 30))),
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
   });
@@ -157,13 +201,23 @@ export function MarketingCharts() {
   return (
     <div className="grid gap-5 lg:grid-cols-2">
       <ChartShell
-        title="Disparos de cadência — últimos 14 dias"
+        title={`Disparos de cadência — ${period?.label ?? "últimos 14 dias"}`}
         subtitle="Mensagens enviadas pela máquina de cadência"
         isLoading={disp.isLoading}
         isEmpty={dispData.every((d) => d.disparos === 0)}
-        emptyText="Nenhum disparo registrado nos últimos 14 dias."
+        emptyText="Nenhum disparo registrado no período."
       >
-        <LineChart data={dispData}>
+        <LineChart
+          data={dispData}
+          onClick={() =>
+            drill.open({
+              id: "dispatches",
+              kind: "dispatches",
+              title: "Disparos de cadência",
+              crumb: "Marketing · Disparos",
+            })
+          }
+        >
           <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
           <XAxis dataKey="dia" fontSize={11} />
           <YAxis fontSize={11} allowDecimals={false} />
@@ -181,7 +235,7 @@ export function MarketingCharts() {
       </ChartShell>
 
       <ChartShell
-        title="Mix de canais — últimos 30 dias"
+        title={`Mix de canais — ${period?.label ?? "últimos 30 dias"}`}
         subtitle="Touchpoints por tipo (whatsapp, ligação, e-mail, reunião…)"
         isLoading={mix.isLoading}
         isEmpty={mixData.length === 0}
@@ -192,7 +246,22 @@ export function MarketingCharts() {
           <XAxis type="number" fontSize={11} allowDecimals={false} />
           <YAxis type="category" dataKey="canal" fontSize={11} width={90} />
           <Tooltip {...tooltipStyle} />
-          <Bar dataKey="total" name="Touchpoints" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+          <Bar
+            dataKey="total"
+            name="Touchpoints"
+            fill="hsl(var(--primary))"
+            radius={[0, 4, 4, 0]}
+            cursor="pointer"
+            onClick={(d: { canal?: string }) =>
+              drill.open({
+                id: `touchpoints-${d?.canal ?? "all"}`,
+                kind: "touchpoints-channel",
+                title: `Touchpoints — ${d?.canal ?? "canal"}`,
+                params: { canal: d?.canal },
+                crumb: `Marketing · ${d?.canal ?? "Canal"}`,
+              })
+            }
+          />
         </BarChart>
       </ChartShell>
     </div>
@@ -200,10 +269,11 @@ export function MarketingCharts() {
 }
 
 // ---------------- OPERAÇÕES ----------------
-export function OperacoesCharts() {
+export function OperacoesCharts({ period }: { period?: ResolvedPeriod } = {}) {
+  const drill = useDrillDown();
   const daily = useQuery({
-    queryKey: ["bi", "charts", "ops-daily"],
-    queryFn: () => fetchOperacoesDaily(14),
+    queryKey: ["bi", "charts", "ops-daily", period?.key ?? "default"],
+    queryFn: () => fetchOperacoesDaily(Math.min(60, Math.max(7, period?.days ?? 14))),
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
   });
@@ -218,11 +288,11 @@ export function OperacoesCharts() {
   return (
     <div className="grid gap-5 lg:grid-cols-2">
       <ChartShell
-        title="Operação — últimos 14 dias"
+        title={`Operação — ${period?.label ?? "últimos 14 dias"}`}
         subtitle="Novos contratos assinados vs touchpoints diários"
         isLoading={daily.isLoading}
         isEmpty={dailyData.every((d) => d.novosContratos === 0 && d.touchpoints === 0)}
-        emptyText="Sem movimentação operacional nos últimos 14 dias."
+        emptyText="Sem movimentação operacional no período."
       >
         <BarChart data={dailyData}>
           <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
@@ -231,8 +301,38 @@ export function OperacoesCharts() {
           <YAxis yAxisId="right" orientation="right" fontSize={11} allowDecimals={false} />
           <Tooltip {...tooltipStyle} />
           <Legend wrapperStyle={{ fontSize: 11 }} />
-          <Bar yAxisId="left" dataKey="novosContratos" name="Contratos" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-          <Bar yAxisId="right" dataKey="touchpoints" name="Touchpoints" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} />
+          <Bar
+            yAxisId="left"
+            dataKey="novosContratos"
+            name="Contratos"
+            fill="hsl(var(--primary))"
+            radius={[4, 4, 0, 0]}
+            cursor="pointer"
+            onClick={() =>
+              drill.open({
+                id: "ops-contracts",
+                kind: "contracts",
+                title: "Contratos no período",
+                crumb: "Operações · Contratos",
+              })
+            }
+          />
+          <Bar
+            yAxisId="right"
+            dataKey="touchpoints"
+            name="Touchpoints"
+            fill="hsl(var(--muted-foreground))"
+            radius={[4, 4, 0, 0]}
+            cursor="pointer"
+            onClick={() =>
+              drill.open({
+                id: "ops-touchpoints",
+                kind: "touchpoints",
+                title: "Touchpoints no período",
+                crumb: "Operações · Touchpoints",
+              })
+            }
+          />
         </BarChart>
       </ChartShell>
 
@@ -248,7 +348,22 @@ export function OperacoesCharts() {
           <XAxis type="number" fontSize={11} allowDecimals={false} />
           <YAxis type="category" dataKey="status" fontSize={11} width={110} />
           <Tooltip {...tooltipStyle} />
-          <Bar dataKey="total" name="Contratos" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+          <Bar
+            dataKey="total"
+            name="Contratos"
+            fill="hsl(var(--primary))"
+            radius={[0, 4, 4, 0]}
+            cursor="pointer"
+            onClick={(d: { status?: string }) =>
+              drill.open({
+                id: `ops-status-${d?.status ?? "all"}`,
+                kind: "contracts-status",
+                title: `Contratos — ${d?.status ?? "status"}`,
+                params: { status: d?.status },
+                crumb: `Operações · ${d?.status ?? "Status"}`,
+              })
+            }
+          />
         </BarChart>
       </ChartShell>
     </div>
