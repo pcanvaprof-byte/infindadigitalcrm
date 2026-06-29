@@ -31,7 +31,8 @@ import { SemanaPanel } from "@/components/bi/SemanaPanel";
 import { CascataOperacional } from "@/components/bi/CascataOperacional";
 import { GargalosPanel } from "@/components/bi/GargalosPanel";
 import { PrevisaoPanel } from "@/components/bi/PrevisaoPanel";
-import { PerformanceSemanaPanel, DEFAULT_WEEK_GOALS } from "@/components/bi/PerformanceSemanaPanel";
+import { PerformanceSemanaPanel } from "@/components/bi/PerformanceSemanaPanel";
+import { readExpenses, expensesByKind, EXPENSES_EVENT, type OperationalExpense } from "@/lib/bi/expenses";
 import { MeiosProspeccaoPanel } from "@/components/bi/MeiosProspeccaoPanel";
 import {
   ComercialCharts, FinanceiroCharts, MarketingCharts, OperacoesCharts,
