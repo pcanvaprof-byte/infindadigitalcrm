@@ -158,11 +158,7 @@ async function runTool(name: string, args: any): Promise<unknown> {
   }
   if (name === "log_visit") {
     const { addInteractionRemote, updateProspect } = await import("@/lib/prospects-api");
-    await addInteractionRemote(args.prospect_id, {
-      kind: "nota",
-      text: `[PAP] ${args.notes}`,
-      by: "Assistente PAP",
-    } as any);
+    await addInteractionRemote(args.prospect_id, "nota", `[PAP] ${args.notes}`, "Assistente PAP");
     if (args.next_contact_at) {
       await updateProspect(args.prospect_id, { nextContactAt: args.next_contact_at } as any);
     }
