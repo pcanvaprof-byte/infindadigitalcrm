@@ -91,20 +91,20 @@ async function fetchRangeMetricsRaw(ini: string, fim: string | undefined): Promi
     between(sb.from("prospects" as never).select("id", { count: "exact", head: true }), "created_at"),
   ]);
   type Contract = { monthly_value?: number | null; contract_value?: number | null };
-  const contratos = ((cnt as { data: Contract[] | null }).data ?? []) as Contract[];
+  const contratos = ((cnt as unknown as { data: Contract[] | null }).data ?? []) as Contract[];
   const receita = contratos.reduce(
     (acc, c) => acc + Number(c.monthly_value ?? c.contract_value ?? 0),
     0,
   );
-  const tpData = ((tpRows as { data: Array<{ prospect_id: string | null }> | null }).data ?? []);
+  const tpData = ((tpRows as unknown as { data: Array<{ prospect_id: string | null }> | null }).data ?? []);
   const empresasTrabalhadas = new Set(tpData.map((r) => r.prospect_id).filter(Boolean)).size;
   return {
     receita,
-    disparos: (cad as { count: number | null }).count ?? 0,
-    contatos: (tp as { count: number | null }).count ?? 0,
+    disparos: (cad as unknown as { count: number | null }).count ?? 0,
+    contatos: (tp as unknown as { count: number | null }).count ?? 0,
     contratos: contratos.length,
     empresasTrabalhadas,
-    novosContatos: (novos as { count: number | null }).count ?? 0,
+    novosContatos: (novos as unknown as { count: number | null }).count ?? 0,
     videos: 0,
     parcerias: 0,
   };
