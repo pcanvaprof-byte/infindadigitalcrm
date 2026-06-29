@@ -1,0 +1,103 @@
+// Period-aware forecast data — mirrors the Previsão card on /bi
+import { supabase as sb } from "@/integrations/supabase/client";
+import type { ResolvedPeriod } from "./period";
+
+export interface ForecastBreakdown {
+  recorrencia: number;       // MRR escalonado pela duração do período (em meses)
+  fechado: number;           // Σ contract_value dos contratos assinados dentro do range
+  pipelineAberto: number;    // Σ valor estimado de propostas em aberto (snapshot atual)
+  pipelineProbabilidade: number; // Taxa histórica (0–1). Fallback 0.25
+}
+
+type AnyRow = Record<string, unknown>;
+const num = (v: unknown) => {
+  const n = Number(v ?? 0);
+  return Number.isFinite(n) ? n : 0;
+};
+
+async function safeSelect(table: string, cols: string): Promise<AnyRow[]> {
+  try {
+    const { data, error } = await (sb as unknown as {
+      from: (t: string) => { select: (c: string) => { limit: (n: number) => Promise<{ data: unknown; error: unknown }> } };
+    }).from(table).select(cols).limit(5000);
+    if (error) return [];
+    return (data as AnyRow[]) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+function rowValue(r: AnyRow): number {
+  return num(r.contract_value ?? r.value ?? r.valor_total ?? r.monthly_value);
+}
+
+function isActive(s: unknown): boolean {
+  if (!s) return true;
+  const v = String(s).toLowerCase();
+  return v.includes("ativ") || v.includes("active") || v.includes("vigente") || v === "assinado";
+}
+
+function isOpenProposal(s: unknown): boolean {
+  if (!s) return true;
+  const v = String(s).toLowerCase();
+  // tudo que não é fechado/ganho/perdido/cancelado conta como pipeline em aberto
+  if (v.includes("assinad") || v.includes("ganh") || v.includes("won") || v.includes("aprov")) return false;
+  if (v.includes("perd") || v.includes("lost") || v.includes("cancel") || v.includes("recus")) return false;
+  return true;
+}
+
+function proposalValue(r: AnyRow): number {
+  const mensal = num(r.valor_mensal);
+  const implant = num(r.valor_implantacao);
+  const avulso = num(r.valor_avulso);
+  const total = mensal * 12 + implant + avulso;
+  if (total > 0) return total;
+  return num(r.contract_value ?? r.value ?? r.valor_total);
+}
+
+export async function fetchForecastForPeriod(period: ResolvedPeriod): Promise<ForecastBreakdown> {
+  let contracts = await safeSelect("contracts", "monthly_value, contract_value, value, signed_at, status");
+  if (contracts.length === 0) contracts = await safeSelect("op_contracts", "monthly_value, contract_value, signed_at, status");
+
+  const ativos = contracts.filter((r) => isActive(r.status));
+  const mrr = ativos.reduce((a, r) => a + num(r.monthly_value), 0);
+  // Recorrência proporcional ao tamanho do período (em meses, base 30 dias)
+  const recorrencia = Math.round(mrr * (period.days / 30));
+
+  const fromIso = period.from.toISOString();
+  const toIso = period.to.toISOString();
+  const fechado = Math.round(
+    contracts
+      .filter((r) => {
+        const s = r.signed_at ? String(r.signed_at) : null;
+        return s !== null && s >= fromIso && s <= toIso;
+      })
+      .reduce((a, r) => a + rowValue(r), 0),
+  );
+
+  // Pipeline (snapshot — propostas em aberto neste momento)
+  let proposals = await safeSelect(
+    "proposals",
+    "status, valor_mensal, valor_implantacao, valor_avulso, contract_value, value, valor_total, created_at",
+  );
+  if (proposals.length === 0) {
+    proposals = await safeSelect("op_proposals", "status, contract_value, value, valor_total, created_at");
+  }
+  const abertas = proposals.filter((r) => isOpenProposal(r.status));
+  const pipelineAberto = Math.round(abertas.reduce((a, r) => a + proposalValue(r), 0));
+
+  // Probabilidade histórica: contratos assinados nos últimos 90d / propostas criadas nos últimos 90d
+  const since = new Date(Date.now() - 90 * 86400000).toISOString();
+  const contratosRecentes = contracts.filter((r) => r.signed_at && String(r.signed_at) >= since).length;
+  const propostasRecentes = proposals.filter((r) => r.created_at && String(r.created_at) >= since).length;
+  let prob = propostasRecentes > 0 ? contratosRecentes / propostasRecentes : 0.25;
+  if (!Number.isFinite(prob) || prob <= 0) prob = 0.25;
+  if (prob > 1) prob = 1;
+
+  return {
+    recorrencia,
+    fechado,
+    pipelineAberto,
+    pipelineProbabilidade: Math.round(prob * 100) / 100,
+  };
+}
