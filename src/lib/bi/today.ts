@@ -143,7 +143,7 @@ async function fetchRangeMetricsRaw(ini: string, fim: string | undefined): Promi
     receita,
     disparos: (cad as unknown as { count: number | null }).count ?? 0,
     contatos: (tp as unknown as { count: number | null }).count ?? 0,
-    contratos: contratos.length,
+    contratos: todosContratos.length,
     empresasTrabalhadas,
     // União: cadastros + leads vindos da cadência sem prospect ainda.
     novosContatos: novosProspectsCount + novosCadCount,
