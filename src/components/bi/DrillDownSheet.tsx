@@ -14,15 +14,11 @@ import { toast } from "sonner";
 import type { ResolvedPeriod } from "@/lib/bi/period";
 import {
   fetchDrillDown,
-  type DrillFrame as _Frame,
   type DrillColumn,
   type DrillResult,
   type DrillRow,
 } from "@/lib/bi/drilldown";
 import type { DrillFrame } from "@/hooks/useDrillDown";
-
-// _Frame is intentionally re-exported via drilldown — silence unused.
-void (0 as unknown as _Frame);
 
 const fmtBRL = (n: number) =>
   Number(n || 0).toLocaleString("pt-BR", {
