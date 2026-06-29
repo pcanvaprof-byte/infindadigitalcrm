@@ -428,12 +428,16 @@ function BIPage() {
                   recorrencia={Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal)}
                 />
                 <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
-                  <HojePanel
-                    visitsGoal={goals.daily_visits_goal}
-                    contactsGoal={goals.daily_contacts_goal}
-                    dispatchesGoal={Math.max(1, Math.round(goals.weekly_dispatches_goal / 5))}
-                  />
-                  <SemanaPanel metaSemanal={goals.weekly_revenue_goal} />
+                  <ScopeWrapper active={period.key === "hoje"} scopeLabel="Hoje">
+                    <HojePanel
+                      visitsGoal={goals.daily_visits_goal}
+                      contactsGoal={goals.daily_contacts_goal}
+                      dispatchesGoal={Math.max(1, Math.round(goals.weekly_dispatches_goal / 5))}
+                    />
+                  </ScopeWrapper>
+                  <ScopeWrapper active={period.key === "semana"} scopeLabel="Semana">
+                    <SemanaPanel metaSemanal={goals.weekly_revenue_goal} />
+                  </ScopeWrapper>
                 </div>
                 <PerformanceSemanaPanel
                   goals={{
@@ -447,31 +451,36 @@ function BIPage() {
                   }}
                 />
                 <div className="grid gap-5 lg:grid-cols-[1.2fr_1fr]">
-                  <CascataOperacional
+                  <CascataCard
                     meta={goals.revenue_goal}
                     realizado={diretoriaKpis.receita_realizada ?? 0}
                     recorrencia={Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal)}
                     ticket={diretoriaKpis.ticket_medio ?? 0}
                     taxaConversao={data?.forecast?.taxa_conversao_historica ?? null}
                   />
-                  <GargalosPanel
+                  <GargalosCard
                     items={[
                       { label: "Receita do mês", scope: "mês",
                         value: Math.round((diretoriaKpis.mrr ?? 0) + (diretoriaKpis.receita_realizada ?? 0)),
-                        goal: goals.revenue_goal },
+                        goal: goals.revenue_goal,
+                        drill: { kind: "contracts" as const, title: "Contratos do período", crumb: "Diretoria · Receita" } },
                       { label: "Receita da semana", scope: "semana",
                         value: Math.round(diretoriaKpis.receita_realizada ?? 0),
-                        goal: goals.weekly_revenue_goal },
+                        goal: goals.weekly_revenue_goal,
+                        drill: { kind: "contracts" as const, title: "Contratos do período", crumb: "Diretoria · Receita" } },
                       { label: "Contratos", scope: "mês",
                         value: (data?.funnel ?? []).find((s) => /contrat|fech/i.test(s.stage))?.clientes ?? 0,
-                        goal: goals.contracts_goal },
+                        goal: goals.contracts_goal,
+                        drill: { kind: "contracts" as const, title: "Contratos do período", crumb: "Diretoria · Contratos" } },
                       { label: "Reuniões", scope: "mês",
                         value: (data?.funnel ?? []).find((s) => /reuni/i.test(s.stage))?.clientes ?? 0,
-                        goal: goals.meetings_goal },
+                        goal: goals.meetings_goal,
+                        drill: { kind: "touchpoints-channel" as const, title: "Reuniões registradas", crumb: "Diretoria · Reuniões" } },
                       { label: "Leads", scope: "mês",
                         value: (data?.funnel ?? []).find((s) => /lead|prospec/i.test(s.stage))?.clientes
                           ?? (data?.funnel?.[0]?.clientes ?? 0),
-                        goal: goals.leads_goal },
+                        goal: goals.leads_goal,
+                        drill: { kind: "prospects-new" as const, title: "Leads novos do período", crumb: "Diretoria · Leads" } },
                     ]}
                   />
                 </div>
@@ -505,16 +514,21 @@ function BIPage() {
               return (
                 <div className="space-y-5">
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                    <KpiGoalCard label="Leads" value={leads} goal={goals.leads_goal} icon={Users} />
-                    <KpiGoalCard label="Reuniões" value={reunioes} goal={goals.meetings_goal} icon={CalendarClock} />
-                    <KpiGoalCard label="Propostas" value={propostas} goal={goals.proposals_goal} icon={FileText} />
-                    <KpiGoalCard label="Contratos" value={contratos} goal={goals.contracts_goal} icon={FileSignature} />
-                    <KpiGoalCard
+                    <DrillKpi label="Leads"     value={leads}    goal={goals.leads_goal}     icon={Users}
+                      drill={{ kind: "prospects-new", title: "Leads novos do período", crumb: "Comercial · Leads" }} />
+                    <DrillKpi label="Reuniões"  value={reunioes} goal={goals.meetings_goal}  icon={CalendarClock}
+                      drill={{ kind: "touchpoints-channel", title: "Reuniões registradas", crumb: "Comercial · Reuniões" }} />
+                    <DrillKpi label="Propostas" value={propostas} goal={goals.proposals_goal} icon={FileText}
+                      drill={{ kind: "proposals", title: "Propostas do período", crumb: "Comercial · Propostas" }} />
+                    <DrillKpi label="Contratos" value={contratos} goal={goals.contracts_goal} icon={FileSignature}
+                      drill={{ kind: "contracts", title: "Contratos do período", crumb: "Comercial · Contratos" }} />
+                    <DrillKpi
                       label="Conversão"
                       value={conversao}
                       goal={15}
                       icon={Percent}
                       format={(n) => `${n}%`}
+                      drill={{ kind: "contracts", title: "Contratos do período", crumb: "Comercial · Conversão" }}
                     />
                   </div>
 
@@ -524,8 +538,8 @@ function BIPage() {
                     unidade="contratos"
                   />
 
-                  {stages.length > 0 && <FunilExecutivo stages={stages} />}
-                  <ComercialCharts />
+                  {stages.length > 0 && <FunilCard stages={stages} />}
+                  <ComercialCharts period={period} />
                 </div>
               );
             })()}
@@ -546,7 +560,7 @@ function BIPage() {
                 taxasPct={goals.taxes_pct}
               />
             )}
-            {a.id === "financeiro" && <FinanceiroCharts />}
+            {a.id === "financeiro" && <FinanceiroCharts period={period} />}
 
             {a.id === "marketing" && (diretoriaKpis || data?.kpis) && (
               <MarketingPanel
@@ -560,7 +574,7 @@ function BIPage() {
                 ticketMedio={data?.kpis?.ticket_medio ?? diretoriaKpis?.ticket_medio ?? 0}
               />
             )}
-            {a.id === "marketing" && <MarketingCharts />}
+            {a.id === "marketing" && <MarketingCharts period={period} />}
 
             {a.id === "operacoes" && (diretoriaKpis || data?.kpis) && (
               <OperacoesPanel
@@ -572,7 +586,7 @@ function BIPage() {
                 taxaConversaoHistorica={data?.forecast?.taxa_conversao_historica ?? null}
               />
             )}
-            {a.id === "operacoes" && <OperacoesCharts />}
+            {a.id === "operacoes" && <OperacoesCharts period={period} />}
 
             {a.id === "operacoes" && data?.funnel && data.funnel.length > 0 && (
               <Card>
