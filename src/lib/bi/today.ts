@@ -1,4 +1,5 @@
 import { supabase as sb } from "@/integrations/supabase/client";
+import { localTimestamp } from "./tz";
 
 export interface TodayMetrics {
   visitas: number;    // touchpoints tipo=reuniao hoje
@@ -19,11 +20,11 @@ export interface WeekMetrics {
 
 function startOfDayIso(d = new Date()): string {
   const x = new Date(d); x.setHours(0, 0, 0, 0);
-  return x.toISOString();
+  return localTimestamp(x);
 }
 function endOfDayIso(d = new Date()): string {
   const x = new Date(d); x.setHours(23, 59, 59, 999);
-  return x.toISOString();
+  return localTimestamp(x);
 }
 function startOfWeekIso(d = new Date()): string {
   // Semana operacional: segunda-feira 00:00
@@ -32,7 +33,7 @@ function startOfWeekIso(d = new Date()): string {
   const diff = dow === 0 ? -6 : 1 - dow;
   x.setDate(x.getDate() + diff);
   x.setHours(0, 0, 0, 0);
-  return x.toISOString();
+  return localTimestamp(x);
 }
 
 const OUTBOUND_TYPES = ["whatsapp", "ligacao", "email", "reuniao"];
@@ -58,25 +59,40 @@ export async function fetchTodayMetrics(): Promise<TodayMetrics> {
 
 export async function fetchWeekMetrics(): Promise<WeekMetrics> {
   const ini = startOfWeekIso();
+  return fetchRangeMetricsRaw(ini, undefined);
+}
+
+/** Métricas em um intervalo arbitrário (usado pelo filtro global do BI). */
+export async function fetchRangeMetrics(from: Date, to: Date): Promise<WeekMetrics> {
+  const ini = localTimestamp(new Date(new Date(from).setHours(0, 0, 0, 0)));
+  const fim = localTimestamp(new Date(new Date(to).setHours(23, 59, 59, 999)));
+  return fetchRangeMetricsRaw(ini, fim);
+}
+
+async function fetchRangeMetricsRaw(ini: string, fim: string | undefined): Promise<WeekMetrics> {
+  const between = <T extends { gte: (c: string, v: string) => unknown }>(
+    q: T,
+    col: string,
+  ): T => {
+    let out = q.gte(col, ini) as T;
+    if (fim) out = (out as unknown as { lte: (c: string, v: string) => T }).lte(col, fim);
+    return out;
+  };
   const [cad, tp, cnt, tpRows, novos] = await Promise.all([
-    sb.from("cad_messages" as never)
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", ini),
-    sb.from("prospect_touchpoints" as never)
-      .select("id", { count: "exact", head: true })
-      .gte("enviado_em", ini)
-      .in("tipo", OUTBOUND_TYPES),
-    // Receita da semana — tentativa graciosa em contratos/op_contracts.
-    sb.from("op_contracts" as never)
-      .select("monthly_value, contract_value, signed_at")
-      .gte("signed_at", ini),
-    sb.from("prospect_touchpoints" as never)
-      .select("prospect_id")
-      .gte("enviado_em", ini)
-      .in("tipo", OUTBOUND_TYPES),
-    sb.from("prospects" as never)
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", ini),
+    between(sb.from("cad_messages" as never).select("id", { count: "exact", head: true }) as never, "created_at"),
+    between(
+      sb.from("prospect_touchpoints" as never).select("id", { count: "exact", head: true }) as never,
+      "enviado_em",
+    ).in("tipo", OUTBOUND_TYPES),
+    between(
+      sb.from("op_contracts" as never).select("monthly_value, contract_value, signed_at") as never,
+      "signed_at",
+    ),
+    between(
+      sb.from("prospect_touchpoints" as never).select("prospect_id") as never,
+      "enviado_em",
+    ).in("tipo", OUTBOUND_TYPES),
+    between(sb.from("prospects" as never).select("id", { count: "exact", head: true }) as never, "created_at"),
   ]);
   type Contract = { monthly_value?: number | null; contract_value?: number | null };
   const contratos = ((cnt as { data: Contract[] | null }).data ?? []) as Contract[];
