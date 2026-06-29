@@ -29,6 +29,7 @@ import { SemanaPanel } from "@/components/bi/SemanaPanel";
 import { CascataOperacional } from "@/components/bi/CascataOperacional";
 import { GargalosPanel } from "@/components/bi/GargalosPanel";
 import { PrevisaoPanel } from "@/components/bi/PrevisaoPanel";
+import { PerformanceSemanaPanel, DEFAULT_WEEK_GOALS } from "@/components/bi/PerformanceSemanaPanel";
 
 export const Route = createFileRoute("/bi")({
   component: BIPageGate,
@@ -351,6 +352,17 @@ function BIPage() {
                   />
                   <SemanaPanel metaSemanal={goals.weekly_revenue_goal} />
                 </div>
+                <PerformanceSemanaPanel
+                  goals={{
+                    receita: goals.weekly_revenue_goal || DEFAULT_WEEK_GOALS.receita,
+                    contratos: goals.weekly_contracts_goal || DEFAULT_WEEK_GOALS.contratos,
+                    empresas: goals.weekly_companies_goal || DEFAULT_WEEK_GOALS.empresas,
+                    disparos: goals.weekly_dispatches_goal || DEFAULT_WEEK_GOALS.disparos,
+                    novosContatos: goals.weekly_new_contacts_goal || DEFAULT_WEEK_GOALS.novosContatos,
+                    videos: goals.weekly_videos_goal || DEFAULT_WEEK_GOALS.videos,
+                    parcerias: goals.weekly_partnerships_goal || DEFAULT_WEEK_GOALS.parcerias,
+                  }}
+                />
                 <div className="grid gap-5 lg:grid-cols-[1.2fr_1fr]">
                   <CascataOperacional
                     meta={goals.revenue_goal}
