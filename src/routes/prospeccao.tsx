@@ -1031,7 +1031,7 @@ function ProspeccaoPage() {
               <SelectTrigger><SelectValue placeholder="Estado" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos estados</SelectItem>
-                {UFS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                {availableStates.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={potentialFilter} onValueChange={(v) => setPotentialFilter(v as ProspectPotential | "all")}>
