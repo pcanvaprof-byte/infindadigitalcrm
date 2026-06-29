@@ -369,6 +369,15 @@ function BIPage() {
     placeholderData: DEFAULT_GOALS,
   });
 
+  // Previsão por período — recalcula quando muda Hoje/Semana/Mês/Trimestre.
+  const previsaoQuery = useQuery<ForecastBreakdown>({
+    queryKey: ["bi", "previsao", period.key, period.from.toISOString(), period.to.toISOString()],
+    queryFn: () => fetchForecastForPeriod(period),
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+
   const data = dashQuery.data ?? null;
   const loading = dashQuery.isLoading || dashQuery.isFetching;
   const errRaw = dashQuery.error;
