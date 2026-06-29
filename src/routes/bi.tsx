@@ -252,12 +252,13 @@ function Kpi({ label, value, hint }: { label: string; value: string; hint?: stri
 }
 
 function MetaHero({
-  realizado, ticket, meta, recorrencia,
-}: { realizado: number; ticket: number; meta: number; recorrencia: number }) {
+  realizado, ticket, meta, recorrencia, period,
+}: { realizado: number; ticket: number; meta: number; recorrencia: number; period?: ResolvedPeriod }) {
   const total = diasUteisNoMes();
   const dia = diasUteisAteHoje();
   const totalCal = diasNoMes();
   const diaCal = diaAtual();
+  const scopeLabel = period ? goalScopeLabel(period) : "do mês";
   // Realizado total = recorrência garantida + novos negócios já fechados no mês.
   const novos = Math.max(0, realizado);
   const realizadoTotal = recorrencia + novos;
@@ -285,7 +286,7 @@ function MetaHero({
       <CardContent className="p-6 grid gap-6 md:grid-cols-[1.4fr_1fr]">
         <div>
           <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-primary/80">
-            <Target className="h-3.5 w-3.5" /> Meta total do mês
+            <Target className="h-3.5 w-3.5" /> Meta total {scopeLabel}
           </div>
           <div className="mt-3 flex items-baseline gap-3 flex-wrap">
             <span className="text-3xl font-semibold">{fmtBRL(realizadoTotal)}</span>
