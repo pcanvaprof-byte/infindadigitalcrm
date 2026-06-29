@@ -2,7 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Gauge } from "lucide-react";
-import { fetchWeekMetrics, type WeekMetrics } from "@/lib/bi/today";
+import { fetchWeekMetrics, fetchRangeMetrics, type WeekMetrics } from "@/lib/bi/today";
+import type { ResolvedPeriod } from "@/lib/bi/period";
 
 const fmtBRL = (n: number) =>
   n.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
@@ -60,13 +61,29 @@ function Row({
   );
 }
 
-export function PerformanceSemanaPanel({ goals = DEFAULT_WEEK_GOALS }: { goals?: Goals }) {
+export function PerformanceSemanaPanel({
+  goals = DEFAULT_WEEK_GOALS,
+  period,
+}: { goals?: Goals; period?: ResolvedPeriod }) {
+  const usingRange = !!period && period.key !== "semana";
   const q = useQuery<WeekMetrics>({
-    queryKey: ["bi", "week"],
-    queryFn: fetchWeekMetrics,
+    queryKey: ["bi", "perf", period?.key ?? "semana", period?.from?.toDateString(), period?.to?.toDateString()],
+    queryFn: () =>
+      usingRange && period ? fetchRangeMetrics(period.from, period.to) : fetchWeekMetrics(),
     staleTime: 60_000,
     refetchOnWindowFocus: true,
   });
+  // Escala as metas semanais para o período visualizado.
+  const scale = usingRange && period ? Math.max(0.1, period.days / 7) : 1;
+  const g: Goals = {
+    receita: Math.round(goals.receita * scale),
+    contratos: Math.max(1, Math.round(goals.contratos * scale)),
+    empresas: Math.max(1, Math.round(goals.empresas * scale)),
+    disparos: Math.max(1, Math.round(goals.disparos * scale)),
+    novosContatos: Math.max(1, Math.round(goals.novosContatos * scale)),
+    videos: Math.max(1, Math.round(goals.videos * scale)),
+    parcerias: Math.max(1, Math.round(goals.parcerias * scale)),
+  };
   const d = q.data ?? {
     receita: 0, disparos: 0, contatos: 0,
     contratos: 0, empresasTrabalhadas: 0, novosContatos: 0, videos: 0, parcerias: 0,
@@ -76,20 +93,20 @@ export function PerformanceSemanaPanel({ goals = DEFAULT_WEEK_GOALS }: { goals?:
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center gap-2">
-          <Gauge className="h-4 w-4 text-primary" /> Performance da semana
+          <Gauge className="h-4 w-4 text-primary" /> Performance — {period?.label ?? "Semana"}
           <span className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground">
-            {q.isFetching ? "atualizando…" : "metas semanais"}
+            {q.isFetching ? "atualizando…" : usingRange ? "metas escaladas" : "metas semanais"}
           </span>
         </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-        <Row label="Receita"            done={d.receita}             goal={goals.receita}       formatter={fmtBRL} />
-        <Row label="Contratos"          done={d.contratos}           goal={goals.contratos} />
-        <Row label="Empresas trabalhadas" done={d.empresasTrabalhadas} goal={goals.empresas} />
-        <Row label="Disparos"           done={d.disparos}            goal={goals.disparos} />
-        <Row label="Novos contatos"     done={d.novosContatos}       goal={goals.novosContatos} />
-        <Row label="Vídeos"             done={d.videos}              goal={goals.videos} />
-        <Row label="Parcerias"          done={d.parcerias}           goal={goals.parcerias} />
+        <Row label="Receita"            done={d.receita}             goal={g.receita}       formatter={fmtBRL} />
+        <Row label="Contratos"          done={d.contratos}           goal={g.contratos} />
+        <Row label="Empresas trabalhadas" done={d.empresasTrabalhadas} goal={g.empresas} />
+        <Row label="Disparos"           done={d.disparos}            goal={g.disparos} />
+        <Row label="Novos contatos"     done={d.novosContatos}       goal={g.novosContatos} />
+        <Row label="Vídeos"             done={d.videos}              goal={g.videos} />
+        <Row label="Parcerias"          done={d.parcerias}           goal={g.parcerias} />
       </CardContent>
     </Card>
   );
