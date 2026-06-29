@@ -91,11 +91,15 @@ function ClientesPage() {
   });
 
   async function openClient(c: OpCliente) {
+    const trace = (step: string, payload?: Record<string, unknown>) =>
+      console.info(`[lifecycle-link] ${step}`, { op_cliente_id: c.id, nome: c.nome, empresa: c.empresa, ...payload });
     try {
       setOpening(c.id);
+      trace("open:start");
       // 1) já vinculado por source_ref?
       const linked = lcBySource.get(c.id);
       if (linked) {
+        trace("open:match-source_ref", { lc_id: linked.id, stage: linked.stage });
         navigate({ to: "/operacoes/clientes/$id", params: { id: linked.id } });
         return;
       }
@@ -117,6 +121,10 @@ function ClientesPage() {
               .from("clients")
               .update({ source_ref: c.id, created_from: "operacoes" })
               .eq("id", lcId);
+            trace("open:repair-source_ref", { lc_id: lcId, previous_source_ref: matches[0].source_ref ?? null });
+            toast.success("Vínculo do cliente reparado");
+          } else {
+            trace("open:match-company", { lc_id: lcId });
           }
         }
       }
@@ -133,10 +141,14 @@ function ClientesPage() {
           .update({ created_from: "operacoes", source_ref: c.id })
           .eq("id", lc.id);
         lcId = lc.id;
+        trace("open:created", { lc_id: lcId });
+        toast.success("Ficha 360 criada para este cliente");
       }
       qc.invalidateQueries({ queryKey: ["lc-clients"] });
+      trace("open:navigate", { lc_id: lcId });
       navigate({ to: "/operacoes/clientes/$id", params: { id: lcId } });
     } catch (e) {
+      console.error("[lifecycle-link] open:error", { op_cliente_id: c.id, error: e });
       toast.error((e as Error).message);
     } finally {
       setOpening(null);
