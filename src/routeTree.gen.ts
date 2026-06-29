@@ -28,6 +28,7 @@ import { Route as OperacoesIndexRouteImport } from './routes/operacoes.index'
 import { Route as PropostasIdRouteImport } from './routes/propostas.$id'
 import { Route as PropostaTokenRouteImport } from './routes/proposta.$token'
 import { Route as OperacoesClientesRouteImport } from './routes/operacoes.clientes'
+import { Route as OperacoesAuditoriaLifecycleRouteImport } from './routes/operacoes.auditoria-lifecycle'
 import { Route as ContratosIdRouteImport } from './routes/contratos.$id'
 import { Route as CatalogoNovoRouteImport } from './routes/catalogo.novo'
 import { Route as CatalogoIdRouteImport } from './routes/catalogo.$id'
@@ -142,6 +143,12 @@ const OperacoesClientesRoute = OperacoesClientesRouteImport.update({
   path: '/operacoes/clientes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OperacoesAuditoriaLifecycleRoute =
+  OperacoesAuditoriaLifecycleRouteImport.update({
+    id: '/operacoes/auditoria-lifecycle',
+    path: '/operacoes/auditoria-lifecycle',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ContratosIdRoute = ContratosIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -265,6 +272,7 @@ export interface FileRoutesByFullPath {
   '/catalogo/$id': typeof CatalogoIdRoute
   '/catalogo/novo': typeof CatalogoNovoRoute
   '/contratos/$id': typeof ContratosIdRoute
+  '/operacoes/auditoria-lifecycle': typeof OperacoesAuditoriaLifecycleRoute
   '/operacoes/clientes': typeof OperacoesClientesRouteWithChildren
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
@@ -304,6 +312,7 @@ export interface FileRoutesByTo {
   '/catalogo/$id': typeof CatalogoIdRoute
   '/catalogo/novo': typeof CatalogoNovoRoute
   '/contratos/$id': typeof ContratosIdRoute
+  '/operacoes/auditoria-lifecycle': typeof OperacoesAuditoriaLifecycleRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
   '/operacoes': typeof OperacoesIndexRoute
@@ -342,6 +351,7 @@ export interface FileRoutesById {
   '/catalogo/$id': typeof CatalogoIdRoute
   '/catalogo/novo': typeof CatalogoNovoRoute
   '/contratos/$id': typeof ContratosIdRoute
+  '/operacoes/auditoria-lifecycle': typeof OperacoesAuditoriaLifecycleRoute
   '/operacoes/clientes': typeof OperacoesClientesRouteWithChildren
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
@@ -383,6 +393,7 @@ export interface FileRouteTypes {
     | '/catalogo/$id'
     | '/catalogo/novo'
     | '/contratos/$id'
+    | '/operacoes/auditoria-lifecycle'
     | '/operacoes/clientes'
     | '/proposta/$token'
     | '/propostas/$id'
@@ -422,6 +433,7 @@ export interface FileRouteTypes {
     | '/catalogo/$id'
     | '/catalogo/novo'
     | '/contratos/$id'
+    | '/operacoes/auditoria-lifecycle'
     | '/proposta/$token'
     | '/propostas/$id'
     | '/operacoes'
@@ -459,6 +471,7 @@ export interface FileRouteTypes {
     | '/catalogo/$id'
     | '/catalogo/novo'
     | '/contratos/$id'
+    | '/operacoes/auditoria-lifecycle'
     | '/operacoes/clientes'
     | '/proposta/$token'
     | '/propostas/$id'
@@ -494,6 +507,7 @@ export interface RootRouteChildren {
   ProspeccaoRoute: typeof ProspeccaoRoute
   TarefasRoute: typeof TarefasRoute
   BriefingTokenRoute: typeof BriefingTokenRoute
+  OperacoesAuditoriaLifecycleRoute: typeof OperacoesAuditoriaLifecycleRoute
   OperacoesClientesRoute: typeof OperacoesClientesRouteWithChildren
   PropostaTokenRoute: typeof PropostaTokenRoute
   OperacoesIndexRoute: typeof OperacoesIndexRoute
@@ -632,6 +646,13 @@ declare module '@tanstack/react-router' {
       path: '/operacoes/clientes'
       fullPath: '/operacoes/clientes'
       preLoaderRoute: typeof OperacoesClientesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/operacoes/auditoria-lifecycle': {
+      id: '/operacoes/auditoria-lifecycle'
+      path: '/operacoes/auditoria-lifecycle'
+      fullPath: '/operacoes/auditoria-lifecycle'
+      preLoaderRoute: typeof OperacoesAuditoriaLifecycleRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contratos/$id': {
@@ -883,6 +904,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProspeccaoRoute: ProspeccaoRoute,
   TarefasRoute: TarefasRoute,
   BriefingTokenRoute: BriefingTokenRoute,
+  OperacoesAuditoriaLifecycleRoute: OperacoesAuditoriaLifecycleRoute,
   OperacoesClientesRoute: OperacoesClientesRouteWithChildren,
   PropostaTokenRoute: PropostaTokenRoute,
   OperacoesIndexRoute: OperacoesIndexRoute,
