@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { fetchBIDashboard, type BIArea, type BIDashboardPayload } from "@/lib/bi/api";
 import { fetchBIGoals, DEFAULT_GOALS, type BIGoals } from "@/lib/bi/goals";
+import { fetchDiretoriaKpis, type DiretoriaKpis } from "@/lib/bi/diretoria";
 import { AIInsightsPanel } from "@/components/bi/AIInsightsPanel";
 import { ExportMenu, type ExportSection } from "@/components/bi/ExportMenu";
 import { ParaBaterMeta } from "@/components/bi/ParaBaterMeta";
@@ -209,6 +210,16 @@ function BIPage() {
     refetchOnWindowFocus: false,
   });
 
+  // Fallback client-side para Diretoria — garante a tela mesmo se a RPC falhar.
+  const diretoriaFallback = useQuery<DiretoriaKpis>({
+    queryKey: ["bi", "diretoria-fallback"],
+    queryFn: fetchDiretoriaKpis,
+    enabled: area === "diretoria",
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+
   const goalsQuery = useQuery<BIGoals>({
     queryKey: ["bi", "goals"],
     queryFn: fetchBIGoals,
@@ -229,6 +240,22 @@ function BIPage() {
           : String(errRaw))
     : null;
   const goals = goalsQuery.data ?? DEFAULT_GOALS;
+
+  // Merge: se a RPC não trouxe kpis, usa o fallback client-side (Diretoria).
+  const fb = diretoriaFallback.data;
+  const diretoriaKpis = (data?.kpis ?? (fb ? {
+    clientes_ativos: fb.clientes_ativos,
+    ticket_medio: fb.ticket_medio,
+    mrr: fb.mrr,
+    arr: fb.arr,
+    receita_realizada: fb.receita_realizada,
+    receita_prevista_mes: fb.mrr,
+    custo_marketing: 0,
+    cac: 0,
+    ltv: 0,
+    roi: 0,
+    payback_meses: 0,
+  } : null));
 
   const exportSections = useMemo<ExportSection[]>(() => {
     if (!data) return [];
@@ -292,20 +319,27 @@ function BIPage() {
 
         {AREAS.map((a) => (
           <TabsContent key={a.id} value={a.id} className="mt-4 space-y-5">
-            {err && <p className="text-sm text-destructive">{err}</p>}
+            {err && a.id !== "diretoria" && (
+              <p className="text-sm text-destructive">{err}</p>
+            )}
+            {err && a.id === "diretoria" && (
+              <p className="text-xs text-muted-foreground">
+                BI server indisponível — exibindo dados calculados localmente.
+              </p>
+            )}
             {loading && !data && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" /> Carregando…
               </div>
             )}
 
-            {a.id === "diretoria" && data?.kpis && (
+            {a.id === "diretoria" && diretoriaKpis && (
               <>
                 <MetaHero
-                  realizado={data.kpis.receita_realizada ?? 0}
-                  ticket={data.kpis.ticket_medio ?? 0}
+                  realizado={diretoriaKpis.receita_realizada ?? 0}
+                  ticket={diretoriaKpis.ticket_medio ?? 0}
                   meta={goals.revenue_goal}
-                  recorrencia={Math.max(data.kpis.mrr ?? 0, goals.recurring_revenue_goal)}
+                  recorrencia={Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal)}
                 />
                 <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
                   <HojePanel
@@ -316,8 +350,8 @@ function BIPage() {
                   <SemanaPanel metaSemanal={goals.weekly_revenue_goal} />
                 </div>
                 {(() => {
-                  const recorrencia = Math.max(data.kpis.mrr ?? 0, goals.recurring_revenue_goal);
-                  const novos = data.kpis.receita_realizada ?? 0;
+                  const recorrencia = Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal);
+                  const novos = diretoriaKpis.receita_realizada ?? 0;
                   const faltam = Math.max(0, goals.revenue_goal - recorrencia - novos);
                   const pct = (n: number) => goals.revenue_goal > 0
                     ? Math.round((n / goals.revenue_goal) * 100) : 0;
@@ -349,14 +383,14 @@ function BIPage() {
                 <div className="grid gap-5 lg:grid-cols-2">
                   <ParaBaterMeta
                     meta={goals.revenue_goal}
-                    realizado={data.kpis.receita_realizada ?? 0}
-                    ticket={data.kpis.ticket_medio ?? 0}
-                    taxaConversao={data.forecast?.taxa_conversao_historica ?? null}
-                    recorrencia={Math.max(data.kpis.mrr ?? 0, goals.recurring_revenue_goal)}
+                    realizado={diretoriaKpis.receita_realizada ?? 0}
+                    ticket={diretoriaKpis.ticket_medio ?? 0}
+                    taxaConversao={data?.forecast?.taxa_conversao_historica ?? null}
+                    recorrencia={Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal)}
                   />
                   <EvolucaoMes
                     meta={goals.revenue_goal}
-                    realizado={data.kpis.receita_realizada ?? 0}
+                    realizado={diretoriaKpis.receita_realizada ?? 0}
                   />
                 </div>
               </>
