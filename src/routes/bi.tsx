@@ -550,10 +550,29 @@ function BIPage() {
                   />
                 </div>
                 <PrevisaoPanel
-                  recorrencia={Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal)}
-                  fechado={diretoriaKpis.receita_realizada ?? 0}
-                  pipelineAberto={data?.forecast?.pipeline_aberto ?? 0}
-                  meta={goals.revenue_goal}
+                  recorrencia={
+                    previsaoQuery.data?.recorrencia
+                    ?? Math.round(
+                      Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal) * (period.days / 30),
+                    )
+                  }
+                  fechado={previsaoQuery.data?.fechado ?? (diretoriaKpis.receita_realizada ?? 0)}
+                  pipelineAberto={
+                    previsaoQuery.data?.pipelineAberto ?? (data?.forecast?.pipeline_aberto ?? 0)
+                  }
+                  pipelineProbabilidade={
+                    previsaoQuery.data?.pipelineProbabilidade
+                    ?? (data?.forecast?.taxa_conversao_historica
+                      ? Math.min(1, data.forecast.taxa_conversao_historica / 100)
+                      : undefined)
+                  }
+                  meta={
+                    period.key === "mes"
+                      ? goals.revenue_goal
+                      : scaleGoal(goals.revenue_goal, period)
+                  }
+                  periodLabel={period.label}
+                  rangeLabel={period.rangeLabel}
                 />
                 <EvolucaoMes
                   meta={goals.revenue_goal}
