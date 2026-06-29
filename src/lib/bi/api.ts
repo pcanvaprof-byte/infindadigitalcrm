@@ -4,7 +4,7 @@ const rpc = (sb as unknown as {
   rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
 }).rpc.bind(sb);
 
-export type BIArea = "comercial" | "financeiro" | "marketing" | "operacoes" | "diretoria";
+export type BIArea = "comercial" | "financeiro" | "marketing" | "operacoes" | "diretoria" | "meios";
 
 export interface BIDashboardPayload {
   kpis?: {
