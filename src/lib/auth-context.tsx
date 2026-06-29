@@ -90,7 +90,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await applyUser(error ? null : data.user);
     };
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      // Invalida o cache de organization_id em qualquer transição de identidade
+      // (SIGNED_IN, SIGNED_OUT, USER_UPDATED) para impedir vazamento cross-tenant.
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
+        void import("@/lib/bi/tz").then((m) => m.resetOrgIdCache());
+      }
       void applyUser(session?.user ?? null);
     });
 
