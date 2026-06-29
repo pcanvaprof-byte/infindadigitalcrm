@@ -6,6 +6,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -52,6 +54,22 @@ function ResumoPage() {
     { label: "Onboarding", value: c.onboarding_status },
     { label: "Cliente há", value: days != null ? `${days} dias` : "—" },
     { label: "Próxima ação", value: c.next_action_date ?? c.current_step ?? "—" },
+    {
+      label: "Duração",
+      value: c.contract_term_months ? `${c.contract_term_months} meses` : "—",
+    },
+    {
+      label: "Término previsto",
+      value: c.contract_end_at ? new Date(c.contract_end_at).toLocaleDateString("pt-BR") : "—",
+    },
+    {
+      label: "Permuta",
+      value: c.is_permuta
+        ? c.permuta_value != null
+          ? `Sim · R$ ${Number(c.permuta_value).toFixed(2)}`
+          : "Sim"
+        : "Não",
+    },
   ];
 
   return (
@@ -93,6 +111,10 @@ function EditClientDialog({ clientId }: { clientId: string }) {
     financial_status: "pendente",
     lc_contract_status: "nao_gerado",
     onboarding_status: "pendente",
+    contract_term_months: "",
+    is_permuta: false,
+    permuta_value: "",
+    permuta_description: "",
   });
 
   useEffect(() => {
@@ -111,12 +133,22 @@ function EditClientDialog({ clientId }: { clientId: string }) {
       financial_status: c.financial_status ?? "pendente",
       lc_contract_status: c.lc_contract_status ?? "nao_gerado",
       onboarding_status: c.onboarding_status ?? "pendente",
+      contract_term_months: c.contract_term_months != null ? String(c.contract_term_months) : "",
+      is_permuta: !!c.is_permuta,
+      permuta_value: c.permuta_value != null ? String(c.permuta_value) : "",
+      permuta_description: c.permuta_description ?? "",
     });
   }, [open, cq.data]);
 
   const saveM = useMutation({
-    mutationFn: () =>
-      updateClient(clientId, {
+    mutationFn: () => {
+      const term = form.contract_term_months ? Number(form.contract_term_months) : null;
+      const start = form.activated_at ? new Date(form.activated_at) : null;
+      const end =
+        term && start
+          ? new Date(start.getFullYear(), start.getMonth() + term, start.getDate()).toISOString()
+          : null;
+      return updateClient(clientId, {
         company: form.company.trim(),
         cnpj: form.cnpj.trim() || null,
         contact_name: form.contact_name.trim() || null,
@@ -129,7 +161,13 @@ function EditClientDialog({ clientId }: { clientId: string }) {
         financial_status: form.financial_status as never,
         lc_contract_status: form.lc_contract_status as never,
         onboarding_status: form.onboarding_status as never,
-      }),
+        contract_term_months: term,
+        contract_end_at: end,
+        is_permuta: form.is_permuta,
+        permuta_value: form.is_permuta && form.permuta_value ? Number(form.permuta_value) : null,
+        permuta_description: form.is_permuta ? form.permuta_description.trim() || null : null,
+      });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["lc-client", clientId] });
       qc.invalidateQueries({ queryKey: ["lc-clients"] });
@@ -216,6 +254,33 @@ function EditClientDialog({ clientId }: { clientId: string }) {
                 onChange={(e) => setForm({ ...form, activated_at: e.target.value })}
               />
             </Field>
+            <Field label="Duração (meses)">
+              <Select
+                value={form.contract_term_months || "custom"}
+                onValueChange={(v) =>
+                  setForm({ ...form, contract_term_months: v === "custom" ? "" : v })
+                }
+              >
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="3">3 meses</SelectItem>
+                  <SelectItem value="6">6 meses</SelectItem>
+                  <SelectItem value="12">12 meses</SelectItem>
+                  <SelectItem value="24">24 meses</SelectItem>
+                  <SelectItem value="custom">Outro / sem prazo</SelectItem>
+                </SelectContent>
+              </Select>
+              {(!["3", "6", "12", "24"].includes(form.contract_term_months)) && (
+                <Input
+                  className="mt-2"
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="Meses (opcional)"
+                  value={form.contract_term_months}
+                  onChange={(e) => setForm({ ...form, contract_term_months: e.target.value })}
+                />
+              )}
+            </Field>
             <Field label="Status do contrato">
               <Select value={form.lc_contract_status} onValueChange={(v) => setForm({ ...form, lc_contract_status: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -247,6 +312,41 @@ function EditClientDialog({ clientId }: { clientId: string }) {
                 </SelectContent>
               </Select>
             </Field>
+          </div>
+
+          <div className="space-y-3 rounded-md border border-dashed p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Contrato por permuta</p>
+                <p className="text-xs text-muted-foreground">
+                  Marque se a contrapartida é em produtos/serviços
+                </p>
+              </div>
+              <Switch
+                checked={form.is_permuta}
+                onCheckedChange={(v) => setForm({ ...form, is_permuta: v })}
+              />
+            </div>
+            {form.is_permuta && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Valor aproximado da permuta (R$)">
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    value={form.permuta_value}
+                    onChange={(e) => setForm({ ...form, permuta_value: e.target.value })}
+                  />
+                </Field>
+                <Field label="Descrição da permuta">
+                  <Textarea
+                    rows={2}
+                    value={form.permuta_description}
+                    onChange={(e) => setForm({ ...form, permuta_description: e.target.value })}
+                    placeholder="Ex.: 2 jantares/mês + divulgação"
+                  />
+                </Field>
+              </div>
+            )}
           </div>
         </section>
 
