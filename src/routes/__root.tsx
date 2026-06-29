@@ -12,6 +12,7 @@ import { type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { AuthProvider } from "@/lib/auth-context";
 import { Toaster } from "@/components/ui/sonner";
+import { PapAssistant } from "@/components/PapAssistant";
 
 function NotFoundComponent() {
   return (
@@ -121,6 +122,7 @@ function RootComponent() {
       <AuthProvider>
         <Outlet />
         <Toaster theme="dark" position="top-right" />
+        <PapAssistant />
       </AuthProvider>
     </QueryClientProvider>
   );
