@@ -386,28 +386,6 @@ function BIPage() {
                   pipelineAberto={data?.forecast?.pipeline_aberto ?? 0}
                   meta={goals.revenue_goal}
                 />
-                <FinanceiroPanel
-                  mrr={diretoriaKpis.mrr ?? 0}
-                  arr={diretoriaKpis.arr ?? 0}
-                  receitaRealizada={diretoriaKpis.receita_realizada ?? 0}
-                  receitaPrevistaMes={data?.kpis?.receita_prevista_mes ?? diretoriaKpis.mrr ?? 0}
-                  custoMarketing={data?.kpis?.custo_marketing ?? 0}
-                  ticketMedio={diretoriaKpis.ticket_medio ?? 0}
-                  pipelineAberto={data?.forecast?.pipeline_aberto ?? 0}
-                  previsao30d={data?.forecast?.previsao_30d ?? 0}
-                  previsao90d={data?.forecast?.previsao_90d ?? 0}
-                  folha={goals.payroll_cost}
-                  infra={goals.infra_cost}
-                  taxasPct={goals.taxes_pct}
-                />
-                <OperacoesPanel
-                  funnel={data?.funnel ?? []}
-                  churn={data?.churn}
-                  clientesAtivos={diretoriaKpis.clientes_ativos ?? 0}
-                  receitaRealizada={diretoriaKpis.receita_realizada ?? 0}
-                  receitaPrevistaMes={data?.kpis?.receita_prevista_mes ?? diretoriaKpis.mrr ?? 0}
-                  taxaConversaoHistorica={data?.forecast?.taxa_conversao_historica ?? null}
-                />
                 <EvolucaoMes
                   meta={goals.revenue_goal}
                   realizado={diretoriaKpis.receita_realizada ?? 0}
@@ -497,8 +475,7 @@ function BIPage() {
               />
             )}
 
-            {a.id !== "diretoria" && a.id !== "financeiro" && a.id !== "comercial"
-              && data?.funnel && data.funnel.length > 0 && (
+            {a.id === "operacoes" && data?.funnel && data.funnel.length > 0 && (
               <Card>
                 <CardHeader><CardTitle className="text-base">Gargalos do funil</CardTitle></CardHeader>
                 <CardContent style={{ height: 300 }}>
@@ -518,7 +495,7 @@ function BIPage() {
               </Card>
             )}
 
-            {data?.churn && (
+            {a.id === "operacoes" && data?.churn && (
               <Card>
                 <CardHeader><CardTitle className="text-base">Risco de churn</CardTitle></CardHeader>
                 <CardContent>
@@ -553,7 +530,7 @@ function BIPage() {
               </Card>
             )}
 
-            {data?.best_hours && data.best_hours.length > 0 && (
+            {a.id === "marketing" && data?.best_hours && data.best_hours.length > 0 && (
               <Card>
                 <CardHeader><CardTitle className="text-base">Melhores horários de contato</CardTitle></CardHeader>
                 <CardContent style={{ height: 260 }}>
@@ -572,7 +549,7 @@ function BIPage() {
               </Card>
             )}
 
-            {data?.best_channels && data.best_channels.length > 0 && (
+            {a.id === "marketing" && data?.best_channels && data.best_channels.length > 0 && (
               <Card>
                 <CardHeader><CardTitle className="text-base">Melhores canais</CardTitle></CardHeader>
                 <CardContent style={{ height: 260 }}>
@@ -591,7 +568,7 @@ function BIPage() {
               </Card>
             )}
 
-            {data?.top_campaigns && data.top_campaigns.length > 0 && (
+            {a.id === "marketing" && data?.top_campaigns && data.top_campaigns.length > 0 && (
               <Card>
                 <CardHeader><CardTitle className="text-base">Campanhas com maior conversão</CardTitle></CardHeader>
                 <CardContent>
@@ -615,7 +592,7 @@ function BIPage() {
               </Card>
             )}
 
-            {data?.lost && (
+            {a.id === "comercial" && data?.lost && (
               <Card>
                 <CardHeader><CardTitle className="text-base">Oportunidades perdidas</CardTitle></CardHeader>
                 <CardContent className="grid grid-cols-2 gap-3">
