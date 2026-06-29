@@ -426,6 +426,13 @@ function BIPage() {
           : String(errRaw))
     : null;
   const goals = goalsQuery.data ?? DEFAULT_GOALS;
+  const expenses = expensesQuery.data ?? [];
+  const expBreak = expensesByKind(expenses);
+  const hasExpenses = expBreak.count > 0;
+  const folhaCalc = hasExpenses ? expBreak.pessoal : (goals.payroll_cost || 0);
+  const infraCalc = hasExpenses ? expBreak.infra : (goals.infra_cost || 0);
+  const veiculosCalc = expBreak.veiculo;
+  const outrosCalc = expBreak.outro;
 
   // Merge: se a RPC não trouxe kpis, usa o fallback client-side (Diretoria).
   const fb = diretoriaFallback.data;
