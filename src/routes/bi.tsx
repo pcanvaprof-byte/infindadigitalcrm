@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useMatches } from "@tanstack/react-router";
 import { Link, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -180,6 +180,9 @@ export const Route = createFileRoute("/bi")({
 });
 
 function BIPageGate() {
+  const matches = useMatches();
+  const isChild = matches.some((m) => m.routeId !== "__root__" && m.routeId !== "/bi" && m.routeId.startsWith("/bi/"));
+  if (isChild) return <Outlet />;
   if (!FEATURES.businessIntelligence) {
     return (
       <AppShell title="Business Intelligence" subtitle="Centro executivo">
