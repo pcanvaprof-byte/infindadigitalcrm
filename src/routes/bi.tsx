@@ -17,7 +17,6 @@ import { fetchBIGoals, DEFAULT_GOALS, type BIGoals } from "@/lib/bi/goals";
 import { fetchDiretoriaKpis, type DiretoriaKpis } from "@/lib/bi/diretoria";
 import { AIInsightsPanel } from "@/components/bi/AIInsightsPanel";
 import { ExportMenu, type ExportSection } from "@/components/bi/ExportMenu";
-import { ParaBaterMeta } from "@/components/bi/ParaBaterMeta";
 import { EvolucaoMes } from "@/components/bi/EvolucaoMes";
 import { KpiGoalCard } from "@/components/bi/KpiGoalCard";
 import { ForecastCard } from "@/components/bi/ForecastCard";
@@ -27,6 +26,9 @@ import { MarketingPanel } from "@/components/bi/MarketingPanel";
 import { OperacoesPanel } from "@/components/bi/OperacoesPanel";
 import { HojePanel } from "@/components/bi/HojePanel";
 import { SemanaPanel } from "@/components/bi/SemanaPanel";
+import { CascataOperacional } from "@/components/bi/CascataOperacional";
+import { GargalosPanel } from "@/components/bi/GargalosPanel";
+import { PrevisaoPanel } from "@/components/bi/PrevisaoPanel";
 
 export const Route = createFileRoute("/bi")({
   component: BIPageGate,
@@ -349,50 +351,67 @@ function BIPage() {
                   />
                   <SemanaPanel metaSemanal={goals.weekly_revenue_goal} />
                 </div>
-                {(() => {
-                  const recorrencia = Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal);
-                  const novos = diretoriaKpis.receita_realizada ?? 0;
-                  const faltam = Math.max(0, goals.revenue_goal - recorrencia - novos);
-                  const pct = (n: number) => goals.revenue_goal > 0
-                    ? Math.round((n / goals.revenue_goal) * 100) : 0;
-                  return (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <Card><CardContent className="p-4">
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Receita garantida (MRR)</p>
-                        <p className="mt-1 text-xl font-semibold text-emerald-400">{fmtBRL(recorrencia)}</p>
-                        <p className="mt-0.5 text-[10px] text-muted-foreground">{pct(recorrencia)}% da meta</p>
-                      </CardContent></Card>
-                      <Card><CardContent className="p-4">
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Receita nova (mês)</p>
-                        <p className="mt-1 text-xl font-semibold text-primary">{fmtBRL(novos)}</p>
-                        <p className="mt-0.5 text-[10px] text-muted-foreground">{pct(novos)}% da meta</p>
-                      </CardContent></Card>
-                      <Card><CardContent className="p-4">
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Gap comercial</p>
-                        <p className="mt-1 text-xl font-semibold text-rose-400">{fmtBRL(faltam)}</p>
-                        <p className="mt-0.5 text-[10px] text-muted-foreground">{pct(faltam)}% da meta</p>
-                      </CardContent></Card>
-                      <Card><CardContent className="p-4">
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Cobertura</p>
-                        <p className="mt-1 text-xl font-semibold">{pct(recorrencia + novos)}%</p>
-                        <p className="mt-0.5 text-[10px] text-muted-foreground">garantida + conquistada</p>
-                      </CardContent></Card>
-                    </div>
-                  );
-                })()}
-                <div className="grid gap-5 lg:grid-cols-2">
-                  <ParaBaterMeta
+                <div className="grid gap-5 lg:grid-cols-[1.2fr_1fr]">
+                  <CascataOperacional
                     meta={goals.revenue_goal}
                     realizado={diretoriaKpis.receita_realizada ?? 0}
+                    recorrencia={Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal)}
                     ticket={diretoriaKpis.ticket_medio ?? 0}
                     taxaConversao={data?.forecast?.taxa_conversao_historica ?? null}
-                    recorrencia={Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal)}
                   />
-                  <EvolucaoMes
-                    meta={goals.revenue_goal}
-                    realizado={diretoriaKpis.receita_realizada ?? 0}
+                  <GargalosPanel
+                    items={[
+                      { label: "Receita do mês", scope: "mês",
+                        value: Math.round((diretoriaKpis.mrr ?? 0) + (diretoriaKpis.receita_realizada ?? 0)),
+                        goal: goals.revenue_goal },
+                      { label: "Receita da semana", scope: "semana",
+                        value: Math.round(diretoriaKpis.receita_realizada ?? 0),
+                        goal: goals.weekly_revenue_goal },
+                      { label: "Contratos", scope: "mês",
+                        value: (data?.funnel ?? []).find((s) => /contrat|fech/i.test(s.stage))?.clientes ?? 0,
+                        goal: goals.contracts_goal },
+                      { label: "Reuniões", scope: "mês",
+                        value: (data?.funnel ?? []).find((s) => /reuni/i.test(s.stage))?.clientes ?? 0,
+                        goal: goals.meetings_goal },
+                      { label: "Leads", scope: "mês",
+                        value: (data?.funnel ?? []).find((s) => /lead|prospec/i.test(s.stage))?.clientes
+                          ?? (data?.funnel?.[0]?.clientes ?? 0),
+                        goal: goals.leads_goal },
+                    ]}
                   />
                 </div>
+                <PrevisaoPanel
+                  recorrencia={Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal)}
+                  fechado={diretoriaKpis.receita_realizada ?? 0}
+                  pipelineAberto={data?.forecast?.pipeline_aberto ?? 0}
+                  meta={goals.revenue_goal}
+                />
+                <FinanceiroPanel
+                  mrr={diretoriaKpis.mrr ?? 0}
+                  arr={diretoriaKpis.arr ?? 0}
+                  receitaRealizada={diretoriaKpis.receita_realizada ?? 0}
+                  receitaPrevistaMes={data?.kpis?.receita_prevista_mes ?? diretoriaKpis.mrr ?? 0}
+                  custoMarketing={data?.kpis?.custo_marketing ?? 0}
+                  ticketMedio={diretoriaKpis.ticket_medio ?? 0}
+                  pipelineAberto={data?.forecast?.pipeline_aberto ?? 0}
+                  previsao30d={data?.forecast?.previsao_30d ?? 0}
+                  previsao90d={data?.forecast?.previsao_90d ?? 0}
+                  folha={goals.payroll_cost}
+                  infra={goals.infra_cost}
+                  taxasPct={goals.taxes_pct}
+                />
+                <OperacoesPanel
+                  funnel={data?.funnel ?? []}
+                  churn={data?.churn}
+                  clientesAtivos={diretoriaKpis.clientes_ativos ?? 0}
+                  receitaRealizada={diretoriaKpis.receita_realizada ?? 0}
+                  receitaPrevistaMes={data?.kpis?.receita_prevista_mes ?? diretoriaKpis.mrr ?? 0}
+                  taxaConversaoHistorica={data?.forecast?.taxa_conversao_historica ?? null}
+                />
+                <EvolucaoMes
+                  meta={goals.revenue_goal}
+                  realizado={diretoriaKpis.receita_realizada ?? 0}
+                />
               </>
             )}
 
