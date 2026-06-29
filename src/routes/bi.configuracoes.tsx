@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/lib/auth-context";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,7 +66,41 @@ function Page() {
   const [expenses, setExpenses] = useState<OperationalExpense[]>(() => readExpenses());
   const [savingGoals, setSavingGoals] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const [autoMrr, setAutoMrr] = useState<{ loading: boolean; info?: string }>({ loading: false });
+  const [autoSyncMrr, setAutoSyncMrr] = useState(true);
+  const lastAppliedMrrRef = useRef<number | null>(null);
+
+  const mrrQ = useQuery({
+    queryKey: ["bi", "diretoria-kpis", "mrr"],
+    queryFn: fetchDiretoriaKpis,
+    refetchOnWindowFocus: true,
+    refetchInterval: 60_000,
+  });
+  const liveMrr = mrrQ.data?.mrr ?? 0;
+  const liveActiveContracts = mrrQ.data?.clientes_ativos ?? 0;
+
+  // Aplica MRR ao vivo no formulário sempre que o valor calculado mudar.
+  useEffect(() => {
+    if (!autoSyncMrr) return;
+    if (mrrQ.isLoading) return;
+    if (lastAppliedMrrRef.current === liveMrr) return;
+    lastAppliedMrrRef.current = liveMrr;
+    setForm((f) =>
+      f.recurring_revenue_goal === liveMrr ? f : { ...f, recurring_revenue_goal: liveMrr },
+    );
+  }, [autoSyncMrr, liveMrr, mrrQ.isLoading]);
+
+  // Realtime: qualquer mudança em contracts/op_contracts invalida o MRR.
+  useEffect(() => {
+    const invalidate = () => qc.invalidateQueries({ queryKey: ["bi", "diretoria-kpis", "mrr"] });
+    const ch = supabase
+      .channel("bi-mrr-sync")
+      .on("postgres_changes", { event: "*", schema: "public", table: "contracts" }, invalidate)
+      .on("postgres_changes", { event: "*", schema: "public", table: "op_contracts" }, invalidate)
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [qc]);
 
   useEffect(() => { if (goalsQ.data) setForm(goalsQ.data); }, [goalsQ.data]);
 
@@ -131,23 +166,6 @@ function Page() {
 
   const removeExp = (id: string) => saveExpenses(expenses.filter((e) => e.id !== id));
   const addExp = () => saveExpenses([...expenses, newExpense()]);
-
-  const onAutoCalcMrr = async () => {
-    setAutoMrr({ loading: true });
-    try {
-      const k = await fetchDiretoriaKpis();
-      setForm((f) => ({ ...f, recurring_revenue_goal: k.mrr }));
-      setAutoMrr({
-        loading: false,
-        info: k.mrr > 0
-          ? `MRR detectado: ${fmtBRL(k.mrr)} (${k.clientes_ativos} contratos ativos)`
-          : `Nenhum contrato ativo encontrado — MRR = ${fmtBRL(0)}`,
-      });
-    } catch (err) {
-      console.error("[autoCalcMrr]", err);
-      setAutoMrr({ loading: false, info: "Falha ao calcular MRR." });
-    }
-  };
 
   const onRestoreDefaults = () => {
     if (typeof window === "undefined") return;
@@ -235,23 +253,37 @@ function Page() {
                 <Label className="text-xs text-muted-foreground">
                   Recorrência mensal — MRR garantido (R$)
                 </Label>
-                <button
-                  type="button"
-                  onClick={onAutoCalcMrr}
-                  disabled={autoMrr.loading}
-                  className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-primary hover:underline disabled:opacity-50"
-                >
-                  <Calculator className="h-3 w-3" />
-                  {autoMrr.loading ? "Calculando…" : "Auto"}
-                </button>
+                <label className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <Switch
+                    checked={autoSyncMrr}
+                    onCheckedChange={(v) => {
+                      setAutoSyncMrr(v);
+                      if (v) {
+                        lastAppliedMrrRef.current = null;
+                        qc.invalidateQueries({ queryKey: ["bi", "diretoria-kpis", "mrr"] });
+                      }
+                    }}
+                  />
+                  <span>Sincronizar auto</span>
+                </label>
               </div>
               <Input
                 inputMode="decimal"
                 value={form.recurring_revenue_goal}
-                onChange={(ev) => setNum("recurring_revenue_goal")(ev.target.value)}
+                onChange={(ev) => {
+                  if (autoSyncMrr) setAutoSyncMrr(false);
+                  setNum("recurring_revenue_goal")(ev.target.value);
+                }}
+                readOnly={autoSyncMrr}
+                className={autoSyncMrr ? "bg-muted/30" : undefined}
               />
-              <p className="text-[10px] text-muted-foreground">
-                {autoMrr.info ?? "Soma de monthly_value dos contratos ativos. Clique em Auto para preencher."}
+              <p className="text-[10px] text-muted-foreground inline-flex items-center gap-1">
+                <Calculator className="h-3 w-3" />
+                {autoSyncMrr
+                  ? mrrQ.isLoading
+                    ? "Calculando MRR ao vivo…"
+                    : `MRR ao vivo: ${fmtBRL(liveMrr)} · ${liveActiveContracts} contrato(s) ativo(s) — atualiza automaticamente`
+                  : "Edição manual — desativada a sincronização com contratos."}
               </p>
             </div>
             <Field label="Ticket médio esperado (R$)" value={form.ticket_goal} onChange={setNum("ticket_goal")} />
