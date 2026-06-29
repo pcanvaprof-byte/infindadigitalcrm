@@ -548,10 +548,7 @@ function BIPage() {
                   realizado={diretoriaKpis.receita_realizada ?? 0}
                   ticket={diretoriaKpis.ticket_medio ?? 0}
                   meta={scaleGoal(goals.revenue_goal, period)}
-                  recorrencia={scaleGoal(
-                    Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal),
-                    period,
-                  )}
+                  recorrencia={scaleGoal(diretoriaKpis.mrr ?? 0, period)}
                   period={period}
                 />
                 <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
@@ -582,10 +579,7 @@ function BIPage() {
                   <CascataCard
                     meta={scaleGoal(goals.revenue_goal, period)}
                     realizado={diretoriaKpis.receita_realizada ?? 0}
-                    recorrencia={scaleGoal(
-                      Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal),
-                      period,
-                    )}
+                    recorrencia={scaleGoal(diretoriaKpis.mrr ?? 0, period)}
                     ticket={diretoriaKpis.ticket_medio ?? 0}
                     taxaConversao={data?.forecast?.taxa_conversao_historica ?? null}
                   />
@@ -594,7 +588,7 @@ function BIPage() {
                       { label: `Receita ${goalScopeLabel(period)}`, scope: period.label,
                         value: Math.round(
                           scaleGoal(
-                            Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal),
+                            diretoriaKpis.mrr ?? 0,
                             period,
                           ) + (diretoriaKpis.receita_realizada ?? 0),
                         ),
@@ -624,7 +618,7 @@ function BIPage() {
                   recorrencia={
                     previsaoQuery.data?.recorrencia
                     ?? Math.round(
-                      Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal) * (period.days / 30),
+                      (diretoriaKpis.mrr ?? 0) * (period.days / 30),
                     )
                   }
                   fechado={
