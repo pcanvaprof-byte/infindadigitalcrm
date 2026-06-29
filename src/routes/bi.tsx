@@ -389,6 +389,15 @@ function BIPage() {
     placeholderData: (prev) => prev,
   });
 
+  // Quando o usuário muda fallback/janela/mínimo de amostra, invalidamos a previsão
+  // para que a probabilidade reflita imediatamente a nova configuração.
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    const handler = () => queryClient.invalidateQueries({ queryKey: ["bi", "previsao"] });
+    window.addEventListener(FORECAST_SETTINGS_EVENT, handler);
+    return () => window.removeEventListener(FORECAST_SETTINGS_EVENT, handler);
+  }, [queryClient]);
+
   const data = dashQuery.data ?? null;
   const loading = dashQuery.isLoading || dashQuery.isFetching;
   const errRaw = dashQuery.error;
