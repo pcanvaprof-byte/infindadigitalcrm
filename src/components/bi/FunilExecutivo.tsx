@@ -28,6 +28,13 @@ export function FunilExecutivo({ stages }: { stages: FunilStage[] }) {
   // Span 12-col por etapa para layout proporcional ao número de etapas
   // 5 etapas → hero (col-span-8) + 4 (col-span-4) + 4 + 4 + 4 (wrap)
   // fallback genérico: dividir igualmente em 12
+  const SPAN_CLASS: Record<number, string> = {
+    3: "md:col-span-3",
+    4: "md:col-span-4",
+    6: "md:col-span-6",
+    8: "md:col-span-8",
+    12: "md:col-span-12",
+  };
   const spans = (() => {
     const n = stages.length;
     if (n === 5) return [8, 4, 4, 4, 4];
@@ -59,7 +66,7 @@ export function FunilExecutivo({ stages }: { stages: FunilStage[] }) {
               key={s.stage}
               className={[
                 "group relative col-span-12 flex flex-col justify-between rounded-2xl border bg-[#1C1D1F] p-5 transition-all duration-200",
-                `md:col-span-${spans[i]}`,
+                SPAN_CLASS[spans[i]] ?? "md:col-span-4",
                 isWorst
                   ? "border-[#5E6AD2]/45 shadow-[0_0_24px_-8px_rgba(94,106,210,0.35)]"
                   : "border-[#2E2E33] hover:border-[#2E2E33]/80 hover:-translate-y-px",
