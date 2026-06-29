@@ -604,13 +604,13 @@ function BIPage() {
               return (
                 <div className="space-y-5">
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-                    <DrillKpi label="Leads"     value={leads}    goal={goals.leads_goal}     icon={Users}
+                    <DrillKpi label="Leads"     value={leads}    goal={scaleGoal(goals.leads_goal, period)}     icon={Users}
                       drill={{ kind: "prospects-new", title: "Leads novos do período", crumb: "Comercial · Leads" }} />
-                    <DrillKpi label="Reuniões"  value={reunioes} goal={goals.meetings_goal}  icon={CalendarClock}
+                    <DrillKpi label="Reuniões"  value={reunioes} goal={scaleGoal(goals.meetings_goal, period)}  icon={CalendarClock}
                       drill={{ kind: "touchpoints-channel", title: "Reuniões registradas", crumb: "Comercial · Reuniões" }} />
-                    <DrillKpi label="Propostas" value={propostas} goal={goals.proposals_goal} icon={FileText}
+                    <DrillKpi label="Propostas" value={propostas} goal={scaleGoal(goals.proposals_goal, period)} icon={FileText}
                       drill={{ kind: "proposals", title: "Propostas do período", crumb: "Comercial · Propostas" }} />
-                    <DrillKpi label="Contratos" value={contratos} goal={goals.contracts_goal} icon={FileSignature}
+                    <DrillKpi label="Contratos" value={contratos} goal={scaleGoal(goals.contracts_goal, period)} icon={FileSignature}
                       drill={{ kind: "contracts", title: "Contratos do período", crumb: "Comercial · Contratos" }} />
                     <DrillKpi
                       label="Conversão"
@@ -623,7 +623,7 @@ function BIPage() {
                   </div>
 
                   <ForecastCard
-                    meta={goals.contracts_goal}
+                    meta={scaleGoal(goals.contracts_goal, period)}
                     projecao={projetadoContratos}
                     unidade="contratos"
                   />
