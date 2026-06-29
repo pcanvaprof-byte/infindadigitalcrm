@@ -1,4 +1,5 @@
 import { supabase as sb } from "@/integrations/supabase/client";
+import { localTimestamp, localDateKey } from "./tz";
 
 /**
  * Helpers de séries temporais para os gráficos do /bi.
@@ -10,7 +11,7 @@ function startOfDay(d: Date) {
   const x = new Date(d); x.setHours(0, 0, 0, 0); return x;
 }
 function dayKey(d: Date) {
-  return d.toISOString().slice(0, 10); // YYYY-MM-DD
+  return localDateKey(d); // YYYY-MM-DD em fuso local
 }
 function monthKey(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -70,7 +71,7 @@ export interface DailyComercialPoint {
 
 export async function fetchComercialDaily(days = 14): Promise<DailyComercialPoint[]> {
   const buckets = lastNDays(days);
-  const ini = buckets[0].date.toISOString();
+  const ini = localTimestamp(buckets[0].date);
   const [tps, leads] = await Promise.all([
     safeSelect<{ enviado_em: string | null }>(
       "prospect_touchpoints",
@@ -120,7 +121,7 @@ type ContractRow = {
 
 export async function fetchFinanceiroMonthly(months = 6): Promise<MonthlyRevenuePoint[]> {
   const buckets = lastNMonths(months);
-  const ini = buckets[0].date.toISOString();
+  const ini = localTimestamp(buckets[0].date);
 
   let rows = await safeSelect<ContractRow>(
     "contracts",
@@ -162,7 +163,7 @@ export interface DailyDispatchPoint {
 
 export async function fetchMarketingDispatches(days = 14): Promise<DailyDispatchPoint[]> {
   const buckets = lastNDays(days);
-  const ini = buckets[0].date.toISOString();
+  const ini = localTimestamp(buckets[0].date);
   const rows = await safeSelect<{ created_at: string | null }>(
     "cad_messages",
     "created_at",
@@ -189,7 +190,7 @@ export async function fetchMarketingChannelMix(days = 30): Promise<ChannelMixPoi
   const rows = await safeSelect<{ tipo: string | null }>(
     "prospect_touchpoints",
     "tipo",
-    (q) => (q as unknown as { gte: (c: string, v: string) => unknown }).gte("enviado_em", ini.toISOString()),
+    (q) => (q as unknown as { gte: (c: string, v: string) => unknown }).gte("enviado_em", localTimestamp(ini)),
   );
   const map = new Map<string, number>();
   for (const r of rows) {
@@ -230,7 +231,7 @@ export interface DailyOpsPoint {
 
 export async function fetchOperacoesDaily(days = 14): Promise<DailyOpsPoint[]> {
   const buckets = lastNDays(days);
-  const ini = buckets[0].date.toISOString();
+  const ini = localTimestamp(buckets[0].date);
   let contratos = await safeSelect<{ signed_at: string | null }>(
     "contracts",
     "signed_at",
