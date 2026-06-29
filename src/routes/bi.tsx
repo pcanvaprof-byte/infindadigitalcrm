@@ -217,7 +217,9 @@ function BIPage() {
   const diretoriaFallback = useQuery<DiretoriaKpis>({
     queryKey: ["bi", "diretoria-fallback"],
     queryFn: fetchDiretoriaKpis,
-    enabled: area === "diretoria",
+    // Mantemos o fallback ligado para todas as abas — Financeiro/Marketing/Operações
+    // dependem dele quando a RPC `bi_dashboard` devolve vazio (caso contrário
+    // os três painéis ficam idênticos, mostrando só os Insights).
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
     refetchOnWindowFocus: false,
@@ -446,44 +448,44 @@ function BIPage() {
               );
             })()}
 
-            {a.id === "financeiro" && data?.kpis && (
+            {a.id === "financeiro" && (diretoriaKpis || data?.kpis) && (
               <FinanceiroPanel
-                mrr={data.kpis.mrr ?? 0}
-                arr={data.kpis.arr ?? 0}
-                receitaRealizada={data.kpis.receita_realizada ?? 0}
-                receitaPrevistaMes={data.kpis.receita_prevista_mes ?? 0}
-                custoMarketing={data.kpis.custo_marketing ?? 0}
-                ticketMedio={data.kpis.ticket_medio ?? 0}
-                pipelineAberto={data.forecast?.pipeline_aberto ?? 0}
-                previsao30d={data.forecast?.previsao_30d ?? 0}
-                previsao90d={data.forecast?.previsao_90d ?? 0}
+                mrr={data?.kpis?.mrr ?? diretoriaKpis?.mrr ?? 0}
+                arr={data?.kpis?.arr ?? diretoriaKpis?.arr ?? 0}
+                receitaRealizada={data?.kpis?.receita_realizada ?? diretoriaKpis?.receita_realizada ?? 0}
+                receitaPrevistaMes={data?.kpis?.receita_prevista_mes ?? diretoriaKpis?.mrr ?? 0}
+                custoMarketing={data?.kpis?.custo_marketing ?? 0}
+                ticketMedio={data?.kpis?.ticket_medio ?? diretoriaKpis?.ticket_medio ?? 0}
+                pipelineAberto={data?.forecast?.pipeline_aberto ?? 0}
+                previsao30d={data?.forecast?.previsao_30d ?? 0}
+                previsao90d={data?.forecast?.previsao_90d ?? 0}
                 folha={goals.payroll_cost}
                 infra={goals.infra_cost}
                 taxasPct={goals.taxes_pct}
               />
             )}
 
-            {a.id === "marketing" && data?.kpis && (
+            {a.id === "marketing" && (diretoriaKpis || data?.kpis) && (
               <MarketingPanel
-                custoMarketing={data.kpis.custo_marketing ?? 0}
-                receitaRealizada={data.kpis.receita_realizada ?? 0}
-                cac={data.kpis.cac ?? 0}
-                ltv={data.kpis.ltv ?? 0}
-                roi={data.kpis.roi ?? 0}
-                paybackMeses={data.kpis.payback_meses ?? 0}
-                clientesAtivos={data.kpis.clientes_ativos ?? 0}
-                ticketMedio={data.kpis.ticket_medio ?? 0}
+                custoMarketing={data?.kpis?.custo_marketing ?? 0}
+                receitaRealizada={data?.kpis?.receita_realizada ?? diretoriaKpis?.receita_realizada ?? 0}
+                cac={data?.kpis?.cac ?? 0}
+                ltv={data?.kpis?.ltv ?? 0}
+                roi={data?.kpis?.roi ?? 0}
+                paybackMeses={data?.kpis?.payback_meses ?? 0}
+                clientesAtivos={data?.kpis?.clientes_ativos ?? diretoriaKpis?.clientes_ativos ?? 0}
+                ticketMedio={data?.kpis?.ticket_medio ?? diretoriaKpis?.ticket_medio ?? 0}
               />
             )}
 
-            {a.id === "operacoes" && data?.kpis && (
+            {a.id === "operacoes" && (diretoriaKpis || data?.kpis) && (
               <OperacoesPanel
-                funnel={data.funnel ?? []}
-                churn={data.churn}
-                clientesAtivos={data.kpis.clientes_ativos ?? 0}
-                receitaRealizada={data.kpis.receita_realizada ?? 0}
-                receitaPrevistaMes={data.kpis.receita_prevista_mes ?? 0}
-                taxaConversaoHistorica={data.forecast?.taxa_conversao_historica ?? null}
+                funnel={data?.funnel ?? []}
+                churn={data?.churn}
+                clientesAtivos={data?.kpis?.clientes_ativos ?? diretoriaKpis?.clientes_ativos ?? 0}
+                receitaRealizada={data?.kpis?.receita_realizada ?? diretoriaKpis?.receita_realizada ?? 0}
+                receitaPrevistaMes={data?.kpis?.receita_prevista_mes ?? diretoriaKpis?.mrr ?? 0}
+                taxaConversaoHistorica={data?.forecast?.taxa_conversao_historica ?? null}
               />
             )}
 
