@@ -382,6 +382,20 @@ function BIPage() {
     placeholderData: DEFAULT_GOALS,
   });
 
+  // Despesas operacionais — fonte real do lucro
+  const expensesQuery = useQuery<OperationalExpense[]>({
+    queryKey: ["bi", "expenses"],
+    queryFn: async () => readExpenses(),
+    staleTime: Infinity,
+  });
+  useEffect(() => {
+    const handler = () => queryClient.invalidateQueries({ queryKey: ["bi", "expenses"] });
+    window.addEventListener(EXPENSES_EVENT, handler);
+    return () => window.removeEventListener(EXPENSES_EVENT, handler);
+    // queryClient declarado adiante; capturamos via closure abaixo.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Previsão por período — recalcula quando muda Hoje/Semana/Mês/Trimestre.
   const previsaoQuery = useQuery<ForecastBreakdown>({
     queryKey: ["bi", "previsao", period.key, period.from.toISOString(), period.to.toISOString()],
