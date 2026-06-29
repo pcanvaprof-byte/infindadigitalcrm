@@ -91,10 +91,10 @@ export function OperacoesPanel({
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <ScoreBar label="Saúde do funil" value={funnelScore} icon={Activity} />
-            <ScoreBar label="Conversão histórica" value={convScore} icon={Zap} />
-            <ScoreBar label="Retenção (churn)" value={churnScore} icon={HeartPulse} />
-            <ScoreBar label="Aderência ao plano" value={aderencia} icon={ShieldAlert} />
+            <ScoreBar label="Comercial · funil" value={funnelScore} icon={Activity} weight={30} />
+            <ScoreBar label="Operacional · retenção" value={churnScore} icon={HeartPulse} weight={25} />
+            <ScoreBar label="Financeiro · aderência" value={aderencia} icon={ShieldAlert} weight={20} />
+            <ScoreBar label="Marketing · conversão" value={convScore} icon={Zap} weight={25} />
           </div>
         </CardContent>
       </Card>
@@ -159,15 +159,17 @@ export function OperacoesPanel({
   );
 }
 
-function ScoreBar({ label, value, icon: Icon }:
-  { label: string; value: number; icon: typeof Activity }) {
+function ScoreBar({ label, value, icon: Icon, weight }:
+  { label: string; value: number; icon: typeof Activity; weight?: number }) {
   const v = clamp(Math.round(value));
   const tone = v >= 80 ? "bg-emerald-500" : v >= 60 ? "bg-amber-500" : "bg-rose-500";
   return (
     <div className="rounded-lg border border-border bg-card/60 p-3">
       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
         <span className="inline-flex items-center gap-1.5"><Icon className="h-3 w-3" />{label}</span>
-        <span className="tabular-nums font-medium text-foreground">{v}</span>
+        <span className="tabular-nums font-medium text-foreground">
+          {v}{typeof weight === "number" && <span className="ml-1 text-[10px] text-muted-foreground">·{weight}%</span>}
+        </span>
       </div>
       <div className="mt-2 h-1.5 w-full rounded-full bg-muted/40 overflow-hidden">
         <div className={`h-full rounded-full ${tone}`} style={{ width: `${v}%` }} />
