@@ -1,4 +1,5 @@
 import { supabase as sb } from "@/integrations/supabase/client";
+import { localTimestamp } from "./tz";
 
 export interface TodayMetrics {
   visitas: number;    // touchpoints tipo=reuniao hoje
@@ -19,11 +20,11 @@ export interface WeekMetrics {
 
 function startOfDayIso(d = new Date()): string {
   const x = new Date(d); x.setHours(0, 0, 0, 0);
-  return x.toISOString();
+  return localTimestamp(x);
 }
 function endOfDayIso(d = new Date()): string {
   const x = new Date(d); x.setHours(23, 59, 59, 999);
-  return x.toISOString();
+  return localTimestamp(x);
 }
 function startOfWeekIso(d = new Date()): string {
   // Semana operacional: segunda-feira 00:00
@@ -32,7 +33,7 @@ function startOfWeekIso(d = new Date()): string {
   const diff = dow === 0 ? -6 : 1 - dow;
   x.setDate(x.getDate() + diff);
   x.setHours(0, 0, 0, 0);
-  return x.toISOString();
+  return localTimestamp(x);
 }
 
 const OUTBOUND_TYPES = ["whatsapp", "ligacao", "email", "reuniao"];
@@ -58,41 +59,52 @@ export async function fetchTodayMetrics(): Promise<TodayMetrics> {
 
 export async function fetchWeekMetrics(): Promise<WeekMetrics> {
   const ini = startOfWeekIso();
+  return fetchRangeMetricsRaw(ini, undefined);
+}
+
+/** Métricas em um intervalo arbitrário (usado pelo filtro global do BI). */
+export async function fetchRangeMetrics(from: Date, to: Date): Promise<WeekMetrics> {
+  const ini = localTimestamp(new Date(new Date(from).setHours(0, 0, 0, 0)));
+  const fim = localTimestamp(new Date(new Date(to).setHours(23, 59, 59, 999)));
+  return fetchRangeMetricsRaw(ini, fim);
+}
+
+async function fetchRangeMetricsRaw(ini: string, fim: string | undefined): Promise<WeekMetrics> {
+  type Q = {
+    gte: (c: string, v: string) => Q;
+    lte: (c: string, v: string) => Q;
+    in: (c: string, v: string[]) => Q;
+  };
+  const between = (q: unknown, col: string): Q => {
+    let out = (q as Q).gte(col, ini);
+    if (fim) out = out.lte(col, fim);
+    return out;
+  };
   const [cad, tp, cnt, tpRows, novos] = await Promise.all([
-    sb.from("cad_messages" as never)
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", ini),
-    sb.from("prospect_touchpoints" as never)
-      .select("id", { count: "exact", head: true })
-      .gte("enviado_em", ini)
-      .in("tipo", OUTBOUND_TYPES),
-    // Receita da semana — tentativa graciosa em contratos/op_contracts.
-    sb.from("op_contracts" as never)
-      .select("monthly_value, contract_value, signed_at")
-      .gte("signed_at", ini),
-    sb.from("prospect_touchpoints" as never)
-      .select("prospect_id")
-      .gte("enviado_em", ini)
-      .in("tipo", OUTBOUND_TYPES),
-    sb.from("prospects" as never)
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", ini),
+    between(sb.from("cad_messages" as never).select("id", { count: "exact", head: true }), "created_at"),
+    between(sb.from("prospect_touchpoints" as never).select("id", { count: "exact", head: true }), "enviado_em").in(
+      "tipo",
+      OUTBOUND_TYPES,
+    ),
+    between(sb.from("op_contracts" as never).select("monthly_value, contract_value, signed_at"), "signed_at"),
+    between(sb.from("prospect_touchpoints" as never).select("prospect_id"), "enviado_em").in("tipo", OUTBOUND_TYPES),
+    between(sb.from("prospects" as never).select("id", { count: "exact", head: true }), "created_at"),
   ]);
   type Contract = { monthly_value?: number | null; contract_value?: number | null };
-  const contratos = ((cnt as { data: Contract[] | null }).data ?? []) as Contract[];
+  const contratos = ((cnt as unknown as { data: Contract[] | null }).data ?? []) as Contract[];
   const receita = contratos.reduce(
     (acc, c) => acc + Number(c.monthly_value ?? c.contract_value ?? 0),
     0,
   );
-  const tpData = ((tpRows as { data: Array<{ prospect_id: string | null }> | null }).data ?? []);
+  const tpData = ((tpRows as unknown as { data: Array<{ prospect_id: string | null }> | null }).data ?? []);
   const empresasTrabalhadas = new Set(tpData.map((r) => r.prospect_id).filter(Boolean)).size;
   return {
     receita,
-    disparos: (cad as { count: number | null }).count ?? 0,
-    contatos: (tp as { count: number | null }).count ?? 0,
+    disparos: (cad as unknown as { count: number | null }).count ?? 0,
+    contatos: (tp as unknown as { count: number | null }).count ?? 0,
     contratos: contratos.length,
     empresasTrabalhadas,
-    novosContatos: (novos as { count: number | null }).count ?? 0,
+    novosContatos: (novos as unknown as { count: number | null }).count ?? 0,
     videos: 0,
     parcerias: 0,
   };
