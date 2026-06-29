@@ -385,6 +385,7 @@ function BIPage() {
     staleTime: 60_000,
     gcTime: 10 * 60_000,
     refetchOnWindowFocus: false,
+    placeholderData: (prev) => prev,
   });
 
   const data = dashQuery.data ?? null;
@@ -566,7 +567,10 @@ function BIPage() {
                       Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal) * (period.days / 30),
                     )
                   }
-                  fechado={previsaoQuery.data?.fechado ?? (diretoriaKpis.receita_realizada ?? 0)}
+                  fechado={
+                    previsaoQuery.data?.fechado
+                    ?? (period.key === "mes" ? (diretoriaKpis.receita_realizada ?? 0) : 0)
+                  }
                   pipelineAberto={
                     previsaoQuery.data?.pipelineAberto ?? (data?.forecast?.pipeline_aberto ?? 0)
                   }
