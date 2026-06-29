@@ -70,29 +70,25 @@ export async function fetchRangeMetrics(from: Date, to: Date): Promise<WeekMetri
 }
 
 async function fetchRangeMetricsRaw(ini: string, fim: string | undefined): Promise<WeekMetrics> {
-  const between = <T extends { gte: (c: string, v: string) => unknown }>(
-    q: T,
-    col: string,
-  ): T => {
-    let out = q.gte(col, ini) as T;
-    if (fim) out = (out as unknown as { lte: (c: string, v: string) => T }).lte(col, fim);
+  type Q = {
+    gte: (c: string, v: string) => Q;
+    lte: (c: string, v: string) => Q;
+    in: (c: string, v: string[]) => Q;
+  };
+  const between = (q: unknown, col: string): Q => {
+    let out = (q as Q).gte(col, ini);
+    if (fim) out = out.lte(col, fim);
     return out;
   };
   const [cad, tp, cnt, tpRows, novos] = await Promise.all([
-    between(sb.from("cad_messages" as never).select("id", { count: "exact", head: true }) as never, "created_at"),
-    between(
-      sb.from("prospect_touchpoints" as never).select("id", { count: "exact", head: true }) as never,
-      "enviado_em",
-    ).in("tipo", OUTBOUND_TYPES),
-    between(
-      sb.from("op_contracts" as never).select("monthly_value, contract_value, signed_at") as never,
-      "signed_at",
+    between(sb.from("cad_messages" as never).select("id", { count: "exact", head: true }), "created_at"),
+    between(sb.from("prospect_touchpoints" as never).select("id", { count: "exact", head: true }), "enviado_em").in(
+      "tipo",
+      OUTBOUND_TYPES,
     ),
-    between(
-      sb.from("prospect_touchpoints" as never).select("prospect_id") as never,
-      "enviado_em",
-    ).in("tipo", OUTBOUND_TYPES),
-    between(sb.from("prospects" as never).select("id", { count: "exact", head: true }) as never, "created_at"),
+    between(sb.from("op_contracts" as never).select("monthly_value, contract_value, signed_at"), "signed_at"),
+    between(sb.from("prospect_touchpoints" as never).select("prospect_id"), "enviado_em").in("tipo", OUTBOUND_TYPES),
+    between(sb.from("prospects" as never).select("id", { count: "exact", head: true }), "created_at"),
   ]);
   type Contract = { monthly_value?: number | null; contract_value?: number | null };
   const contratos = ((cnt as { data: Contract[] | null }).data ?? []) as Contract[];
