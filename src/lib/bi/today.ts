@@ -10,6 +10,11 @@ export interface WeekMetrics {
   receita: number;        // receita realizada na semana corrente (seg→hoje)
   disparos: number;       // mensagens enviadas na semana
   contatos: number;       // touchpoints outbound na semana
+  contratos: number;      // contratos assinados na semana
+  empresasTrabalhadas: number; // distinct prospect_id tocados na semana
+  novosContatos: number;  // prospects criados na semana
+  videos: number;         // sem fonte ainda → fallback 0
+  parcerias: number;      // sem fonte ainda → fallback 0
 }
 
 function startOfDayIso(d = new Date()): string {
@@ -53,7 +58,7 @@ export async function fetchTodayMetrics(): Promise<TodayMetrics> {
 
 export async function fetchWeekMetrics(): Promise<WeekMetrics> {
   const ini = startOfWeekIso();
-  const [cad, tp, cnt] = await Promise.all([
+  const [cad, tp, cnt, tpRows, novos] = await Promise.all([
     sb.from("cad_messages" as never)
       .select("id", { count: "exact", head: true })
       .gte("created_at", ini),
@@ -65,6 +70,13 @@ export async function fetchWeekMetrics(): Promise<WeekMetrics> {
     sb.from("op_contracts" as never)
       .select("monthly_value, contract_value, signed_at")
       .gte("signed_at", ini),
+    sb.from("prospect_touchpoints" as never)
+      .select("prospect_id")
+      .gte("enviado_em", ini)
+      .in("tipo", OUTBOUND_TYPES),
+    sb.from("prospects" as never)
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", ini),
   ]);
   type Contract = { monthly_value?: number | null; contract_value?: number | null };
   const contratos = ((cnt as { data: Contract[] | null }).data ?? []) as Contract[];
@@ -72,9 +84,16 @@ export async function fetchWeekMetrics(): Promise<WeekMetrics> {
     (acc, c) => acc + Number(c.monthly_value ?? c.contract_value ?? 0),
     0,
   );
+  const tpData = ((tpRows as { data: Array<{ prospect_id: string | null }> | null }).data ?? []);
+  const empresasTrabalhadas = new Set(tpData.map((r) => r.prospect_id).filter(Boolean)).size;
   return {
     receita,
     disparos: (cad as { count: number | null }).count ?? 0,
     contatos: (tp as { count: number | null }).count ?? 0,
+    contratos: contratos.length,
+    empresasTrabalhadas,
+    novosContatos: (novos as { count: number | null }).count ?? 0,
+    videos: 0,
+    parcerias: 0,
   };
 }
