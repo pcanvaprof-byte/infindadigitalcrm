@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/select";
 import { getClient, listPlanTemplates, updateClient } from "@/modules/lifecycle/api";
 import { STAGE_LABEL } from "@/modules/lifecycle/types";
+import { jsPDF } from "jspdf";
 
 export const Route = createFileRoute("/operacoes/clientes/$id/")({
   ssr: false,
@@ -139,7 +140,12 @@ function ResumoPage() {
         <p className="text-xs text-muted-foreground">
           {c.cnpj ? `CNPJ ${c.cnpj}` : "CNPJ não informado"}
         </p>
-        <EditClientDialog clientId={id} />
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => downloadFichaPDF(c, items)}>
+            Baixar PDF
+          </Button>
+          <EditClientDialog clientId={id} />
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {items.map((it) => (
@@ -502,4 +508,97 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </div>
   );
+}
+
+function downloadFichaPDF(c: any, items: { label: string; value: unknown }[]) {
+  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const pageW = doc.internal.pageSize.getWidth();
+  const margin = 40;
+  let y = margin;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.text("Ficha 360° — Cliente", margin, y);
+  y += 22;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  doc.text(c.company ?? "—", margin, y);
+  y += 16;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  doc.setTextColor(110);
+  const sub: string[] = [];
+  if (c.cnpj) sub.push(`CNPJ ${c.cnpj}`);
+  if (c.contact_name) sub.push(c.contact_name);
+  if (c.phone) sub.push(c.phone);
+  if (c.email) sub.push(c.email);
+  if (sub.length) {
+    doc.text(sub.join("  ·  "), margin, y);
+    y += 14;
+  }
+  doc.setTextColor(0);
+  y += 6;
+  doc.setDrawColor(220);
+  doc.line(margin, y, pageW - margin, y);
+  y += 14;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.text("Resumo do contrato", margin, y);
+  y += 14;
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  const colW = (pageW - margin * 2) / 2;
+  items.forEach((it, i) => {
+    const col = i % 2;
+    const x = margin + col * colW;
+    if (col === 0 && i > 0) y += 30;
+    if (y > 780) {
+      doc.addPage();
+      y = margin;
+    }
+    doc.setTextColor(120);
+    doc.setFontSize(8);
+    doc.text(String(it.label).toUpperCase(), x, y);
+    doc.setTextColor(0);
+    doc.setFontSize(10);
+    const val = String(it.value ?? "—");
+    const lines = doc.splitTextToSize(val, colW - 10);
+    doc.text(lines, x, y + 12);
+  });
+  y += 36;
+
+  if (c.contract_notes) {
+    if (y > 720) {
+      doc.addPage();
+      y = margin;
+    }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.text("Observações do contrato", margin, y);
+    y += 14;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    const notes = doc.splitTextToSize(String(c.contract_notes), pageW - margin * 2);
+    doc.text(notes, margin, y);
+  }
+
+  doc.setFontSize(8);
+  doc.setTextColor(140);
+  doc.text(
+    `Gerado em ${new Date().toLocaleString("pt-BR")} · INFINDA`,
+    margin,
+    doc.internal.pageSize.getHeight() - 20,
+  );
+
+  const slug = (c.company ?? "cliente")
+    .toString()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .toLowerCase();
+  doc.save(`ficha-360-${slug}.pdf`);
 }
