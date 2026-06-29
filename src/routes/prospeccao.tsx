@@ -438,6 +438,16 @@ function ProspeccaoPage() {
     return list;
   }, [prospects]);
 
+  // Apenas UFs reais presentes na base (derivadas do CNPJ/cadastro).
+  const availableStates = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of prospects) {
+      const uf = normalizeUf(p.state || "");
+      if (uf) set.add(uf);
+    }
+    return Array.from(set).sort();
+  }, [prospects]);
+
   // Responsáveis derivados dinamicamente de prospects.owner_name + nome do
    // usuário logado (fallback). Antes era hardcoded ["Valdinei","Danielly"].
   const availableOwners = useMemo(() => {
@@ -1021,7 +1031,7 @@ function ProspeccaoPage() {
               <SelectTrigger><SelectValue placeholder="Estado" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos estados</SelectItem>
-                {UFS.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                {availableStates.map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={potentialFilter} onValueChange={(v) => setPotentialFilter(v as ProspectPotential | "all")}>
