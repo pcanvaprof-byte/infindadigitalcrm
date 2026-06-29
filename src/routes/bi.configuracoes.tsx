@@ -25,6 +25,9 @@ import {
   Megaphone,
   Wallet,
   RotateCcw,
+  TrendingUp,
+  TrendingDown,
+  Calculator,
 } from "lucide-react";
 import { fetchBIGoals, saveMonthlyGoals, DEFAULT_GOALS, type BIGoals } from "@/lib/bi/goals";
 import {
@@ -65,6 +68,18 @@ function Page() {
   useEffect(() => { if (goalsQ.data) setForm(goalsQ.data); }, [goalsQ.data]);
 
   const expensesTotal = useMemo(() => totalExpenses(expenses), [expenses]);
+
+  const preview = useMemo(() => {
+    const revenue = form.revenue_goal || 0;
+    const taxesPct = Math.min(100, Math.max(0, form.taxes_pct || 0));
+    const taxes = revenue * (taxesPct / 100);
+    const netRevenue = revenue - taxes;
+    const infra = form.infra_cost || 0;
+    const opex = expensesTotal + infra;
+    const profit = netRevenue - opex;
+    const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+    return { revenue, taxes, netRevenue, infra, opex, profit, margin };
+  }, [form.revenue_goal, form.taxes_pct, form.infra_cost, expensesTotal]);
 
   const setNum = <K extends keyof BIGoals>(k: K) => (v: string) =>
     setForm((f) => ({ ...f, [k]: Math.max(0, Number(v.replace(/[^\d.,-]/g, "").replace(",", ".")) || 0) }));
@@ -150,6 +165,41 @@ function Page() {
           </Link>
           {msg && <span className="text-xs text-emerald-400">{msg}</span>}
         </div>
+
+        {/* Preview em tempo real */}
+        <Card className="sticky top-2 z-20 border-primary/30 bg-card/95 backdrop-blur">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm">
+              <Calculator className="h-4 w-4 text-primary" /> Preview · impacto em tempo real
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-3 sm:grid-cols-3">
+            <PreviewTile
+              label="Receita prevista"
+              value={fmtBRL(preview.revenue)}
+              hint={`Líquida ${fmtBRL(preview.netRevenue)} · impostos ${fmtBRL(preview.taxes)}`}
+              tone="primary"
+              icon={<TrendingUp className="h-4 w-4" />}
+            />
+            <PreviewTile
+              label="Despesas operacionais"
+              value={fmtBRL(preview.opex)}
+              hint={`Folha ${fmtBRL(expensesTotal)} + infra ${fmtBRL(preview.infra)}`}
+              tone="danger"
+              icon={<TrendingDown className="h-4 w-4" />}
+            />
+            <PreviewTile
+              label="Lucro operacional previsto"
+              value={fmtBRL(preview.profit)}
+              hint={`Margem ${preview.margin.toFixed(1)}%`}
+              tone={preview.profit >= 0 ? "success" : "danger"}
+              icon={preview.profit >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+            />
+          </CardContent>
+          <div className="border-t border-border/60 px-4 py-2 text-[10px] text-muted-foreground">
+            Receita líquida = Receita × (1 − Impostos%) · Lucro = Líquida − (Despesas + Infra)
+          </div>
+        </Card>
 
         {/* 1. Metas Financeiras */}
         <Card>
@@ -287,6 +337,37 @@ function Field({
         value={value}
         onChange={(ev) => onChange(ev.target.value)}
       />
+    </div>
+  );
+}
+
+function PreviewTile({
+  label,
+  value,
+  hint,
+  tone,
+  icon,
+}: {
+  label: string;
+  value: string;
+  hint: string;
+  tone: "primary" | "success" | "danger";
+  icon: React.ReactNode;
+}) {
+  const toneCls =
+    tone === "success"
+      ? "text-emerald-400"
+      : tone === "danger"
+      ? "text-rose-400"
+      : "text-primary";
+  return (
+    <div className="rounded-lg border border-border/60 bg-background/40 p-3">
+      <div className={`flex items-center gap-1.5 text-[10px] uppercase tracking-wider ${toneCls}`}>
+        {icon}
+        <span>{label}</span>
+      </div>
+      <p className={`mt-1 text-lg font-semibold tabular-nums ${toneCls}`}>{value}</p>
+      <p className="text-[10px] text-muted-foreground">{hint}</p>
     </div>
   );
 }
