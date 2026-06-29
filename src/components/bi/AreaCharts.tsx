@@ -123,21 +123,22 @@ export function ComercialCharts({ period }: { period?: ResolvedPeriod } = {}) {
 }
 
 // ---------------- FINANCEIRO ----------------
-export function FinanceiroCharts({ period: _p }: { period?: ResolvedPeriod } = {}) {
+export function FinanceiroCharts({ period }: { period?: ResolvedPeriod } = {}) {
   const drill = useDrillDown();
+  // Quantidade de meses derivada do período: mais curto = mais detalhe, máx 12.
+  const months = Math.max(3, Math.min(12, Math.ceil((period?.days ?? 180) / 30) + 2));
   const q = useQuery({
-    queryKey: ["bi", "charts", "financeiro-monthly"],
-    queryFn: () => fetchFinanceiroMonthly(6),
+    queryKey: ["bi", "charts", "financeiro-monthly", months, period?.key ?? "default"],
+    queryFn: () => fetchFinanceiroMonthly(months),
     staleTime: 5 * 60_000,
     refetchOnWindowFocus: false,
   });
   const data = q.data ?? [];
   const empty = data.every((d) => d.receita === 0 && d.contratos === 0);
-  void _p;
   return (
     <ChartShell
-      title="Receita assinada — últimos 6 meses"
-      subtitle="Soma do valor de contrato por mês de assinatura"
+      title={`Receita assinada — últimos ${months} meses`}
+      subtitle={`Período: ${period?.label ?? "padrão"} · soma do valor de contrato por mês`}
       isLoading={q.isLoading}
       isEmpty={empty}
       emptyText="Sem contratos assinados no período."
