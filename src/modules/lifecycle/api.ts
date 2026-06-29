@@ -139,6 +139,10 @@ export async function updateClient(
       | "is_permuta"
       | "permuta_value"
       | "permuta_description"
+      | "site_one_time_value"
+      | "site_recurring_value"
+      | "site_payment_status"
+      | "contract_notes"
     >
   >,
 ): Promise<LifecycleClient> {
