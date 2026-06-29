@@ -448,15 +448,18 @@ function BIPage() {
       title="Business Intelligence"
       subtitle="Cockpit executivo · metas, previsão e ações"
       actions={
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
           <PeriodSelector period={period} />
-          <Badge variant="secondary">{loading ? "Atualizando..." : "Pronto"}</Badge>
+          <Badge variant="secondary" className="hidden sm:inline-flex">
+            {loading ? "Atualizando..." : "Pronto"}
+          </Badge>
           <Link
             to="/metas-objetivos"
             className="inline-flex items-center gap-1 rounded-md border border-border bg-card/60 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:border-primary/50"
             title="Configurar metas e objetivos"
           >
-            <Settings2 className="h-3.5 w-3.5" /> Metas
+            <Settings2 className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Metas</span>
           </Link>
           <ExportMenu filename={`bi-${area}`} sections={exportSections} />
         </div>
