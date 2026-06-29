@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Link } from "@tanstack/react-router";
+import { Link, useSearch } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { FEATURES } from "@/config/features";
@@ -33,9 +33,14 @@ import { PerformanceSemanaPanel, DEFAULT_WEEK_GOALS } from "@/components/bi/Perf
 import {
   ComercialCharts, FinanceiroCharts, MarketingCharts, OperacoesCharts,
 } from "@/components/bi/AreaCharts";
+import { PeriodSelector } from "@/components/bi/PeriodSelector";
+import { DrillDownProvider, useDrillDown } from "@/hooks/useDrillDown";
+import { periodSearchSchema, resolvePeriod, type ResolvedPeriod, type PeriodKey } from "@/lib/bi/period";
+import type { ReactNode } from "react";
 
 export const Route = createFileRoute("/bi")({
   component: BIPageGate,
+  validateSearch: periodSearchSchema,
   errorComponent: ({ error }) => (
     <div className="p-6 text-sm text-destructive">Erro BI: {String(error)}</div>
   ),
