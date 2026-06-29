@@ -103,6 +103,61 @@ const STEP_TO_DRILL: Record<CascataStepId, { kind: DrillKind; title: string; cru
   disparos:  { kind: "dispatches",    title: "Disparos de cadência",   crumb: "Diretoria · Disparos" },
 };
 
+function CascataCard(props: React.ComponentProps<typeof CascataOperacional>) {
+  const dd = useDrillDown();
+  return (
+    <CascataOperacional
+      {...props}
+      onDrillDown={(step) => {
+        const t = STEP_TO_DRILL[step];
+        dd.open({ id: `cascata-${step}`, kind: t.kind, title: t.title, crumb: t.crumb });
+      }}
+    />
+  );
+}
+
+type GargaloItem = React.ComponentProps<typeof GargalosPanel>["items"][number] & {
+  drill?: { kind: DrillKind; title: string; crumb?: string; params?: Record<string, unknown> };
+};
+function GargalosCard({ items }: { items: GargaloItem[] }) {
+  const dd = useDrillDown();
+  return (
+    <GargalosPanel
+      items={items.map((it) => ({
+        ...it,
+        onDrillDown: it.drill
+          ? () =>
+              dd.open({
+                id: `gargalo-${it.label}`,
+                kind: it.drill!.kind,
+                title: it.drill!.title,
+                crumb: it.drill!.crumb,
+                params: it.drill!.params,
+              })
+          : undefined,
+      }))}
+    />
+  );
+}
+
+function FunilCard(props: React.ComponentProps<typeof FunilExecutivo>) {
+  const dd = useDrillDown();
+  return (
+    <FunilExecutivo
+      {...props}
+      onStageClick={(s) =>
+        dd.open({
+          id: `funil-${s.stage}`,
+          kind: "leads-stage",
+          title: `Etapa: ${s.stage}`,
+          crumb: `Comercial · ${s.stage}`,
+          params: { stage: s.stage },
+        })
+      }
+    />
+  );
+}
+
 export const Route = createFileRoute("/bi")({
   component: BIPageGate,
   validateSearch: periodSearchSchema,
