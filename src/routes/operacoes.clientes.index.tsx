@@ -13,6 +13,7 @@ import { ClienteFormDialog } from "@/modules/operacoes/components/ClienteFormDia
 import { deleteCliente, importClientesFromContratos, listClientes } from "@/modules/operacoes/api";
 import { OP_CLIENTE_STATUS_LABEL, type OpCliente } from "@/modules/operacoes/types";
 import { createClient as createLifecycleClient, listClients as listLifecycleClients } from "@/modules/lifecycle/api";
+import { pushLifecycleLog } from "@/lib/lifecycle/audit-log";
 import { supabase } from "@/integrations/supabase/client";
 import { STAGE_LABEL, STAGE_TONE } from "@/modules/lifecycle/types";
 
@@ -92,7 +93,7 @@ function ClientesPage() {
 
   async function openClient(c: OpCliente) {
     const trace = (step: string, payload?: Record<string, unknown>) =>
-      console.info(`[lifecycle-link] ${step}`, { op_cliente_id: c.id, nome: c.nome, empresa: c.empresa, ...payload });
+      pushLifecycleLog(step, { op_cliente_id: c.id, nome: c.nome, empresa: c.empresa, ...payload });
     try {
       setOpening(c.id);
       trace("open:start");
@@ -148,7 +149,12 @@ function ClientesPage() {
       trace("open:navigate", { lc_id: lcId });
       navigate({ to: "/operacoes/clientes/$id", params: { id: lcId } });
     } catch (e) {
-      console.error("[lifecycle-link] open:error", { op_cliente_id: c.id, error: e });
+      pushLifecycleLog("open:error", {
+        op_cliente_id: c.id,
+        nome: c.nome,
+        empresa: c.empresa,
+        error: (e as Error)?.message ?? String(e),
+      });
       toast.error((e as Error).message);
     } finally {
       setOpening(null);
