@@ -62,9 +62,30 @@ const rpc = (sb as unknown as {
 }).rpc.bind(sb);
 
 const LOCAL_KEY = "bi.goals.overrides.v1";
+const CLEANUP_MARKER = "bi.goals.cleanup.mrr10k.v1";
+
+/** Limpeza one-shot: zera override antigo de 10k em recurring_revenue_goal. */
+function migrateStaleMrr10k() {
+  if (typeof window === "undefined") return;
+  try {
+    if (window.localStorage.getItem(CLEANUP_MARKER)) return;
+    const raw = window.localStorage.getItem(LOCAL_KEY);
+    if (raw) {
+      const obj = JSON.parse(raw) as Partial<BIGoals>;
+      if (obj && obj.recurring_revenue_goal === 10000) {
+        delete obj.recurring_revenue_goal;
+        window.localStorage.setItem(LOCAL_KEY, JSON.stringify(obj));
+      }
+    }
+    window.localStorage.setItem(CLEANUP_MARKER, "1");
+  } catch {
+    /* ignore */
+  }
+}
 
 function readLocalOverrides(): Partial<BIGoals> {
   if (typeof window === "undefined") return {};
+  migrateStaleMrr10k();
   try {
     const raw = window.localStorage.getItem(LOCAL_KEY);
     return raw ? (JSON.parse(raw) as Partial<BIGoals>) : {};
