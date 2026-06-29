@@ -74,6 +74,7 @@ async function fetchRangeMetricsRaw(ini: string, fim: string | undefined): Promi
     gte: (c: string, v: string) => Q;
     lte: (c: string, v: string) => Q;
     in: (c: string, v: string[]) => Q;
+    is: (c: string, v: unknown) => Q;
   };
   const between = (q: unknown, col: string): Q => {
     let out = (q as Q).gte(col, ini);
