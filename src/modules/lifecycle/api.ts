@@ -147,12 +147,22 @@ export async function updateClient(
   >,
 ): Promise<LifecycleClient> {
   const payload: Record<string, unknown> = { ...patch, updated_at: new Date().toISOString() };
-  const { data, error } = await db
-    .from("clients")
-    .update(payload)
-    .eq("id", id)
-    .select("*")
-    .single();
-  if (error) throw new Error(error.message);
-  return data as LifecycleClient;
+  // Be resilient to backends that haven't migrated new columns yet:
+  // PostgREST returns PGRST204 / "Could not find the 'X' column" — strip
+  // that key and retry until it succeeds or no unknown column remains.
+  for (let i = 0; i < 12; i++) {
+    const { data, error } = await db
+      .from("clients")
+      .update(payload)
+      .eq("id", id)
+      .select("*")
+      .single();
+    if (!error) return data as LifecycleClient;
+    const m = /Could not find the '([^']+)' column/i.exec(error.message ?? "");
+    if (!m || !(m[1] in payload)) throw new Error(error.message);
+    delete payload[m[1]];
+    // eslint-disable-next-line no-console
+    console.warn(`[lifecycle/updateClient] coluna ausente no schema: ${m[1]} (ignorando)`);
+  }
+  throw new Error("Falha ao salvar cliente: schema desatualizado");
 }
