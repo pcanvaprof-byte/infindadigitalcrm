@@ -542,13 +542,13 @@ function BIPage() {
                 <PerformanceSemanaPanel
                   period={period}
                   goals={{
-                    receita: goals.weekly_revenue_goal || DEFAULT_WEEK_GOALS.receita,
-                    contratos: goals.weekly_contracts_goal || DEFAULT_WEEK_GOALS.contratos,
-                    empresas: goals.weekly_companies_goal || DEFAULT_WEEK_GOALS.empresas,
-                    disparos: goals.weekly_dispatches_goal || DEFAULT_WEEK_GOALS.disparos,
-                    novosContatos: goals.weekly_new_contacts_goal || DEFAULT_WEEK_GOALS.novosContatos,
-                    videos: goals.weekly_videos_goal || DEFAULT_WEEK_GOALS.videos,
-                    parcerias: goals.weekly_partnerships_goal || DEFAULT_WEEK_GOALS.parcerias,
+                    receita: goals.weekly_revenue_goal,
+                    contratos: goals.weekly_contracts_goal,
+                    empresas: goals.weekly_companies_goal,
+                    disparos: goals.weekly_dispatches_goal,
+                    novosContatos: goals.weekly_new_contacts_goal,
+                    videos: goals.weekly_videos_goal,
+                    parcerias: goals.weekly_partnerships_goal,
                   }}
                 />
                 <div className="grid gap-5 lg:grid-cols-[1.2fr_1fr]">
