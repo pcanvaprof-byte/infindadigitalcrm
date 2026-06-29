@@ -27,6 +27,9 @@ import { MarketingPanel } from "@/components/bi/MarketingPanel";
 import { OperacoesPanel } from "@/components/bi/OperacoesPanel";
 import { HojePanel } from "@/components/bi/HojePanel";
 import { SemanaPanel } from "@/components/bi/SemanaPanel";
+import { CascataOperacional } from "@/components/bi/CascataOperacional";
+import { GargalosPanel } from "@/components/bi/GargalosPanel";
+import { PrevisaoPanel } from "@/components/bi/PrevisaoPanel";
 
 export const Route = createFileRoute("/bi")({
   component: BIPageGate,
