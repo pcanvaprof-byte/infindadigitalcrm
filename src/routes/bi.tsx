@@ -498,8 +498,9 @@ function BIPage() {
                 <MetaHero
                   realizado={diretoriaKpis.receita_realizada ?? 0}
                   ticket={diretoriaKpis.ticket_medio ?? 0}
-                  meta={goals.revenue_goal}
+                  meta={scaleGoal(goals.revenue_goal, period)}
                   recorrencia={Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal)}
+                  period={period}
                 />
                 <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
                   <ScopeWrapper active={period.key === "hoje"} scopeLabel="Hoje">
@@ -526,7 +527,7 @@ function BIPage() {
                 />
                 <div className="grid gap-5 lg:grid-cols-[1.2fr_1fr]">
                   <CascataCard
-                    meta={goals.revenue_goal}
+                    meta={scaleGoal(goals.revenue_goal, period)}
                     realizado={diretoriaKpis.receita_realizada ?? 0}
                     recorrencia={Math.max(diretoriaKpis.mrr ?? 0, goals.recurring_revenue_goal)}
                     ticket={diretoriaKpis.ticket_medio ?? 0}
@@ -534,26 +535,26 @@ function BIPage() {
                   />
                   <GargalosCard
                     items={[
-                      { label: "Receita do mês", scope: "mês",
+                      { label: `Receita ${goalScopeLabel(period)}`, scope: period.label,
                         value: Math.round((diretoriaKpis.mrr ?? 0) + (diretoriaKpis.receita_realizada ?? 0)),
-                        goal: goals.revenue_goal,
+                        goal: scaleGoal(goals.revenue_goal, period),
                         drill: { kind: "contracts" as const, title: "Contratos do período", crumb: "Diretoria · Receita" } },
                       { label: "Receita da semana", scope: "semana",
                         value: Math.round(diretoriaKpis.receita_realizada ?? 0),
                         goal: goals.weekly_revenue_goal,
                         drill: { kind: "contracts" as const, title: "Contratos do período", crumb: "Diretoria · Receita" } },
-                      { label: "Contratos", scope: "mês",
+                      { label: "Contratos", scope: period.label,
                         value: (data?.funnel ?? []).find((s) => /contrat|fech/i.test(s.stage))?.clientes ?? 0,
-                        goal: goals.contracts_goal,
+                        goal: scaleGoal(goals.contracts_goal, period),
                         drill: { kind: "contracts" as const, title: "Contratos do período", crumb: "Diretoria · Contratos" } },
-                      { label: "Reuniões", scope: "mês",
+                      { label: "Reuniões", scope: period.label,
                         value: (data?.funnel ?? []).find((s) => /reuni/i.test(s.stage))?.clientes ?? 0,
-                        goal: goals.meetings_goal,
+                        goal: scaleGoal(goals.meetings_goal, period),
                         drill: { kind: "touchpoints-channel" as const, title: "Reuniões registradas", crumb: "Diretoria · Reuniões" } },
-                      { label: "Leads", scope: "mês",
+                      { label: "Leads", scope: period.label,
                         value: (data?.funnel ?? []).find((s) => /lead|prospec/i.test(s.stage))?.clientes
                           ?? (data?.funnel?.[0]?.clientes ?? 0),
-                        goal: goals.leads_goal,
+                        goal: scaleGoal(goals.leads_goal, period),
                         drill: { kind: "prospects-new" as const, title: "Leads novos do período", crumb: "Diretoria · Leads" } },
                     ]}
                   />
@@ -575,11 +576,7 @@ function BIPage() {
                       ? Math.min(1, data.forecast.taxa_conversao_historica / 100)
                       : undefined)
                   }
-                  meta={
-                    period.key === "mes"
-                      ? goals.revenue_goal
-                      : scaleGoal(goals.revenue_goal, period)
-                  }
+                  meta={scaleGoal(goals.revenue_goal, period)}
                   periodLabel={period.label}
                   rangeLabel={period.rangeLabel}
                 />
