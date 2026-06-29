@@ -34,6 +34,7 @@ import { Route as CatalogoIdRouteImport } from './routes/catalogo.$id'
 import { Route as BriefingsIdRouteImport } from './routes/briefings.$id'
 import { Route as BriefingTokenRouteImport } from './routes/briefing.$token'
 import { Route as BiConfiguracoesRouteImport } from './routes/bi.configuracoes'
+import { Route as OperacoesClientesIndexRouteImport } from './routes/operacoes.clientes.index'
 import { Route as OperacoesClientesIdRouteImport } from './routes/operacoes.clientes.$id'
 import { Route as OperacoesClientesIdIndexRouteImport } from './routes/operacoes.clientes.$id.index'
 import { Route as OperacoesClientesIdRenovacoesRouteImport } from './routes/operacoes.clientes.$id.renovacoes'
@@ -171,6 +172,11 @@ const BiConfiguracoesRoute = BiConfiguracoesRouteImport.update({
   path: '/configuracoes',
   getParentRoute: () => BiRoute,
 } as any)
+const OperacoesClientesIndexRoute = OperacoesClientesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => OperacoesClientesRoute,
+} as any)
 const OperacoesClientesIdRoute = OperacoesClientesIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -264,6 +270,7 @@ export interface FileRoutesByFullPath {
   '/propostas/$id': typeof PropostasIdRoute
   '/operacoes/': typeof OperacoesIndexRoute
   '/operacoes/clientes/$id': typeof OperacoesClientesIdRouteWithChildren
+  '/operacoes/clientes/': typeof OperacoesClientesIndexRoute
   '/operacoes/clientes/$id/campanhas': typeof OperacoesClientesIdCampanhasRoute
   '/operacoes/clientes/$id/comercial': typeof OperacoesClientesIdComercialRoute
   '/operacoes/clientes/$id/documentos': typeof OperacoesClientesIdDocumentosRoute
@@ -297,10 +304,10 @@ export interface FileRoutesByTo {
   '/catalogo/$id': typeof CatalogoIdRoute
   '/catalogo/novo': typeof CatalogoNovoRoute
   '/contratos/$id': typeof ContratosIdRoute
-  '/operacoes/clientes': typeof OperacoesClientesRouteWithChildren
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
   '/operacoes': typeof OperacoesIndexRoute
+  '/operacoes/clientes': typeof OperacoesClientesIndexRoute
   '/operacoes/clientes/$id/campanhas': typeof OperacoesClientesIdCampanhasRoute
   '/operacoes/clientes/$id/comercial': typeof OperacoesClientesIdComercialRoute
   '/operacoes/clientes/$id/documentos': typeof OperacoesClientesIdDocumentosRoute
@@ -340,6 +347,7 @@ export interface FileRoutesById {
   '/propostas/$id': typeof PropostasIdRoute
   '/operacoes/': typeof OperacoesIndexRoute
   '/operacoes/clientes/$id': typeof OperacoesClientesIdRouteWithChildren
+  '/operacoes/clientes/': typeof OperacoesClientesIndexRoute
   '/operacoes/clientes/$id/campanhas': typeof OperacoesClientesIdCampanhasRoute
   '/operacoes/clientes/$id/comercial': typeof OperacoesClientesIdComercialRoute
   '/operacoes/clientes/$id/documentos': typeof OperacoesClientesIdDocumentosRoute
@@ -380,6 +388,7 @@ export interface FileRouteTypes {
     | '/propostas/$id'
     | '/operacoes/'
     | '/operacoes/clientes/$id'
+    | '/operacoes/clientes/'
     | '/operacoes/clientes/$id/campanhas'
     | '/operacoes/clientes/$id/comercial'
     | '/operacoes/clientes/$id/documentos'
@@ -413,10 +422,10 @@ export interface FileRouteTypes {
     | '/catalogo/$id'
     | '/catalogo/novo'
     | '/contratos/$id'
-    | '/operacoes/clientes'
     | '/proposta/$token'
     | '/propostas/$id'
     | '/operacoes'
+    | '/operacoes/clientes'
     | '/operacoes/clientes/$id/campanhas'
     | '/operacoes/clientes/$id/comercial'
     | '/operacoes/clientes/$id/documentos'
@@ -455,6 +464,7 @@ export interface FileRouteTypes {
     | '/propostas/$id'
     | '/operacoes/'
     | '/operacoes/clientes/$id'
+    | '/operacoes/clientes/'
     | '/operacoes/clientes/$id/campanhas'
     | '/operacoes/clientes/$id/comercial'
     | '/operacoes/clientes/$id/documentos'
@@ -666,6 +676,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BiConfiguracoesRouteImport
       parentRoute: typeof BiRoute
     }
+    '/operacoes/clientes/': {
+      id: '/operacoes/clientes/'
+      path: '/'
+      fullPath: '/operacoes/clientes/'
+      preLoaderRoute: typeof OperacoesClientesIndexRouteImport
+      parentRoute: typeof OperacoesClientesRoute
+    }
     '/operacoes/clientes/$id': {
       id: '/operacoes/clientes/$id'
       path: '/$id'
@@ -838,10 +855,12 @@ const OperacoesClientesIdRouteWithChildren =
 
 interface OperacoesClientesRouteChildren {
   OperacoesClientesIdRoute: typeof OperacoesClientesIdRouteWithChildren
+  OperacoesClientesIndexRoute: typeof OperacoesClientesIndexRoute
 }
 
 const OperacoesClientesRouteChildren: OperacoesClientesRouteChildren = {
   OperacoesClientesIdRoute: OperacoesClientesIdRouteWithChildren,
+  OperacoesClientesIndexRoute: OperacoesClientesIndexRoute,
 }
 
 const OperacoesClientesRouteWithChildren =
@@ -871,3 +890,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
