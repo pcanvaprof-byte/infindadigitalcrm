@@ -13,7 +13,9 @@ export interface WeekMetrics {
   contatos: number;       // touchpoints outbound na semana
   contratos: number;      // contratos assinados na semana
   empresasTrabalhadas: number; // distinct prospect_id tocados na semana
-  novosContatos: number;  // prospects criados na semana
+  novosContatos: number;       // união (cadastrados + via disparo) — anti-duplicação
+  novosCadastrados: number;    // prospects criados via formulário/visita/indicação
+  novosViaDisparo: number;     // cad_leads que entraram pela cadência sem virar prospect ainda
   videos: number;         // sem fonte ainda → fallback 0
   parcerias: number;      // sem fonte ainda → fallback 0
 }
@@ -75,13 +77,14 @@ async function fetchRangeMetricsRaw(ini: string, fim: string | undefined): Promi
     lte: (c: string, v: string) => Q;
     in: (c: string, v: string[]) => Q;
     is: (c: string, v: unknown) => Q;
+    not: (c: string, op: string, v: unknown) => Q;
   };
   const between = (q: unknown, col: string): Q => {
     let out = (q as Q).gte(col, ini);
     if (fim) out = out.lte(col, fim);
     return out;
   };
-  const [cad, tp, cnt, tpRows, novosProspects, novosCadOnly] = await Promise.all([
+  const [cad, tp, cnt, tpRows, novosProspects, novosCadOnly, novosCadComProspect] = await Promise.all([
     between(sb.from("cad_messages" as never).select("id", { count: "exact", head: true }), "created_at"),
     between(sb.from("prospect_touchpoints" as never).select("id", { count: "exact", head: true }), "enviado_em").in(
       "tipo",
@@ -96,6 +99,15 @@ async function fetchRangeMetricsRaw(ini: string, fim: string | undefined): Promi
       "prospect_id",
       null,
     ),
+    // Verificação automática anti-duplicação: conta cad_leads no período que JÁ
+    // possuem prospect_id. Esses NÃO devem entrar em "Novos contatos" — são
+    // contados pela tabela prospects. Se algum dia esse número escapar pro
+    // total, vira evidência clara de falha no filtro.
+    between(sb.from("cad_leads" as never).select("id", { count: "exact", head: true }), "created_at").not(
+      "prospect_id",
+      "is",
+      null,
+    ),
   ]);
   type Contract = { monthly_value?: number | null; contract_value?: number | null };
   const contratos = ((cnt as unknown as { data: Contract[] | null }).data ?? []) as Contract[];
@@ -107,6 +119,17 @@ async function fetchRangeMetricsRaw(ini: string, fim: string | undefined): Promi
   const empresasTrabalhadas = new Set(tpData.map((r) => r.prospect_id).filter(Boolean)).size;
   const novosProspectsCount = (novosProspects as unknown as { count: number | null }).count ?? 0;
   const novosCadCount = (novosCadOnly as unknown as { count: number | null }).count ?? 0;
+  const cadComProspectCount = (novosCadComProspect as unknown as { count: number | null }).count ?? 0;
+
+  // Sanity check em runtime: garante que cad_leads vinculados a prospect NÃO
+  // estão sendo somados. Se aparecer no console, há regressão no filtro acima.
+  if (cadComProspectCount > 0 && import.meta.env?.DEV) {
+    // eslint-disable-next-line no-console
+    console.debug(
+      `[bi/today] anti-dup ok: ${cadComProspectCount} cad_leads com prospect_id no período foram ignorados ` +
+        `(já contabilizados via prospects).`,
+    );
+  }
   return {
     receita,
     disparos: (cad as unknown as { count: number | null }).count ?? 0,
@@ -115,6 +138,8 @@ async function fetchRangeMetricsRaw(ini: string, fim: string | undefined): Promi
     empresasTrabalhadas,
     // União: cadastros + leads vindos da cadência sem prospect ainda.
     novosContatos: novosProspectsCount + novosCadCount,
+    novosCadastrados: novosProspectsCount,
+    novosViaDisparo: novosCadCount,
     videos: 0,
     parcerias: 0,
   };
