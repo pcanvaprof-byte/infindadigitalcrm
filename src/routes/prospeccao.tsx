@@ -431,10 +431,8 @@ function ProspeccaoPage() {
       const s = (p.segment || "").trim();
       if (s) set.add(s);
     }
-    const list = Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
-    // Ensure canonical segments still appear even if no prospect uses them
-    for (const s of SEGMENTS) if (!set.has(s)) list.push(s);
-    return list;
+    // Apenas nichos reais presentes na base.
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [prospects]);
 
   // Apenas UFs reais presentes na base (derivadas do CNPJ/cadastro).
