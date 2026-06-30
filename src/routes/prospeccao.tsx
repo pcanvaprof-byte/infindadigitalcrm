@@ -685,7 +685,7 @@ function ProspeccaoPage() {
     }
   };
 
-  const openWhats = async (p: Prospect) => {
+  const openWhats = async (p: Prospect, accountOverride?: "default" | "personal" | "business") => {
     console.log("[prosp] openWhats:click", { id: p.id, company: p.company, whatsapp: p.whatsapp });
     const d = onlyDigits(p.whatsapp);
     if (!d) {
@@ -732,12 +732,13 @@ function ProspeccaoPage() {
     const phone = `55${d}`;
     const encoded = encodeURIComponent(msg);
     const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+    const acct = accountOverride ?? waAccount;
     let url = `https://wa.me/${phone}?text=${encoded}`;
-    if (isAndroid && waAccount !== "default") {
-      const pkg = waAccount === "business" ? "com.whatsapp.w4b" : "com.whatsapp";
+    if (isAndroid && acct !== "default") {
+      const pkg = acct === "business" ? "com.whatsapp.w4b" : "com.whatsapp";
       url = `intent://send?phone=${phone}&text=${encoded}#Intent;scheme=whatsapp;package=${pkg};end`;
     }
-    console.log("[prosp] openWhats:window.open", { url, account: waAccount });
+    console.log("[prosp] openWhats:window.open", { url, account: acct, override: !!accountOverride });
     window.open(url, "_blank");
     } finally {
       // Cooldown curto para não permitir 2 cliques sequenciais que abram
