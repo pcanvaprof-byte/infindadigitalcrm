@@ -336,6 +336,7 @@ function ProspeccaoPage() {
   const [stateFilter, setStateFilter] = useState<string>("all");
   const [potentialFilter, setPotentialFilter] = useState<ProspectPotential | "all">("all");
   const [onlyWithContact, setOnlyWithContact] = useState(false);
+  const [noWhatsapp, setNoWhatsapp] = useState(false);
   type CadenceChip = "all" | "hoje" | "atrasados" | "sem_resposta" | "responderam" | "interessados" | "clientes";
   const [cadenceFilter, setCadenceFilter] = useState<CadenceChip>("all");
   const [touchpointTarget, setTouchpointTarget] = useState<{ prospect: Prospect; tipo: TouchpointTipo } | null>(null);
@@ -403,6 +404,10 @@ function ProspeccaoPage() {
         );
         if (!hasContact) return false;
       }
+      if (noWhatsapp) {
+        const digits = (p.whatsapp || "").replace(/\D/g, "");
+        if (digits.length >= 10) return false;
+      }
       // Filtros de cadência (Fase 6) — só ativos quando migration aplicada e dados populados.
       if (cadenceFilter !== "all") {
         const now = Date.now();
@@ -434,7 +439,34 @@ function ProspeccaoPage() {
       return [p.company, p.segment, p.owner, p.email, p.whatsapp, p.phone, p.instagram, p.city, p.state, p.source]
         .join(" ").toLowerCase().includes(q);
     });
-  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, cadenceFilter]);
+  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, cadenceFilter]);
+
+  // Bloqueio de 24h por disparo recente (whatsapp/ligação/email outbound).
+  // Empresas com disparo nas últimas 24h são jogadas para o FINAL da lista,
+  // ordenadas pelo disparo mais antigo primeiro (próximas a "destravar").
+  const filteredOrdered = useMemo(() => {
+    const BLOCK_MS = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const isOutbound = (k: string) => k === "whatsapp" || k === "ligacao" || k === "email";
+    const lastOut = (p: Prospect): number => {
+      let max = 0;
+      for (const ix of p.interactions ?? []) {
+        if (!isOutbound(ix.kind)) continue;
+        const t = ix.at ? Date.parse(ix.at) : 0;
+        if (t > max) max = t;
+      }
+      return max;
+    };
+    const active: Prospect[] = [];
+    const blocked: Array<{ p: Prospect; last: number }> = [];
+    for (const p of filtered) {
+      const last = lastOut(p);
+      if (last > 0 && now - last < BLOCK_MS) blocked.push({ p, last });
+      else active.push(p);
+    }
+    blocked.sort((a, b) => a.last - b.last);
+    return [...active, ...blocked.map((b) => b.p)];
+  }, [filtered]);
 
   const availableSegments = useMemo(() => {
     const counts = new Map<string, number>();
@@ -601,10 +633,10 @@ function ProspeccaoPage() {
       return n;
     });
 
-  const allVisibleSelected = filtered.length > 0 && filtered.every((p) => selected.has(p.id));
+  const allVisibleSelected = filteredOrdered.length > 0 && filteredOrdered.every((p) => selected.has(p.id));
   const toggleSelectAll = () => {
     if (allVisibleSelected) setSelected(new Set());
-    else setSelected(new Set(filtered.map((p) => p.id)));
+    else setSelected(new Set(filteredOrdered.map((p) => p.id)));
   };
 
   const logAttempt = async (prospect: Prospect, tipo: TouchpointTipo) => {
@@ -868,7 +900,7 @@ function ProspeccaoPage() {
 
 
   const clearFilters = () => {
-    setStatusFilter("all"); setSegmentFilter("all"); setStateFilter("all"); setPotentialFilter("all"); setSearch(""); setOnlyWithContact(false);
+    setStatusFilter("all"); setSegmentFilter("all"); setStateFilter("all"); setPotentialFilter("all"); setSearch(""); setOnlyWithContact(false); setNoWhatsapp(false);
   };
 
   const bulkEnrich = async () => {
@@ -1098,6 +1130,14 @@ function ProspeccaoPage() {
               />
               Mostrar somente empresas com contato disponível (WhatsApp, telefone ou e-mail)
             </label>
+            <label className="col-span-full flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
+              <NativeCheckbox
+                checked={noWhatsapp}
+                onChange={setNoWhatsapp}
+                ariaLabel="Mostrar somente empresas sem WhatsApp"
+              />
+              Somente <strong className="text-foreground">sem WhatsApp</strong> — útil para enriquecer a base (Google/Instagram/CNPJ)
+            </label>
           </div>
         )}
       </section>
@@ -1171,7 +1211,7 @@ function ProspeccaoPage() {
           {/* Mobile: card list */}
           <div className="md:hidden">
             <MobileProspectList
-              items={filtered}
+              items={filteredOrdered}
               selected={selected}
               onToggleSelect={toggleSelect}
               onOpen={setDetailId}
@@ -1184,7 +1224,7 @@ function ProspeccaoPage() {
             />
           </div>
           <DesktopProspectTable
-            items={filtered}
+            items={filteredOrdered}
             selected={selected}
             allVisibleSelected={allVisibleSelected}
             onToggleSelect={toggleSelect}
@@ -1198,13 +1238,13 @@ function ProspeccaoPage() {
             onRemove={(id) => removeProspect([id])}
           />
           <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground">
-            <span>Mostrando {filtered.length} de {prospects.length} empresas</span>
+            <span>Mostrando {filteredOrdered.length} de {prospects.length} empresas · empresas com disparo nas últimas 24h vão para o final</span>
             <span className="hidden sm:inline">INFINDA digital — Prospecção</span>
           </div>
         </section>
       ) : (
         <KanbanView
-          prospects={filtered}
+          prospects={filteredOrdered}
           onOpen={(id) => setDetailId(id)}
           onMove={(id, status) => updateStatus(id, status)}
         />
@@ -1414,6 +1454,29 @@ function DesktopProspectTable({
                   <div className="px-4 py-3">
                     <div className="text-xs">{p.whatsapp || p.phone || "—"}</div>
                     <div className="text-[11px] text-muted-foreground">{p.email || p.instagram || "—"}</div>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {(((p.whatsapp || "").replace(/\D/g, "")).length < 10) && (
+                        <span className="inline-flex items-center rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300" title="Empresa sem WhatsApp — candidata a enriquecimento">
+                          Sem WhatsApp
+                        </span>
+                      )}
+                      {(() => {
+                        const isOut = (k: string) => k === "whatsapp" || k === "ligacao" || k === "email";
+                        let max = 0;
+                        for (const ix of p.interactions ?? []) {
+                          if (!isOut(ix.kind)) continue;
+                          const t = ix.at ? Date.parse(ix.at) : 0;
+                          if (t > max) max = t;
+                        }
+                        if (!max || Date.now() - max >= 86_400_000) return null;
+                        const h = Math.max(1, Math.ceil((86_400_000 - (Date.now() - max)) / 3_600_000));
+                        return (
+                          <span className="inline-flex items-center rounded border border-sky-500/40 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-300" title="Disparo recente — liberará em breve">
+                            ⏱ libera em {h}h
+                          </span>
+                        );
+                      })()}
+                    </div>
                   </div>
                   <div className="px-4 py-3 text-xs">{p.city ? `${p.city} - ${p.state}` : p.state || "—"}</div>
                   <div className="px-4 py-3 text-xs">{p.source}</div>
