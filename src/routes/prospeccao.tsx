@@ -2301,11 +2301,12 @@ const MobileProspectRow = memo(function MobileProspectRow({
 });
 
 function MobileProspectList({
-  items, selected, busyIds, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
+  items, selected, busyIds, busyWhatsIds, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
 }: {
   items: Prospect[];
   selected: Set<string>;
   busyIds?: Set<string>;
+  busyWhatsIds?: Set<string>;
   onToggleSelect: (id: string) => void;
   onOpen: (id: string) => void;
   onWhats: (p: Prospect) => void;
