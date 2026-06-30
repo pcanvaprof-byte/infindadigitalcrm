@@ -1705,6 +1705,7 @@ function DesktopProspectTable({
                         onStatus={onStatus}
                         onRemove={() => onRemove(p.id)}
                         onOpen={() => onOpen(p.id)}
+                        busyWhats={busyWhatsIds?.has(p.id)}
                       />
                       <Button
                         size="icon"
