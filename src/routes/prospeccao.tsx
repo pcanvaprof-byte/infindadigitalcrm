@@ -1964,12 +1964,30 @@ function DetailDialog({
           <div className="surface-card p-3 space-y-2">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Ações</p>
             <div className="grid grid-cols-2 gap-2">
-              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onWhats} disabled={!!whatsBusy}>
-                {whatsBusy
-                  ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin text-emerald-400" />
-                  : <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-emerald-400" />}
-                {whatsBusy ? "Enviando…" : "WhatsApp"}
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline" className="h-8 text-xs" disabled={!!whatsBusy}>
+                    {whatsBusy
+                      ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin text-emerald-400" />
+                      : <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-emerald-400" />}
+                    {whatsBusy ? "Enviando…" : "WhatsApp"}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-52">
+                  <DropdownMenuLabel className="text-[11px] text-muted-foreground">
+                    Disparar usando…
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem className="text-xs" onClick={() => onWhats("default")}>
+                    <MessageSquare className="mr-2 h-3.5 w-3.5 text-emerald-400" /> WhatsApp padrão
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-xs" onClick={() => onWhats("personal")}>
+                    <MessageSquare className="mr-2 h-3.5 w-3.5" /> WhatsApp Normal
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-xs" onClick={() => onWhats("business")}>
+                    <MessageSquare className="mr-2 h-3.5 w-3.5" /> WhatsApp Business
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onCall}>
                 <Phone className="mr-1.5 h-3.5 w-3.5" /> Ligar
               </Button>
