@@ -1756,7 +1756,7 @@ const RowActions = memo(function RowActions({
   p, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onOpen, busyWhats,
 }: {
   p: Prospect;
-  onWhats: (p: Prospect) => void;
+  onWhats: (p: Prospect, account?: "default" | "personal" | "business") => void;
   onCall: (p: Prospect) => void;
   onAgendar: () => void;
   onConvert: () => void;
@@ -1766,19 +1766,39 @@ const RowActions = memo(function RowActions({
   busyWhats?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [waOpen, setWaOpen] = useState(false);
 
   return (
     <div className="flex items-center justify-end gap-1">
-      <Button
-        size="icon"
-        variant="ghost"
-        className="h-8 w-8 text-emerald-400"
-        title={busyWhats ? "Enviando…" : "WhatsApp"}
-        disabled={!!busyWhats}
-        onClick={() => onWhats(p)}
-      >
-        {busyWhats ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
-      </Button>
+      <DropdownMenu open={waOpen} onOpenChange={setWaOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-emerald-400"
+            title={busyWhats ? "Enviando…" : "WhatsApp — escolher conta"}
+            disabled={!!busyWhats}
+          >
+            {busyWhats ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
+          </Button>
+        </DropdownMenuTrigger>
+        {waOpen && (
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuLabel className="text-[11px] text-muted-foreground">
+              Disparar usando…
+            </DropdownMenuLabel>
+            <DropdownMenuItem className="text-xs" onClick={() => onWhats(p, "default")}>
+              <MessageSquare className="mr-2 h-3.5 w-3.5 text-emerald-400" /> WhatsApp padrão
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-xs" onClick={() => onWhats(p, "personal")}>
+              <MessageSquare className="mr-2 h-3.5 w-3.5" /> WhatsApp Normal
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-xs" onClick={() => onWhats(p, "business")}>
+              <MessageSquare className="mr-2 h-3.5 w-3.5" /> WhatsApp Business
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        )}
+      </DropdownMenu>
       <Button size="icon" variant="ghost" className="h-8 w-8" title="Ligar" onClick={() => onCall(p)}>
         <Phone className="h-4 w-4" />
       </Button>
