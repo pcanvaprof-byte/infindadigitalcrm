@@ -443,17 +443,17 @@ export async function importFromProspects(): Promise<{ imported: number; updated
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await db
       .from("prospects")
-      .select("id,status,whatsapp,telefone")
+      .select("id,status,whatsapp,phone")
       .order("created_at", { ascending: false })
       .range(from, from + pageSize - 1);
     if (error) throw new Error(error.message);
-    const rows = (data ?? []) as (ProspectStatusRow & { whatsapp?: string | null; telefone?: string | null })[];
+    const rows = (data ?? []) as (ProspectStatusRow & { whatsapp?: string | null; phone?: string | null })[];
     for (const r of rows) {
       if (!r.status || r.status === "nao_contatado") naoContatadoIds.push(r.id);
       else eligibleIds.push(r.id);
       // guarda dígitos para dedupe abaixo
       (eligibleIds as any).__digits = (eligibleIds as any).__digits || new Map<string, string>();
-      const digits = ((r.whatsapp || r.telefone || "") as string).replace(/\D/g, "");
+      const digits = ((r.whatsapp || r.phone || "") as string).replace(/\D/g, "");
       if (digits.length >= 8) (eligibleIds as any).__digits.set(r.id, digits);
     }
     if (rows.length < pageSize) break;
