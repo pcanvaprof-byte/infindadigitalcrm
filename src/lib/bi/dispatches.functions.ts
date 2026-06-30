@@ -181,6 +181,23 @@ function spDateKey(iso: string): string {
 export const auditDispatches = createServerFn({ method: "POST" })
   .inputValidator((input: { from?: string; to?: string } | undefined) => input ?? {})
   .handler(async ({ data }) => {
+    // ----- Cache + rate-limit (in-memory, por instância do worker) -----
+    // Não há primitiva de rate-limit oficial no backend; este controle é
+    // best-effort para evitar consultas repetidas. Persistência distribuída
+    // exigiria uma tabela/edge dedicada, fora do escopo deste endpoint.
+    const cacheKey = data?.from && data?.to ? `${data.from}|${data.to}` : "__default__";
+    const cached = AUDIT_CACHE.get(cacheKey);
+    const nowMs = Date.now();
+    if (cached && nowMs - cached.at < AUDIT_TTL_MS) {
+      return cached.payload;
+    }
+    if (!checkRateLimit()) {
+      // Se houver versão em cache (mesmo expirada), devolve a stale com aviso —
+      // melhor consistência eventual do que erro 429 num dashboard interno.
+      if (cached) return cached.payload;
+      throw new Error("rate_limit_exceeded: auditDispatches");
+    }
+
     const today = dayRange(0);
     const yesterday = dayRange(1);
     const last7d = rangeLastDays(7);
@@ -230,8 +247,25 @@ export const auditDispatches = createServerFn({ method: "POST" })
       daily_series,
       custom,
     };
+    AUDIT_CACHE.set(cacheKey, { at: nowMs, payload: result });
     return result;
   });
+
+// =====================================================================
+// Cache + rate-limit (in-memory). TTL curto: dashboard recarrega <=1/min.
+// =====================================================================
+const AUDIT_TTL_MS = 30_000;
+const AUDIT_CACHE = new Map<string, { at: number; payload: DispatchAuditResult }>();
+const RL_WINDOW_MS = 60_000;
+const RL_MAX = 30; // 30 chamadas/min por instância
+const RL_HITS: number[] = [];
+function checkRateLimit(): boolean {
+  const now = Date.now();
+  while (RL_HITS.length && now - RL_HITS[0] > RL_WINDOW_MS) RL_HITS.shift();
+  if (RL_HITS.length >= RL_MAX) return false;
+  RL_HITS.push(now);
+  return true;
+}
 
 // =====================================================================
 // Exportação CSV: retorna linhas brutas combinadas (cadência + prospecção)
