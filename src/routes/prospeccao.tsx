@@ -1184,30 +1184,37 @@ function ProspeccaoPage() {
         <StatCard icon={CalendarPlus} label="Agendadas" value={stats.agendadas} hint="Com reunião marcada" />
       </section>
 
-      {/* Cadência — chips de filtro server-side-shape e widget de ações de hoje */}
+      {/* Conta padrão do WhatsApp para os disparos desta tela */}
       <section className="mt-6 surface-card p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          {([
-            { k: "all",          label: "Todos" },
-            { k: "hoje",         label: "🔥 Hoje" },
-            { k: "atrasados",    label: "⚠️ Atrasados" },
-            { k: "sem_resposta", label: "📩 Sem resposta" },
-            { k: "responderam",  label: "💬 Responderam" },
-            { k: "interessados", label: "🎯 Interessados" },
-            { k: "clientes",     label: "✅ Clientes" },
-          ] as { k: typeof cadenceFilter; label: string }[]).map((c) => (
-            <button
-              key={c.k}
-              onClick={() => setCadenceFilter(c.k)}
-              className={`rounded-full border px-3 py-1 text-xs transition ${
-                cadenceFilter === c.k
-                  ? "border-primary bg-primary/15 text-primary-glow"
-                  : "border-border bg-card/60 text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {c.label}
-            </button>
-          ))}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Conta padrão do WhatsApp
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Define qual perfil será usado nos disparos. Você ainda pode trocar por
+              disparo no menu do ícone do WhatsApp em cada card.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {([
+              { k: "default",  label: "Padrão do sistema" },
+              { k: "personal", label: "WhatsApp Normal" },
+              { k: "business", label: "WhatsApp Business" },
+            ] as { k: "default" | "personal" | "business"; label: string }[]).map((c) => (
+              <button
+                key={c.k}
+                onClick={() => changeWaAccount(c.k)}
+                className={`rounded-full border px-3 py-1 text-xs transition ${
+                  waAccount === c.k
+                    ? "border-emerald-500 bg-emerald-500/15 text-emerald-400"
+                    : "border-border bg-card/60 text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 
