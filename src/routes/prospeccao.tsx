@@ -1773,7 +1773,6 @@ const RowActions = memo(function RowActions({
   busyWhats?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [waOpen, setWaOpen] = useState(false);
 
   return (
     <div className="flex items-center justify-end gap-1">
