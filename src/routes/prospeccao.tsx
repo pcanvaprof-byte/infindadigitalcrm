@@ -2208,6 +2208,7 @@ function MobileProspectList({
             onConvert={onConvert}
             onStatus={onStatus}
             onRemove={onRemove}
+            onEnrich={onEnrich}
           />
         ))}
       </div>
@@ -2243,6 +2244,7 @@ function MobileProspectList({
               onConvert={onConvert}
               onStatus={onStatus}
               onRemove={onRemove}
+              onEnrich={onEnrich}
             />
           </div>
         );
