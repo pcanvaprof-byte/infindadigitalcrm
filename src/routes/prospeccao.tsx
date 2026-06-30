@@ -1749,7 +1749,7 @@ function NextActionCell({
 }
 
 const RowActions = memo(function RowActions({
-  p, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onOpen,
+  p, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onOpen, busyWhats,
 }: {
   p: Prospect;
   onWhats: (p: Prospect) => void;
@@ -1759,13 +1759,21 @@ const RowActions = memo(function RowActions({
   onStatus: (id: string, s: ProspectStatus) => void;
   onRemove: () => void;
   onOpen: () => void;
+  busyWhats?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <div className="flex items-center justify-end gap-1">
-      <Button size="icon" variant="ghost" className="h-8 w-8 text-emerald-400" title="WhatsApp" onClick={() => onWhats(p)}>
-        <MessageSquare className="h-4 w-4" />
+      <Button
+        size="icon"
+        variant="ghost"
+        className="h-8 w-8 text-emerald-400"
+        title={busyWhats ? "Enviando…" : "WhatsApp"}
+        disabled={!!busyWhats}
+        onClick={() => onWhats(p)}
+      >
+        {busyWhats ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
       </Button>
       <Button size="icon" variant="ghost" className="h-8 w-8" title="Ligar" onClick={() => onCall(p)}>
         <Phone className="h-4 w-4" />
