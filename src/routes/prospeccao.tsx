@@ -1185,10 +1185,18 @@ function ProspeccaoPage() {
             <label className="col-span-full flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
               <NativeCheckbox
                 checked={noWhatsapp}
-                onChange={setNoWhatsapp}
+                onChange={(v) => { setNoWhatsapp(v); if (v) setOnlyWhatsapp(false); }}
                 ariaLabel="Mostrar somente empresas sem WhatsApp"
               />
               Somente <strong className="text-foreground">sem WhatsApp</strong> — útil para enriquecer a base (Google/Instagram/CNPJ)
+            </label>
+            <label className="col-span-full flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
+              <NativeCheckbox
+                checked={onlyWhatsapp}
+                onChange={(v) => { setOnlyWhatsapp(v); if (v) setNoWhatsapp(false); }}
+                ariaLabel="Mostrar somente empresas com WhatsApp cadastrado"
+              />
+              Somente <strong className="text-foreground">com WhatsApp cadastrado</strong> (número válido com ao menos 10 dígitos)
             </label>
           </div>
         )}
