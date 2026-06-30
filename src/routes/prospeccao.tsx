@@ -1454,6 +1454,29 @@ function DesktopProspectTable({
                   <div className="px-4 py-3">
                     <div className="text-xs">{p.whatsapp || p.phone || "—"}</div>
                     <div className="text-[11px] text-muted-foreground">{p.email || p.instagram || "—"}</div>
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {(((p.whatsapp || "").replace(/\D/g, "")).length < 10) && (
+                        <span className="inline-flex items-center rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300" title="Empresa sem WhatsApp — candidata a enriquecimento">
+                          Sem WhatsApp
+                        </span>
+                      )}
+                      {(() => {
+                        const isOut = (k: string) => k === "whatsapp" || k === "ligacao" || k === "email";
+                        let max = 0;
+                        for (const ix of p.interactions ?? []) {
+                          if (!isOut(ix.kind)) continue;
+                          const t = ix.at ? Date.parse(ix.at) : 0;
+                          if (t > max) max = t;
+                        }
+                        if (!max || Date.now() - max >= 86_400_000) return null;
+                        const h = Math.max(1, Math.ceil((86_400_000 - (Date.now() - max)) / 3_600_000));
+                        return (
+                          <span className="inline-flex items-center rounded border border-sky-500/40 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-300" title="Disparo recente — liberará em breve">
+                            ⏱ libera em {h}h
+                          </span>
+                        );
+                      })()}
+                    </div>
                   </div>
                   <div className="px-4 py-3 text-xs">{p.city ? `${p.city} - ${p.state}` : p.state || "—"}</div>
                   <div className="px-4 py-3 text-xs">{p.source}</div>
