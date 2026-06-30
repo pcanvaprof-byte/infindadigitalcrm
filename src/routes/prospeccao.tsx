@@ -404,6 +404,10 @@ function ProspeccaoPage() {
         );
         if (!hasContact) return false;
       }
+      if (noWhatsapp) {
+        const digits = (p.whatsapp || "").replace(/\D/g, "");
+        if (digits.length >= 10) return false;
+      }
       // Filtros de cadência (Fase 6) — só ativos quando migration aplicada e dados populados.
       if (cadenceFilter !== "all") {
         const now = Date.now();
@@ -435,7 +439,34 @@ function ProspeccaoPage() {
       return [p.company, p.segment, p.owner, p.email, p.whatsapp, p.phone, p.instagram, p.city, p.state, p.source]
         .join(" ").toLowerCase().includes(q);
     });
-  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, cadenceFilter]);
+  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, cadenceFilter]);
+
+  // Bloqueio de 24h por disparo recente (whatsapp/ligação/email outbound).
+  // Empresas com disparo nas últimas 24h são jogadas para o FINAL da lista,
+  // ordenadas pelo disparo mais antigo primeiro (próximas a "destravar").
+  const filteredOrdered = useMemo(() => {
+    const BLOCK_MS = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const isOutbound = (k: string) => k === "whatsapp" || k === "ligacao" || k === "email";
+    const lastOut = (p: Prospect): number => {
+      let max = 0;
+      for (const ix of p.interactions ?? []) {
+        if (!isOutbound(ix.kind)) continue;
+        const t = ix.at ? Date.parse(ix.at) : 0;
+        if (t > max) max = t;
+      }
+      return max;
+    };
+    const active: Prospect[] = [];
+    const blocked: Array<{ p: Prospect; last: number }> = [];
+    for (const p of filtered) {
+      const last = lastOut(p);
+      if (last > 0 && now - last < BLOCK_MS) blocked.push({ p, last });
+      else active.push(p);
+    }
+    blocked.sort((a, b) => a.last - b.last);
+    return [...active, ...blocked.map((b) => b.p)];
+  }, [filtered]);
 
   const availableSegments = useMemo(() => {
     const counts = new Map<string, number>();
