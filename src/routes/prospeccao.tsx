@@ -1109,6 +1109,41 @@ function ProspeccaoPage() {
           <Button variant="outline" className="h-9 text-xs" onClick={() => setHistoryOpen(true)}>
             <History className="mr-1.5 h-4 w-4" /> Histórico
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="h-9 text-xs"
+                title="Conta de WhatsApp usada nos disparos"
+              >
+                <Smartphone className="mr-1.5 h-4 w-4" />
+                {waAccount === "business" ? "WA Business" : waAccount === "personal" ? "WA Normal" : "WA Padrão"}
+                <ChevronDown className="ml-1.5 h-3.5 w-3.5 opacity-60" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuLabel className="text-[11px] text-muted-foreground">
+                Conta de WhatsApp para disparos
+              </DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => changeWaAccount("default")}>
+                <Check className={cn("mr-2 h-4 w-4", waAccount === "default" ? "opacity-100" : "opacity-0")} />
+                Padrão do sistema
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => changeWaAccount("personal")}>
+                <Check className={cn("mr-2 h-4 w-4", waAccount === "personal" ? "opacity-100" : "opacity-0")} />
+                WhatsApp Normal
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => changeWaAccount("business")}>
+                <Check className={cn("mr-2 h-4 w-4", waAccount === "business" ? "opacity-100" : "opacity-0")} />
+                WhatsApp Business
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <div className="px-2 py-1.5 text-[10px] leading-snug text-muted-foreground">
+                A escolha entre Normal e Business só é forçada no Android (via intent).
+                No iPhone/desktop abre o app definido como padrão do sistema.
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,text/csv" className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImport(f); e.target.value = ""; }} />
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
