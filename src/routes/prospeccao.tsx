@@ -945,6 +945,53 @@ function ProspeccaoPage() {
     setBulkEnriching(false);
   };
 
+  const bulkFillWhatsapp = async () => {
+    const ids = Array.from(selected);
+    const missingWa = prospects.filter((p) => {
+      if (!ids.includes(p.id)) return false;
+      const digits = (p.whatsapp || "").replace(/\D/g, "");
+      return digits.length < 10;
+    });
+    const targets = missingWa.filter((p) => p.cnpj && p.cnpj.replace(/\D/g, "").length === 14);
+    const semCnpj = missingWa.length - targets.length;
+    if (!targets.length) {
+      toast.error(
+        missingWa.length === 0
+          ? "Nenhuma das selecionadas está sem WhatsApp."
+          : "As selecionadas sem WhatsApp não possuem CNPJ válido para enriquecimento.",
+      );
+      return;
+    }
+    setBulkEnriching(true);
+    let ok = 0, fail = 0, preenchidos = 0;
+    const tid = toast.loading(`Preenchendo WhatsApp 0/${targets.length}…`);
+    for (let i = 0; i < targets.length; i++) {
+      const p = targets[i];
+      try {
+        const r = await runEnrichment(p.cnpj!, { prospectId: p.id });
+        const tel = r.profile.telefone_1 ?? r.profile.telefone_2;
+        if (tel) {
+          const patch: Partial<Prospect> = { whatsapp: tel };
+          if (!p.phone && r.profile.telefone_2 && r.profile.telefone_2 !== tel) patch.phone = r.profile.telefone_2;
+          await updateProspect(p.id, patch);
+          setCache((prev) => prev.map((x) => (x.id === p.id ? { ...x, ...patch } : x)));
+          preenchidos++;
+        }
+        ok++;
+      } catch {
+        fail++;
+      }
+      toast.loading(`Preenchendo WhatsApp ${i + 1}/${targets.length}…`, { id: tid });
+      await new Promise((res) => setTimeout(res, 800));
+    }
+    toast.success(
+      `WhatsApp preenchido em ${preenchidos}/${targets.length}. ${fail} falha(s)${semCnpj ? `, ${semCnpj} sem CNPJ ignorada(s)` : ""}.`,
+      { id: tid, duration: 8000 },
+    );
+    void invalidateCrmCore(qc);
+    setBulkEnriching(false);
+  };
+
   const selCount = selected.size;
 
   // Render guard: nunca tentar renderizar listas antes do cache estar pronto.
@@ -1195,6 +1242,15 @@ function ProspeccaoPage() {
                 ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                 : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
               Enriquecer em massa
+            </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
+              disabled={bulkEnriching}
+              onClick={bulkFillWhatsapp}
+              title="Preenche o WhatsApp apenas das selecionadas marcadas como Sem WhatsApp (via CNPJ)">
+              {bulkEnriching
+                ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
+              Preencher WhatsApp
             </Button>
             <Button variant="outline" size="sm"
               className="h-8 text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
