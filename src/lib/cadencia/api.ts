@@ -116,6 +116,19 @@ export async function getLead(id: string): Promise<CadLead | null> {
 }
 
 export async function createLead(input: Partial<CadLead> & { empresa: string }): Promise<CadLead> {
+  // Pré-check: evita estourar a unique constraint `ux_cad_leads_org_whatsapp_norm`.
+  // Se já existir um lead na mesma org com o mesmo WhatsApp (normalizado),
+  // devolvemos uma mensagem amigável apontando o card existente em vez de
+  // tentar o INSERT.
+  const preDigits = (input.whatsapp || input.telefone || "").replace(/\D/g, "");
+  if (preDigits.length >= 8) {
+    const existing = await findLeadByWhatsappDigits(preDigits);
+    if (existing) {
+      throw new Error(
+        `Este WhatsApp já está na cadência (já cadastrado como "${existing.empresa}"). Abra o card existente em vez de criar outro.`,
+      );
+    }
+  }
   const { data, error } = await db.from("cad_leads").insert(input).select("*").single();
   if (error) {
     const msg = String(error.message || "");
@@ -124,21 +137,44 @@ export async function createLead(input: Partial<CadLead> & { empresa: string }):
     // para o usuário e devolve mensagem amigável.
     if (/duplicate key|unique constraint|ux_cad_leads_/i.test(msg)) {
       const digits = (input.whatsapp || input.telefone || "").replace(/\D/g, "");
-      let existing: CadLead | null = null;
-      if (digits) {
-        const { data: rows } = await db
-          .from("cad_leads")
-          .select("*")
-          .or(`whatsapp.ilike.%${digits}%,telefone.ilike.%${digits}%`)
-          .limit(1);
-        existing = ((rows ?? [])[0] ?? null) as CadLead | null;
-      }
+      const existing = digits ? await findLeadByWhatsappDigits(digits) : null;
       const label = existing?.empresa ? ` (já cadastrado como "${existing.empresa}")` : "";
       throw new Error(`Este WhatsApp já está na cadência${label}. Abra o card existente em vez de criar outro.`);
     }
     throw new Error(msg);
   }
   return data as CadLead;
+}
+
+/**
+ * Procura um lead na cadência pelos dígitos normalizados do WhatsApp/telefone.
+ * A unique constraint do banco normaliza removendo não-dígitos, então usamos
+ * `ilike %digits%` em ambos os campos para cobrir variações de formatação.
+ */
+export async function findLeadByWhatsappDigits(digits: string): Promise<CadLead | null> {
+  const d = (digits || "").replace(/\D/g, "");
+  if (d.length < 8) return null;
+  const { data, error } = await db
+    .from("cad_leads")
+    .select("*")
+    .or(`whatsapp.ilike.%${d}%,telefone.ilike.%${d}%`)
+    .limit(1);
+  if (error) throw new Error(error.message);
+  return ((data ?? [])[0] ?? null) as CadLead | null;
+}
+
+/**
+ * Retorna leads da cadência que NÃO possuem WhatsApp utilizável (campo vazio
+ * ou sem dígitos suficientes em `whatsapp`/`telefone`). Útil para exportação
+ * e tratamento manual.
+ */
+export async function listLeadsSemWhatsapp(): Promise<CadLead[]> {
+  const all = await listLeads();
+  return all.filter((l) => {
+    const w = (l.whatsapp || "").replace(/\D/g, "");
+    const t = (l.telefone || "").replace(/\D/g, "");
+    return w.length < 10 && t.length < 10;
+  });
 }
 
 export async function updateLead(id: string, patch: Partial<CadLead>): Promise<CadLead> {
