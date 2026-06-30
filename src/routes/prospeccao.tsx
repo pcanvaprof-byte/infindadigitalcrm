@@ -33,6 +33,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Check, ChevronDown } from "lucide-react";
 import {
   Building2,
   CalendarPlus,
@@ -426,13 +436,15 @@ function ProspeccaoPage() {
   }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, cadenceFilter]);
 
   const availableSegments = useMemo(() => {
-    const set = new Set<string>();
+    const counts = new Map<string, number>();
     for (const p of prospects) {
       const s = (p.segment || "").trim();
-      if (s) set.add(s);
+      if (!s) continue;
+      counts.set(s, (counts.get(s) || 0) + 1);
     }
-    // Apenas nichos reais presentes na base.
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "pt-BR"));
   }, [prospects]);
 
   // Apenas UFs reais presentes na base (derivadas do CNPJ/cadastro).
