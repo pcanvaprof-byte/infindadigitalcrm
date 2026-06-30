@@ -1594,6 +1594,7 @@ function DesktopProspectTable({
   onConvert,
   onStatus,
   onRemove,
+  busyWhatsIds,
 }: {
   items: Prospect[];
   selected: Set<string>;
@@ -1607,6 +1608,7 @@ function DesktopProspectTable({
   onConvert: (p: Prospect) => void;
   onStatus: (id: string, s: ProspectStatus) => void;
   onRemove: (id: string) => void;
+  busyWhatsIds?: Set<string>;
 }) {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const virtualizer = useWindowVirtualizer({
