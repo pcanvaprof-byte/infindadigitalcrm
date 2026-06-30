@@ -362,6 +362,7 @@ function ProspeccaoPage() {
   type WaAccount = "default" | "personal" | "business";
   const [waAccount, setWaAccount] = useState<WaAccount>("default");
   const [quickEnrichingIds, setQuickEnrichingIds] = useState<Set<string>>(new Set());
+  const [dispatchingIds, setDispatchingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -691,11 +692,19 @@ function ProspeccaoPage() {
       console.warn("[prosp] openWhats:abort:no-whatsapp", { id: p.id });
       return toast.error("WhatsApp não cadastrado");
     }
-    const lock = await wasDispatchedToday({ prospectId: p.id });
-    if (lock.blocked) {
-      console.warn("[prosp] openWhats:blocked", { id: p.id, source: lock.source });
-      return toast.error(dispatchBlockedMessage(lock.source!));
+    // Guard anti-duplo-clique: enquanto o disparo está em curso, ignora cliques.
+    if (dispatchingIds.has(p.id)) {
+      console.warn("[prosp] openWhats:already-dispatching", { id: p.id });
+      return;
     }
+    setDispatchingIds((prev) => { const n = new Set(prev); n.add(p.id); return n; });
+    try {
+      const lock = await wasDispatchedToday({ prospectId: p.id });
+      if (lock.blocked) {
+        console.warn("[prosp] openWhats:blocked", { id: p.id, source: lock.source });
+        toast.error(dispatchBlockedMessage(lock.source!));
+        return;
+      }
     // Rotação anti-bloqueio: 3 variantes diferentes da abordagem inicial.
     // O WhatsApp pune padrões repetidos em massa, então revezamos a cada
     // disparo via contador persistido em localStorage.
@@ -730,6 +739,13 @@ function ProspeccaoPage() {
     }
     console.log("[prosp] openWhats:window.open", { url, account: waAccount });
     window.open(url, "_blank");
+    } finally {
+      // Cooldown curto para não permitir 2 cliques sequenciais que abram
+      // 2 conversas e gerem registro duplicado de tentativa.
+      window.setTimeout(() => {
+        setDispatchingIds((prev) => { const n = new Set(prev); n.delete(p.id); return n; });
+      }, 3000);
+    }
   };
 
   // Enriquecimento "suspenso" — roda direto na linha sem abrir o Sheet/Drawer.
@@ -1410,6 +1426,7 @@ function ProspeccaoPage() {
               onRemove={(id) => removeProspect([id])}
               onEnrich={(p) => quickEnrich(p)}
               busyIds={quickEnrichingIds}
+              busyWhatsIds={dispatchingIds}
             />
           </div>
           <DesktopProspectTable
@@ -1425,6 +1442,7 @@ function ProspeccaoPage() {
             onConvert={convertToLead}
             onStatus={updateStatus}
             onRemove={(id) => removeProspect([id])}
+            busyWhatsIds={dispatchingIds}
           />
           <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground">
             <span>Mostrando {filteredOrdered.length} de {prospects.length} empresas · empresas com disparo nas últimas 24h vão para o final</span>
@@ -1449,7 +1467,9 @@ function ProspeccaoPage() {
             onStatus={(s) => updateStatus(detail.id, s)}
             onConvert={() => convertToLead(detail)}
             onAddNote={(text) => { addInteraction(detail.id, "nota", text); toast.success("Nota registrada"); }}
-            onEnrich={() => setEnrichFor(detail)}
+            onEnrich={() => quickEnrich(detail)}
+            enrichBusy={quickEnrichingIds.has(detail.id)}
+            whatsBusy={dispatchingIds.has(detail.id)}
             onRegisterTouchpoint={() => setTouchpointTarget({ prospect: detail, tipo: "whatsapp" })}
             onCloseCadence={() => setCloseCadenceTarget(detail)}
           />
@@ -1576,6 +1596,7 @@ function DesktopProspectTable({
   onConvert,
   onStatus,
   onRemove,
+  busyWhatsIds,
 }: {
   items: Prospect[];
   selected: Set<string>;
@@ -1589,6 +1610,7 @@ function DesktopProspectTable({
   onConvert: (p: Prospect) => void;
   onStatus: (id: string, s: ProspectStatus) => void;
   onRemove: (id: string) => void;
+  busyWhatsIds?: Set<string>;
 }) {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const virtualizer = useWindowVirtualizer({
@@ -1685,6 +1707,7 @@ function DesktopProspectTable({
                         onStatus={onStatus}
                         onRemove={() => onRemove(p.id)}
                         onOpen={() => onOpen(p.id)}
+                        busyWhats={busyWhatsIds?.has(p.id)}
                       />
                       <Button
                         size="icon"
@@ -1729,7 +1752,7 @@ function NextActionCell({
 }
 
 const RowActions = memo(function RowActions({
-  p, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onOpen,
+  p, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onOpen, busyWhats,
 }: {
   p: Prospect;
   onWhats: (p: Prospect) => void;
@@ -1739,13 +1762,21 @@ const RowActions = memo(function RowActions({
   onStatus: (id: string, s: ProspectStatus) => void;
   onRemove: () => void;
   onOpen: () => void;
+  busyWhats?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <div className="flex items-center justify-end gap-1">
-      <Button size="icon" variant="ghost" className="h-8 w-8 text-emerald-400" title="WhatsApp" onClick={() => onWhats(p)}>
-        <MessageSquare className="h-4 w-4" />
+      <Button
+        size="icon"
+        variant="ghost"
+        className="h-8 w-8 text-emerald-400"
+        title={busyWhats ? "Enviando…" : "WhatsApp"}
+        disabled={!!busyWhats}
+        onClick={() => onWhats(p)}
+      >
+        {busyWhats ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
       </Button>
       <Button size="icon" variant="ghost" className="h-8 w-8" title="Ligar" onClick={() => onCall(p)}>
         <Phone className="h-4 w-4" />
@@ -1846,7 +1877,7 @@ function KanbanView({
 }
 
 function DetailDialog({
-  p, onWhats, onCall, onStatus, onConvert, onAddNote, onEnrich, onRegisterTouchpoint, onCloseCadence,
+  p, onWhats, onCall, onStatus, onConvert, onAddNote, onEnrich, enrichBusy, whatsBusy, onRegisterTouchpoint, onCloseCadence,
 }: {
   p: Prospect;
   onWhats: () => void;
@@ -1855,6 +1886,8 @@ function DetailDialog({
   onConvert: () => void;
   onAddNote: (text: string) => void;
   onEnrich: () => void;
+  enrichBusy?: boolean;
+  whatsBusy?: boolean;
   onRegisterTouchpoint: () => void;
   onCloseCadence: () => void;
 }) {
@@ -1884,8 +1917,11 @@ function DetailDialog({
               </span>
             </DialogDescription>
           </div>
-          <Button size="sm" className="btn-gradient h-8 text-xs" onClick={onEnrich}>
-            <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Enriquecer Lead
+          <Button size="sm" className="btn-gradient h-8 text-xs" onClick={onEnrich} disabled={!!enrichBusy}>
+            {enrichBusy
+              ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
+            {enrichBusy ? "Enriquecendo…" : "Enriquecer Lead"}
           </Button>
         </div>
       </DialogHeader>
@@ -1907,8 +1943,11 @@ function DetailDialog({
           <div className="surface-card p-3 space-y-2">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Ações</p>
             <div className="grid grid-cols-2 gap-2">
-              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onWhats}>
-                <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-emerald-400" /> WhatsApp
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onWhats} disabled={!!whatsBusy}>
+                {whatsBusy
+                  ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin text-emerald-400" />
+                  : <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-emerald-400" />}
+                {whatsBusy ? "Enviando…" : "WhatsApp"}
               </Button>
               <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onCall}>
                 <Phone className="mr-1.5 h-3.5 w-3.5" /> Ligar
@@ -2214,11 +2253,12 @@ function ImportHistoryDialog({ open }: { open: boolean }) {
 
 
 const MobileProspectRow = memo(function MobileProspectRow({
-  p, isSelected, busy, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
+  p, isSelected, busy, busyWhats, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
 }: {
   p: Prospect;
   isSelected: boolean;
   busy?: boolean;
+  busyWhats?: boolean;
   onToggleSelect: (id: string) => void;
   onOpen: (id: string) => void;
   onWhats: (p: Prospect) => void;
@@ -2274,6 +2314,7 @@ const MobileProspectRow = memo(function MobileProspectRow({
           onStatus={onStatus}
           onRemove={() => onRemove(p.id)}
           onOpen={() => onOpen(p.id)}
+          busyWhats={busyWhats}
         />
       </div>
     </div>
@@ -2281,11 +2322,12 @@ const MobileProspectRow = memo(function MobileProspectRow({
 });
 
 function MobileProspectList({
-  items, selected, busyIds, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
+  items, selected, busyIds, busyWhatsIds, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
 }: {
   items: Prospect[];
   selected: Set<string>;
   busyIds?: Set<string>;
+  busyWhatsIds?: Set<string>;
   onToggleSelect: (id: string) => void;
   onOpen: (id: string) => void;
   onWhats: (p: Prospect) => void;
@@ -2322,6 +2364,7 @@ function MobileProspectList({
             p={p}
             isSelected={selected.has(p.id)}
             busy={busyIds?.has(p.id)}
+            busyWhats={busyWhatsIds?.has(p.id)}
             onToggleSelect={onToggleSelect}
             onOpen={onOpen}
             onWhats={onWhats}
@@ -2359,6 +2402,7 @@ function MobileProspectList({
               p={p}
               isSelected={selected.has(p.id)}
               busy={busyIds?.has(p.id)}
+              busyWhats={busyWhatsIds?.has(p.id)}
               onToggleSelect={onToggleSelect}
               onOpen={onOpen}
               onWhats={onWhats}
