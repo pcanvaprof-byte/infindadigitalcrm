@@ -359,6 +359,24 @@ function ProspeccaoPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [enrichFor, setEnrichFor] = useState<Prospect | null>(null);
   const [whatsConfirm, setWhatsConfirm] = useState<{ id: string; company: string } | null>(null);
+  type WaAccount = "default" | "personal" | "business";
+  const [waAccount, setWaAccount] = useState<WaAccount>("default");
+  const [quickEnrichingIds, setQuickEnrichingIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem("wa_account") as WaAccount | null;
+    if (saved === "default" || saved === "personal" || saved === "business") setWaAccount(saved);
+  }, []);
+  const changeWaAccount = (v: WaAccount) => {
+    setWaAccount(v);
+    try { window.localStorage.setItem("wa_account", v); } catch { /* ignore */ }
+    toast.success(
+      v === "business" ? "Disparos via WhatsApp Business" :
+      v === "personal" ? "Disparos via WhatsApp Normal" :
+      "Disparos via app padrão do sistema",
+    );
+  };
 
   // Única fonte de verdade. Mutations fazem optimistic update via setCache
   // diretamente no cache do Query — sem espelho via useState/useEffect.
