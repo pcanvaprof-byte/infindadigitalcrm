@@ -154,13 +154,28 @@ export async function createLead(input: Partial<CadLead> & { empresa: string }):
 export async function findLeadByWhatsappDigits(digits: string): Promise<CadLead | null> {
   const d = (digits || "").replace(/\D/g, "");
   if (d.length < 8) return null;
-  const { data, error } = await db
-    .from("cad_leads")
-    .select("*")
-    .or(`whatsapp.ilike.%${d}%,telefone.ilike.%${d}%`)
-    .limit(1);
-  if (error) throw new Error(error.message);
-  return ((data ?? [])[0] ?? null) as CadLead | null;
+  // A unique constraint do banco normaliza removendo não-dígitos. O `ilike` no
+  // PostgREST não consegue replicar isso (ex.: whatsapp "(11) 99999-9999" não
+  // contém a substring "11999999999"), então paginamos os leads e comparamos
+  // pelos dígitos em memória. O volume típico (<2k) torna isso barato.
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await db
+      .from("cad_leads")
+      .select("*")
+      .range(from, from + pageSize - 1);
+    if (error) throw new Error(error.message);
+    const rows = (data ?? []) as CadLead[];
+    const hit = rows.find((l) => {
+      const w = (l.whatsapp || "").replace(/\D/g, "");
+      const t = (l.telefone || "").replace(/\D/g, "");
+      // match pelos últimos 10 dígitos cobre variações com/sem DDI (55).
+      const tail = d.slice(-10);
+      return (w && w.endsWith(tail)) || (t && t.endsWith(tail));
+    });
+    if (hit) return hit;
+    if (rows.length < pageSize) return null;
+  }
 }
 
 /**
