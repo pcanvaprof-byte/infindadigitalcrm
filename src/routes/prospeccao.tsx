@@ -66,6 +66,7 @@ import {
   Trash2,
   Upload,
   Users,
+  Wand2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
