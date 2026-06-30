@@ -3,10 +3,16 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Copy, Send } from "lucide-react";
+import { Copy, Send, Shuffle } from "lucide-react";
 import { toast } from "sonner";
 import { listTemplates, registerSend, markProspectContactedFromLead } from "@/lib/cadencia/api";
-import { renderTemplate, leadElegivelParaDisparo, type CadLead } from "@/lib/cadencia/types";
+import {
+  renderTemplate,
+  splitVariants,
+  pickVariantIndex,
+  leadElegivelParaDisparo,
+  type CadLead,
+} from "@/lib/cadencia/types";
 import { wasDispatchedToday, dispatchBlockedMessage } from "@/lib/dispatch-lock";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -28,6 +34,8 @@ export function SendMessageDialog({
   const qc = useQueryClient();
   const tpls = useQuery({ queryKey: ["cad-templates"], queryFn: listTemplates, enabled: open });
   const [msg, setMsg] = useState("");
+  const [variants, setVariants] = useState<string[]>([]);
+  const [variantIdx, setVariantIdx] = useState(0);
   const [sending, setSending] = useState(false);
   type WaAccount = "default" | "business" | "personal";
   const [account, setAccount] = useState<WaAccount>("default");
@@ -56,9 +64,25 @@ export function SendMessageDialog({
   useEffect(() => {
     if (!lead || !open) return;
     const tpl = (tpls.data ?? []).find((t) => t.stage === lead.stage);
-    if (tpl) setMsg(renderTemplate(tpl.corpo, lead));
-    else setMsg("");
+    const parts = splitVariants(tpl?.corpo ?? "");
+    setVariants(parts);
+    if (parts.length === 0) {
+      setVariantIdx(0);
+      setMsg("");
+      return;
+    }
+    // Round-robin persistido por stage para revezar entre disparos.
+    const idx = pickVariantIndex(parts.length, `cad:${lead.stage}`);
+    setVariantIdx(idx);
+    setMsg(renderTemplate(parts[idx], lead));
   }, [lead, open, tpls.data]);
+
+  function cycleVariant() {
+    if (!lead || variants.length <= 1) return;
+    const next = (variantIdx + 1) % variants.length;
+    setVariantIdx(next);
+    setMsg(renderTemplate(variants[next], lead));
+  }
 
   function isMobile() {
     if (typeof navigator === "undefined") return false;
@@ -142,6 +166,16 @@ export function SendMessageDialog({
           <DialogTitle>Enviar mensagem — {lead?.empresa}</DialogTitle>
         </DialogHeader>
         <Textarea rows={10} value={msg} onChange={(e) => setMsg(e.target.value)} />
+        {variants.length > 1 && (
+          <div className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2">
+            <span className="text-xs text-muted-foreground">
+              Variante {variantIdx + 1} de {variants.length} — rotação automática anti-bloqueio.
+            </span>
+            <Button type="button" variant="ghost" size="sm" onClick={cycleVariant}>
+              <Shuffle className="h-4 w-4 mr-1" /> Trocar
+            </Button>
+          </div>
+        )}
         <div className="space-y-2 rounded-md border border-border p-3">
           <Label className="text-xs font-medium text-muted-foreground">Conta do WhatsApp</Label>
           <RadioGroup
