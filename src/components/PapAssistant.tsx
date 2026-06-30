@@ -333,28 +333,28 @@ export function PapAssistant() {
         <button
           aria-label="Abrir assistente PAP"
           onClick={() => setOpen(true)}
-          className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg ring-2 ring-primary/30 transition hover:scale-105"
+          className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg ring-2 ring-primary/30 transition hover:scale-105 sm:bottom-5 sm:right-5 sm:h-14 sm:w-14"
         >
-          <MessageCircle className="h-6 w-6" />
+          <MessageCircle className="h-5 w-5 sm:h-6 sm:w-6" />
         </button>
       )}
       {open && (
-        <div className="fixed bottom-5 right-5 z-50 flex h-[600px] max-h-[85vh] w-[380px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl">
-          <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-2.5">
+        <div className="fixed inset-0 z-50 flex flex-col overflow-hidden border border-border bg-background shadow-2xl sm:inset-auto sm:bottom-5 sm:right-5 sm:h-[600px] sm:max-h-[85vh] sm:w-[380px] sm:max-w-[95vw] sm:rounded-xl" style={{ paddingBottom: "env(safe-area-inset-bottom)", paddingTop: "env(safe-area-inset-top)" }}>
+          <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-3">
             <div className="flex items-center gap-2">
               <Bot className="h-4 w-4 text-primary" />
               <p className="text-sm font-semibold">Assistente PAP</p>
             </div>
             <button
               onClick={() => setOpen(false)}
-              className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="rounded p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
               aria-label="Fechar"
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5" />
             </button>
           </div>
 
-          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto p-3">
+          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto overscroll-contain p-3">
             {msgs.map((m, i) => {
               if (m.display) {
                 return (
@@ -390,8 +390,8 @@ export function PapAssistant() {
             )}
           </div>
 
-          <div className="border-t border-border bg-muted/20 p-2">
-            <div className="flex gap-2">
+          <div className="border-t border-border bg-muted/20 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+            <div className="flex items-end gap-2">
               <Textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -404,9 +404,9 @@ export function PapAssistant() {
                 placeholder="Ex.: Acabei de visitar a Padaria do Zé, CNPJ 12.345.678/0001-90, falei com o João (11 99999-1111)…"
                 rows={2}
                 disabled={busy}
-                className="resize-none text-sm"
+                className="min-h-[44px] flex-1 resize-none text-base sm:text-sm"
               />
-              <Button size="icon" onClick={send} disabled={busy || !input.trim()}>
+              <Button size="icon" className="h-11 w-11 shrink-0" onClick={send} disabled={busy || !input.trim()}>
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
             </div>
