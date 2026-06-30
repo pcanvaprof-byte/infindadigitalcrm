@@ -1,4 +1,5 @@
 import type { EnrichedProfile, EnrichedAddress } from "./types";
+import { fetchCnpjaCompany } from "./cnpja.functions";
 
 export function sanitizeCnpj(v: string): string {
   return (v || "").replace(/\D/g, "");
@@ -92,6 +93,26 @@ async function fetchReceitaWsPhones(clean: string): Promise<{ tel1?: string; tel
   }
 }
 
+interface CnpjaResp {
+  phones?: { area?: string; number?: string; type?: string }[];
+  emails?: { address?: string; domain?: string }[];
+}
+
+async function fetchCnpjaPhones(clean: string): Promise<{ tel1?: string; tel2?: string; email?: string }> {
+  try {
+    const res = await fetchCnpjaCompany({ data: { cnpj: clean } });
+    if (!res.ok) return {};
+    const d = res.data as CnpjaResp;
+    const phones = (d.phones ?? [])
+      .map((p) => formatPhone(`${p.area ?? ""}${p.number ?? ""}`))
+      .filter(Boolean) as string[];
+    const email = d.emails?.[0]?.address?.toLowerCase();
+    return { tel1: phones[0], tel2: phones[1], email };
+  } catch {
+    return {};
+  }
+}
+
 function mapPublicaCnpjWs(clean: string, data: PublicaCnpjWsResponse): { profile: EnrichedProfile; address: EnrichedAddress } {
   const est = data.estabelecimento ?? {};
   return {
@@ -174,6 +195,15 @@ export async function fetchCnpj(
     if (!tel1 && r3.tel1) tel1 = r3.tel1;
     if (!tel2 && r3.tel2) tel2 = r3.tel2;
     if (!email && r3.email) email = r3.email;
+  }
+
+  // Terceira camada (premium): CNPJá — chamado via server fn com rate-limit
+  // para respeitar o teto do plano gratuito (4 req/min).
+  if (!tel1 || !email) {
+    const r4 = await fetchCnpjaPhones(clean);
+    if (!tel1 && r4.tel1) tel1 = r4.tel1;
+    if (!tel2 && r4.tel2) tel2 = r4.tel2;
+    if (!email && r4.email) email = r4.email;
   }
 
   return {
