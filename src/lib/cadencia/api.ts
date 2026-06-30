@@ -443,22 +443,67 @@ export async function importFromProspects(): Promise<{ imported: number; updated
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await db
       .from("prospects")
-      .select("id,status")
+      .select("id,status,whatsapp,telefone")
       .order("created_at", { ascending: false })
       .range(from, from + pageSize - 1);
     if (error) throw new Error(error.message);
-    const rows = (data ?? []) as ProspectStatusRow[];
+    const rows = (data ?? []) as (ProspectStatusRow & { whatsapp?: string | null; telefone?: string | null })[];
     for (const r of rows) {
       if (!r.status || r.status === "nao_contatado") naoContatadoIds.push(r.id);
       else eligibleIds.push(r.id);
+      // guarda dígitos para dedupe abaixo
+      (eligibleIds as any).__digits = (eligibleIds as any).__digits || new Map<string, string>();
+      const digits = ((r.whatsapp || r.telefone || "") as string).replace(/\D/g, "");
+      if (digits.length >= 8) (eligibleIds as any).__digits.set(r.id, digits);
     }
     if (rows.length < pageSize) break;
+  }
+
+  // Dedupe: remove prospects cujo WhatsApp já existe em cad_leads (mesma org),
+  // evitando estourar a unique constraint `ux_cad_leads_org_whatsapp_norm`
+  // dentro da RPC `cad_import_from_prospects`.
+  const digitsMap: Map<string, string> = (eligibleIds as any).__digits ?? new Map();
+  let skippedDup = 0;
+  if (digitsMap.size > 0) {
+    const existingDigits = new Set<string>();
+    const pageSz = 1000;
+    for (let from = 0; ; from += pageSz) {
+      const { data, error } = await db
+        .from("cad_leads")
+        .select("whatsapp,telefone")
+        .range(from, from + pageSz - 1);
+      if (error) break;
+      const rows = (data ?? []) as { whatsapp: string | null; telefone: string | null }[];
+      for (const r of rows) {
+        const d1 = (r.whatsapp || "").replace(/\D/g, "");
+        const d2 = (r.telefone || "").replace(/\D/g, "");
+        if (d1.length >= 8) existingDigits.add(d1);
+        if (d2.length >= 8) existingDigits.add(d2);
+      }
+      if (rows.length < pageSz) break;
+    }
+    const filtered: string[] = [];
+    for (const id of eligibleIds) {
+      const d = digitsMap.get(id);
+      if (d && existingDigits.has(d)) { skippedDup++; continue; }
+      filtered.push(id);
+    }
+    eligibleIds.length = 0;
+    eligibleIds.push(...filtered);
   }
 
   let imported = 0;
   for (const batch of chunk(eligibleIds, 500)) {
     const { data, error } = await db.rpc("cad_import_from_prospects", { p_ids: batch });
-    if (error) throw new Error(error.message);
+    if (error) {
+      const msg = String(error.message || "");
+      // Ignora duplicatas residuais (corrida entre clientes); reporta o resto.
+      if (!/duplicate key|unique constraint|ux_cad_leads_/i.test(msg)) {
+        throw new Error(msg);
+      }
+      skippedDup += batch.length;
+      continue;
+    }
     imported += (data as number) ?? 0;
   }
 
@@ -477,7 +522,7 @@ export async function importFromProspects(): Promise<{ imported: number; updated
   }
 
   const updated = await syncLeadStagesFromProspects();
-  return { imported, updated, skipped: naoContatadoIds.length, cleaned };
+  return { imported, updated, skipped: naoContatadoIds.length + skippedDup, cleaned };
 }
 
 // ----- Notificações -----
