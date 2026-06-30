@@ -54,11 +54,27 @@ export async function fetchComercialFunnel(
   const ini = localTimestamp(new Date(new Date(period.from).setHours(0, 0, 0, 0)));
   const fim = localTimestamp(new Date(new Date(period.to).setHours(23, 59, 59, 999)));
 
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // eslint-disable-next-line no-console
+  console.groupCollapsed(`[bi:comercial] funil ${period.key}`);
+  // eslint-disable-next-line no-console
+  console.log("[bi:comercial] período recebido", {
+    key: period.key,
+    label: period.label,
+    from: period.from,
+    to: period.to,
+    ini,
+    fim,
+    tz,
+  });
+
   const safeCount = async (
     table: string,
     col: string,
     extra?: (q: unknown) => unknown,
+    extraLabel?: string,
   ): Promise<number> => {
+    const label = `${table}.${col}${extraLabel ? ` [${extraLabel}]` : ""}`;
     try {
       let q = (sb as unknown as {
         from: (t: string) => {
@@ -72,10 +88,18 @@ export async function fetchComercialFunnel(
         .gte(col, ini);
       q = (q as { lte: (c: string, v: string) => unknown }).lte(col, fim) as never;
       if (extra) q = extra(q) as never;
-      const res = (await (q as unknown as Promise<{ count: number | null; error: unknown }>));
-      if (res.error) return 0;
+      const res = (await (q as unknown as Promise<{ count: number | null; error: { message?: string } | null }>));
+      if (res.error) {
+        // eslint-disable-next-line no-console
+        console.warn(`[bi:comercial] ${label} ERRO`, res.error.message ?? res.error);
+        return 0;
+      }
+      // eslint-disable-next-line no-console
+      console.log(`[bi:comercial] ${label} → ${res.count ?? 0}`);
       return res.count ?? 0;
-    } catch {
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn(`[bi:comercial] ${label} EXCEPTION`, e);
       return 0;
     }
   };
@@ -89,11 +113,17 @@ export async function fetchComercialFunnel(
     opContratos,
   ] = await Promise.all([
     safeCount("prospects", "created_at"),
-    safeCount("cad_leads", "created_at", (q) =>
-      (q as { is: (c: string, v: unknown) => unknown }).is("prospect_id", null),
+    safeCount(
+      "cad_leads",
+      "created_at",
+      (q) => (q as { is: (c: string, v: unknown) => unknown }).is("prospect_id", null),
+      "prospect_id IS NULL",
     ),
-    safeCount("prospect_touchpoints", "enviado_em", (q) =>
-      (q as { eq: (c: string, v: unknown) => unknown }).eq("tipo", "reuniao"),
+    safeCount(
+      "prospect_touchpoints",
+      "enviado_em",
+      (q) => (q as { eq: (c: string, v: unknown) => unknown }).eq("tipo", "reuniao"),
+      "tipo=reuniao",
     ),
     safeCount("proposals", "created_at"),
     safeCount("contracts", "signed_at"),
@@ -104,6 +134,13 @@ export async function fetchComercialFunnel(
   // contracts (legado) e op_contracts (Operações) podem coexistir; somamos os
   // dois — `fetchForecastForPeriod` aplica a mesma união para o valor fechado.
   const contratosTotal = contratos + opContratos;
+  // eslint-disable-next-line no-console
+  console.log("[bi:comercial] resumo", {
+    leads, reunioes, propostas, contratosTotal,
+    breakdown: { prospectsCount, cadLeadsOrphan, contratos, opContratos },
+  });
+  // eslint-disable-next-line no-console
+  console.groupEnd();
 
   return [
     { stage: "Leads", clientes: leads, tempo_medio_dias: 0 },

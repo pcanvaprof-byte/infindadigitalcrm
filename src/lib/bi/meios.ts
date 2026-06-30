@@ -80,20 +80,45 @@ async function safeSelect(table: string, columns: string, period?: ResolvedPerio
   try {
     let q: any = sb.from(table as never).select(columns).limit(5000);
     const orgId = await getCurrentOrgId();
+    let orgApplied = false;
     if (orgId) {
-      try { q = q.eq("organization_id", orgId); } catch { /* no-op */ }
+      try { q = q.eq("organization_id", orgId); orgApplied = true; } catch { /* no-op */ }
     }
+    let ini: string | undefined;
+    let fim: string | undefined;
     if (period && dateCol) {
       try {
-        q = q
-          .gte(dateCol, localTimestamp(period.from))
-          .lte(dateCol, localTimestamp(period.to));
+        ini = localTimestamp(period.from);
+        fim = localTimestamp(period.to);
+        q = q.gte(dateCol, ini).lte(dateCol, fim);
       } catch { /* no-op */ }
     }
     const { data, error } = await q;
-    if (error) return [];
-    return (data ?? []) as Row[];
-  } catch {
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.warn(`[bi:meios] ${table}.${dateCol ?? "—"} ERRO`, { orgApplied, ini, fim, error: (error as any).message ?? error });
+      // Retry sem org filter — algumas tabelas podem ter org_id NULL em dados legados.
+      if (orgApplied) {
+        try {
+          let q2: any = sb.from(table as never).select(columns).limit(5000);
+          if (ini && fim && dateCol) q2 = q2.gte(dateCol, ini).lte(dateCol, fim);
+          const r2 = await q2;
+          if (!r2.error) {
+            // eslint-disable-next-line no-console
+            console.log(`[bi:meios] ${table} (sem org) → ${(r2.data ?? []).length} linhas`);
+            return (r2.data ?? []) as Row[];
+          }
+        } catch { /* no-op */ }
+      }
+      return [];
+    }
+    const rows = (data ?? []) as Row[];
+    // eslint-disable-next-line no-console
+    console.log(`[bi:meios] ${table}.${dateCol ?? "—"} → ${rows.length} linhas`, { orgApplied, ini, fim });
+    return rows;
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn(`[bi:meios] ${table} EXCEPTION`, e);
     return [];
   }
 }
@@ -144,6 +169,11 @@ export function writeChannelGoals(g: Partial<Record<ProspectSource, number>>) {
 
 /** Busca, classifica e agrega métricas por canal para o período. */
 export async function fetchMeiosProspeccao(period: ResolvedPeriod): Promise<MeiosData> {
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  // eslint-disable-next-line no-console
+  console.groupCollapsed(`[bi:meios] coleta ${period.key} (${period.label})`);
+  // eslint-disable-next-line no-console
+  console.log("[bi:meios] período", { from: period.from, to: period.to, tz });
   // Leads — tenta cad_leads, prospects.
   const leadsRaw =
     (await safeSelect("cad_leads", "id, empresa, source, origem, fonte, canal, status, created_at", period, "created_at"))
@@ -158,6 +188,14 @@ export async function fetchMeiosProspeccao(period: ResolvedPeriod): Promise<Meio
 
   const touchpointsRaw =
     (await safeSelect("prospect_touchpoints", "id, empresa, channel, canal, type, tipo, created_at", period, "created_at"));
+
+  // eslint-disable-next-line no-console
+  console.log("[bi:meios] coletas brutas", {
+    leads: leadsRaw.length,
+    propostas: propostasRaw.length,
+    contratos: contratosRaw.length,
+    touchpoints: touchpointsRaw.length,
+  });
 
   // Index leads by empresa → source (para herdar origem em proposta/contrato sem origem própria).
   const sourceByEmpresa = new Map<string, ProspectSource>();
@@ -245,6 +283,11 @@ export async function fetchMeiosProspeccao(period: ResolvedPeriod): Promise<Meio
     },
     { leads: 0, contratos: 0, receita: 0, recorrencia: 0 },
   );
+
+  // eslint-disable-next-line no-console
+  console.log("[bi:meios] totais agregados", totals);
+  // eslint-disable-next-line no-console
+  console.groupEnd();
 
   const withActivity = all.filter((c) => c.leads + c.contratos > 0);
   const best = withActivity[0] ?? null;
