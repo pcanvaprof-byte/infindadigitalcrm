@@ -2281,10 +2281,11 @@ const MobileProspectRow = memo(function MobileProspectRow({
 });
 
 function MobileProspectList({
-  items, selected, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
+  items, selected, busyIds, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
 }: {
   items: Prospect[];
   selected: Set<string>;
+  busyIds?: Set<string>;
   onToggleSelect: (id: string) => void;
   onOpen: (id: string) => void;
   onWhats: (p: Prospect) => void;
@@ -2320,6 +2321,7 @@ function MobileProspectList({
             key={p.id}
             p={p}
             isSelected={selected.has(p.id)}
+            busy={busyIds?.has(p.id)}
             onToggleSelect={onToggleSelect}
             onOpen={onOpen}
             onWhats={onWhats}
@@ -2356,6 +2358,7 @@ function MobileProspectList({
             <MobileProspectRow
               p={p}
               isSelected={selected.has(p.id)}
+              busy={busyIds?.has(p.id)}
               onToggleSelect={onToggleSelect}
               onOpen={onOpen}
               onWhats={onWhats}
