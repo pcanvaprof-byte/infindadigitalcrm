@@ -1291,6 +1291,7 @@ function ProspeccaoPage() {
               onConvert={convertToLead}
               onStatus={updateStatus}
               onRemove={(id) => removeProspect([id])}
+              onEnrich={(p) => setEnrichFor(p)}
             />
           </div>
           <DesktopProspectTable
