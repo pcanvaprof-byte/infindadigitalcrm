@@ -56,10 +56,11 @@ export async function fetchComercialFunnel(
 
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
   // eslint-disable-next-line no-console
-  console.groupCollapsed(`[bi:comercial] funil ${period.preset ?? "custom"}`);
+  console.groupCollapsed(`[bi:comercial] funil ${period.key}`);
   // eslint-disable-next-line no-console
   console.log("[bi:comercial] período recebido", {
-    preset: period.preset,
+    key: period.key,
+    label: period.label,
     from: period.from,
     to: period.to,
     ini,
