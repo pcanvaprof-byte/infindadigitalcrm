@@ -1,6 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
+import { auditDispatches } from "@/lib/bi/dispatches.functions";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth, useRequiredUser } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
@@ -305,6 +307,16 @@ function DashboardPage() {
   });
   const trends = qTrends.data ?? EMPTY_TRENDS;
 
+  /* Auditoria oficial de disparos (mesma fonte do /bi/disparos).
+   * Cacheada no backend por 30s para evitar consultas repetidas. */
+  const audit = useServerFn(auditDispatches);
+  const qAudit = useQuery({
+    queryKey: ["dashboard", "audit-dispatches"] as const,
+    queryFn: () => audit({ data: {} }),
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+
   const subtitle = "Seu desempenho e cadência";
 
   const m = q.data as DashboardMetrics | undefined;
@@ -312,10 +324,15 @@ function DashboardPage() {
   const noActiveOrg =
     errMsg.includes("no_active_org") || errMsg.includes("org_access_denied");
 
-  const contato = useMemo(
-    () => pickBucket(m?.contatos ?? { hoje: 0, semana: 0, mes: 0 }, period),
-    [m, period],
-  );
+  const contato = useMemo(() => {
+    // Para "hoje" e "semana" preferimos a auditoria centralizada (mesma
+    // contagem exibida em /bi/disparos). Para mes/previsao caímos no agregado
+    // de cadência tradicional (audit não cobre o mês inteiro).
+    const a = qAudit.data;
+    if (a && period === "hoje")   return { value: a.today.total, isProjection: false };
+    if (a && period === "semana") return { value: a.last7d.total, isProjection: false };
+    return pickBucket(m?.contatos ?? { hoje: 0, semana: 0, mes: 0 }, period);
+  }, [m, period, qAudit.data]);
   const resposta = useMemo(
     () => pickBucket(m?.respostas ?? { hoje: 0, semana: 0, mes: 0, taxa: 0 } as any, period),
     [m, period],
