@@ -685,7 +685,7 @@ function ProspeccaoPage() {
     }
   };
 
-  const openWhats = async (p: Prospect) => {
+  const openWhats = async (p: Prospect, accountOverride?: "default" | "personal" | "business") => {
     console.log("[prosp] openWhats:click", { id: p.id, company: p.company, whatsapp: p.whatsapp });
     const d = onlyDigits(p.whatsapp);
     if (!d) {
@@ -732,12 +732,13 @@ function ProspeccaoPage() {
     const phone = `55${d}`;
     const encoded = encodeURIComponent(msg);
     const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+    const acct = accountOverride ?? waAccount;
     let url = `https://wa.me/${phone}?text=${encoded}`;
-    if (isAndroid && waAccount !== "default") {
-      const pkg = waAccount === "business" ? "com.whatsapp.w4b" : "com.whatsapp";
+    if (isAndroid && acct !== "default") {
+      const pkg = acct === "business" ? "com.whatsapp.w4b" : "com.whatsapp";
       url = `intent://send?phone=${phone}&text=${encoded}#Intent;scheme=whatsapp;package=${pkg};end`;
     }
-    console.log("[prosp] openWhats:window.open", { url, account: waAccount });
+    console.log("[prosp] openWhats:window.open", { url, account: acct, override: !!accountOverride });
     window.open(url, "_blank");
     } finally {
       // Cooldown curto para não permitir 2 cliques sequenciais que abram
@@ -1462,7 +1463,7 @@ function ProspeccaoPage() {
         {detail && (
           <DetailDialog
             p={detail}
-            onWhats={() => openWhats(detail)}
+            onWhats={(acct) => openWhats(detail, acct)}
             onCall={() => callPhone(detail)}
             onStatus={(s) => updateStatus(detail.id, s)}
             onConvert={() => convertToLead(detail)}
@@ -1604,7 +1605,7 @@ function DesktopProspectTable({
   onToggleSelect: (id: string) => void;
   onToggleSelectAll: () => void;
   onOpen: (id: string) => void;
-  onWhats: (p: Prospect) => void;
+  onWhats: (p: Prospect, account?: "default" | "personal" | "business") => void;
   onCall: (p: Prospect) => void;
   onAgendar: (id: string) => void;
   onConvert: (p: Prospect) => void;
@@ -1755,7 +1756,7 @@ const RowActions = memo(function RowActions({
   p, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onOpen, busyWhats,
 }: {
   p: Prospect;
-  onWhats: (p: Prospect) => void;
+  onWhats: (p: Prospect, account?: "default" | "personal" | "business") => void;
   onCall: (p: Prospect) => void;
   onAgendar: () => void;
   onConvert: () => void;
@@ -1765,19 +1766,39 @@ const RowActions = memo(function RowActions({
   busyWhats?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [waOpen, setWaOpen] = useState(false);
 
   return (
     <div className="flex items-center justify-end gap-1">
-      <Button
-        size="icon"
-        variant="ghost"
-        className="h-8 w-8 text-emerald-400"
-        title={busyWhats ? "Enviando…" : "WhatsApp"}
-        disabled={!!busyWhats}
-        onClick={() => onWhats(p)}
-      >
-        {busyWhats ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
-      </Button>
+      <DropdownMenu open={waOpen} onOpenChange={setWaOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-emerald-400"
+            title={busyWhats ? "Enviando…" : "WhatsApp — escolher conta"}
+            disabled={!!busyWhats}
+          >
+            {busyWhats ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
+          </Button>
+        </DropdownMenuTrigger>
+        {waOpen && (
+          <DropdownMenuContent align="end" className="w-52">
+            <DropdownMenuLabel className="text-[11px] text-muted-foreground">
+              Disparar usando…
+            </DropdownMenuLabel>
+            <DropdownMenuItem className="text-xs" onClick={() => onWhats(p, "default")}>
+              <MessageSquare className="mr-2 h-3.5 w-3.5 text-emerald-400" /> WhatsApp padrão
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-xs" onClick={() => onWhats(p, "personal")}>
+              <MessageSquare className="mr-2 h-3.5 w-3.5" /> WhatsApp Normal
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-xs" onClick={() => onWhats(p, "business")}>
+              <MessageSquare className="mr-2 h-3.5 w-3.5" /> WhatsApp Business
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        )}
+      </DropdownMenu>
       <Button size="icon" variant="ghost" className="h-8 w-8" title="Ligar" onClick={() => onCall(p)}>
         <Phone className="h-4 w-4" />
       </Button>
@@ -1880,7 +1901,7 @@ function DetailDialog({
   p, onWhats, onCall, onStatus, onConvert, onAddNote, onEnrich, enrichBusy, whatsBusy, onRegisterTouchpoint, onCloseCadence,
 }: {
   p: Prospect;
-  onWhats: () => void;
+  onWhats: (account?: "default" | "personal" | "business") => void;
   onCall: () => void;
   onStatus: (s: ProspectStatus) => void;
   onConvert: () => void;
@@ -1943,12 +1964,30 @@ function DetailDialog({
           <div className="surface-card p-3 space-y-2">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Ações</p>
             <div className="grid grid-cols-2 gap-2">
-              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onWhats} disabled={!!whatsBusy}>
-                {whatsBusy
-                  ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin text-emerald-400" />
-                  : <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-emerald-400" />}
-                {whatsBusy ? "Enviando…" : "WhatsApp"}
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline" className="h-8 text-xs" disabled={!!whatsBusy}>
+                    {whatsBusy
+                      ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin text-emerald-400" />
+                      : <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-emerald-400" />}
+                    {whatsBusy ? "Enviando…" : "WhatsApp"}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-52">
+                  <DropdownMenuLabel className="text-[11px] text-muted-foreground">
+                    Disparar usando…
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem className="text-xs" onClick={() => onWhats("default")}>
+                    <MessageSquare className="mr-2 h-3.5 w-3.5 text-emerald-400" /> WhatsApp padrão
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-xs" onClick={() => onWhats("personal")}>
+                    <MessageSquare className="mr-2 h-3.5 w-3.5" /> WhatsApp Normal
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-xs" onClick={() => onWhats("business")}>
+                    <MessageSquare className="mr-2 h-3.5 w-3.5" /> WhatsApp Business
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onCall}>
                 <Phone className="mr-1.5 h-3.5 w-3.5" /> Ligar
               </Button>
@@ -2261,7 +2300,7 @@ const MobileProspectRow = memo(function MobileProspectRow({
   busyWhats?: boolean;
   onToggleSelect: (id: string) => void;
   onOpen: (id: string) => void;
-  onWhats: (p: Prospect) => void;
+  onWhats: (p: Prospect, account?: "default" | "personal" | "business") => void;
   onCall: (p: Prospect) => void;
   onAgendar: (id: string) => void;
   onConvert: (p: Prospect) => void;
@@ -2330,7 +2369,7 @@ function MobileProspectList({
   busyWhatsIds?: Set<string>;
   onToggleSelect: (id: string) => void;
   onOpen: (id: string) => void;
-  onWhats: (p: Prospect) => void;
+  onWhats: (p: Prospect, account?: "default" | "personal" | "business") => void;
   onCall: (p: Prospect) => void;
   onAgendar: (id: string) => void;
   onConvert: (p: Prospect) => void;
