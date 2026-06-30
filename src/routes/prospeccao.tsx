@@ -337,6 +337,7 @@ function ProspeccaoPage() {
   const [potentialFilter, setPotentialFilter] = useState<ProspectPotential | "all">("all");
   const [onlyWithContact, setOnlyWithContact] = useState(false);
   const [noWhatsapp, setNoWhatsapp] = useState(false);
+  const [onlyWhatsapp, setOnlyWhatsapp] = useState(false);
   type CadenceChip = "all" | "hoje" | "atrasados" | "sem_resposta" | "responderam" | "interessados" | "clientes";
   const [cadenceFilter, setCadenceFilter] = useState<CadenceChip>("all");
   const [touchpointTarget, setTouchpointTarget] = useState<{ prospect: Prospect; tipo: TouchpointTipo } | null>(null);
@@ -408,6 +409,10 @@ function ProspeccaoPage() {
         const digits = (p.whatsapp || "").replace(/\D/g, "");
         if (digits.length >= 10) return false;
       }
+      if (onlyWhatsapp) {
+        const digits = (p.whatsapp || "").replace(/\D/g, "");
+        if (digits.length < 10) return false;
+      }
       // Filtros de cadência (Fase 6) — só ativos quando migration aplicada e dados populados.
       if (cadenceFilter !== "all") {
         const now = Date.now();
@@ -439,7 +444,7 @@ function ProspeccaoPage() {
       return [p.company, p.segment, p.owner, p.email, p.whatsapp, p.phone, p.instagram, p.city, p.state, p.source]
         .join(" ").toLowerCase().includes(q);
     });
-  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, cadenceFilter]);
+  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter]);
 
   // Bloqueio de 24h por disparo recente (whatsapp/ligação/email outbound).
   // Empresas com disparo nas últimas 24h são jogadas para o FINAL da lista,
@@ -1180,10 +1185,18 @@ function ProspeccaoPage() {
             <label className="col-span-full flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
               <NativeCheckbox
                 checked={noWhatsapp}
-                onChange={setNoWhatsapp}
+                onChange={(v) => { setNoWhatsapp(v); if (v) setOnlyWhatsapp(false); }}
                 ariaLabel="Mostrar somente empresas sem WhatsApp"
               />
               Somente <strong className="text-foreground">sem WhatsApp</strong> — útil para enriquecer a base (Google/Instagram/CNPJ)
+            </label>
+            <label className="col-span-full flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
+              <NativeCheckbox
+                checked={onlyWhatsapp}
+                onChange={(v) => { setOnlyWhatsapp(v); if (v) setNoWhatsapp(false); }}
+                ariaLabel="Mostrar somente empresas com WhatsApp cadastrado"
+              />
+              Somente <strong className="text-foreground">com WhatsApp cadastrado</strong> (número válido com ao menos 10 dígitos)
             </label>
           </div>
         )}
