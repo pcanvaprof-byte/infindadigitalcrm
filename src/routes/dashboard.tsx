@@ -22,6 +22,7 @@ import { FollowupComparativoWidget } from "@/components/cadence/FollowupComparat
 import { fetchDashboardMetrics, type DashboardMetrics } from "@/lib/cadence/api";
 import { fetchKpiTrends, wowDelta, EMPTY_TRENDS } from "@/lib/cadence/trends";
 import { FEATURES } from "@/config/features";
+import { DispatchesPanel } from "@/components/dashboard/DispatchesPanel";
 
 type Period = "hoje" | "semana" | "mes" | "previsao";
 const PERIOD_LABEL: Record<Period, string> = {
@@ -487,6 +488,9 @@ function DashboardPage() {
         <MiniStat label="Respostas" value={resposta.value} hint={isProj ? "projeção mensal" : periodLabel.toLowerCase()} icon={ArrowUpRight} />
         <MiniStat label="Base total" value={baseN} hint="Empresas cadastradas" icon={Target} />
       </section>
+
+      {/* Painel canônico de disparos (fonte: backend / OWN_SB) */}
+      <DispatchesPanel />
 
       {/* 3 — Funil único horizontal */}
       <section className="mb-8 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6">
