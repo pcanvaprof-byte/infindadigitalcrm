@@ -1943,8 +1943,11 @@ function DetailDialog({
           <div className="surface-card p-3 space-y-2">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Ações</p>
             <div className="grid grid-cols-2 gap-2">
-              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onWhats}>
-                <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-emerald-400" /> WhatsApp
+              <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onWhats} disabled={!!whatsBusy}>
+                {whatsBusy
+                  ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin text-emerald-400" />
+                  : <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-emerald-400" />}
+                {whatsBusy ? "Enviando…" : "WhatsApp"}
               </Button>
               <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onCall}>
                 <Phone className="mr-1.5 h-3.5 w-3.5" /> Ligar
