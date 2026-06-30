@@ -336,6 +336,7 @@ function ProspeccaoPage() {
   const [stateFilter, setStateFilter] = useState<string>("all");
   const [potentialFilter, setPotentialFilter] = useState<ProspectPotential | "all">("all");
   const [onlyWithContact, setOnlyWithContact] = useState(false);
+  const [noWhatsapp, setNoWhatsapp] = useState(false);
   type CadenceChip = "all" | "hoje" | "atrasados" | "sem_resposta" | "responderam" | "interessados" | "clientes";
   const [cadenceFilter, setCadenceFilter] = useState<CadenceChip>("all");
   const [touchpointTarget, setTouchpointTarget] = useState<{ prospect: Prospect; tipo: TouchpointTipo } | null>(null);
