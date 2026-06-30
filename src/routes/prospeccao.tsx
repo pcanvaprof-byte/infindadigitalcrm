@@ -1463,7 +1463,7 @@ function ProspeccaoPage() {
         {detail && (
           <DetailDialog
             p={detail}
-            onWhats={() => openWhats(detail)}
+            onWhats={(acct) => openWhats(detail, acct)}
             onCall={() => callPhone(detail)}
             onStatus={(s) => updateStatus(detail.id, s)}
             onConvert={() => convertToLead(detail)}
