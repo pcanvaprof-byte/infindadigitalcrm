@@ -33,6 +33,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Check, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   Building2,
   CalendarPlus,
@@ -426,13 +437,15 @@ function ProspeccaoPage() {
   }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, cadenceFilter]);
 
   const availableSegments = useMemo(() => {
-    const set = new Set<string>();
+    const counts = new Map<string, number>();
     for (const p of prospects) {
       const s = (p.segment || "").trim();
-      if (s) set.add(s);
+      if (!s) continue;
+      counts.set(s, (counts.get(s) || 0) + 1);
     }
-    // Apenas nichos reais presentes na base.
-    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "pt-BR"));
   }, [prospects]);
 
   // Apenas UFs reais presentes na base (derivadas do CNPJ/cadastro).
@@ -1013,13 +1026,53 @@ function ProspeccaoPage() {
                 {STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Select value={segmentFilter} onValueChange={setSegmentFilter}>
-              <SelectTrigger><SelectValue placeholder="Segmento" /></SelectTrigger>
-              <SelectContent className="max-h-72">
-                <SelectItem value="all">Todos segmentos</SelectItem>
-                {availableSegments.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  className="h-9 w-full justify-between font-normal"
+                >
+                  <span className="truncate">
+                    {segmentFilter === "all"
+                      ? `Todos segmentos (${availableSegments.reduce((a, s) => a + s.count, 0)})`
+                      : `${segmentFilter} (${availableSegments.find((s) => s.name === segmentFilter)?.count ?? 0})`}
+                  </span>
+                  <ChevronDown className="ml-2 h-4 w-4 opacity-50 shrink-0" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Buscar nicho…" />
+                  <CommandList className="max-h-72">
+                    <CommandEmpty>Nenhum nicho encontrado.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem
+                        value="__all__"
+                        onSelect={() => setSegmentFilter("all")}
+                      >
+                        <Check className={cn("mr-2 h-4 w-4", segmentFilter === "all" ? "opacity-100" : "opacity-0")} />
+                        <span className="flex-1">Todos segmentos</span>
+                        <span className="text-xs text-muted-foreground">
+                          {availableSegments.reduce((a, s) => a + s.count, 0)}
+                        </span>
+                      </CommandItem>
+                      {availableSegments.map((s) => (
+                        <CommandItem
+                          key={s.name}
+                          value={s.name}
+                          onSelect={() => setSegmentFilter(s.name)}
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", segmentFilter === s.name ? "opacity-100" : "opacity-0")} />
+                          <span className="flex-1 truncate">{s.name}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">{s.count}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
             <Select value={stateFilter} onValueChange={setStateFilter}>
               <SelectTrigger><SelectValue placeholder="Estado" /></SelectTrigger>
               <SelectContent>
