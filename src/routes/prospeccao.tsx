@@ -633,10 +633,10 @@ function ProspeccaoPage() {
       return n;
     });
 
-  const allVisibleSelected = filtered.length > 0 && filtered.every((p) => selected.has(p.id));
+  const allVisibleSelected = filteredOrdered.length > 0 && filteredOrdered.every((p) => selected.has(p.id));
   const toggleSelectAll = () => {
     if (allVisibleSelected) setSelected(new Set());
-    else setSelected(new Set(filtered.map((p) => p.id)));
+    else setSelected(new Set(filteredOrdered.map((p) => p.id)));
   };
 
   const logAttempt = async (prospect: Prospect, tipo: TouchpointTipo) => {
