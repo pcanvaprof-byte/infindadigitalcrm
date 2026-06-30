@@ -2282,7 +2282,7 @@ const MobileProspectRow = memo(function MobileProspectRow({
   busyWhats?: boolean;
   onToggleSelect: (id: string) => void;
   onOpen: (id: string) => void;
-  onWhats: (p: Prospect) => void;
+  onWhats: (p: Prospect, account?: "default" | "personal" | "business") => void;
   onCall: (p: Prospect) => void;
   onAgendar: (id: string) => void;
   onConvert: (p: Prospect) => void;
