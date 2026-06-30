@@ -1,4 +1,6 @@
 import { supabase as sb } from "@/integrations/supabase/client";
+import { localTimestamp } from "./tz";
+import type { ResolvedPeriod } from "./period";
 
 const rpc = (sb as unknown as {
   rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
@@ -36,6 +38,79 @@ export async function fetchBIDashboard(area: BIArea): Promise<BIDashboardPayload
   void area;
   void rpc;
   return {};
+}
+
+/**
+ * Funil comercial real, computado client-side a partir das tabelas canônicas:
+ * - Leads      → prospects criados no período (+ cad_leads sem prospect_id)
+ * - Reuniões   → prospect_touchpoints tipo=reuniao no período
+ * - Propostas  → proposals criadas no período
+ * - Contratos  → contracts/op_contracts assinados no período
+ * Mantém a aba Comercial em sincronia com Hoje/Semana/Mês/Trimestre.
+ */
+export async function fetchComercialFunnel(
+  period: ResolvedPeriod,
+): Promise<NonNullable<BIDashboardPayload["funnel"]>> {
+  const ini = localTimestamp(new Date(new Date(period.from).setHours(0, 0, 0, 0)));
+  const fim = localTimestamp(new Date(new Date(period.to).setHours(23, 59, 59, 999)));
+
+  const safeCount = async (
+    table: string,
+    col: string,
+    extra?: (q: unknown) => unknown,
+  ): Promise<number> => {
+    try {
+      let q = (sb as unknown as {
+        from: (t: string) => {
+          select: (c: string, o?: Record<string, unknown>) => {
+            gte: (c: string, v: string) => unknown;
+          };
+        };
+      })
+        .from(table)
+        .select("id", { count: "exact", head: true })
+        .gte(col, ini);
+      q = (q as { lte: (c: string, v: string) => unknown }).lte(col, fim) as never;
+      if (extra) q = extra(q) as never;
+      const res = (await (q as unknown as Promise<{ count: number | null; error: unknown }>));
+      if (res.error) return 0;
+      return res.count ?? 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  const [
+    prospectsCount,
+    cadLeadsOrphan,
+    reunioes,
+    propostas,
+    contratos,
+    opContratos,
+  ] = await Promise.all([
+    safeCount("prospects", "created_at"),
+    safeCount("cad_leads", "created_at", (q) =>
+      (q as { is: (c: string, v: unknown) => unknown }).is("prospect_id", null),
+    ),
+    safeCount("prospect_touchpoints", "enviado_em", (q) =>
+      (q as { eq: (c: string, v: unknown) => unknown }).eq("tipo", "reuniao"),
+    ),
+    safeCount("proposals", "created_at"),
+    safeCount("contracts", "signed_at"),
+    safeCount("op_contracts", "signed_at"),
+  ]);
+
+  const leads = prospectsCount + cadLeadsOrphan;
+  // contracts (legado) e op_contracts (Operações) podem coexistir; somamos os
+  // dois — `fetchForecastForPeriod` aplica a mesma união para o valor fechado.
+  const contratosTotal = contratos + opContratos;
+
+  return [
+    { stage: "Leads", clientes: leads, tempo_medio_dias: 0 },
+    { stage: "Reuniões", clientes: reunioes, tempo_medio_dias: 0 },
+    { stage: "Propostas", clientes: propostas, tempo_medio_dias: 0 },
+    { stage: "Contratos", clientes: contratosTotal, tempo_medio_dias: 0 },
+  ];
 }
 
 export interface AIInsight {
