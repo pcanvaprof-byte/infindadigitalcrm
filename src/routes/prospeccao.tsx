@@ -1467,7 +1467,9 @@ function ProspeccaoPage() {
             onStatus={(s) => updateStatus(detail.id, s)}
             onConvert={() => convertToLead(detail)}
             onAddNote={(text) => { addInteraction(detail.id, "nota", text); toast.success("Nota registrada"); }}
-            onEnrich={() => setEnrichFor(detail)}
+            onEnrich={() => quickEnrich(detail)}
+            enrichBusy={quickEnrichingIds.has(detail.id)}
+            whatsBusy={dispatchingIds.has(detail.id)}
             onRegisterTouchpoint={() => setTouchpointTarget({ prospect: detail, tipo: "whatsapp" })}
             onCloseCadence={() => setCloseCadenceTarget(detail)}
           />
