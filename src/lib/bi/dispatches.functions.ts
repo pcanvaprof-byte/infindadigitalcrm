@@ -91,7 +91,7 @@ async function fetchBucket(range: Range): Promise<{
   cadRows: CadRow[];
   tpRows: TpRow[];
 }> {
-  const sb = ownClient();
+  const sb = await ownClient();
   // Paginação simples (limite 5k) — auditoria diária dificilmente passa disso.
   const [cadRes, tpRes] = await Promise.all([
     sb.from("cad_messages")
@@ -292,7 +292,7 @@ export const listDispatchRows = createServerFn({ method: "POST" })
       label: "csv",
     };
     const { cadRows, tpRows } = await fetchBucket(range);
-    const sb = ownClient();
+    const sb = await ownClient();
 
     const leadIds = [...new Set(cadRows.map((r) => r.lead_id).filter(Boolean))] as string[];
     const leadById: Record<string, { empresa: string | null; stage: string | null }> = {};
