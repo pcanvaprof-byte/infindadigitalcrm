@@ -1901,7 +1901,7 @@ function DetailDialog({
   p, onWhats, onCall, onStatus, onConvert, onAddNote, onEnrich, enrichBusy, whatsBusy, onRegisterTouchpoint, onCloseCadence,
 }: {
   p: Prospect;
-  onWhats: () => void;
+  onWhats: (account?: "default" | "personal" | "business") => void;
   onCall: () => void;
   onStatus: (s: ProspectStatus) => void;
   onConvert: () => void;
