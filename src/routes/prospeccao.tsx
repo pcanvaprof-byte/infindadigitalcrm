@@ -2234,11 +2234,12 @@ function ImportHistoryDialog({ open }: { open: boolean }) {
 
 
 const MobileProspectRow = memo(function MobileProspectRow({
-  p, isSelected, busy, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
+  p, isSelected, busy, busyWhats, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
 }: {
   p: Prospect;
   isSelected: boolean;
   busy?: boolean;
+  busyWhats?: boolean;
   onToggleSelect: (id: string) => void;
   onOpen: (id: string) => void;
   onWhats: (p: Prospect) => void;
@@ -2294,6 +2295,7 @@ const MobileProspectRow = memo(function MobileProspectRow({
           onStatus={onStatus}
           onRemove={() => onRemove(p.id)}
           onOpen={() => onOpen(p.id)}
+          busyWhats={busyWhats}
         />
       </div>
     </div>
