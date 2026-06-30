@@ -62,12 +62,34 @@ interface PublicaCnpjWsResponse {
 function formatPhone(raw?: string): string | undefined {
   if (!raw) return undefined;
   const d = raw.replace(/\D/g, "");
-  if (d.length < 10) return raw;
+  // Sem DDD+número completo (mínimo 10 dígitos), considera ausente —
+  // assim o fallback para outras fontes da Receita é acionado.
+  if (d.length < 10) return undefined;
   const ddd = d.slice(0, 2);
   const rest = d.slice(2);
   if (rest.length === 9) return `(${ddd}) ${rest.slice(0, 5)}-${rest.slice(5)}`;
   if (rest.length === 8) return `(${ddd}) ${rest.slice(0, 4)}-${rest.slice(4)}`;
   return raw;
+}
+
+interface ReceitaWsResponse {
+  telefone?: string; // "(11) 1234-5678 / (11) 9876-5432"
+  email?: string;
+}
+
+async function fetchReceitaWsPhones(clean: string): Promise<{ tel1?: string; tel2?: string; email?: string }> {
+  try {
+    const r = await fetch(`https://receitaws.com.br/v1/cnpj/${clean}`);
+    if (!r.ok) return {};
+    const d = (await r.json()) as ReceitaWsResponse;
+    const phones = (d.telefone ?? "")
+      .split(/[/;,]/)
+      .map((s) => formatPhone(s.trim()))
+      .filter(Boolean) as string[];
+    return { tel1: phones[0], tel2: phones[1], email: d.email?.toLowerCase() || undefined };
+  } catch {
+    return {};
+  }
 }
 
 function mapPublicaCnpjWs(clean: string, data: PublicaCnpjWsResponse): { profile: EnrichedProfile; address: EnrichedAddress } {
@@ -144,6 +166,14 @@ export async function fetchCnpj(
     } catch {
       /* mantém os dados da BrasilAPI */
     }
+  }
+
+  // Segunda camada de fallback: ReceitaWS (formato consolidado em string única).
+  if (!tel1 || !email) {
+    const r3 = await fetchReceitaWsPhones(clean);
+    if (!tel1 && r3.tel1) tel1 = r3.tel1;
+    if (!tel2 && r3.tel2) tel2 = r3.tel2;
+    if (!email && r3.email) email = r3.email;
   }
 
   return {
