@@ -128,6 +128,44 @@ export function renderTemplate(corpo: string, lead: Pick<CadLead, "empresa" | "r
     .replaceAll("{{responsavel}}", resp);
 }
 
+/**
+ * Separador de variantes dentro de `corpo`. Permite cadastrar 2+ versões
+ * da mesma mensagem para rotacionar entre disparos e reduzir bloqueios
+ * por padrão repetido detectado pelo WhatsApp.
+ *
+ * Ex.: "Oi {{primeiro_nome}}, tudo bem?\n---\nE aí {{primeiro_nome}}, beleza?"
+ */
+export const VARIANT_SEPARATOR_RE = /\n\s*---+\s*\n/;
+
+export function splitVariants(corpo: string | null | undefined): string[] {
+  const raw = (corpo || "").trim();
+  if (!raw) return [];
+  return raw
+    .split(VARIANT_SEPARATOR_RE)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Escolhe uma variante por round-robin persistido em localStorage.
+ * `key` identifica o "balde" de rotação (ex.: stage da cadência, canal
+ * da prospecção). Se houver só uma variante, devolve o índice 0.
+ * Em SSR (sem `window`) cai num pseudo-aleatório determinístico.
+ */
+export function pickVariantIndex(total: number, key: string): number {
+  if (total <= 1) return 0;
+  const storageKey = `msg_rot:${key}`;
+  try {
+    if (typeof window !== "undefined" && window.localStorage) {
+      const cur = Number(window.localStorage.getItem(storageKey) || "0") || 0;
+      const next = (cur + 1) % total;
+      window.localStorage.setItem(storageKey, String(next));
+      return cur % total;
+    }
+  } catch { /* ignore */ }
+  return Math.floor(Math.random() * total);
+}
+
 export function diasSemResposta(lead: Pick<CadLead, "last_response_at" | "primeira_abordagem_at">): number {
   const base = lead.last_response_at ?? lead.primeira_abordagem_at;
   if (!base) return 0;
