@@ -103,6 +103,7 @@ import { History, FileSpreadsheet } from "lucide-react";
 import { EnrichmentDrawer } from "@/components/EnrichmentDrawer";
 import { runEnrichment } from "@/lib/enrichment/api";
 import { Loader2 } from "lucide-react";
+import { Smartphone } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { convertProspectToClient, crmKeys, invalidateCrmCore } from "@/lib/crm/api";
 import { TouchpointModal } from "@/components/cadence/TouchpointModal";
@@ -358,6 +359,24 @@ function ProspeccaoPage() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [enrichFor, setEnrichFor] = useState<Prospect | null>(null);
   const [whatsConfirm, setWhatsConfirm] = useState<{ id: string; company: string } | null>(null);
+  type WaAccount = "default" | "personal" | "business";
+  const [waAccount, setWaAccount] = useState<WaAccount>("default");
+  const [quickEnrichingIds, setQuickEnrichingIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem("wa_account") as WaAccount | null;
+    if (saved === "default" || saved === "personal" || saved === "business") setWaAccount(saved);
+  }, []);
+  const changeWaAccount = (v: WaAccount) => {
+    setWaAccount(v);
+    try { window.localStorage.setItem("wa_account", v); } catch { /* ignore */ }
+    toast.success(
+      v === "business" ? "Disparos via WhatsApp Business" :
+      v === "personal" ? "Disparos via WhatsApp Normal" :
+      "Disparos via app padrão do sistema",
+    );
+  };
 
   // Única fonte de verdade. Mutations fazem optimistic update via setCache
   // diretamente no cache do Query — sem espelho via useState/useEffect.
@@ -698,8 +717,56 @@ function ProspeccaoPage() {
     console.log("[prosp] openWhats:setConfirm", { id: p.id, company: p.company });
     setWhatsConfirm({ id: p.id, company: p.company });
     void logAttempt(p, "whatsapp");
-    console.log("[prosp] openWhats:window.open", { url: `https://wa.me/55${d}` });
-    window.open(`https://wa.me/55${d}?text=${encodeURIComponent(msg)}`, "_blank");
+    // Honra a conta de WhatsApp escolhida (Normal/Business). No Android
+    // forçamos o app correto via intent://; no iPhone/desktop o link abre
+    // o app definido como padrão do sistema.
+    const phone = `55${d}`;
+    const encoded = encodeURIComponent(msg);
+    const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+    let url = `https://wa.me/${phone}?text=${encoded}`;
+    if (isAndroid && waAccount !== "default") {
+      const pkg = waAccount === "business" ? "com.whatsapp.w4b" : "com.whatsapp";
+      url = `intent://send?phone=${phone}&text=${encoded}#Intent;scheme=whatsapp;package=${pkg};end`;
+    }
+    console.log("[prosp] openWhats:window.open", { url, account: waAccount });
+    window.open(url, "_blank");
+  };
+
+  // Enriquecimento "suspenso" — roda direto na linha sem abrir o Sheet/Drawer.
+  // Usa o mesmo fluxo do bulkEnrich (CNPJ → Receita/CNPJá/etc) e aplica patch
+  // otimista no cache, mostrando spinner via toast.
+  const quickEnrich = async (p: Prospect) => {
+    const cnpj = (p.cnpj || "").replace(/\D/g, "");
+    if (cnpj.length !== 14) {
+      // Sem CNPJ válido, cai no drawer manual para o usuário ajustar.
+      setEnrichFor(p);
+      return;
+    }
+    if (quickEnrichingIds.has(p.id)) return;
+    setQuickEnrichingIds((prev) => { const n = new Set(prev); n.add(p.id); return n; });
+    const tid = toast.loading(`Enriquecendo ${p.company}…`);
+    try {
+      const r = await runEnrichment(p.cnpj!, { prospectId: p.id });
+      const patch: Partial<Prospect> = {};
+      const tel = r.profile.telefone_1 ?? r.profile.telefone_2;
+      if (!p.whatsapp && tel) patch.whatsapp = tel;
+      if (!p.phone && r.profile.telefone_2 && r.profile.telefone_2 !== patch.whatsapp) patch.phone = r.profile.telefone_2;
+      if (!p.email && r.profile.email) patch.email = r.profile.email;
+      if (!p.city && r.address?.cidade) patch.city = r.address.cidade;
+      if (!p.state && r.address?.uf) patch.state = r.address.uf;
+      if (Object.keys(patch).length) {
+        await updateProspect(p.id, patch);
+        setCache((prev) => prev.map((x) => (x.id === p.id ? { ...x, ...patch } : x)));
+        toast.success(`${p.company}: ${Object.keys(patch).join(", ")} atualizado(s).`, { id: tid });
+      } else {
+        toast.message(`${p.company}: nada novo na Receita.`, { id: tid, description: "Toque novamente para ver os dados completos.", duration: 4000 });
+      }
+      void invalidateCrmCore(qc);
+    } catch (e) {
+      toast.error(`Falha ao enriquecer: ${(e as Error).message}`, { id: tid });
+    } finally {
+      setQuickEnrichingIds((prev) => { const n = new Set(prev); n.delete(p.id); return n; });
+    }
   };
   const callPhone = async (p: Prospect) => {
     const d = onlyDigits(p.phone || p.whatsapp);
@@ -1042,6 +1109,41 @@ function ProspeccaoPage() {
           <Button variant="outline" className="h-9 text-xs" onClick={() => setHistoryOpen(true)}>
             <History className="mr-1.5 h-4 w-4" /> Histórico
           </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                className="h-9 text-xs"
+                title="Conta de WhatsApp usada nos disparos"
+              >
+                <Smartphone className="mr-1.5 h-4 w-4" />
+                {waAccount === "business" ? "WA Business" : waAccount === "personal" ? "WA Normal" : "WA Padrão"}
+                <ChevronDown className="ml-1.5 h-3.5 w-3.5 opacity-60" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuLabel className="text-[11px] text-muted-foreground">
+                Conta de WhatsApp para disparos
+              </DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => changeWaAccount("default")}>
+                <Check className={cn("mr-2 h-4 w-4", waAccount === "default" ? "opacity-100" : "opacity-0")} />
+                Padrão do sistema
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => changeWaAccount("personal")}>
+                <Check className={cn("mr-2 h-4 w-4", waAccount === "personal" ? "opacity-100" : "opacity-0")} />
+                WhatsApp Normal
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => changeWaAccount("business")}>
+                <Check className={cn("mr-2 h-4 w-4", waAccount === "business" ? "opacity-100" : "opacity-0")} />
+                WhatsApp Business
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <div className="px-2 py-1.5 text-[10px] leading-snug text-muted-foreground">
+                A escolha entre Normal e Business só é forçada no Android (via intent).
+                No iPhone/desktop abre o app definido como padrão do sistema.
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,text/csv" className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImport(f); e.target.value = ""; }} />
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -1306,7 +1408,8 @@ function ProspeccaoPage() {
               onConvert={convertToLead}
               onStatus={updateStatus}
               onRemove={(id) => removeProspect([id])}
-              onEnrich={(p) => setEnrichFor(p)}
+              onEnrich={(p) => quickEnrich(p)}
+              busyIds={quickEnrichingIds}
             />
           </div>
           <DesktopProspectTable
@@ -2111,10 +2214,11 @@ function ImportHistoryDialog({ open }: { open: boolean }) {
 
 
 const MobileProspectRow = memo(function MobileProspectRow({
-  p, isSelected, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
+  p, isSelected, busy, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
 }: {
   p: Prospect;
   isSelected: boolean;
+  busy?: boolean;
   onToggleSelect: (id: string) => void;
   onOpen: (id: string) => void;
   onWhats: (p: Prospect) => void;
@@ -2156,9 +2260,10 @@ const MobileProspectRow = memo(function MobileProspectRow({
           className={`h-9 w-9 ${noWhats ? "bg-amber-500 text-amber-950 hover:bg-amber-400" : "text-primary-glow"}`}
           title={noWhats ? "Enriquecer (sem WhatsApp)" : "Enriquecer dados via CNPJ"}
           aria-label={`Enriquecer ${p.company}`}
+          disabled={!!busy}
           onClick={(e) => { e.stopPropagation(); onEnrich(p); }}
         >
-          <Wand2 className="h-4 w-4" />
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
         </Button>
         <RowActions
           p={p}
@@ -2176,10 +2281,11 @@ const MobileProspectRow = memo(function MobileProspectRow({
 });
 
 function MobileProspectList({
-  items, selected, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
+  items, selected, busyIds, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
 }: {
   items: Prospect[];
   selected: Set<string>;
+  busyIds?: Set<string>;
   onToggleSelect: (id: string) => void;
   onOpen: (id: string) => void;
   onWhats: (p: Prospect) => void;
@@ -2215,6 +2321,7 @@ function MobileProspectList({
             key={p.id}
             p={p}
             isSelected={selected.has(p.id)}
+            busy={busyIds?.has(p.id)}
             onToggleSelect={onToggleSelect}
             onOpen={onOpen}
             onWhats={onWhats}
@@ -2251,6 +2358,7 @@ function MobileProspectList({
             <MobileProspectRow
               p={p}
               isSelected={selected.has(p.id)}
+              busy={busyIds?.has(p.id)}
               onToggleSelect={onToggleSelect}
               onOpen={onOpen}
               onWhats={onWhats}
