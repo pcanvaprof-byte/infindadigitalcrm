@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { listTemplates, registerSend, markProspectContactedFromLead } from "@/lib/cadencia/api";
 import { renderTemplate, leadElegivelParaDisparo, type CadLead } from "@/lib/cadencia/types";
 import { wasDispatchedToday, dispatchBlockedMessage } from "@/lib/dispatch-lock";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 function onlyDigits(s: string) { return (s || "").replace(/\D+/g, ""); }
 /** Normaliza telefone BR para E.164 sem sinal, garantindo DDI 55. */
@@ -27,6 +29,29 @@ export function SendMessageDialog({
   const tpls = useQuery({ queryKey: ["cad-templates"], queryFn: listTemplates, enabled: open });
   const [msg, setMsg] = useState("");
   const [sending, setSending] = useState(false);
+  type WaAccount = "default" | "business" | "personal";
+  const [account, setAccount] = useState<WaAccount>("default");
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem("wa_account") as WaAccount | null;
+    if (saved === "business" || saved === "personal" || saved === "default") setAccount(saved);
+  }, []);
+  function changeAccount(v: WaAccount) {
+    setAccount(v);
+    try { window.localStorage.setItem("wa_account", v); } catch { /* ignore */ }
+  }
+  function isAndroid() {
+    return typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+  }
+  function buildSendUrl(phone: string, text: string, acc: WaAccount): string {
+    const encoded = encodeURIComponent(text);
+    if (isAndroid() && acc !== "default") {
+      const pkg = acc === "business" ? "com.whatsapp.w4b" : "com.whatsapp";
+      return `intent://send?phone=${phone}&text=${encoded}#Intent;scheme=whatsapp;package=${pkg};end`;
+    }
+    return `https://wa.me/${phone}?text=${encoded}`;
+  }
 
   useEffect(() => {
     if (!lead || !open) return;
@@ -64,7 +89,7 @@ export function SendMessageDialog({
       setSending(false);
       return;
     }
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(msg)}`;
+    const url = buildSendUrl(phone, msg, account);
 
     // ESTRATÉGIA: no desktop abrimos a aba IMEDIATAMENTE (dentro do gesto)
     // e registramos depois — a página atual fica viva.
@@ -117,6 +142,32 @@ export function SendMessageDialog({
           <DialogTitle>Enviar mensagem — {lead?.empresa}</DialogTitle>
         </DialogHeader>
         <Textarea rows={10} value={msg} onChange={(e) => setMsg(e.target.value)} />
+        <div className="space-y-2 rounded-md border border-border p-3">
+          <Label className="text-xs font-medium text-muted-foreground">Conta do WhatsApp</Label>
+          <RadioGroup
+            value={account}
+            onValueChange={(v) => changeAccount(v as WaAccount)}
+            className="flex flex-col gap-1 sm:flex-row sm:gap-4"
+          >
+            <label className="flex items-center gap-2 text-sm">
+              <RadioGroupItem value="default" id="wa-default" />
+              <span>Padrão do sistema</span>
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <RadioGroupItem value="personal" id="wa-personal" />
+              <span>WhatsApp Normal</span>
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <RadioGroupItem value="business" id="wa-business" />
+              <span>WhatsApp Business</span>
+            </label>
+          </RadioGroup>
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            A escolha entre Normal e Business só é forçada no Android. No iPhone e
+            desktop, o link abre o app definido como padrão do sistema — troque o
+            padrão no aparelho/computador para usar a outra conta.
+          </p>
+        </div>
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={copy}><Copy className="h-4 w-4 mr-2" /> Copiar</Button>
           {(() => {
