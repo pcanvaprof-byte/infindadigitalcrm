@@ -112,12 +112,18 @@ export async function fetchComercialFunnel(
     opContratos,
   ] = await Promise.all([
     safeCount("prospects", "created_at"),
-    safeCount("cad_leads", "created_at", (q) =>
-      (q as { is: (c: string, v: unknown) => unknown }).is("prospect_id", null),
-    , "prospect_id IS NULL"),
-    safeCount("prospect_touchpoints", "enviado_em", (q) =>
-      (q as { eq: (c: string, v: unknown) => unknown }).eq("tipo", "reuniao"),
-    , "tipo=reuniao"),
+    safeCount(
+      "cad_leads",
+      "created_at",
+      (q) => (q as { is: (c: string, v: unknown) => unknown }).is("prospect_id", null),
+      "prospect_id IS NULL",
+    ),
+    safeCount(
+      "prospect_touchpoints",
+      "enviado_em",
+      (q) => (q as { eq: (c: string, v: unknown) => unknown }).eq("tipo", "reuniao"),
+      "tipo=reuniao",
+    ),
     safeCount("proposals", "created_at"),
     safeCount("contracts", "signed_at"),
     safeCount("op_contracts", "signed_at"),
