@@ -2214,10 +2214,11 @@ function ImportHistoryDialog({ open }: { open: boolean }) {
 
 
 const MobileProspectRow = memo(function MobileProspectRow({
-  p, isSelected, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
+  p, isSelected, busy, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
 }: {
   p: Prospect;
   isSelected: boolean;
+  busy?: boolean;
   onToggleSelect: (id: string) => void;
   onOpen: (id: string) => void;
   onWhats: (p: Prospect) => void;
@@ -2259,9 +2260,10 @@ const MobileProspectRow = memo(function MobileProspectRow({
           className={`h-9 w-9 ${noWhats ? "bg-amber-500 text-amber-950 hover:bg-amber-400" : "text-primary-glow"}`}
           title={noWhats ? "Enriquecer (sem WhatsApp)" : "Enriquecer dados via CNPJ"}
           aria-label={`Enriquecer ${p.company}`}
+          disabled={!!busy}
           onClick={(e) => { e.stopPropagation(); onEnrich(p); }}
         >
-          <Wand2 className="h-4 w-4" />
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
         </Button>
         <RowActions
           p={p}
