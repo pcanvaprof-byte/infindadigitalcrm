@@ -900,7 +900,7 @@ function ProspeccaoPage() {
 
 
   const clearFilters = () => {
-    setStatusFilter("all"); setSegmentFilter("all"); setStateFilter("all"); setPotentialFilter("all"); setSearch(""); setOnlyWithContact(false);
+    setStatusFilter("all"); setSegmentFilter("all"); setStateFilter("all"); setPotentialFilter("all"); setSearch(""); setOnlyWithContact(false); setNoWhatsapp(false);
   };
 
   const bulkEnrich = async () => {
@@ -1203,7 +1203,7 @@ function ProspeccaoPage() {
           {/* Mobile: card list */}
           <div className="md:hidden">
             <MobileProspectList
-              items={filtered}
+              items={filteredOrdered}
               selected={selected}
               onToggleSelect={toggleSelect}
               onOpen={setDetailId}
@@ -1216,7 +1216,7 @@ function ProspeccaoPage() {
             />
           </div>
           <DesktopProspectTable
-            items={filtered}
+            items={filteredOrdered}
             selected={selected}
             allVisibleSelected={allVisibleSelected}
             onToggleSelect={toggleSelect}
@@ -1230,13 +1230,13 @@ function ProspeccaoPage() {
             onRemove={(id) => removeProspect([id])}
           />
           <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground">
-            <span>Mostrando {filtered.length} de {prospects.length} empresas</span>
+            <span>Mostrando {filteredOrdered.length} de {prospects.length} empresas · empresas com disparo nas últimas 24h vão para o final</span>
             <span className="hidden sm:inline">INFINDA digital — Prospecção</span>
           </div>
         </section>
       ) : (
         <KanbanView
-          prospects={filtered}
+          prospects={filteredOrdered}
           onOpen={(id) => setDetailId(id)}
           onMove={(id, status) => updateStatus(id, status)}
         />
