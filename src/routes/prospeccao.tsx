@@ -692,11 +692,19 @@ function ProspeccaoPage() {
       console.warn("[prosp] openWhats:abort:no-whatsapp", { id: p.id });
       return toast.error("WhatsApp não cadastrado");
     }
-    const lock = await wasDispatchedToday({ prospectId: p.id });
-    if (lock.blocked) {
-      console.warn("[prosp] openWhats:blocked", { id: p.id, source: lock.source });
-      return toast.error(dispatchBlockedMessage(lock.source!));
+    // Guard anti-duplo-clique: enquanto o disparo está em curso, ignora cliques.
+    if (dispatchingIds.has(p.id)) {
+      console.warn("[prosp] openWhats:already-dispatching", { id: p.id });
+      return;
     }
+    setDispatchingIds((prev) => { const n = new Set(prev); n.add(p.id); return n; });
+    try {
+      const lock = await wasDispatchedToday({ prospectId: p.id });
+      if (lock.blocked) {
+        console.warn("[prosp] openWhats:blocked", { id: p.id, source: lock.source });
+        toast.error(dispatchBlockedMessage(lock.source!));
+        return;
+      }
     // Rotação anti-bloqueio: 3 variantes diferentes da abordagem inicial.
     // O WhatsApp pune padrões repetidos em massa, então revezamos a cada
     // disparo via contador persistido em localStorage.
@@ -731,6 +739,13 @@ function ProspeccaoPage() {
     }
     console.log("[prosp] openWhats:window.open", { url, account: waAccount });
     window.open(url, "_blank");
+    } finally {
+      // Cooldown curto para não permitir 2 cliques sequenciais que abram
+      // 2 conversas e gerem registro duplicado de tentativa.
+      window.setTimeout(() => {
+        setDispatchingIds((prev) => { const n = new Set(prev); n.delete(p.id); return n; });
+      }, 3000);
+    }
   };
 
   // Enriquecimento "suspenso" — roda direto na linha sem abrir o Sheet/Drawer.
