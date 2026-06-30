@@ -489,6 +489,9 @@ function DashboardPage() {
         <MiniStat label="Base total" value={baseN} hint="Empresas cadastradas" icon={Target} />
       </section>
 
+      {/* Painel canônico de disparos (fonte: backend / OWN_SB) */}
+      <DispatchesPanel />
+
       {/* 3 — Funil único horizontal */}
       <section className="mb-8 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
