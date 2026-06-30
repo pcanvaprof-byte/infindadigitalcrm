@@ -51,16 +51,14 @@ function rangeLastDays(n: number): Range {
 
 const OUTBOUND_TYPES = ["whatsapp", "ligacao", "email", "reuniao"] as const;
 
-function ownClient() {
+async function ownClient() {
   // Lazy import para não vazar o módulo server-only no bundle do client.
   // Usa OWN_SB (banco canônico do INFINDA) com service role para garantir
   // contagem consistente independente do usuário.
   const url = process.env.OWN_SB_URL;
   const key = process.env.OWN_SB_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error("OWN_SB env não configurado");
-  // import dinâmico evita bundling
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { createClient } = require("@supabase/supabase-js") as typeof import("@supabase/supabase-js");
+  const { createClient } = await import("@supabase/supabase-js");
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
@@ -93,7 +91,7 @@ async function fetchBucket(range: Range): Promise<{
   cadRows: CadRow[];
   tpRows: TpRow[];
 }> {
-  const sb = ownClient();
+  const sb = await ownClient();
   // Paginação simples (limite 5k) — auditoria diária dificilmente passa disso.
   const [cadRes, tpRes] = await Promise.all([
     sb.from("cad_messages")
@@ -294,7 +292,7 @@ export const listDispatchRows = createServerFn({ method: "POST" })
       label: "csv",
     };
     const { cadRows, tpRows } = await fetchBucket(range);
-    const sb = ownClient();
+    const sb = await ownClient();
 
     const leadIds = [...new Set(cadRows.map((r) => r.lead_id).filter(Boolean))] as string[];
     const leadById: Record<string, { empresa: string | null; stage: string | null }> = {};
