@@ -2354,6 +2354,7 @@ function MobileProspectList({
             p={p}
             isSelected={selected.has(p.id)}
             busy={busyIds?.has(p.id)}
+            busyWhats={busyWhatsIds?.has(p.id)}
             onToggleSelect={onToggleSelect}
             onOpen={onOpen}
             onWhats={onWhats}
@@ -2391,6 +2392,7 @@ function MobileProspectList({
               p={p}
               isSelected={selected.has(p.id)}
               busy={busyIds?.has(p.id)}
+              busyWhats={busyWhatsIds?.has(p.id)}
               onToggleSelect={onToggleSelect}
               onOpen={onOpen}
               onWhats={onWhats}
