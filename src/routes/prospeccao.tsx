@@ -1130,6 +1130,14 @@ function ProspeccaoPage() {
               />
               Mostrar somente empresas com contato disponível (WhatsApp, telefone ou e-mail)
             </label>
+            <label className="col-span-full flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
+              <NativeCheckbox
+                checked={noWhatsapp}
+                onChange={setNoWhatsapp}
+                ariaLabel="Mostrar somente empresas sem WhatsApp"
+              />
+              Somente <strong className="text-foreground">sem WhatsApp</strong> — útil para enriquecer a base (Google/Instagram/CNPJ)
+            </label>
           </div>
         )}
       </section>
