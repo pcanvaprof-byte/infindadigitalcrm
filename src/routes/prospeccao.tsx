@@ -362,6 +362,7 @@ function ProspeccaoPage() {
   type WaAccount = "default" | "personal" | "business";
   const [waAccount, setWaAccount] = useState<WaAccount>("default");
   const [quickEnrichingIds, setQuickEnrichingIds] = useState<Set<string>>(new Set());
+  const [dispatchingIds, setDispatchingIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (typeof window === "undefined") return;
