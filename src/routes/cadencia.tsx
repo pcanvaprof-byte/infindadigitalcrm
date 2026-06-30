@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, RefreshCw, Download, Eraser } from "lucide-react";
+import { Plus, RefreshCw, Download, Eraser, FileWarning } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { cleanupOwnerFallback } from "@/lib/prospects/cleanup.functions";
 import { DashboardCadencia } from "@/components/cadencia/DashboardCadencia";
@@ -17,7 +17,7 @@ import { CadenciaKanban } from "@/components/cadencia/CadenciaKanban";
 import { LeadDrawer } from "@/components/cadencia/LeadDrawer";
 import { SendMessageDialog } from "@/components/cadencia/SendMessageDialog";
 import { TemplatesPanel } from "@/components/cadencia/TemplatesPanel";
-import { listLeads, createLead, importFromProspects, syncLeadStagesFromProspects } from "@/lib/cadencia/api";
+import { listLeads, createLead, importFromProspects, syncLeadStagesFromProspects, listLeadsSemWhatsapp } from "@/lib/cadencia/api";
 import type { CadLead, CadStage } from "@/lib/cadencia/types";
 import { CAD_STAGE_LABEL } from "@/lib/cadencia/types";
 import { leadUf } from "@/lib/cadencia/uf";
@@ -190,6 +190,40 @@ function CadenciaPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const exportSemWhatsM = useMutation({
+    mutationFn: listLeadsSemWhatsapp,
+    onSuccess: (rows) => {
+      if (rows.length === 0) {
+        toast.success("Todos os leads em cadência possuem WhatsApp 🎉");
+        return;
+      }
+      const header = ["empresa", "responsavel", "cargo", "telefone", "whatsapp", "email", "stage"];
+      const esc = (v: unknown) => {
+        const s = v == null ? "" : String(v);
+        return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const csv = [
+        header.join(";"),
+        ...rows.map((r) =>
+          [r.empresa, r.responsavel, r.cargo, r.telefone, r.whatsapp, r.email, r.stage]
+            .map(esc)
+            .join(";"),
+        ),
+      ].join("\n");
+      const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `cadencia-sem-whatsapp-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(`${rows.length} lead(s) sem WhatsApp exportado(s)`);
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   return (
     <AppShell title="Cadência Comercial">
       <div className="p-4 space-y-4">
@@ -229,6 +263,10 @@ function CadenciaPage() {
               <Button variant="outline" size="sm" onClick={() => cleanupM.mutate()} disabled={cleanupM.isPending} className="w-full sm:w-auto" title="Limpa o responsável dos prospects que receberam o seu nome automaticamente">
                 <Eraser className="h-4 w-4 sm:mr-2" />
                 <span className="ml-1 sm:ml-0">Limpar responsáveis</span>
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => exportSemWhatsM.mutate()} disabled={exportSemWhatsM.isPending} className="w-full sm:w-auto" title="Exporta CSV com os leads que não possuem WhatsApp cadastrado">
+                <FileWarning className="h-4 w-4 sm:mr-2" />
+                <span className="ml-1 sm:ml-0">Sem WhatsApp</span>
               </Button>
               <Button size="sm" onClick={() => setOpenNew(true)} className="w-full sm:w-auto">
                 <Plus className="h-4 w-4 sm:mr-2" />
