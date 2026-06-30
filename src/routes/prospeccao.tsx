@@ -717,8 +717,56 @@ function ProspeccaoPage() {
     console.log("[prosp] openWhats:setConfirm", { id: p.id, company: p.company });
     setWhatsConfirm({ id: p.id, company: p.company });
     void logAttempt(p, "whatsapp");
-    console.log("[prosp] openWhats:window.open", { url: `https://wa.me/55${d}` });
-    window.open(`https://wa.me/55${d}?text=${encodeURIComponent(msg)}`, "_blank");
+    // Honra a conta de WhatsApp escolhida (Normal/Business). No Android
+    // forçamos o app correto via intent://; no iPhone/desktop o link abre
+    // o app definido como padrão do sistema.
+    const phone = `55${d}`;
+    const encoded = encodeURIComponent(msg);
+    const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
+    let url = `https://wa.me/${phone}?text=${encoded}`;
+    if (isAndroid && waAccount !== "default") {
+      const pkg = waAccount === "business" ? "com.whatsapp.w4b" : "com.whatsapp";
+      url = `intent://send?phone=${phone}&text=${encoded}#Intent;scheme=whatsapp;package=${pkg};end`;
+    }
+    console.log("[prosp] openWhats:window.open", { url, account: waAccount });
+    window.open(url, "_blank");
+  };
+
+  // Enriquecimento "suspenso" — roda direto na linha sem abrir o Sheet/Drawer.
+  // Usa o mesmo fluxo do bulkEnrich (CNPJ → Receita/CNPJá/etc) e aplica patch
+  // otimista no cache, mostrando spinner via toast.
+  const quickEnrich = async (p: Prospect) => {
+    const cnpj = (p.cnpj || "").replace(/\D/g, "");
+    if (cnpj.length !== 14) {
+      // Sem CNPJ válido, cai no drawer manual para o usuário ajustar.
+      setEnrichFor(p);
+      return;
+    }
+    if (quickEnrichingIds.has(p.id)) return;
+    setQuickEnrichingIds((prev) => { const n = new Set(prev); n.add(p.id); return n; });
+    const tid = toast.loading(`Enriquecendo ${p.company}…`);
+    try {
+      const r = await runEnrichment(p.cnpj!, { prospectId: p.id });
+      const patch: Partial<Prospect> = {};
+      const tel = r.profile.telefone_1 ?? r.profile.telefone_2;
+      if (!p.whatsapp && tel) patch.whatsapp = tel;
+      if (!p.phone && r.profile.telefone_2 && r.profile.telefone_2 !== patch.whatsapp) patch.phone = r.profile.telefone_2;
+      if (!p.email && r.profile.email) patch.email = r.profile.email;
+      if (!p.city && r.address?.cidade) patch.city = r.address.cidade;
+      if (!p.state && r.address?.uf) patch.state = r.address.uf;
+      if (Object.keys(patch).length) {
+        await updateProspect(p.id, patch);
+        setCache((prev) => prev.map((x) => (x.id === p.id ? { ...x, ...patch } : x)));
+        toast.success(`${p.company}: ${Object.keys(patch).join(", ")} atualizado(s).`, { id: tid });
+      } else {
+        toast.message(`${p.company}: nada novo na Receita.`, { id: tid, description: "Toque novamente para ver os dados completos.", duration: 4000 });
+      }
+      void invalidateCrmCore(qc);
+    } catch (e) {
+      toast.error(`Falha ao enriquecer: ${(e as Error).message}`, { id: tid });
+    } finally {
+      setQuickEnrichingIds((prev) => { const n = new Set(prev); n.delete(p.id); return n; });
+    }
   };
   const callPhone = async (p: Prospect) => {
     const d = onlyDigits(p.phone || p.whatsapp);
