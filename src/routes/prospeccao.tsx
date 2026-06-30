@@ -1877,7 +1877,7 @@ function KanbanView({
 }
 
 function DetailDialog({
-  p, onWhats, onCall, onStatus, onConvert, onAddNote, onEnrich, onRegisterTouchpoint, onCloseCadence,
+  p, onWhats, onCall, onStatus, onConvert, onAddNote, onEnrich, enrichBusy, whatsBusy, onRegisterTouchpoint, onCloseCadence,
 }: {
   p: Prospect;
   onWhats: () => void;
@@ -1886,6 +1886,8 @@ function DetailDialog({
   onConvert: () => void;
   onAddNote: (text: string) => void;
   onEnrich: () => void;
+  enrichBusy?: boolean;
+  whatsBusy?: boolean;
   onRegisterTouchpoint: () => void;
   onCloseCadence: () => void;
 }) {
@@ -1915,8 +1917,11 @@ function DetailDialog({
               </span>
             </DialogDescription>
           </div>
-          <Button size="sm" className="btn-gradient h-8 text-xs" onClick={onEnrich}>
-            <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Enriquecer Lead
+          <Button size="sm" className="btn-gradient h-8 text-xs" onClick={onEnrich} disabled={!!enrichBusy}>
+            {enrichBusy
+              ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
+            {enrichBusy ? "Enriquecendo…" : "Enriquecer Lead"}
           </Button>
         </div>
       </DialogHeader>
