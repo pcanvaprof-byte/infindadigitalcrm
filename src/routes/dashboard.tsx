@@ -22,6 +22,7 @@ import { FollowupComparativoWidget } from "@/components/cadence/FollowupComparat
 import { fetchDashboardMetrics, type DashboardMetrics } from "@/lib/cadence/api";
 import { fetchKpiTrends, wowDelta, EMPTY_TRENDS } from "@/lib/cadence/trends";
 import { FEATURES } from "@/config/features";
+import { DispatchesPanel } from "@/components/dashboard/DispatchesPanel";
 
 type Period = "hoje" | "semana" | "mes" | "previsao";
 const PERIOD_LABEL: Record<Period, string> = {
