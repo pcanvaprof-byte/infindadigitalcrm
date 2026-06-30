@@ -1773,39 +1773,19 @@ const RowActions = memo(function RowActions({
   busyWhats?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [waOpen, setWaOpen] = useState(false);
 
   return (
     <div className="flex items-center justify-end gap-1">
-      <DropdownMenu open={waOpen} onOpenChange={setWaOpen}>
-        <DropdownMenuTrigger asChild>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8 text-emerald-400"
-            title={busyWhats ? "Enviando…" : "WhatsApp — escolher conta"}
-            disabled={!!busyWhats}
-          >
-            {busyWhats ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
-          </Button>
-        </DropdownMenuTrigger>
-        {waOpen && (
-          <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuLabel className="text-[11px] text-muted-foreground">
-              Disparar usando…
-            </DropdownMenuLabel>
-            <DropdownMenuItem className="text-xs" onClick={() => onWhats(p, "default")}>
-              <MessageSquare className="mr-2 h-3.5 w-3.5 text-emerald-400" /> WhatsApp padrão
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-xs" onClick={() => onWhats(p, "personal")}>
-              <MessageSquare className="mr-2 h-3.5 w-3.5" /> WhatsApp Normal
-            </DropdownMenuItem>
-            <DropdownMenuItem className="text-xs" onClick={() => onWhats(p, "business")}>
-              <MessageSquare className="mr-2 h-3.5 w-3.5" /> WhatsApp Business
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        )}
-      </DropdownMenu>
+      <Button
+        size="icon"
+        variant="ghost"
+        className="h-8 w-8 text-emerald-400"
+        title={busyWhats ? "Enviando…" : "Disparar WhatsApp (usa a conta selecionada no topo)"}
+        disabled={!!busyWhats}
+        onClick={() => onWhats(p)}
+      >
+        {busyWhats ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
+      </Button>
       <Button size="icon" variant="ghost" className="h-8 w-8" title="Ligar" onClick={() => onCall(p)}>
         <Phone className="h-4 w-4" />
       </Button>
@@ -1971,30 +1951,19 @@ function DetailDialog({
           <div className="surface-card p-3 space-y-2">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Ações</p>
             <div className="grid grid-cols-2 gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" variant="outline" className="h-8 text-xs" disabled={!!whatsBusy}>
-                    {whatsBusy
-                      ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin text-emerald-400" />
-                      : <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-emerald-400" />}
-                    {whatsBusy ? "Enviando…" : "WhatsApp"}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-52">
-                  <DropdownMenuLabel className="text-[11px] text-muted-foreground">
-                    Disparar usando…
-                  </DropdownMenuLabel>
-                  <DropdownMenuItem className="text-xs" onClick={() => onWhats("default")}>
-                    <MessageSquare className="mr-2 h-3.5 w-3.5 text-emerald-400" /> WhatsApp padrão
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="text-xs" onClick={() => onWhats("personal")}>
-                    <MessageSquare className="mr-2 h-3.5 w-3.5" /> WhatsApp Normal
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="text-xs" onClick={() => onWhats("business")}>
-                    <MessageSquare className="mr-2 h-3.5 w-3.5" /> WhatsApp Business
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 text-xs"
+                disabled={!!whatsBusy}
+                onClick={() => onWhats()}
+                title="Usa a conta do WhatsApp selecionada no topo da tela"
+              >
+                {whatsBusy
+                  ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin text-emerald-400" />
+                  : <MessageSquare className="mr-1.5 h-3.5 w-3.5 text-emerald-400" />}
+                {whatsBusy ? "Enviando…" : "WhatsApp"}
+              </Button>
               <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onCall}>
                 <Phone className="mr-1.5 h-3.5 w-3.5" /> Ligar
               </Button>
