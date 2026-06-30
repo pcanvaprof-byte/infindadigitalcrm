@@ -1243,6 +1243,15 @@ function ProspeccaoPage() {
                 : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
               Enriquecer em massa
             </Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs border-amber-500/40 text-amber-300 hover:bg-amber-500/10"
+              disabled={bulkEnriching}
+              onClick={bulkFillWhatsapp}
+              title="Preenche o WhatsApp apenas das selecionadas marcadas como Sem WhatsApp (via CNPJ)">
+              {bulkEnriching
+                ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                : <Sparkles className="mr-1.5 h-3.5 w-3.5" />}
+              Preencher WhatsApp
+            </Button>
             <Button variant="outline" size="sm"
               className="h-8 text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
               onClick={() => removeProspect(Array.from(selected))}>
