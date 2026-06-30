@@ -34,6 +34,7 @@ import { Route as CatalogoNovoRouteImport } from './routes/catalogo.novo'
 import { Route as CatalogoIdRouteImport } from './routes/catalogo.$id'
 import { Route as BriefingsIdRouteImport } from './routes/briefings.$id'
 import { Route as BriefingTokenRouteImport } from './routes/briefing.$token'
+import { Route as BiDisparosRouteImport } from './routes/bi.disparos'
 import { Route as BiConfiguracoesRouteImport } from './routes/bi.configuracoes'
 import { Route as OperacoesClientesIndexRouteImport } from './routes/operacoes.clientes.index'
 import { Route as OperacoesClientesIdRouteImport } from './routes/operacoes.clientes.$id'
@@ -174,6 +175,11 @@ const BriefingTokenRoute = BriefingTokenRouteImport.update({
   path: '/briefing/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BiDisparosRoute = BiDisparosRouteImport.update({
+  id: '/disparos',
+  path: '/disparos',
+  getParentRoute: () => BiRoute,
+} as any)
 const BiConfiguracoesRoute = BiConfiguracoesRouteImport.update({
   id: '/configuracoes',
   path: '/configuracoes',
@@ -267,6 +273,7 @@ export interface FileRoutesByFullPath {
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
   '/bi/configuracoes': typeof BiConfiguracoesRoute
+  '/bi/disparos': typeof BiDisparosRoute
   '/briefing/$token': typeof BriefingTokenRoute
   '/briefings/$id': typeof BriefingsIdRoute
   '/catalogo/$id': typeof CatalogoIdRoute
@@ -307,6 +314,7 @@ export interface FileRoutesByTo {
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
   '/bi/configuracoes': typeof BiConfiguracoesRoute
+  '/bi/disparos': typeof BiDisparosRoute
   '/briefing/$token': typeof BriefingTokenRoute
   '/briefings/$id': typeof BriefingsIdRoute
   '/catalogo/$id': typeof CatalogoIdRoute
@@ -346,6 +354,7 @@ export interface FileRoutesById {
   '/prospeccao': typeof ProspeccaoRoute
   '/tarefas': typeof TarefasRoute
   '/bi/configuracoes': typeof BiConfiguracoesRoute
+  '/bi/disparos': typeof BiDisparosRoute
   '/briefing/$token': typeof BriefingTokenRoute
   '/briefings/$id': typeof BriefingsIdRoute
   '/catalogo/$id': typeof CatalogoIdRoute
@@ -388,6 +397,7 @@ export interface FileRouteTypes {
     | '/prospeccao'
     | '/tarefas'
     | '/bi/configuracoes'
+    | '/bi/disparos'
     | '/briefing/$token'
     | '/briefings/$id'
     | '/catalogo/$id'
@@ -428,6 +438,7 @@ export interface FileRouteTypes {
     | '/prospeccao'
     | '/tarefas'
     | '/bi/configuracoes'
+    | '/bi/disparos'
     | '/briefing/$token'
     | '/briefings/$id'
     | '/catalogo/$id'
@@ -466,6 +477,7 @@ export interface FileRouteTypes {
     | '/prospeccao'
     | '/tarefas'
     | '/bi/configuracoes'
+    | '/bi/disparos'
     | '/briefing/$token'
     | '/briefings/$id'
     | '/catalogo/$id'
@@ -690,6 +702,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BriefingTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/bi/disparos': {
+      id: '/bi/disparos'
+      path: '/disparos'
+      fullPath: '/bi/disparos'
+      preLoaderRoute: typeof BiDisparosRouteImport
+      parentRoute: typeof BiRoute
+    }
     '/bi/configuracoes': {
       id: '/bi/configuracoes'
       path: '/configuracoes'
@@ -786,10 +805,12 @@ declare module '@tanstack/react-router' {
 
 interface BiRouteChildren {
   BiConfiguracoesRoute: typeof BiConfiguracoesRoute
+  BiDisparosRoute: typeof BiDisparosRoute
 }
 
 const BiRouteChildren: BiRouteChildren = {
   BiConfiguracoesRoute: BiConfiguracoesRoute,
+  BiDisparosRoute: BiDisparosRoute,
 }
 
 const BiRouteWithChildren = BiRoute._addFileChildren(BiRouteChildren)
