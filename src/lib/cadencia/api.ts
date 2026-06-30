@@ -117,7 +117,27 @@ export async function getLead(id: string): Promise<CadLead | null> {
 
 export async function createLead(input: Partial<CadLead> & { empresa: string }): Promise<CadLead> {
   const { data, error } = await db.from("cad_leads").insert(input).select("*").single();
-  if (error) throw new Error(error.message);
+  if (error) {
+    const msg = String(error.message || "");
+    // 23505 unique_violation — geralmente ux_cad_leads_org_whatsapp_norm (mesmo
+    // WhatsApp já cadastrado na cadência). Tenta recuperar o lead existente
+    // para o usuário e devolve mensagem amigável.
+    if (/duplicate key|unique constraint|ux_cad_leads_/i.test(msg)) {
+      const digits = (input.whatsapp || input.telefone || "").replace(/\D/g, "");
+      let existing: CadLead | null = null;
+      if (digits) {
+        const { data: rows } = await db
+          .from("cad_leads")
+          .select("*")
+          .or(`whatsapp.ilike.%${digits}%,telefone.ilike.%${digits}%`)
+          .limit(1);
+        existing = ((rows ?? [])[0] ?? null) as CadLead | null;
+      }
+      const label = existing?.empresa ? ` (já cadastrado como "${existing.empresa}")` : "";
+      throw new Error(`Este WhatsApp já está na cadência${label}. Abra o card existente em vez de criar outro.`);
+    }
+    throw new Error(msg);
+  }
   return data as CadLead;
 }
 
