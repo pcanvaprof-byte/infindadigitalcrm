@@ -66,6 +66,7 @@ import {
   Trash2,
   Upload,
   Users,
+  Wand2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -1290,6 +1291,7 @@ function ProspeccaoPage() {
               onConvert={convertToLead}
               onStatus={updateStatus}
               onRemove={(id) => removeProspect([id])}
+              onEnrich={(p) => setEnrichFor(p)}
             />
           </div>
           <DesktopProspectTable
@@ -2094,7 +2096,7 @@ function ImportHistoryDialog({ open }: { open: boolean }) {
 
 
 const MobileProspectRow = memo(function MobileProspectRow({
-  p, isSelected, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove,
+  p, isSelected, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
 }: {
   p: Prospect;
   isSelected: boolean;
@@ -2106,7 +2108,9 @@ const MobileProspectRow = memo(function MobileProspectRow({
   onConvert: (p: Prospect) => void;
   onStatus: (id: string, s: ProspectStatus) => void;
   onRemove: (id: string) => void;
+  onEnrich: (p: Prospect) => void;
 }) {
+  const noWhats = ((p.whatsapp || "").replace(/\D/g, "")).length < 10;
   return (
     <div className={`flex gap-3 border-b border-border/60 p-3 ${isSelected ? "bg-primary/5" : ""}`}>
       <NativeCheckbox
@@ -2131,6 +2135,16 @@ const MobileProspectRow = memo(function MobileProspectRow({
         </div>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1">
+        <Button
+          size="icon"
+          variant={noWhats ? "default" : "ghost"}
+          className={`h-9 w-9 ${noWhats ? "bg-amber-500 text-amber-950 hover:bg-amber-400" : "text-primary-glow"}`}
+          title={noWhats ? "Enriquecer (sem WhatsApp)" : "Enriquecer dados via CNPJ"}
+          aria-label={`Enriquecer ${p.company}`}
+          onClick={(e) => { e.stopPropagation(); onEnrich(p); }}
+        >
+          <Wand2 className="h-4 w-4" />
+        </Button>
         <RowActions
           p={p}
           onWhats={onWhats}
@@ -2147,7 +2161,7 @@ const MobileProspectRow = memo(function MobileProspectRow({
 });
 
 function MobileProspectList({
-  items, selected, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove,
+  items, selected, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
 }: {
   items: Prospect[];
   selected: Set<string>;
@@ -2159,6 +2173,7 @@ function MobileProspectList({
   onConvert: (p: Prospect) => void;
   onStatus: (id: string, s: ProspectStatus) => void;
   onRemove: (id: string) => void;
+  onEnrich: (p: Prospect) => void;
 }) {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const virtualizer = useWindowVirtualizer({
@@ -2193,6 +2208,7 @@ function MobileProspectList({
             onConvert={onConvert}
             onStatus={onStatus}
             onRemove={onRemove}
+            onEnrich={onEnrich}
           />
         ))}
       </div>
@@ -2228,6 +2244,7 @@ function MobileProspectList({
               onConvert={onConvert}
               onStatus={onStatus}
               onRemove={onRemove}
+              onEnrich={onEnrich}
             />
           </div>
         );
