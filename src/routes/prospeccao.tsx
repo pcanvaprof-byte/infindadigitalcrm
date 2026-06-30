@@ -1426,6 +1426,7 @@ function ProspeccaoPage() {
               onRemove={(id) => removeProspect([id])}
               onEnrich={(p) => quickEnrich(p)}
               busyIds={quickEnrichingIds}
+              busyWhatsIds={dispatchingIds}
             />
           </div>
           <DesktopProspectTable
@@ -1441,6 +1442,7 @@ function ProspeccaoPage() {
             onConvert={convertToLead}
             onStatus={updateStatus}
             onRemove={(id) => removeProspect([id])}
+            busyWhatsIds={dispatchingIds}
           />
           <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground">
             <span>Mostrando {filteredOrdered.length} de {prospects.length} empresas · empresas com disparo nas últimas 24h vão para o final</span>
