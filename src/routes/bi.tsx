@@ -13,7 +13,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   LineChart, Line,
 } from "recharts";
-import { fetchBIDashboard, type BIArea, type BIDashboardPayload } from "@/lib/bi/api";
+import { fetchBIDashboard, fetchComercialFunnel, type BIArea, type BIDashboardPayload } from "@/lib/bi/api";
 import { fetchBIGoals, DEFAULT_GOALS, type BIGoals } from "@/lib/bi/goals";
 import { fetchDiretoriaKpis, type DiretoriaKpis } from "@/lib/bi/diretoria";
 import { fetchForecastForPeriod, type ForecastBreakdown } from "@/lib/bi/forecast";
@@ -357,8 +357,15 @@ function BIPage() {
   const areaLabel = AREAS.find((a) => a.id === area)?.label ?? "BI";
 
   const dashQuery = useQuery<BIDashboardPayload>({
-    queryKey: ["bi", "dashboard", area],
-    queryFn: () => fetchBIDashboard(area),
+    queryKey: ["bi", "dashboard", area, period.key, period.from.toISOString(), period.to.toISOString()],
+    queryFn: async () => {
+      const base = await fetchBIDashboard(area);
+      if (area === "comercial" || area === "diretoria") {
+        const funnel = await fetchComercialFunnel(period);
+        return { ...base, funnel };
+      }
+      return base;
+    },
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
     refetchOnWindowFocus: false,
