@@ -677,7 +677,22 @@ function ProspeccaoPage() {
       console.warn("[prosp] openWhats:blocked", { id: p.id, source: lock.source });
       return toast.error(dispatchBlockedMessage(lock.source!));
     }
-    const msg = `Olá, vi que sua empresa foi aberta recentemente. Parabéns pela nova fase! 🎉\nPercebi que muitas empresas novas acabam perdendo oportunidades por ainda não terem uma presença profissional na internet.\n\nEu ajudo negócios a terem um site moderno que transmite confiança e gera contatos desde os primeiros meses de operação.\n\nPosso te mostrar alguns exemplos e fazer uma análise gratuita da sua presença digital?`;
+    // Rotação anti-bloqueio: 3 variantes diferentes da abordagem inicial.
+    // O WhatsApp pune padrões repetidos em massa, então revezamos a cada
+    // disparo via contador persistido em localStorage.
+    const variants: string[] = [
+      `Olá, vi que sua empresa foi aberta recentemente. Parabéns pela nova fase! 🎉\nPercebi que muitas empresas novas acabam perdendo oportunidades por ainda não terem uma presença profissional na internet.\n\nEu ajudo negócios a terem um site moderno que transmite confiança e gera contatos desde os primeiros meses de operação.\n\nPosso te mostrar alguns exemplos e fazer uma análise gratuita da sua presença digital?`,
+      `Oi! Tudo bem? Aqui é da INFINDA Digital 👋\nDei uma olhada no seu negócio e percebi que dá pra aumentar bastante a visibilidade online com algumas mudanças simples — site profissional, Google Meu Negócio e captação de contatos.\n\nMontei um diagnóstico rápido e gratuito da presença digital da sua empresa. Posso te mandar por aqui mesmo?`,
+      `Olá! 🙌 Estou ajudando empresas da sua região a aparecerem mais no Google e a converter mais clientes pela internet.\n\nNotei alguns pontos no seu negócio que podem render bons resultados em pouco tempo (site, redes e tráfego). Te interessa receber uma análise gratuita com sugestões práticas, sem compromisso?`,
+    ];
+    const rotKey = "msg_rot:prospeccao:whatsapp";
+    let rotIdx = 0;
+    try {
+      const cur = Number(window.localStorage.getItem(rotKey) || "0") || 0;
+      rotIdx = cur % variants.length;
+      window.localStorage.setItem(rotKey, String((cur + 1) % variants.length));
+    } catch { /* ignore */ }
+    const msg = variants[rotIdx];
     // Define o confirm ANTES de abrir o WhatsApp para garantir que o estado
     // esteja commitado caso o navegador móvel saia da aba para o app.
     console.log("[prosp] openWhats:setConfirm", { id: p.id, company: p.company });
