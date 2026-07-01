@@ -23,7 +23,7 @@ export async function fetchCep(cep: string): Promise<EnrichedAddress | null> {
     bairro: d.bairro,
     cidade: d.localidade,
     uf: d.uf,
-    regiao: REGIAO[d.uf],
+    regiao: d.uf ? REGIAO[d.uf] : undefined,
   };
 }
 

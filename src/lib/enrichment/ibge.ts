@@ -20,7 +20,7 @@ async function fetchPopulacao(id: string): Promise<number | undefined> {
     const url = `https://servicodados.ibge.gov.br/api/v3/agregados/6579/periodos/-1/variaveis/9324?localidades=N6[${id}]`;
     const res = await pfetch(url);
     if (!res.ok) return undefined;
-    const data = await res.json();
+    const data = (await res.json()) as any;
     const serie = data?.[0]?.resultados?.[0]?.series?.[0]?.serie;
     if (serie) {
       const last = Object.values(serie).pop();
@@ -36,7 +36,7 @@ async function fetchPib(id: string): Promise<{ pib?: number; pibpc?: number }> {
     const url = `https://servicodados.ibge.gov.br/api/v3/agregados/5938/periodos/-1/variaveis/37|498?localidades=N6[${id}]`;
     const res = await pfetch(url);
     if (!res.ok) return {};
-    const data = await res.json();
+    const data = (await res.json()) as any[];
     const grab = (varId: string) => {
       const v = data.find((x: { id?: string }) => String(x.id) === varId);
       const serie = v?.resultados?.[0]?.series?.[0]?.serie;
