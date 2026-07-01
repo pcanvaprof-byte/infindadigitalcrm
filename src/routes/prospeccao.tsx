@@ -529,24 +529,36 @@ function ProspeccaoPage() {
   }, [prospects, user?.name]);
 
   const stats = useMemo(() => {
-    const t = prospects.length;
+    const base = filtered;
+    const t = base.length;
     // "Contatadas" = base com pelo menos 1 touchpoint outbound (whatsapp/ligação/email).
     // Mesma definição usada pelo Dashboard de Cadência (prospect_touchpoints),
     // evitando divergência entre os módulos.
     const isOutbound = (k: string) => k === "whatsapp" || k === "ligacao" || k === "email";
-    const contatadas = prospects.filter(
+    const contatadas = base.filter(
       (p) => (p.interactions ?? []).some((ix) => isOutbound(ix.kind)),
     ).length;
-    const qualificadas = prospects.filter((p) => p.status === "qualificado").length;
-    const agendadas = prospects.filter((p) => p.status === "agendado").length;
+    const qualificadas = base.filter((p) => p.status === "qualificado").length;
+    const agendadas = base.filter((p) => p.status === "agendado").length;
     let disparos = 0;
-    for (const p of prospects) {
+    for (const p of base) {
       for (const ix of p.interactions ?? []) {
         if (isOutbound(ix.kind)) disparos++;
       }
     }
-    return { t, contatadas, qualificadas, agendadas, disparos };
-  }, [prospects]);
+    return { t, contatadas, qualificadas, agendadas, disparos, total: prospects.length };
+  }, [filtered, prospects.length]);
+
+  const hasActiveFilters =
+    statusFilter !== "all" ||
+    segmentFilter !== "all" ||
+    stateFilter !== "all" ||
+    potentialFilter !== "all" ||
+    onlyWithContact ||
+    noWhatsapp ||
+    onlyWhatsapp ||
+    cadenceFilter !== "all" ||
+    search.trim() !== "";
 
   const detail = useMemo(
     () => prospects.find((p) => p.id === detailId) ?? null,
