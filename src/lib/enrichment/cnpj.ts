@@ -1,5 +1,6 @@
 import type { EnrichedProfile, EnrichedAddress } from "./types";
 import { fetchCnpjaCompany } from "./cnpja.functions";
+import { pfetch } from "./proxy";
 
 export function sanitizeCnpj(v: string): string {
   return (v || "").replace(/\D/g, "");
@@ -80,7 +81,7 @@ interface ReceitaWsResponse {
 
 async function fetchReceitaWsPhones(clean: string): Promise<{ tel1?: string; tel2?: string; email?: string }> {
   try {
-    const r = await fetch(`https://receitaws.com.br/v1/cnpj/${clean}`);
+    const r = await pfetch(`https://receitaws.com.br/v1/cnpj/${clean}`);
     if (!r.ok) return {};
     const d = (await r.json()) as ReceitaWsResponse;
     const phones = (d.telefone ?? "")
@@ -157,10 +158,10 @@ export async function fetchCnpj(
 ): Promise<{ profile: EnrichedProfile; address: EnrichedAddress }> {
   const clean = sanitizeCnpj(cnpj);
   if (clean.length !== 14) throw new Error("CNPJ inválido");
-  const res = await fetch(`https://brasilapi.com.br/api/cnpj/v1/${clean}`);
+  const res = await pfetch(`https://brasilapi.com.br/api/cnpj/v1/${clean}`);
   if (!res.ok) {
     try {
-      const fallback = await fetch(`https://publica.cnpj.ws/cnpj/${clean}`);
+      const fallback = await pfetch(`https://publica.cnpj.ws/cnpj/${clean}`);
       if (fallback.ok) return mapPublicaCnpjWs(clean, await fallback.json() as PublicaCnpjWsResponse);
     } catch {
       /* mantém erro da BrasilAPI */
@@ -176,7 +177,7 @@ export async function fetchCnpj(
   let email = data.email?.toLowerCase();
   if (!tel1 || !email) {
     try {
-      const r2 = await fetch(`https://publica.cnpj.ws/cnpj/${clean}`);
+      const r2 = await pfetch(`https://publica.cnpj.ws/cnpj/${clean}`);
       if (r2.ok) {
         const d2 = (await r2.json()) as PublicaCnpjWsResponse;
         const est = d2.estabelecimento ?? {};

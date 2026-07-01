@@ -1,4 +1,5 @@
 import type { EnrichedAddress } from "./types";
+import { pfetch } from "./proxy";
 
 const REGIAO: Record<string, string> = {
   AC: "Norte", AP: "Norte", AM: "Norte", PA: "Norte", RO: "Norte", RR: "Norte", TO: "Norte",
@@ -12,9 +13,9 @@ const REGIAO: Record<string, string> = {
 export async function fetchCep(cep: string): Promise<EnrichedAddress | null> {
   const clean = (cep || "").replace(/\D/g, "");
   if (clean.length !== 8) return null;
-  const res = await fetch(`https://viacep.com.br/ws/${clean}/json/`);
+  const res = await pfetch(`https://viacep.com.br/ws/${clean}/json/`);
   if (!res.ok) return null;
-  const d = await res.json();
+  const d = (await res.json()) as { erro?: boolean; logradouro?: string; bairro?: string; localidade?: string; uf?: string };
   if (d.erro) return null;
   return {
     cep: clean,
