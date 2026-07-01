@@ -496,7 +496,21 @@ function ProspeccaoPage() {
 
   const availableSegments = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const p of prospects) {
+    // Conta os nichos aplicando os OUTROS filtros ativos (menos o próprio
+    // segmentFilter) para que os números batam com a lista visível.
+    const base = prospects.filter((p) => {
+      if (statusFilter !== "all" && p.status !== statusFilter) return false;
+      if (stateFilter !== "all" && p.state !== stateFilter) return false;
+      if (potentialFilter !== "all" && p.potential !== potentialFilter) return false;
+      if (onlyWithContact) {
+        const has = Boolean((p.whatsapp?.trim()) || (p.phone?.trim()) || (p.email?.trim()));
+        if (!has) return false;
+      }
+      if (noWhatsapp && (p.whatsapp || "").replace(/\D/g, "").length >= 10) return false;
+      if (onlyWhatsapp && (p.whatsapp || "").replace(/\D/g, "").length < 10) return false;
+      return true;
+    });
+    for (const p of base) {
       const s = (p.segment || "").trim();
       if (!s) continue;
       counts.set(s, (counts.get(s) || 0) + 1);
@@ -504,7 +518,7 @@ function ProspeccaoPage() {
     return Array.from(counts.entries())
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "pt-BR"));
-  }, [prospects]);
+  }, [prospects, statusFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp]);
 
   // Apenas UFs reais presentes na base (derivadas do CNPJ/cadastro).
   const availableStates = useMemo(() => {
@@ -1192,11 +1206,11 @@ function ProspeccaoPage() {
     >
       {/* Stats */}
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <StatCard icon={Building2} label="Empresas cadastradas" value={stats.t} hint="Base total" />
-        <StatCard icon={MessageSquare} label="Contatadas" value={stats.contatadas} hint="Pelo menos 1 contato" />
-        <StatCard icon={MessageSquare} label="Conversas iniciadas" value={stats.disparos} hint="WhatsApp · ligação · e-mail" />
-        <StatCard icon={Target} label="Qualificadas" value={stats.qualificadas} hint="Prontas para proposta" />
-        <StatCard icon={CalendarPlus} label="Agendadas" value={stats.agendadas} hint="Com reunião marcada" />
+        <StatCard icon={Building2} label={hasActiveFilters ? "Empresas (filtro)" : "Empresas cadastradas"} value={stats.t} hint={hasActiveFilters ? `de ${stats.total} · filtro ativo` : "Base total"} />
+        <StatCard icon={MessageSquare} label="Contatadas" value={stats.contatadas} hint={hasActiveFilters ? "no filtro atual" : "Pelo menos 1 contato"} />
+        <StatCard icon={MessageSquare} label="Conversas iniciadas" value={stats.disparos} hint={hasActiveFilters ? "no filtro atual" : "WhatsApp · ligação · e-mail"} />
+        <StatCard icon={Target} label="Qualificadas" value={stats.qualificadas} hint={hasActiveFilters ? "no filtro atual" : "Prontas para proposta"} />
+        <StatCard icon={CalendarPlus} label="Agendadas" value={stats.agendadas} hint={hasActiveFilters ? "no filtro atual" : "Com reunião marcada"} />
       </section>
 
       {/* Conta padrão do WhatsApp para os disparos desta tela */}
