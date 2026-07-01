@@ -1,4 +1,5 @@
 import type { EnrichedAddress, EnrichedLocation } from "./types";
+import { pfetch } from "./proxy";
 
 export async function geocode(addr: EnrichedAddress): Promise<EnrichedLocation | null> {
   const parts = [
@@ -11,7 +12,7 @@ export async function geocode(addr: EnrichedAddress): Promise<EnrichedLocation |
   ].filter(Boolean).join(", ");
   if (!parts) return null;
   const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q=${encodeURIComponent(parts)}`;
-  const res = await fetch(url, { headers: { Accept: "application/json" } });
+  const res = await pfetch(url);
   if (!res.ok) return null;
   const arr = (await res.json()) as { lat: string; lon: string; display_name: string }[];
   if (!arr.length) return null;

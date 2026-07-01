@@ -1,9 +1,10 @@
 import type { MarketData } from "./types";
+import { pfetch } from "./proxy";
 
 interface IbgeMunicipio { id: number; nome: string; }
 
 async function findMunicipio(cidade: string, uf: string): Promise<IbgeMunicipio | null> {
-  const res = await fetch(
+  const res = await pfetch(
     `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios`,
   );
   if (!res.ok) return null;
@@ -17,9 +18,9 @@ async function findMunicipio(cidade: string, uf: string): Promise<IbgeMunicipio 
 async function fetchPopulacao(id: string): Promise<number | undefined> {
   try {
     const url = `https://servicodados.ibge.gov.br/api/v3/agregados/6579/periodos/-1/variaveis/9324?localidades=N6[${id}]`;
-    const res = await fetch(url);
+    const res = await pfetch(url);
     if (!res.ok) return undefined;
-    const data = await res.json();
+    const data = (await res.json()) as any;
     const serie = data?.[0]?.resultados?.[0]?.series?.[0]?.serie;
     if (serie) {
       const last = Object.values(serie).pop();
@@ -33,9 +34,9 @@ async function fetchPopulacao(id: string): Promise<number | undefined> {
 async function fetchPib(id: string): Promise<{ pib?: number; pibpc?: number }> {
   try {
     const url = `https://servicodados.ibge.gov.br/api/v3/agregados/5938/periodos/-1/variaveis/37|498?localidades=N6[${id}]`;
-    const res = await fetch(url);
+    const res = await pfetch(url);
     if (!res.ok) return {};
-    const data = await res.json();
+    const data = (await res.json()) as any[];
     const grab = (varId: string) => {
       const v = data.find((x: { id?: string }) => String(x.id) === varId);
       const serie = v?.resultados?.[0]?.series?.[0]?.serie;
