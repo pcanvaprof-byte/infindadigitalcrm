@@ -1658,8 +1658,27 @@ export type Database = {
         }
         Returns: string
       }
+      cad_create_pack_with_templates: {
+        Args: {
+          _categoria: string
+          _descricao: string
+          _icon: string
+          _items: Json
+          _nome: string
+          _pack_key: string
+        }
+        Returns: string
+      }
       cad_dashboard_metrics: { Args: never; Returns: Json }
       cad_get_default_seed_pack: { Args: never; Returns: string }
+      cad_get_pack_templates: {
+        Args: { _pack_key: string }
+        Returns: {
+          corpo: string
+          stage: Database["public"]["Enums"]["cad_stage"]
+          titulo: string
+        }[]
+      }
       cad_import_from_prospects: { Args: { p_ids?: string[] }; Returns: number }
       cad_list_packs: {
         Args: never
