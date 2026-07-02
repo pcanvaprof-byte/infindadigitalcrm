@@ -274,11 +274,60 @@ export type Database = {
           },
         ]
       }
+      cad_template_packs: {
+        Row: {
+          categoria: string
+          created_at: string
+          descricao: string | null
+          icon: string | null
+          id: string
+          is_system: boolean
+          nome: string
+          organization_id: string | null
+          pack_key: string
+          updated_at: string
+        }
+        Insert: {
+          categoria?: string
+          created_at?: string
+          descricao?: string | null
+          icon?: string | null
+          id?: string
+          is_system?: boolean
+          nome: string
+          organization_id?: string | null
+          pack_key: string
+          updated_at?: string
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          descricao?: string | null
+          icon?: string | null
+          id?: string
+          is_system?: boolean
+          nome?: string
+          organization_id?: string | null
+          pack_key?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cad_template_packs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cad_templates: {
         Row: {
           corpo: string
           id: string
-          organization_id: string
+          is_system: boolean
+          organization_id: string | null
+          pack_key: string
           stage: Database["public"]["Enums"]["cad_stage"]
           titulo: string
           updated_at: string
@@ -286,7 +335,9 @@ export type Database = {
         Insert: {
           corpo: string
           id?: string
-          organization_id?: string
+          is_system?: boolean
+          organization_id?: string | null
+          pack_key?: string
           stage: Database["public"]["Enums"]["cad_stage"]
           titulo: string
           updated_at?: string
@@ -294,7 +345,9 @@ export type Database = {
         Update: {
           corpo?: string
           id?: string
-          organization_id?: string
+          is_system?: boolean
+          organization_id?: string | null
+          pack_key?: string
           stage?: Database["public"]["Enums"]["cad_stage"]
           titulo?: string
           updated_at?: string
@@ -1292,6 +1345,7 @@ export type Database = {
       }
       organizations: {
         Row: {
+          active_template_pack: string
           created_at: string
           created_by: string | null
           id: string
@@ -1299,6 +1353,7 @@ export type Database = {
           slug: string | null
         }
         Insert: {
+          active_template_pack?: string
           created_at?: string
           created_by?: string | null
           id?: string
@@ -1306,6 +1361,7 @@ export type Database = {
           slug?: string | null
         }
         Update: {
+          active_template_pack?: string
           created_at?: string
           created_by?: string | null
           id?: string
@@ -1588,8 +1644,32 @@ export type Database = {
       bi_lost_opportunities: { Args: never; Returns: Json }
       bi_revenue_forecast: { Args: never; Returns: Json }
       bi_top_campaigns: { Args: never; Returns: Json }
+      cad_apply_pack: { Args: { _pack_key: string }; Returns: boolean }
+      cad_create_custom_pack: {
+        Args: {
+          _categoria?: string
+          _descricao?: string
+          _icon?: string
+          _nome: string
+          _pack_key: string
+        }
+        Returns: string
+      }
       cad_dashboard_metrics: { Args: never; Returns: Json }
       cad_import_from_prospects: { Args: { p_ids?: string[] }; Returns: number }
+      cad_list_packs: {
+        Args: never
+        Returns: {
+          categoria: string
+          descricao: string
+          icon: string
+          is_active: boolean
+          is_system: boolean
+          nome: string
+          pack_key: string
+          template_count: number
+        }[]
+      }
       cad_move_stage: {
         Args: {
           p_lead: string
@@ -1620,6 +1700,15 @@ export type Database = {
           p_tipo: Database["public"]["Enums"]["cad_msg_tipo"]
         }
         Returns: string
+      }
+      cad_resolve_template: {
+        Args: { _stage: Database["public"]["Enums"]["cad_stage"] }
+        Returns: {
+          corpo: string
+          is_override: boolean
+          pack_key: string
+          titulo: string
+        }[]
       }
       cad_seed_templates: { Args: { p_org: string }; Returns: undefined }
       close_cadence: {
