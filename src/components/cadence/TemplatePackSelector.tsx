@@ -81,7 +81,7 @@ export function TemplatePackSelector() {
     const { error } = await supabase.rpc("cad_create_custom_pack", {
       _pack_key: key,
       _nome: form.nome.trim(),
-      _descricao: form.descricao.trim() || null,
+      _descricao: form.descricao.trim() || undefined,
       _categoria: form.categoria,
       _icon: "Sparkles",
     });
