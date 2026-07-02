@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_insights: {
+        Row: {
+          area: string
+          created_at: string
+          created_by: string | null
+          id: string
+          model: string | null
+          organization_id: string
+          payload: Json
+          recommendations: Json
+          scope: string
+          summary: string
+        }
+        Insert: {
+          area: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          model?: string | null
+          organization_id: string
+          payload?: Json
+          recommendations?: Json
+          scope?: string
+          summary: string
+        }
+        Update: {
+          area?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          model?: string | null
+          organization_id?: string
+          payload?: Json
+          recommendations?: Json
+          scope?: string
+          summary?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_insights_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       briefings: {
         Row: {
           client_id: string | null
@@ -468,20 +515,34 @@ export type Database = {
       }
       clients: {
         Row: {
+          activated_at: string | null
+          churned_at: string | null
           city: string | null
           cnpj: string | null
           company: string
           contact_name: string | null
+          contract_value: number
           created_at: string
+          created_from: string | null
+          current_step: string | null
           email: string | null
+          financial_status: Database["public"]["Enums"]["client_financial_status"]
           id: string
           instagram: string | null
+          lc_contract_status: Database["public"]["Enums"]["client_lc_contract_status"]
+          mensalidade: number | null
+          next_action_date: string | null
           notes: string | null
+          onboarding_status: Database["public"]["Enums"]["client_onboarding_status"]
+          operations_locked: boolean
           organization_id: string
           owner_name: string | null
           phone: string | null
+          pipeline_stage: Database["public"]["Enums"]["pipeline_stage"]
+          plano_code: string | null
           prospect_id: string | null
           segment: string | null
+          source_ref: string | null
           state: string | null
           tags: string[]
           updated_at: string
@@ -489,20 +550,34 @@ export type Database = {
           whatsapp: string | null
         }
         Insert: {
+          activated_at?: string | null
+          churned_at?: string | null
           city?: string | null
           cnpj?: string | null
           company: string
           contact_name?: string | null
+          contract_value?: number
           created_at?: string
+          created_from?: string | null
+          current_step?: string | null
           email?: string | null
+          financial_status?: Database["public"]["Enums"]["client_financial_status"]
           id?: string
           instagram?: string | null
+          lc_contract_status?: Database["public"]["Enums"]["client_lc_contract_status"]
+          mensalidade?: number | null
+          next_action_date?: string | null
           notes?: string | null
+          onboarding_status?: Database["public"]["Enums"]["client_onboarding_status"]
+          operations_locked?: boolean
           organization_id?: string
           owner_name?: string | null
           phone?: string | null
+          pipeline_stage?: Database["public"]["Enums"]["pipeline_stage"]
+          plano_code?: string | null
           prospect_id?: string | null
           segment?: string | null
+          source_ref?: string | null
           state?: string | null
           tags?: string[]
           updated_at?: string
@@ -510,20 +585,34 @@ export type Database = {
           whatsapp?: string | null
         }
         Update: {
+          activated_at?: string | null
+          churned_at?: string | null
           city?: string | null
           cnpj?: string | null
           company?: string
           contact_name?: string | null
+          contract_value?: number
           created_at?: string
+          created_from?: string | null
+          current_step?: string | null
           email?: string | null
+          financial_status?: Database["public"]["Enums"]["client_financial_status"]
           id?: string
           instagram?: string | null
+          lc_contract_status?: Database["public"]["Enums"]["client_lc_contract_status"]
+          mensalidade?: number | null
+          next_action_date?: string | null
           notes?: string | null
+          onboarding_status?: Database["public"]["Enums"]["client_onboarding_status"]
+          operations_locked?: boolean
           organization_id?: string
           owner_name?: string | null
           phone?: string | null
+          pipeline_stage?: Database["public"]["Enums"]["pipeline_stage"]
+          plano_code?: string | null
           prospect_id?: string | null
           segment?: string | null
+          source_ref?: string | null
           state?: string | null
           tags?: string[]
           updated_at?: string
@@ -1086,6 +1175,92 @@ export type Database = {
           },
         ]
       }
+      op_campaigns: {
+        Row: {
+          campaign_name: string
+          client_id: string | null
+          created_at: string
+          id: string
+          organization_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          campaign_name: string
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          organization_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          campaign_name?: string
+          client_id?: string | null
+          created_at?: string
+          id?: string
+          organization_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "op_campaigns_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "op_campaigns_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      org_goals: {
+        Row: {
+          created_at: string
+          custo_marketing: number
+          id: string
+          meta_receita: number
+          month: number | null
+          organization_id: string
+          updated_at: string
+          year: number | null
+        }
+        Insert: {
+          created_at?: string
+          custo_marketing?: number
+          id?: string
+          meta_receita?: number
+          month?: number | null
+          organization_id?: string
+          updated_at?: string
+          year?: number | null
+        }
+        Update: {
+          created_at?: string
+          custo_marketing?: number
+          id?: string
+          meta_receita?: number
+          month?: number | null
+          organization_id?: string
+          updated_at?: string
+          year?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_goals_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_members: {
         Row: {
           joined_at: string
@@ -1221,6 +1396,7 @@ export type Database = {
       }
       prospect_touchpoints: {
         Row: {
+          by_name: string | null
           created_at: string
           enviado_em: string
           id: string
@@ -1232,6 +1408,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          by_name?: string | null
           created_at?: string
           enviado_em?: string
           id?: string
@@ -1243,6 +1420,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          by_name?: string | null
           created_at?: string
           enviado_em?: string
           id?: string
@@ -1383,6 +1561,7 @@ export type Database = {
     }
     Functions: {
       _apply_tenant_isolation: { Args: { p_table: string }; Returns: undefined }
+      _bi_org: { Args: never; Returns: string }
       _infinda_log_activity: {
         Args: { p_kind: string; p_lead: string; p_text: string; p_user: string }
         Returns: undefined
@@ -1399,6 +1578,16 @@ export type Database = {
           whatsapp: string
         }[]
       }
+      bi_best_channels: { Args: never; Returns: Json }
+      bi_best_contact_hours: { Args: never; Returns: Json }
+      bi_churn_risk: { Args: never; Returns: Json }
+      bi_clients_perdidos: { Args: never; Returns: Json }
+      bi_dashboard: { Args: { p_area?: string }; Returns: Json }
+      bi_financial_kpis: { Args: never; Returns: Json }
+      bi_funnel_bottlenecks: { Args: never; Returns: Json }
+      bi_lost_opportunities: { Args: never; Returns: Json }
+      bi_revenue_forecast: { Args: never; Returns: Json }
+      bi_top_campaigns: { Args: never; Returns: Json }
       cad_dashboard_metrics: { Args: never; Returns: Json }
       cad_import_from_prospects: { Args: { p_ids?: string[] }; Returns: number }
       cad_move_stage: {
@@ -1450,6 +1639,7 @@ export type Database = {
         }[]
       }
       current_org_id: { Args: never; Returns: string }
+      dashboard_current_org_id: { Args: never; Returns: string }
       dashboard_metrics: { Args: never; Returns: Json }
       get_briefing_by_token: {
         Args: { p_token: string }
@@ -1546,6 +1736,26 @@ export type Database = {
       catalog_complexidade: "baixa" | "media" | "alta"
       catalog_rel_tipo: "complemento" | "dependencia"
       catalog_tipo: "servico" | "pacote" | "complemento" | "bonus"
+      client_financial_status:
+        | "pendente"
+        | "confirmado"
+        | "recorrente"
+        | "inadimplente"
+      client_lc_contract_status: "nao_gerado" | "enviado" | "assinado"
+      client_onboarding_status: "pendente" | "em_andamento" | "concluido"
+      pipeline_stage:
+        | "PROSPECCAO"
+        | "CADENCIA"
+        | "FECHADO"
+        | "REUNIAO_INICIAL"
+        | "PROPOSTA"
+        | "CONTRATO"
+        | "ASSINATURA"
+        | "PAGAMENTO_CONFIRMADO"
+        | "IMPLANTACAO"
+        | "ATIVO"
+        | "CHURNED"
+        | "PERDIDO"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1704,6 +1914,28 @@ export const Constants = {
       catalog_complexidade: ["baixa", "media", "alta"],
       catalog_rel_tipo: ["complemento", "dependencia"],
       catalog_tipo: ["servico", "pacote", "complemento", "bonus"],
+      client_financial_status: [
+        "pendente",
+        "confirmado",
+        "recorrente",
+        "inadimplente",
+      ],
+      client_lc_contract_status: ["nao_gerado", "enviado", "assinado"],
+      client_onboarding_status: ["pendente", "em_andamento", "concluido"],
+      pipeline_stage: [
+        "PROSPECCAO",
+        "CADENCIA",
+        "FECHADO",
+        "REUNIAO_INICIAL",
+        "PROPOSTA",
+        "CONTRATO",
+        "ASSINATURA",
+        "PAGAMENTO_CONFIRMADO",
+        "IMPLANTACAO",
+        "ATIVO",
+        "CHURNED",
+        "PERDIDO",
+      ],
     },
   },
 } as const
