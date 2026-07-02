@@ -86,6 +86,182 @@ export type Database = {
           },
         ]
       }
+      cad_leads: {
+        Row: {
+          cargo: string | null
+          closed_at: string | null
+          closed_reason: string | null
+          created_at: string
+          email: string | null
+          empresa: string
+          id: string
+          last_contact_at: string | null
+          last_response_at: string | null
+          next_action_at: string | null
+          notes: string | null
+          organization_id: string
+          owner_id: string
+          primeira_abordagem_at: string
+          prospect_id: string | null
+          responsavel: string | null
+          stage: Database["public"]["Enums"]["cad_stage"]
+          telefone: string | null
+          temperatura: Database["public"]["Enums"]["cad_temp"]
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          cargo?: string | null
+          closed_at?: string | null
+          closed_reason?: string | null
+          created_at?: string
+          email?: string | null
+          empresa: string
+          id?: string
+          last_contact_at?: string | null
+          last_response_at?: string | null
+          next_action_at?: string | null
+          notes?: string | null
+          organization_id?: string
+          owner_id?: string
+          primeira_abordagem_at?: string
+          prospect_id?: string | null
+          responsavel?: string | null
+          stage?: Database["public"]["Enums"]["cad_stage"]
+          telefone?: string | null
+          temperatura?: Database["public"]["Enums"]["cad_temp"]
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          cargo?: string | null
+          closed_at?: string | null
+          closed_reason?: string | null
+          created_at?: string
+          email?: string | null
+          empresa?: string
+          id?: string
+          last_contact_at?: string | null
+          last_response_at?: string | null
+          next_action_at?: string | null
+          notes?: string | null
+          organization_id?: string
+          owner_id?: string
+          primeira_abordagem_at?: string
+          prospect_id?: string | null
+          responsavel?: string | null
+          stage?: Database["public"]["Enums"]["cad_stage"]
+          telefone?: string | null
+          temperatura?: Database["public"]["Enums"]["cad_temp"]
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cad_leads_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cad_leads_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cad_messages: {
+        Row: {
+          author_id: string | null
+          created_at: string
+          direction: Database["public"]["Enums"]["cad_msg_direction"]
+          id: string
+          lead_id: string
+          mensagem: string | null
+          organization_id: string
+          stage_at_send: Database["public"]["Enums"]["cad_stage"] | null
+          status: string
+          tipo: Database["public"]["Enums"]["cad_msg_tipo"]
+        }
+        Insert: {
+          author_id?: string | null
+          created_at?: string
+          direction?: Database["public"]["Enums"]["cad_msg_direction"]
+          id?: string
+          lead_id: string
+          mensagem?: string | null
+          organization_id?: string
+          stage_at_send?: Database["public"]["Enums"]["cad_stage"] | null
+          status?: string
+          tipo: Database["public"]["Enums"]["cad_msg_tipo"]
+        }
+        Update: {
+          author_id?: string | null
+          created_at?: string
+          direction?: Database["public"]["Enums"]["cad_msg_direction"]
+          id?: string
+          lead_id?: string
+          mensagem?: string | null
+          organization_id?: string
+          stage_at_send?: Database["public"]["Enums"]["cad_stage"] | null
+          status?: string
+          tipo?: Database["public"]["Enums"]["cad_msg_tipo"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cad_messages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "cad_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cad_messages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cad_templates: {
+        Row: {
+          corpo: string
+          id: string
+          organization_id: string
+          stage: Database["public"]["Enums"]["cad_stage"]
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          corpo: string
+          id?: string
+          organization_id?: string
+          stage: Database["public"]["Enums"]["cad_stage"]
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          corpo?: string
+          id?: string
+          organization_id?: string
+          stage?: Database["public"]["Enums"]["cad_stage"]
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cad_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       catalog_categorias: {
         Row: {
           ativo: boolean
@@ -93,6 +269,7 @@ export type Database = {
           id: string
           nome: string
           ordem: number
+          organization_id: string
           slug: string
         }
         Insert: {
@@ -101,6 +278,7 @@ export type Database = {
           id?: string
           nome: string
           ordem?: number
+          organization_id?: string
           slug: string
         }
         Update: {
@@ -109,9 +287,18 @@ export type Database = {
           id?: string
           nome?: string
           ordem?: number
+          organization_id?: string
           slug?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "catalog_categorias_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       catalog_items: {
         Row: {
@@ -134,6 +321,7 @@ export type Database = {
           objetivo: string | null
           observacoes_internas: string | null
           ordem: number
+          organization_id: string
           prazo_estimado_dias: number | null
           prioridade: number
           subcategoria: string | null
@@ -165,6 +353,7 @@ export type Database = {
           objetivo?: string | null
           observacoes_internas?: string | null
           ordem?: number
+          organization_id?: string
           prazo_estimado_dias?: number | null
           prioridade?: number
           subcategoria?: string | null
@@ -196,6 +385,7 @@ export type Database = {
           objetivo?: string | null
           observacoes_internas?: string | null
           ordem?: number
+          organization_id?: string
           prazo_estimado_dias?: number | null
           prioridade?: number
           subcategoria?: string | null
@@ -215,6 +405,13 @@ export type Database = {
             referencedRelation: "catalog_categorias"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "catalog_items_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       catalog_relacionamentos: {
@@ -223,6 +420,7 @@ export type Database = {
           id: string
           item_id: string
           ordem: number
+          organization_id: string
           relacionado_id: string
           tipo: Database["public"]["Enums"]["catalog_rel_tipo"]
         }
@@ -231,6 +429,7 @@ export type Database = {
           id?: string
           item_id: string
           ordem?: number
+          organization_id?: string
           relacionado_id: string
           tipo: Database["public"]["Enums"]["catalog_rel_tipo"]
         }
@@ -239,6 +438,7 @@ export type Database = {
           id?: string
           item_id?: string
           ordem?: number
+          organization_id?: string
           relacionado_id?: string
           tipo?: Database["public"]["Enums"]["catalog_rel_tipo"]
         }
@@ -248,6 +448,13 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "catalog_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalog_relacionamentos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
@@ -270,6 +477,7 @@ export type Database = {
           id: string
           instagram: string | null
           notes: string | null
+          organization_id: string
           owner_name: string | null
           phone: string | null
           prospect_id: string | null
@@ -290,6 +498,7 @@ export type Database = {
           id?: string
           instagram?: string | null
           notes?: string | null
+          organization_id?: string
           owner_name?: string | null
           phone?: string | null
           prospect_id?: string | null
@@ -310,6 +519,7 @@ export type Database = {
           id?: string
           instagram?: string | null
           notes?: string | null
+          organization_id?: string
           owner_name?: string | null
           phone?: string | null
           prospect_id?: string | null
@@ -321,6 +531,13 @@ export type Database = {
           whatsapp?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "clients_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "clients_prospect_id_fkey"
             columns: ["prospect_id"]
@@ -704,6 +921,7 @@ export type Database = {
           id: string
           kind: string
           meta: Json
+          organization_id: string
           text: string | null
           user_id: string
         }
@@ -713,6 +931,7 @@ export type Database = {
           id?: string
           kind: string
           meta?: Json
+          organization_id?: string
           text?: string | null
           user_id: string
         }
@@ -722,6 +941,7 @@ export type Database = {
           id?: string
           kind?: string
           meta?: Json
+          organization_id?: string
           text?: string | null
           user_id?: string
         }
@@ -731,6 +951,13 @@ export type Database = {
             columns: ["deal_id"]
             isOneToOne: false
             referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_activities_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -743,6 +970,7 @@ export type Database = {
           is_proposal: boolean
           is_won: boolean
           label: string
+          organization_id: string
           position: number
           tone: string | null
         }
@@ -753,6 +981,7 @@ export type Database = {
           is_proposal?: boolean
           is_won?: boolean
           label: string
+          organization_id?: string
           position: number
           tone?: string | null
         }
@@ -763,10 +992,19 @@ export type Database = {
           is_proposal?: boolean
           is_won?: boolean
           label?: string
+          organization_id?: string
           position?: number
           tone?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "deal_stages_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       deals: {
         Row: {
@@ -776,6 +1014,7 @@ export type Database = {
           expected_close: string | null
           id: string
           notes: string | null
+          organization_id: string
           owner_name: string | null
           prospect_id: string | null
           stage_id: string
@@ -791,6 +1030,7 @@ export type Database = {
           expected_close?: string | null
           id?: string
           notes?: string | null
+          organization_id?: string
           owner_name?: string | null
           prospect_id?: string | null
           stage_id?: string
@@ -806,6 +1046,7 @@ export type Database = {
           expected_close?: string | null
           id?: string
           notes?: string | null
+          organization_id?: string
           owner_name?: string | null
           prospect_id?: string | null
           stage_id?: string
@@ -823,6 +1064,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "deals_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "deals_prospect_id_fkey"
             columns: ["prospect_id"]
             isOneToOne: false
@@ -837,6 +1085,59 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      organization_members: {
+        Row: {
+          joined_at: string
+          organization_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          joined_at?: string
+          organization_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          joined_at?: string
+          organization_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          slug: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          slug?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          slug?: string | null
+        }
+        Relationships: []
       }
       prospect_imports: {
         Row: {
@@ -924,6 +1225,7 @@ export type Database = {
           enviado_em: string
           id: string
           mensagem: string | null
+          organization_id: string
           prospect_id: string
           resultado: string
           tipo: string
@@ -934,6 +1236,7 @@ export type Database = {
           enviado_em?: string
           id?: string
           mensagem?: string | null
+          organization_id?: string
           prospect_id: string
           resultado?: string
           tipo: string
@@ -944,12 +1247,20 @@ export type Database = {
           enviado_em?: string
           id?: string
           mensagem?: string | null
+          organization_id?: string
           prospect_id?: string
           resultado?: string
           tipo?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "prospect_touchpoints_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "prospect_touchpoints_prospect_id_fkey"
             columns: ["prospect_id"]
@@ -1040,11 +1351,38 @@ export type Database = {
         }
         Relationships: []
       }
+      user_active_org: {
+        Row: {
+          organization_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          organization_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          organization_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_active_org_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      _apply_tenant_isolation: { Args: { p_table: string }; Returns: undefined }
       _infinda_log_activity: {
         Args: { p_kind: string; p_lead: string; p_text: string; p_user: string }
         Returns: undefined
@@ -1061,6 +1399,40 @@ export type Database = {
           whatsapp: string
         }[]
       }
+      cad_dashboard_metrics: { Args: never; Returns: Json }
+      cad_import_from_prospects: { Args: { p_ids?: string[] }; Returns: number }
+      cad_move_stage: {
+        Args: {
+          p_lead: string
+          p_stage: Database["public"]["Enums"]["cad_stage"]
+        }
+        Returns: undefined
+      }
+      cad_next_action_for_stage: {
+        Args: {
+          p_base: string
+          p_stage: Database["public"]["Enums"]["cad_stage"]
+        }
+        Returns: string
+      }
+      cad_next_stage: {
+        Args: { p_stage: Database["public"]["Enums"]["cad_stage"] }
+        Returns: Database["public"]["Enums"]["cad_stage"]
+      }
+      cad_register_response: {
+        Args: { p_lead: string; p_mensagem: string }
+        Returns: string
+      }
+      cad_register_send: {
+        Args: {
+          p_advance?: boolean
+          p_lead: string
+          p_mensagem: string
+          p_tipo: Database["public"]["Enums"]["cad_msg_tipo"]
+        }
+        Returns: string
+      }
+      cad_seed_templates: { Args: { p_org: string }; Returns: undefined }
       close_cadence: {
         Args: { _note?: string; _prospect_id: string; _reason: string }
         Returns: undefined
@@ -1077,6 +1449,7 @@ export type Database = {
           deal_id: string
         }[]
       }
+      current_org_id: { Args: never; Returns: string }
       dashboard_metrics: { Args: never; Returns: Json }
       get_briefing_by_token: {
         Args: { p_token: string }
@@ -1096,6 +1469,17 @@ export type Database = {
           updated_at: string
         }[]
       }
+      my_organizations: {
+        Args: never
+        Returns: {
+          id: string
+          is_active: boolean
+          name: string
+          role: string
+          slug: string
+        }[]
+      }
+      set_active_org: { Args: { p_org: string }; Returns: undefined }
       set_briefing_resumo_ia: {
         Args: { p_resumo: string; p_token: string }
         Returns: undefined
@@ -1133,6 +1517,23 @@ export type Database = {
       }
     }
     Enums: {
+      cad_msg_direction: "out" | "in" | "system"
+      cad_msg_tipo: "whatsapp" | "email" | "ligacao" | "nota" | "sistema"
+      cad_stage:
+        | "followup_1"
+        | "followup_2"
+        | "followup_3"
+        | "followup_4"
+        | "followup_5"
+        | "followup_6"
+        | "followup_7"
+        | "interessado"
+        | "reuniao_agendada"
+        | "proposta_enviada"
+        | "negociacao"
+        | "fechado"
+        | "perdido"
+      cad_temp: "quente" | "morno" | "frio"
       catalog_area:
         | "comercial"
         | "marketing"
@@ -1272,6 +1673,24 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      cad_msg_direction: ["out", "in", "system"],
+      cad_msg_tipo: ["whatsapp", "email", "ligacao", "nota", "sistema"],
+      cad_stage: [
+        "followup_1",
+        "followup_2",
+        "followup_3",
+        "followup_4",
+        "followup_5",
+        "followup_6",
+        "followup_7",
+        "interessado",
+        "reuniao_agendada",
+        "proposta_enviada",
+        "negociacao",
+        "fechado",
+        "perdido",
+      ],
+      cad_temp: ["quente", "morno", "frio"],
       catalog_area: [
         "comercial",
         "marketing",
