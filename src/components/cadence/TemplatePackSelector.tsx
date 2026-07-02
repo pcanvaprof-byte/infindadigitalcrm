@@ -64,11 +64,15 @@ export function TemplatePackSelector() {
       _pack_key: pack_key,
     } as never);
     if (error) return toast.error(error.message);
-    toast.success(
-      pack_key
-        ? `Novos packs virão semeados com "${pack_key}"`
-        : "Novos packs virão vazios",
-    );
+    // Também ativa o pack selecionado — assim já vai configurado no clique de WhatsApp.
+    if (pack_key) {
+      const { error: e2 } = await supabase.rpc("cad_apply_pack", { _pack_key: pack_key });
+      if (e2) return toast.error(e2.message);
+      toast.success(`Pack "${pack_key}" ativado e definido como modelo`);
+      void load();
+    } else {
+      toast.success("Novos packs virão vazios");
+    }
   }
 
   async function applyPack(pack_key: string) {
