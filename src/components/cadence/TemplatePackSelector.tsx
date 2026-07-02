@@ -153,68 +153,20 @@ export function TemplatePackSelector() {
               </SelectContent>
             </Select>
           </div>
-        <Dialog open={dlgOpen} onOpenChange={setDlgOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" variant="outline" className="h-8 text-xs">
-              <Plus className="mr-1.5 h-3.5 w-3.5" /> Novo pack
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Novo pack de templates</DialogTitle>
-              <DialogDescription>
-                Crie um conjunto próprio de mensagens para um nicho ou data
-                especial. Depois de criar, edite as 13 mensagens na tela de
-                Templates.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-3">
-              <div>
-                <Label className="text-xs">Nome</Label>
-                <Input
-                  value={form.nome}
-                  onChange={(e) => setForm({ ...form, nome: e.target.value })}
-                  placeholder="Ex.: Dia do Contador"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Chave (sem espaço)</Label>
-                <Input
-                  value={form.pack_key}
-                  onChange={(e) => setForm({ ...form, pack_key: e.target.value })}
-                  placeholder="Ex.: dia_contador"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Categoria</Label>
-                <Select
-                  value={form.categoria}
-                  onValueChange={(v) => setForm({ ...form, categoria: v })}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="nicho">Nicho</SelectItem>
-                    <SelectItem value="data_especial">Data especial</SelectItem>
-                    <SelectItem value="custom">Personalizado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs">Descrição</Label>
-                <Textarea
-                  value={form.descricao}
-                  onChange={(e) => setForm({ ...form, descricao: e.target.value })}
-                  placeholder="Ex.: Cadência para escritórios contábeis com foco em 22/09"
-                  rows={3}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setDlgOpen(false)}>Cancelar</Button>
-              <Button onClick={createPack}>Criar e ativar</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 text-xs"
+          onClick={() => {
+            const src = packs.find((p) => p.pack_key === (seedPack || "wa_padrao"))
+              ?? packs.find((p) => p.pack_key === "wa_padrao")
+              ?? packs[0];
+            if (!src) return toast.error("Nenhum pack disponível para servir de modelo");
+            setDupSource({ key: src.pack_key, nome: src.nome });
+          }}
+        >
+          <Plus className="mr-1.5 h-3.5 w-3.5" /> Novo pack
+        </Button>
         </div>
       </div>
 
