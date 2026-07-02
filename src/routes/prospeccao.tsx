@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, memo } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 
 import { AppShell } from "@/components/AppShell";
+import { supabase } from "@/integrations/supabase/client";
 import { RequireAuth, useRequiredUser } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
