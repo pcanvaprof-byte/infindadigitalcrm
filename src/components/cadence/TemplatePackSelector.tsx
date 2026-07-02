@@ -2,18 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -47,17 +36,8 @@ const CAT_ORDER = ["geral", "nicho", "data_especial", "custom"];
 export function TemplatePackSelector() {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dlgOpen, setDlgOpen] = useState(false);
   const [dupSource, setDupSource] = useState<{ key: string; nome: string } | null>(null);
   const [seedPack, setSeedPack] = useState<string>("wa_padrao");
-  const DEFAULT_FORM = {
-    pack_key: "meu_pack",
-    nome: "Meu pack de cadência",
-    descricao:
-      "Cadência pronta para editar — 13 mensagens humanas e diretas para WhatsApp. Ajuste o tom para o seu nicho.",
-    categoria: "custom",
-  };
-  const [form, setForm] = useState(DEFAULT_FORM);
 
   async function load() {
     setLoading(true);
@@ -96,24 +76,6 @@ export function TemplatePackSelector() {
     if (error) return toast.error(error.message);
     toast.success(`Pack "${pack_key}" ativado`);
     void load();
-  }
-
-  async function createPack() {
-    const key = form.pack_key.trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_");
-    if (!key || !form.nome.trim()) return toast.error("Chave e nome são obrigatórios");
-    const { error } = await supabase.rpc("cad_create_custom_pack", {
-      _pack_key: key,
-      _nome: form.nome.trim(),
-      _descricao: form.descricao.trim() || null,
-      _categoria: form.categoria,
-      _icon: "Sparkles",
-    } as never);
-    if (error) return toast.error(error.message);
-    toast.success("Pack criado! Agora edite as 13 mensagens em Templates.");
-    setDlgOpen(false);
-    setForm(DEFAULT_FORM);
-    await load();
-    await applyPack(key);
   }
 
   const grouped = CAT_ORDER.map((cat) => ({
