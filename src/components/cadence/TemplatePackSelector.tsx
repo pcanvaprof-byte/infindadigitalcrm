@@ -47,12 +47,14 @@ export function TemplatePackSelector() {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [loading, setLoading] = useState(true);
   const [dlgOpen, setDlgOpen] = useState(false);
-  const [form, setForm] = useState({
-    pack_key: "",
-    nome: "",
-    descricao: "",
+  const DEFAULT_FORM = {
+    pack_key: "meu_pack",
+    nome: "Meu pack de cadência",
+    descricao:
+      "Cadência pronta para editar — 13 mensagens humanas e diretas para WhatsApp. Ajuste o tom para o seu nicho.",
     categoria: "custom",
-  });
+  };
+  const [form, setForm] = useState(DEFAULT_FORM);
 
   async function load() {
     setLoading(true);
@@ -81,14 +83,14 @@ export function TemplatePackSelector() {
     const { error } = await supabase.rpc("cad_create_custom_pack", {
       _pack_key: key,
       _nome: form.nome.trim(),
-      _descricao: form.descricao.trim() || undefined,
+      _descricao: form.descricao.trim() || null,
       _categoria: form.categoria,
       _icon: "Sparkles",
-    });
+    } as never);
     if (error) return toast.error(error.message);
     toast.success("Pack criado! Agora edite as 13 mensagens em Templates.");
     setDlgOpen(false);
-    setForm({ pack_key: "", nome: "", descricao: "", categoria: "custom" });
+    setForm(DEFAULT_FORM);
     await load();
     await applyPack(key);
   }
