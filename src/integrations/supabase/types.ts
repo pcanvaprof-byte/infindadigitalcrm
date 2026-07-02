@@ -1775,6 +1775,8 @@ export type Database = {
           updated_at: string
         }[]
       }
+      is_member_of_org: { Args: { _org: string }; Returns: boolean }
+      is_org_admin: { Args: { _org: string }; Returns: boolean }
       my_organizations: {
         Args: never
         Returns: {
