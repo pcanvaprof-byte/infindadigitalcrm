@@ -1348,6 +1348,7 @@ export type Database = {
           active_template_pack: string
           created_at: string
           created_by: string | null
+          default_seed_pack: string | null
           id: string
           name: string
           slug: string | null
@@ -1356,6 +1357,7 @@ export type Database = {
           active_template_pack?: string
           created_at?: string
           created_by?: string | null
+          default_seed_pack?: string | null
           id?: string
           name: string
           slug?: string | null
@@ -1364,6 +1366,7 @@ export type Database = {
           active_template_pack?: string
           created_at?: string
           created_by?: string | null
+          default_seed_pack?: string | null
           id?: string
           name?: string
           slug?: string | null
@@ -1656,6 +1659,7 @@ export type Database = {
         Returns: string
       }
       cad_dashboard_metrics: { Args: never; Returns: Json }
+      cad_get_default_seed_pack: { Args: never; Returns: string }
       cad_import_from_prospects: { Args: { p_ids?: string[] }; Returns: number }
       cad_list_packs: {
         Args: never
@@ -1711,6 +1715,10 @@ export type Database = {
         }[]
       }
       cad_seed_templates: { Args: { p_org: string }; Returns: undefined }
+      cad_set_default_seed_pack: {
+        Args: { _pack_key: string }
+        Returns: boolean
+      }
       close_cadence: {
         Args: { _note?: string; _prospect_id: string; _reason: string }
         Returns: undefined

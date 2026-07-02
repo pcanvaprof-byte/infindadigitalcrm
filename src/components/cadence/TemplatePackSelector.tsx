@@ -47,6 +47,7 @@ export function TemplatePackSelector() {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [loading, setLoading] = useState(true);
   const [dlgOpen, setDlgOpen] = useState(false);
+  const [seedPack, setSeedPack] = useState<string>("wa_padrao");
   const DEFAULT_FORM = {
     pack_key: "meu_pack",
     nome: "Meu pack de cadência",
@@ -58,17 +59,35 @@ export function TemplatePackSelector() {
 
   async function load() {
     setLoading(true);
-    const { data, error } = await supabase.rpc("cad_list_packs");
+    const [{ data, error }, seed] = await Promise.all([
+      supabase.rpc("cad_list_packs"),
+      supabase.rpc("cad_get_default_seed_pack" as never),
+    ]);
     if (error) {
       toast.error(`Falha ao carregar packs: ${error.message}`);
       setPacks([]);
     } else {
       setPacks((data ?? []) as Pack[]);
     }
+    const s = (seed as { data?: string | null } | undefined)?.data;
+    setSeedPack(s ?? "");
     setLoading(false);
   }
 
   useEffect(() => { void load(); }, []);
+
+  async function changeSeed(pack_key: string) {
+    setSeedPack(pack_key);
+    const { error } = await supabase.rpc("cad_set_default_seed_pack" as never, {
+      _pack_key: pack_key,
+    } as never);
+    if (error) return toast.error(error.message);
+    toast.success(
+      pack_key
+        ? `Novos packs virão semeados com "${pack_key}"`
+        : "Novos packs virão vazios",
+    );
+  }
 
   async function applyPack(pack_key: string) {
     const { error } = await supabase.rpc("cad_apply_pack", { _pack_key: pack_key });
@@ -113,6 +132,25 @@ export function TemplatePackSelector() {
             especiais (dia do dentista, dia do contador…).
           </p>
         </div>
+        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-1.5 rounded-md border border-border bg-card/60 px-2 py-1">
+            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Modelo p/ novos packs
+            </Label>
+            <Select value={seedPack || "__none__"} onValueChange={(v) => changeSeed(v === "__none__" ? "" : v)}>
+              <SelectTrigger className="h-7 w-[180px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Vazio (sem semear)</SelectItem>
+                {packs.map((p) => (
+                  <SelectItem key={p.pack_key} value={p.pack_key}>
+                    {p.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         <Dialog open={dlgOpen} onOpenChange={setDlgOpen}>
           <DialogTrigger asChild>
             <Button size="sm" variant="outline" className="h-8 text-xs">
@@ -175,6 +213,7 @@ export function TemplatePackSelector() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {loading ? (
