@@ -1248,6 +1248,9 @@ function ProspeccaoPage() {
         </div>
       </section>
 
+      {/* Pack de templates por nicho / data especial */}
+      <TemplatePackSelector />
+
       {/* Toolbar */}
       <section className="mt-6 surface-card p-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
