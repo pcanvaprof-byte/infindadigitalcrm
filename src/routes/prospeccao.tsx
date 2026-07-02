@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, memo } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 
 import { AppShell } from "@/components/AppShell";
+import { supabase } from "@/integrations/supabase/client";
 import { RequireAuth, useRequiredUser } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -732,9 +733,28 @@ function ProspeccaoPage() {
         toast.error(dispatchBlockedMessage(lock.source!));
         return;
       }
-    // Rotação anti-bloqueio: 3 variantes diferentes da abordagem inicial.
-    // O WhatsApp pune padrões repetidos em massa, então revezamos a cada
-    // disparo via contador persistido em localStorage.
+    // 1) Usa a mensagem já cadastrada no pack ativo, resolvida pelo passo
+    // atual da cadência do prospect (followup_1..7). Placeholders
+    // {{responsavel}} e {{empresa}} são substituídos aqui.
+    let msg: string | null = null;
+    try {
+      const step = Math.min(Math.max((p.cadenceStep ?? 0) + 1, 1), 7);
+      const stage = `followup_${step}` as const;
+      const { data: tpl } = await supabase.rpc("cad_resolve_template" as never, { _stage: stage } as never);
+      const row = Array.isArray(tpl) ? tpl[0] : null;
+      const corpo = (row as { corpo?: string } | null)?.corpo;
+      if (corpo && corpo.trim()) {
+        msg = corpo
+          .replace(/\{\{\s*responsavel\s*\}\}/gi, p.owner || "tudo bem")
+          .replace(/\{\{\s*empresa\s*\}\}/gi, p.company || "sua empresa");
+        console.log("[prosp] openWhats:usando-template-pack", { stage });
+      }
+    } catch (e) {
+      console.warn("[prosp] openWhats:resolve-template-fail", e);
+    }
+
+    // 2) Fallback: rotação anti-bloqueio com 3 variantes fixas caso o pack
+    // não tenha template configurado para o passo atual.
     const variants: string[] = [
       `Olá, vi que sua empresa foi aberta recentemente. Parabéns pela nova fase! 🎉\nPercebi que muitas empresas novas acabam perdendo oportunidades por ainda não terem uma presença profissional na internet.\n\nEu ajudo negócios a terem um site moderno que transmite confiança e gera contatos desde os primeiros meses de operação.\n\nPosso te mostrar alguns exemplos e fazer uma análise gratuita da sua presença digital?`,
       `Oi! Tudo bem? Aqui é da INFINDA Digital 👋\nDei uma olhada no seu negócio e percebi que dá pra aumentar bastante a visibilidade online com algumas mudanças simples — site profissional, Google Meu Negócio e captação de contatos.\n\nMontei um diagnóstico rápido e gratuito da presença digital da sua empresa. Posso te mandar por aqui mesmo?`,
@@ -747,7 +767,7 @@ function ProspeccaoPage() {
       rotIdx = cur % variants.length;
       window.localStorage.setItem(rotKey, String((cur + 1) % variants.length));
     } catch { /* ignore */ }
-    const msg = variants[rotIdx];
+    if (!msg) msg = variants[rotIdx];
     // Define o confirm ANTES de abrir o WhatsApp para garantir que o estado
     // esteja commitado caso o navegador móvel saia da aba para o app.
     console.log("[prosp] openWhats:setConfirm", { id: p.id, company: p.company });
