@@ -2,18 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -47,17 +36,8 @@ const CAT_ORDER = ["geral", "nicho", "data_especial", "custom"];
 export function TemplatePackSelector() {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [loading, setLoading] = useState(true);
-  const [dlgOpen, setDlgOpen] = useState(false);
   const [dupSource, setDupSource] = useState<{ key: string; nome: string } | null>(null);
   const [seedPack, setSeedPack] = useState<string>("wa_padrao");
-  const DEFAULT_FORM = {
-    pack_key: "meu_pack",
-    nome: "Meu pack de cadência",
-    descricao:
-      "Cadência pronta para editar — 13 mensagens humanas e diretas para WhatsApp. Ajuste o tom para o seu nicho.",
-    categoria: "custom",
-  };
-  const [form, setForm] = useState(DEFAULT_FORM);
 
   async function load() {
     setLoading(true);
@@ -98,24 +78,6 @@ export function TemplatePackSelector() {
     void load();
   }
 
-  async function createPack() {
-    const key = form.pack_key.trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_");
-    if (!key || !form.nome.trim()) return toast.error("Chave e nome são obrigatórios");
-    const { error } = await supabase.rpc("cad_create_custom_pack", {
-      _pack_key: key,
-      _nome: form.nome.trim(),
-      _descricao: form.descricao.trim() || null,
-      _categoria: form.categoria,
-      _icon: "Sparkles",
-    } as never);
-    if (error) return toast.error(error.message);
-    toast.success("Pack criado! Agora edite as 13 mensagens em Templates.");
-    setDlgOpen(false);
-    setForm(DEFAULT_FORM);
-    await load();
-    await applyPack(key);
-  }
-
   const grouped = CAT_ORDER.map((cat) => ({
     cat,
     items: packs.filter((p) => p.categoria === cat),
@@ -153,68 +115,20 @@ export function TemplatePackSelector() {
               </SelectContent>
             </Select>
           </div>
-        <Dialog open={dlgOpen} onOpenChange={setDlgOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" variant="outline" className="h-8 text-xs">
-              <Plus className="mr-1.5 h-3.5 w-3.5" /> Novo pack
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Novo pack de templates</DialogTitle>
-              <DialogDescription>
-                Crie um conjunto próprio de mensagens para um nicho ou data
-                especial. Depois de criar, edite as 13 mensagens na tela de
-                Templates.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-3">
-              <div>
-                <Label className="text-xs">Nome</Label>
-                <Input
-                  value={form.nome}
-                  onChange={(e) => setForm({ ...form, nome: e.target.value })}
-                  placeholder="Ex.: Dia do Contador"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Chave (sem espaço)</Label>
-                <Input
-                  value={form.pack_key}
-                  onChange={(e) => setForm({ ...form, pack_key: e.target.value })}
-                  placeholder="Ex.: dia_contador"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">Categoria</Label>
-                <Select
-                  value={form.categoria}
-                  onValueChange={(v) => setForm({ ...form, categoria: v })}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="nicho">Nicho</SelectItem>
-                    <SelectItem value="data_especial">Data especial</SelectItem>
-                    <SelectItem value="custom">Personalizado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label className="text-xs">Descrição</Label>
-                <Textarea
-                  value={form.descricao}
-                  onChange={(e) => setForm({ ...form, descricao: e.target.value })}
-                  placeholder="Ex.: Cadência para escritórios contábeis com foco em 22/09"
-                  rows={3}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="ghost" onClick={() => setDlgOpen(false)}>Cancelar</Button>
-              <Button onClick={createPack}>Criar e ativar</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 text-xs"
+          onClick={() => {
+            const src = packs.find((p) => p.pack_key === (seedPack || "wa_padrao"))
+              ?? packs.find((p) => p.pack_key === "wa_padrao")
+              ?? packs[0];
+            if (!src) return toast.error("Nenhum pack disponível para servir de modelo");
+            setDupSource({ key: src.pack_key, nome: src.nome });
+          }}
+        >
+          <Plus className="mr-1.5 h-3.5 w-3.5" /> Novo pack
+        </Button>
         </div>
       </div>
 
