@@ -21,7 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Sparkles, Check } from "lucide-react";
+import { Plus, Sparkles, Check, Copy } from "lucide-react";
+import { DuplicatePackDialog } from "./DuplicatePackDialog";
 
 type Pack = {
   pack_key: string;
@@ -47,6 +48,7 @@ export function TemplatePackSelector() {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [loading, setLoading] = useState(true);
   const [dlgOpen, setDlgOpen] = useState(false);
+  const [dupSource, setDupSource] = useState<{ key: string; nome: string } | null>(null);
   const [seedPack, setSeedPack] = useState<string>("wa_padrao");
   const DEFAULT_FORM = {
     pack_key: "meu_pack",
@@ -227,30 +229,48 @@ export function TemplatePackSelector() {
               </p>
               <div className="flex flex-wrap gap-2">
                 {g.items.map((p) => (
-                  <button
+                  <div
                     key={p.pack_key}
-                    onClick={() => applyPack(p.pack_key)}
-                    title={p.descricao ?? undefined}
-                    className={`group flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition ${
+                    className={`group flex items-center gap-0.5 rounded-full border text-xs transition ${
                       p.is_active
                         ? "border-emerald-500 bg-emerald-500/15 text-emerald-400"
                         : "border-border bg-card/60 text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    {p.is_active ? (
-                      <Check className="h-3.5 w-3.5" />
-                    ) : (
-                      <Sparkles className="h-3.5 w-3.5 opacity-60" />
-                    )}
-                    <span>{p.nome}</span>
-                    <span className="text-[10px] opacity-60">· {p.template_count}/13</span>
-                  </button>
+                    <button
+                      onClick={() => applyPack(p.pack_key)}
+                      title={p.descricao ?? undefined}
+                      className="flex items-center gap-1.5 pl-3 pr-1 py-1"
+                    >
+                      {p.is_active ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5 opacity-60" />
+                      )}
+                      <span>{p.nome}</span>
+                      <span className="text-[10px] opacity-60">· {p.template_count}/13</span>
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setDupSource({ key: p.pack_key, nome: p.nome }); }}
+                      title={`Duplicar "${p.nome}" e editar as 13 mensagens`}
+                      className="flex items-center justify-center rounded-full p-1 pr-2 opacity-60 hover:opacity-100"
+                    >
+                      <Copy className="h-3 w-3" />
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>
           ))}
         </div>
       )}
+      <DuplicatePackDialog
+        open={!!dupSource}
+        onOpenChange={(v) => !v && setDupSource(null)}
+        sourcePackKey={dupSource?.key ?? null}
+        sourceNome={dupSource?.nome ?? null}
+        onCreated={(key) => { void load(); void applyPack(key); }}
+      />
     </section>
   );
 }
