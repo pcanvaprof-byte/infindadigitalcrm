@@ -39,7 +39,7 @@ export function TemplatePackSelector() {
   const [dupSource, setDupSource] = useState<{ key: string; nome: string } | null>(null);
   const [seedPack, setSeedPack] = useState<string>("wa_padrao");
 
-  async function loadFromTables() {
+  async function getActiveOrgId() {
     const { data: userData, error: userError } = await supabase.auth.getUser();
     if (userError) throw userError;
     const userId = userData.user?.id;
@@ -64,6 +64,11 @@ export function TemplatePackSelector() {
     }
 
     if (!orgId) throw new Error("Organização ativa não encontrada");
+    return orgId;
+  }
+
+  async function loadFromTables() {
+    const orgId = await getActiveOrgId();
 
     const [{ data: org, error: orgError }, { data: rows, error: packsError }, { data: templates, error: templatesError }] =
       await Promise.all([
@@ -130,26 +135,39 @@ export function TemplatePackSelector() {
 
   async function changeSeed(pack_key: string) {
     setSeedPack(pack_key);
-    const { error } = await supabase.rpc("cad_set_default_seed_pack" as never, {
-      _pack_key: pack_key,
-    } as never);
-    if (error) return toast.error(error.message);
-    // Também ativa o pack selecionado — assim já vai configurado no clique de WhatsApp.
-    if (pack_key) {
-      const { error: e2 } = await supabase.rpc("cad_apply_pack", { _pack_key: pack_key });
-      if (e2) return toast.error(e2.message);
-      toast.success(`Pack "${pack_key}" ativado e definido como modelo`);
+    try {
+      const orgId = await getActiveOrgId();
+      const patch = pack_key
+        ? { default_seed_pack: pack_key, active_template_pack: pack_key }
+        : { default_seed_pack: null };
+      const { error } = await supabase.from("organizations").update(patch).eq("id", orgId);
+      if (error) throw error;
+      if (pack_key) {
+        toast.success(`Pack "${pack_key}" ativado e definido como modelo`);
+      } else {
+        toast.success("Novos packs virão vazios");
+      }
       void load();
-    } else {
-      toast.success("Novos packs virão vazios");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao salvar modelo";
+      toast.error(message);
     }
   }
 
   async function applyPack(pack_key: string) {
-    const { error } = await supabase.rpc("cad_apply_pack", { _pack_key: pack_key });
-    if (error) return toast.error(error.message);
-    toast.success(`Pack "${pack_key}" ativado`);
-    void load();
+    try {
+      const orgId = await getActiveOrgId();
+      const { error } = await supabase
+        .from("organizations")
+        .update({ active_template_pack: pack_key })
+        .eq("id", orgId);
+      if (error) throw error;
+      toast.success(`Pack "${pack_key}" ativado e definido como modelo`);
+      void load();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro ao ativar pack";
+      toast.error(message);
+    }
   }
 
   const grouped = CAT_ORDER.map((cat) => ({
