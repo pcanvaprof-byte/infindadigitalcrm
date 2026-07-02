@@ -162,7 +162,7 @@ export function TemplatePackSelector() {
         .update({ active_template_pack: pack_key })
         .eq("id", orgId);
       if (error) throw error;
-      toast.success(`Pack "${pack_key}" ativado e definido como modelo`);
+      toast.success(`Pack "${pack_key}" ativado`);
       void load();
     } catch (error) {
       const message = error instanceof Error ? error.message : "Erro ao ativar pack";
