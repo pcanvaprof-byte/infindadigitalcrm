@@ -39,20 +39,90 @@ export function TemplatePackSelector() {
   const [dupSource, setDupSource] = useState<{ key: string; nome: string } | null>(null);
   const [seedPack, setSeedPack] = useState<string>("wa_padrao");
 
+  async function loadFromTables() {
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError) throw userError;
+    const userId = userData.user?.id;
+    if (!userId) throw new Error("Usuário não autenticado");
+
+    const { data: activeOrg } = await supabase
+      .from("user_active_org")
+      .select("organization_id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    let orgId = activeOrg?.organization_id ?? null;
+    if (!orgId) {
+      const { data: membership, error: memberError } = await supabase
+        .from("organization_members")
+        .select("organization_id")
+        .eq("user_id", userId)
+        .limit(1)
+        .maybeSingle();
+      if (memberError) throw memberError;
+      orgId = membership?.organization_id ?? null;
+    }
+
+    if (!orgId) throw new Error("Organização ativa não encontrada");
+
+    const [{ data: org, error: orgError }, { data: rows, error: packsError }, { data: templates, error: templatesError }] =
+      await Promise.all([
+        supabase
+          .from("organizations")
+          .select("active_template_pack, default_seed_pack")
+          .eq("id", orgId)
+          .maybeSingle(),
+        supabase
+          .from("cad_template_packs")
+          .select("pack_key,nome,descricao,categoria,icon,is_system,organization_id")
+          .or(`is_system.eq.true,organization_id.eq.${orgId}`),
+        supabase
+          .from("cad_templates")
+          .select("pack_key,is_system,organization_id")
+          .or(`is_system.eq.true,organization_id.eq.${orgId}`),
+      ]);
+
+    if (orgError) throw orgError;
+    if (packsError) throw packsError;
+    if (templatesError) throw templatesError;
+
+    const counts = new Map<string, number>();
+    for (const item of templates ?? []) {
+      counts.set(item.pack_key, (counts.get(item.pack_key) ?? 0) + 1);
+    }
+
+    const activeKey = org?.active_template_pack ?? "default";
+    const loaded = ((rows ?? []) as Array<Omit<Pack, "is_active" | "template_count"> & { organization_id: string | null }>).map((p) => ({
+      pack_key: p.pack_key,
+      nome: p.nome,
+      descricao: p.descricao,
+      categoria: p.categoria,
+      icon: p.icon,
+      is_system: p.is_system,
+      is_active: p.pack_key === activeKey,
+      template_count: counts.get(p.pack_key) ?? 0,
+    }));
+
+    loaded.sort((a, b) => {
+      if (a.is_system !== b.is_system) return a.is_system ? -1 : 1;
+      const cat = CAT_ORDER.indexOf(a.categoria) - CAT_ORDER.indexOf(b.categoria);
+      return cat || a.nome.localeCompare(b.nome, "pt-BR");
+    });
+
+    return { packs: loaded, seedPack: org?.default_seed_pack ?? "" };
+  }
+
   async function load() {
     setLoading(true);
-    const [{ data, error }, seed] = await Promise.all([
-      supabase.rpc("cad_list_packs"),
-      supabase.rpc("cad_get_default_seed_pack" as never),
-    ]);
-    if (error) {
-      toast.error(`Falha ao carregar packs: ${error.message}`);
+    try {
+      const result = await loadFromTables();
+      setPacks(result.packs);
+      setSeedPack(result.seedPack);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Erro desconhecido";
+      toast.error(`Falha ao carregar packs: ${message}`);
       setPacks([]);
-    } else {
-      setPacks((data ?? []) as Pack[]);
     }
-    const s = (seed as { data?: string | null } | undefined)?.data;
-    setSeedPack(s ?? "");
     setLoading(false);
   }
 
