@@ -186,6 +186,41 @@ export async function fetchMeiosProspeccao(period: ResolvedPeriod): Promise<Meio
     (await safeSelect("contracts", "id, empresa, source, origem, monthly_value, contract_value, value, signed_at, status", period, "signed_at"))
       .concat(await safeSelect("op_contracts", "id, empresa, source, origem, monthly_value, contract_value, signed_at, status", period, "signed_at"));
 
+  // Também considera clientes do lifecycle (Ficha 360°) — cadastrados com "origem"
+  // no cadastro do cliente aparecem em Meios de Prospecção mesmo sem linha em contracts.
+  const CLIENT_COLS =
+    "id, company, origem, origem_detalhe, mensalidade, site_recurring_value, site_one_time_value, permuta_value, contract_term_months, pipeline_stage, activated_at, created_at";
+  const ACTIVE_CLIENT_STAGES = new Set(["PAGAMENTO_CONFIRMADO", "IMPLANTACAO", "ATIVO"]);
+  const clientsByActivated = await safeSelect("clients", CLIENT_COLS, period, "activated_at");
+  const clientsByCreated = await safeSelect("clients", CLIENT_COLS, period, "created_at");
+  const clientsDedup = new Map<string, Row>();
+  for (const r of [...clientsByActivated, ...clientsByCreated]) {
+    const id = String(pick(r, "id") ?? "");
+    if (!id) continue;
+    if (!clientsDedup.has(id)) clientsDedup.set(id, r);
+  }
+  const clientsAsContracts: Row[] = Array.from(clientsDedup.values())
+    .filter((r) => ACTIVE_CLIENT_STAGES.has(String(pick(r, "pipeline_stage") ?? "").toUpperCase()))
+    .map((r) => {
+      const monthly = num(pick(r, "mensalidade")) + num(pick(r, "site_recurring_value"));
+      const term = num(pick(r, "contract_term_months")) || 12;
+      const oneTime = num(pick(r, "site_one_time_value")) + num(pick(r, "permuta_value"));
+      const total = monthly * term + oneTime;
+      return {
+        id: pick(r, "id"),
+        empresa: pick(r, "company"),
+        source: pick(r, "origem"),
+        origem: pick(r, "origem_detalhe"),
+        monthly_value: monthly,
+        contract_value: total,
+        signed_at: pick(r, "activated_at") ?? pick(r, "created_at"),
+        status: "ativo",
+      } as Row;
+    });
+  contratosRaw.push(...clientsAsContracts);
+  // eslint-disable-next-line no-console
+  console.log(`[bi:meios] clients (lifecycle) → ${clientsAsContracts.length} usados como contratos`);
+
   const touchpointsRaw =
     (await safeSelect("prospect_touchpoints", "id, empresa, channel, canal, type, tipo, created_at", period, "created_at"));
 
