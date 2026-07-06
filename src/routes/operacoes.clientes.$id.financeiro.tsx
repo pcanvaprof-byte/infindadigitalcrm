@@ -66,6 +66,26 @@ function summarizeByMonth(items: BillingItem[]) {
     .map(([ym, v]) => ({ ym, ...v }));
 }
 
+// ---- Bonificação: modo de exibição escolhido pelo usuário ----
+type BonusMode = "separate" | "in-received" | "in-receivable";
+const BONUS_MODE_KEY = "financeiro.bonusMode";
+const BONUS_MODE_LABEL: Record<BonusMode, string> = {
+  separate: "Bonificado separado",
+  "in-received": "Bonificado em Recebido",
+  "in-receivable": "Bonificado em A receber",
+};
+function loadBonusMode(): BonusMode {
+  if (typeof window === "undefined") return "separate";
+  const raw = window.localStorage.getItem(BONUS_MODE_KEY);
+  return raw === "in-received" || raw === "in-receivable" ? raw : "separate";
+}
+type SummaryShape = { recebido: number; aReceber: number; atrasado: number; bonificado: number; total: number };
+function mergeBonusInSummary<T extends SummaryShape>(s: T, mode: BonusMode): T {
+  if (mode === "separate") return s;
+  if (mode === "in-received") return { ...s, recebido: s.recebido + s.bonificado, bonificado: 0 };
+  return { ...s, aReceber: s.aReceber + s.bonificado, bonificado: 0 };
+}
+
 const STATUS_META: Record<BillingStatus, { label: string; className: string }> = {
   pendente: { label: "Pendente", className: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30" },
   pago: { label: "Pago", className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" },
