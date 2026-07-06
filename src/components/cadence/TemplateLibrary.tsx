@@ -19,7 +19,7 @@ import {
   Sparkles, Check, Copy, Star, Trash2, Pencil, Search, Wand2, Eye, Plus, X,
 } from "lucide-react";
 import { adaptarPackComIA } from "@/lib/cadence/adapt-ai.functions";
-import { clearStoredAuthSession } from "@/lib/auth-session-recovery";
+import { recoverFromInvalidAuthSession } from "@/lib/auth-session-recovery";
 import { DuplicatePackDialog } from "./DuplicatePackDialog";
 
 type Pack = {
@@ -152,7 +152,6 @@ async function getActiveOrgId(): Promise<string> {
 export function TemplateLibrary() {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sessionMismatch, setSessionMismatch] = useState(false);
   const [q, setQ] = useState("");
   const [catFilter, setCatFilter] = useState<string>("all");
   const [onlyFav, setOnlyFav] = useState(false);
@@ -170,23 +169,19 @@ export function TemplateLibrary() {
       const { data, error } = await supabase.rpc("cad_list_packs");
       if (error) throw error;
       const list = (data ?? []) as Pack[];
+      if (list.length === 0) {
+        // Sessão vinculada a outro backend/projeto — limpa e redireciona automaticamente.
+        recoverFromInvalidAuthSession();
+        return;
+      }
       setPacks(list);
-      setSessionMismatch(list.length === 0);
     } catch (e) {
       toast.error(`Falha ao carregar biblioteca: ${(e as Error).message}`);
-      setSessionMismatch(true);
+      recoverFromInvalidAuthSession();
+      return;
     } finally { setLoading(false); }
   }
   useEffect(() => { void load(); }, []);
-
-  async function forceReauth() {
-    try {
-      await supabase.auth.signOut({ scope: "local" }).catch(() => {});
-      clearStoredAuthSession();
-    } finally {
-      window.location.replace("/auth?reason=session");
-    }
-  }
 
   async function loadPreview(pack: Pack) {
     setSelected(pack);
