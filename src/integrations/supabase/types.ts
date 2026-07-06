@@ -2206,6 +2206,27 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       vw_proposal_conversion: {
@@ -2483,6 +2504,13 @@ export type Database = {
         }[]
       }
       get_proposal_by_token: { Args: { p_token: string }; Returns: Json }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       is_member_of_org: { Args: { _org: string }; Returns: boolean }
       is_org_admin: { Args: { _org: string }; Returns: boolean }
       my_organizations: {
@@ -2558,6 +2586,7 @@ export type Database = {
       }
     }
     Enums: {
+      app_role: "admin" | "consultor"
       cad_msg_direction: "out" | "in" | "system"
       cad_msg_tipo: "whatsapp" | "email" | "ligacao" | "nota" | "sistema"
       cad_stage:
@@ -2750,6 +2779,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "consultor"],
       cad_msg_direction: ["out", "in", "system"],
       cad_msg_tipo: ["whatsapp", "email", "ligacao", "nota", "sistema"],
       cad_stage: [
