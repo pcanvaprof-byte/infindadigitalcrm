@@ -17,6 +17,7 @@ import { fetchBIDashboard, fetchComercialFunnel, type BIArea, type BIDashboardPa
 import { fetchBIGoals, DEFAULT_GOALS, type BIGoals } from "@/lib/bi/goals";
 import { fetchDiretoriaKpis, type DiretoriaKpis } from "@/lib/bi/diretoria";
 import { fetchForecastForPeriod, type ForecastBreakdown } from "@/lib/bi/forecast";
+import { fetchBillingKpis, type BillingKpis } from "@/lib/bi/billing";
 import { AIInsightsPanel } from "@/components/bi/AIInsightsPanel";
 import { ExportMenu, type ExportSection } from "@/components/bi/ExportMenu";
 import { EvolucaoMes } from "@/components/bi/EvolucaoMes";
