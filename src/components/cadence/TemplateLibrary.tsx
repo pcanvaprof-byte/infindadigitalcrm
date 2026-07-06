@@ -151,6 +151,7 @@ async function getActiveOrgId(): Promise<string> {
 export function TemplateLibrary() {
   const [packs, setPacks] = useState<Pack[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sessionMismatch, setSessionMismatch] = useState(false);
   const [q, setQ] = useState("");
   const [catFilter, setCatFilter] = useState<string>("all");
   const [onlyFav, setOnlyFav] = useState(false);
@@ -167,12 +168,25 @@ export function TemplateLibrary() {
     try {
       const { data, error } = await supabase.rpc("cad_list_packs");
       if (error) throw error;
-      setPacks((data ?? []) as Pack[]);
+      const list = (data ?? []) as Pack[];
+      setPacks(list);
+      setSessionMismatch(list.length === 0);
     } catch (e) {
       toast.error(`Falha ao carregar biblioteca: ${(e as Error).message}`);
+      setSessionMismatch(true);
     } finally { setLoading(false); }
   }
   useEffect(() => { void load(); }, []);
+
+  async function forceReauth() {
+    try {
+      Object.keys(localStorage).filter((k) => k.startsWith("sb-")).forEach((k) => localStorage.removeItem(k));
+      Object.keys(sessionStorage).filter((k) => k.startsWith("sb-")).forEach((k) => sessionStorage.removeItem(k));
+      await supabase.auth.signOut().catch(() => {});
+    } finally {
+      window.location.replace("/auth");
+    }
+  }
 
   async function loadPreview(pack: Pack) {
     setSelected(pack);
@@ -285,6 +299,17 @@ export function TemplateLibrary() {
 
       {loading ? (
         <p className="text-xs text-muted-foreground">Carregando biblioteca…</p>
+      ) : sessionMismatch ? (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 text-xs">
+          <p className="font-semibold text-amber-500">Sessão desatualizada</p>
+          <p className="mt-1 text-muted-foreground">
+            Nenhum pack foi carregado. Isso normalmente significa que sua sessão está vinculada a outro projeto.
+            Faça logout e entre novamente para restaurar o acesso à biblioteca.
+          </p>
+          <Button size="sm" className="mt-3 h-8 text-xs" onClick={() => void forceReauth()}>
+            Sair e entrar novamente
+          </Button>
+        </div>
       ) : (
         <div className="grid gap-3 lg:grid-cols-[1fr_360px]">
           <ScrollArea className="max-h-[520px] pr-2">
