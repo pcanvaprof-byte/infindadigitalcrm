@@ -573,6 +573,14 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
               <Button
                 type="button" variant="outline" size="sm"
                 disabled={!activePreset}
+                onClick={duplicateActivePreset}
+                title="Duplicar preset selecionado e ajustar valores"
+              >
+                <Copy className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                type="button" variant="outline" size="sm"
+                disabled={!activePreset}
                 onClick={removeActivePreset}
                 title="Excluir preset selecionado"
               >
