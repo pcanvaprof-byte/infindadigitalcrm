@@ -198,6 +198,8 @@ export async function updateClient(
   >,
 ): Promise<LifecycleClient> {
   const payload: Record<string, unknown> = { ...patch, updated_at: new Date().toISOString() };
+  // Valida/normaliza origem antes de qualquer round-trip ao Postgrest.
+  normalizeOrigemPatch(payload);
   // Be resilient to backends that haven't migrated new columns yet:
   // PostgREST returns PGRST204 / "Could not find the 'X' column" — strip
   // that key and retry until it succeeds or no unknown column remains.
@@ -211,6 +213,12 @@ export async function updateClient(
     if (!error) return data as LifecycleClient;
     const m = /Could not find the '([^']+)' column/i.exec(error.message ?? "");
     if (!m || !(m[1] in payload)) throw new Error(error.message);
+    // Origem é um campo essencial pro BI — não silencie schema drift.
+    if (m[1] === "origem" || m[1] === "origem_detalhe") {
+      throw new Error(
+        `Não foi possível salvar a origem do cliente: a coluna "${m[1]}" não existe no banco conectado. Rode a migration que cria os campos de origem em public.clients.`,
+      );
+    }
     delete payload[m[1]];
     // eslint-disable-next-line no-console
     console.warn(`[lifecycle/updateClient] coluna ausente no schema: ${m[1]} (ignorando)`);
