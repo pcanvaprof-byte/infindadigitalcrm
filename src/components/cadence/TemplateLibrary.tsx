@@ -422,7 +422,7 @@ export function TemplateLibrary() {
             const p = { pack_key: key } as Pack;
             await applyPack(p);
           }}
-          adaptFn={adaptFn}
+          adaptFn={adaptFn as unknown as AdaptFn}
         />
       )}
     </section>
