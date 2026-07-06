@@ -690,16 +690,39 @@ function NovaPropostaDialog({
             {avulsos.length > 0 && (
               <ul className="mt-2 space-y-1">
                 {avulsos.map((a) => (
-                  <li key={a.id} className="flex items-center justify-between text-xs rounded bg-card/40 px-2 py-1">
-                    <span className="truncate">{a.nome} <span className="text-muted-foreground">({a.cobranca})</span></span>
-                    <span className="flex items-center gap-2">
-                      <span className="font-semibold tabular-nums">{formatBRL(a.valor)}</span>
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:text-destructive"
-                        onClick={() => setAvulsos((arr) => arr.filter((x) => x.id !== a.id))}
-                      >✕</button>
+                  <li key={a.id} className="grid grid-cols-[1fr_130px_130px_auto] items-center gap-2 text-xs rounded bg-card/40 px-2 py-1">
+                    <span className="truncate">
+                      {a.nome}{" "}
+                      <span className="text-muted-foreground">({a.cobranca})</span>
                     </span>
+                    <Input
+                      type="date"
+                      className="h-7 text-xs"
+                      value={a.due_date ?? ""}
+                      onChange={(e) =>
+                        setAvulsos((arr) =>
+                          arr.map((x) => (x.id === a.id ? { ...x, due_date: e.target.value || undefined } : x)),
+                        )
+                      }
+                    />
+                    <Input
+                      inputMode="decimal"
+                      className="h-7 text-xs text-right tabular-nums"
+                      value={String(a.valor)}
+                      onChange={(e) => {
+                        const v = Number(e.target.value.replace(",", "."));
+                        setAvulsos((arr) =>
+                          arr.map((x) => (x.id === a.id ? { ...x, valor: isFinite(v) ? v : 0 } : x)),
+                        );
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => setAvulsos((arr) => arr.filter((x) => x.id !== a.id))}
+                    >
+                      ✕
+                    </button>
                   </li>
                 ))}
               </ul>
