@@ -88,8 +88,19 @@ function FinanceiroPage() {
 
   const q = useQuery({ queryKey: billingKeys.byClient(id), queryFn: () => listBillingItems(id) });
   const items = q.data ?? [];
-  const s = useMemo(() => summarize(items), [items]);
-  const porMes = useMemo(() => summarizeByMonth(items), [items]);
+  const [bonusMode, setBonusMode] = useState<BonusMode>(() => loadBonusMode());
+  const applyBonusMode = (mode: BonusMode) => {
+    setBonusMode(mode);
+    try { localStorage.setItem(BONUS_MODE_KEY, mode); } catch { /* ignore */ }
+  };
+
+  const sRaw = useMemo(() => summarize(items), [items]);
+  const porMesRaw = useMemo(() => summarizeByMonth(items), [items]);
+  const s = useMemo(() => mergeBonusInSummary(sRaw, bonusMode), [sRaw, bonusMode]);
+  const porMes = useMemo(
+    () => porMesRaw.map((m) => ({ ym: m.ym, ...mergeBonusInSummary(m, bonusMode) })),
+    [porMesRaw, bonusMode],
+  );
 
   const invalidate = () => qc.invalidateQueries({ queryKey: billingKeys.byClient(id) });
 
