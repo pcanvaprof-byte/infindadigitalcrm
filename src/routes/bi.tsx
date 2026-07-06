@@ -716,15 +716,15 @@ function BIPage() {
 
             {a.id === "financeiro" && (diretoriaKpis || data?.kpis) && (
               <FinanceiroPanel
-                mrr={data?.kpis?.mrr ?? diretoriaKpis?.mrr ?? 0}
-                arr={data?.kpis?.arr ?? diretoriaKpis?.arr ?? 0}
-                receitaRealizada={data?.kpis?.receita_realizada ?? diretoriaKpis?.receita_realizada ?? 0}
-                receitaPrevistaMes={data?.kpis?.receita_prevista_mes ?? diretoriaKpis?.mrr ?? 0}
+                mrr={billingQuery.data?.mrr_ativo || data?.kpis?.mrr || diretoriaKpis?.mrr || 0}
+                arr={(billingQuery.data?.mrr_ativo ? billingQuery.data.mrr_ativo * 12 : 0) || data?.kpis?.arr || diretoriaKpis?.arr || 0}
+                receitaRealizada={billingQuery.data?.recebido_mes || data?.kpis?.receita_realizada || diretoriaKpis?.receita_realizada || 0}
+                receitaPrevistaMes={billingQuery.data?.previsao_30d || data?.kpis?.receita_prevista_mes || diretoriaKpis?.mrr || 0}
                 custoMarketing={data?.kpis?.custo_marketing ?? 0}
                 ticketMedio={data?.kpis?.ticket_medio ?? diretoriaKpis?.ticket_medio ?? 0}
-                pipelineAberto={data?.forecast?.pipeline_aberto ?? 0}
-                previsao30d={data?.forecast?.previsao_30d ?? 0}
-                previsao90d={data?.forecast?.previsao_90d ?? 0}
+                pipelineAberto={billingQuery.data?.a_receber_total || data?.forecast?.pipeline_aberto || 0}
+                previsao30d={billingQuery.data?.previsao_30d || data?.forecast?.previsao_30d || 0}
+                previsao90d={billingQuery.data?.previsao_90d || data?.forecast?.previsao_90d || 0}
                 folha={folhaCalc}
                 infra={infraCalc}
                 veiculos={veiculosCalc}
@@ -732,6 +732,9 @@ function BIPage() {
                 taxasPct={goals.taxes_pct}
                 expensesSource={hasExpenses ? "expenses" : "goals"}
               />
+            )}
+            {a.id === "financeiro" && billingQuery.data && billingQuery.data.total_parcelas > 0 && (
+              <BillingCashflowCard data={billingQuery.data} />
             )}
             {a.id === "financeiro" && <FinanceiroCharts period={period} />}
 
