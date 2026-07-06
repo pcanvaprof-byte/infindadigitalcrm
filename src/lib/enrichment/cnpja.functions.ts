@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireSupabaseAuth } from "@/lib/app-auth-middleware";
 
 // CNPJá Open (free tier): 5 req/min por IP. Mantemos folga e usamos 4 req/min.
 // Janela deslizante simples em memória do worker.
