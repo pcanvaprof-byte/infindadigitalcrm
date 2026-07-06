@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      adjustment_notes: {
+        Row: {
+          autor_nome: string | null
+          client_id: string
+          created_at: string
+          id: string
+          nota: string
+          organization_id: string
+          user_id: string
+        }
+        Insert: {
+          autor_nome?: string | null
+          client_id: string
+          created_at?: string
+          id?: string
+          nota: string
+          organization_id?: string
+          user_id?: string
+        }
+        Update: {
+          autor_nome?: string | null
+          client_id?: string
+          created_at?: string
+          id?: string
+          nota?: string
+          organization_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adjustment_notes_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_insights: {
         Row: {
           area: string
@@ -668,6 +713,10 @@ export type Database = {
       clients: {
         Row: {
           activated_at: string | null
+          ajustes_escopo: string | null
+          ajustes_prazo: string | null
+          ajustes_proxima_acao: string | null
+          ajustes_updated_at: string | null
           churned_at: string | null
           city: string | null
           cnpj: string | null
@@ -705,6 +754,10 @@ export type Database = {
         }
         Insert: {
           activated_at?: string | null
+          ajustes_escopo?: string | null
+          ajustes_prazo?: string | null
+          ajustes_proxima_acao?: string | null
+          ajustes_updated_at?: string | null
           churned_at?: string | null
           city?: string | null
           cnpj?: string | null
@@ -742,6 +795,10 @@ export type Database = {
         }
         Update: {
           activated_at?: string | null
+          ajustes_escopo?: string | null
+          ajustes_prazo?: string | null
+          ajustes_proxima_acao?: string | null
+          ajustes_updated_at?: string | null
           churned_at?: string | null
           city?: string | null
           cnpj?: string | null
