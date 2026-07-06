@@ -28,11 +28,13 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 
 
 function createSupabaseClient() {
-  // HARDCODED: força conexão ao projeto INFINDA original (oxmhwwopxurwqcrwgsyf),
-  // ignorando o .env auto-gerenciado pelo Lovable Cloud (que aponta para um
-  // banco vazio). Publishable key é segura no bundle.
-  const SUPABASE_URL = 'https://oxmhwwopxurwqcrwgsyf.supabase.co';
-  const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_DnpBbznaYvKEdGCJ4a5cbg_3ZFIgM7a';
+  // Conecta ao projeto Lovable Cloud gerenciado (via VITE_SUPABASE_*).
+  // Fallback para SUPABASE_* durante SSR quando os VITE_* não estão expostos.
+  const SUPABASE_URL =
+    import.meta.env.VITE_SUPABASE_URL ?? (process.env.SUPABASE_URL as string | undefined);
+  const SUPABASE_PUBLISHABLE_KEY =
+    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ??
+    (process.env.SUPABASE_PUBLISHABLE_KEY as string | undefined);
 
   if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
     const missing = [
