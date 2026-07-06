@@ -1,10 +1,6 @@
 import { createMiddleware } from "@tanstack/react-start";
 
 import { supabase } from "@/integrations/supabase/client";
-import {
-  clearStoredAuthSession,
-  redirectToLoginForFreshSession,
-} from "@/lib/auth-session-recovery";
 
 type JwtPayload = {
   exp?: number;
@@ -62,10 +58,13 @@ export const attachValidSupabaseAuth = createMiddleware({ type: "function" }).cl
 
     if (!token) return next({ headers: {} });
 
+    // Não redireciona aqui: um redirect dentro do middleware do serverFn
+    // pode disparar logo após o login (ex.: token recém-emitido em formato
+    // novo que a heurística local considera "inválido") e derrubar a sessão.
+    // Se o token parecer inutilizável, apenas não anexa — o backend responde
+    // 401 e a UI decide o que fazer.
     if (!isUsableToken(token)) {
-      clearStoredAuthSession();
-      redirectToLoginForFreshSession();
-      throw new Error("Sessão expirada — entre novamente.");
+      return next({ headers: {} });
     }
 
     return next({
