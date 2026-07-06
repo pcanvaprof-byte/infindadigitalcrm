@@ -17,13 +17,11 @@ import {
   billingKeys, listBillingItems, createBillingItem,
   updateBillingItem, deleteBillingItem, markAsPaid, summarize,
   buildImplantacaoPlan, buildMensalidadePlan,
-  validateBillingPlan,
+  validateBillingPlan, createManyBillingItems,
   type BillingItem, type BillingStatus, type BillingTipo,
   listBillingPresets, createBillingPreset, updateBillingPreset, deleteBillingPreset,
   type BillingPreset, type BillingPresetInput,
 } from "@/lib/billing/api";
-import { generateBillingPlan } from "@/lib/billing/plan.functions";
-import { useServerFn } from "@tanstack/react-start";
 
 export const Route = createFileRoute("/operacoes/clientes/$id/financeiro")({
   ssr: false,
@@ -720,9 +718,11 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
     modo, dataInicial, valor, parcelas, intervaloDias, bonificar,
   ]);
 
-  const generatePlan = useServerFn(generateBillingPlan);
-
-  const buildServerInput = () => {
+  // Mesmo pipeline do server fn, mas rodando no client:
+  // o browser está autenticado no OWN_SB (onde a tabela vive), enquanto o
+  // server fn valida token contra o projeto Lovable Cloud e devolve
+  // "Invalid API key". Client-side com RLS do usuário é seguro.
+  const buildPlanInput = () => {
     if (activePreset) {
       return {
         mode: "preset-combinado" as const,
@@ -773,8 +773,50 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
     }
     setSaving(true);
     try {
-      const res = await generatePlan({ data: buildServerInput() });
-      toast.success(`${res.created} parcela(s) criada(s)`);
+      const input = buildPlanInput();
+      // 1. Confere cliente (RLS filtra)
+      const existing = await listBillingItems(clientId);
+      // 2. Constrói drafts + total esperado
+      let drafts: ReturnType<typeof buildImplantacaoPlan> = [];
+      let expectedTotal = 0;
+      if (input.mode === "single-implantacao") {
+        drafts = buildImplantacaoPlan({
+          clientId, valorTotal: input.valor, parcelas: input.parcelas,
+          dataInicial: input.dataInicial, intervaloDias: input.intervaloDias,
+          descricaoBase: input.descricao,
+        });
+        expectedTotal = input.valor;
+      } else if (input.mode === "single-mensalidade") {
+        const bonif = input.bonificar ?? 0;
+        drafts = buildMensalidadePlan({
+          clientId, valorMensal: input.valor, meses: input.parcelas,
+          dataInicial: input.dataInicial, descricaoBase: input.descricao,
+          bonificarPrimeirosMeses: bonif,
+        });
+        expectedTotal = Math.max(0, input.parcelas - bonif) * input.valor;
+      } else {
+        const site = buildImplantacaoPlan({
+          clientId, valorTotal: input.site.valor, parcelas: input.site.parcelas,
+          dataInicial: input.dataInicial, intervaloDias: input.site.intervaloDias,
+          descricaoBase: input.site.descricao,
+        });
+        const bonif = input.mentoria.bonificar ?? 0;
+        const ment = buildMensalidadePlan({
+          clientId, valorMensal: input.mentoria.valor, meses: input.mentoria.meses,
+          dataInicial: input.dataInicial, descricaoBase: input.mentoria.descricao,
+          bonificarPrimeirosMeses: bonif,
+        });
+        drafts = [...site, ...ment];
+        expectedTotal =
+          input.site.valor +
+          Math.max(0, input.mentoria.meses - bonif) * input.mentoria.valor;
+      }
+      // 3. Valida contra as parcelas existentes
+      const errs = validateBillingPlan(drafts, existing, { expectedTotal });
+      if (errs.length) throw new Error(`Plano inválido: ${errs.join(" | ")}`);
+      // 4. Insere via RLS do usuário
+      await createManyBillingItems(drafts);
+      toast.success(`${drafts.length} parcela(s) criada(s)`);
       onClose();
     } catch (e) {
       const raw = (e as Error).message || "Erro desconhecido ao gerar o plano.";
