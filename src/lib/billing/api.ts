@@ -157,7 +157,7 @@ export function summarize(items: BillingItem[]) {
     else if (it.status === "bonificado") bonificado += v;
     else if (it.status === "cancelado") {
       // não soma
-    } else if (it.vencimento < today && it.status !== "pago") atrasado += v;
+    } else if (it.vencimento < today) atrasado += v;
     else aReceber += v;
   }
   return { total, recebido, aReceber, atrasado, bonificado };
