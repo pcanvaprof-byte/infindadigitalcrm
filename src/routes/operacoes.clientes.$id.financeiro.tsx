@@ -36,6 +36,32 @@ const fmtDate = (iso: string) => {
 
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
+const MONTH_LABEL = (ym: string) => {
+  const [y, m] = ym.split("-");
+  const names = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+  return `${names[Number(m) - 1]}/${y.slice(2)}`;
+};
+
+function summarizeByMonth(items: BillingItem[]) {
+  const today = todayISO();
+  const map = new Map<string, { recebido: number; aReceber: number; atrasado: number; bonificado: number; total: number }>();
+  for (const it of items) {
+    const ym = it.vencimento.slice(0, 7);
+    const bucket = map.get(ym) ?? { recebido: 0, aReceber: 0, atrasado: 0, bonificado: 0, total: 0 };
+    const v = Number(it.valor) || 0;
+    if (it.status === "cancelado") { /* skip */ }
+    else if (it.status === "pago") bucket.recebido += v;
+    else if (it.status === "bonificado") bucket.bonificado += v;
+    else if (it.vencimento < today) bucket.atrasado += v;
+    else bucket.aReceber += v;
+    if (it.status !== "cancelado") bucket.total += v;
+    map.set(ym, bucket);
+  }
+  return [...map.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([ym, v]) => ({ ym, ...v }));
+}
+
 const STATUS_META: Record<BillingStatus, { label: string; className: string }> = {
   pendente: { label: "Pendente", className: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30" },
   pago: { label: "Pago", className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" },
@@ -59,6 +85,7 @@ function FinanceiroPage() {
   const q = useQuery({ queryKey: billingKeys.byClient(id), queryFn: () => listBillingItems(id) });
   const items = q.data ?? [];
   const s = useMemo(() => summarize(items), [items]);
+  const porMes = useMemo(() => summarizeByMonth(items), [items]);
 
   const invalidate = () => qc.invalidateQueries({ queryKey: billingKeys.byClient(id) });
 
@@ -83,6 +110,52 @@ function FinanceiroPage() {
         <SummaryCard icon={<AlertTriangle className="h-3.5 w-3.5" />} label="Atrasado" value={BRL(s.atrasado)} tone="rose" />
         <SummaryCard icon={<Gift className="h-3.5 w-3.5" />} label="Bonificado" value={BRL(s.bonificado)} tone="violet" />
       </div>
+
+      {/* Fluxo de caixa por mês */}
+      {porMes.length > 0 && (
+        <Card className="overflow-hidden">
+          <div className="flex items-center justify-between border-b border-border bg-muted/30 px-4 py-2">
+            <p className="text-xs font-semibold text-muted-foreground">Fluxo de caixa por mês</p>
+            <p className="text-[10px] text-muted-foreground">{porMes.length} mês(es)</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/20 text-[10px] uppercase tracking-wider text-muted-foreground">
+                <tr>
+                  <th className="px-3 py-1.5 text-left font-semibold">Mês</th>
+                  <th className="px-3 py-1.5 text-right font-semibold text-emerald-600 dark:text-emerald-400">Recebido</th>
+                  <th className="px-3 py-1.5 text-right font-semibold text-amber-600 dark:text-amber-400">A receber</th>
+                  <th className="px-3 py-1.5 text-right font-semibold text-rose-600 dark:text-rose-400">Atrasado</th>
+                  <th className="px-3 py-1.5 text-right font-semibold text-violet-600 dark:text-violet-400">Bonificado</th>
+                  <th className="px-3 py-1.5 text-right font-semibold">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {porMes.map((m) => (
+                  <tr key={m.ym} className="hover:bg-accent/30">
+                    <td className="px-3 py-1.5 font-medium">{MONTH_LABEL(m.ym)}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{m.recebido ? BRL(m.recebido) : "—"}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums text-amber-600 dark:text-amber-400">{m.aReceber ? BRL(m.aReceber) : "—"}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums text-rose-600 dark:text-rose-400">{m.atrasado ? BRL(m.atrasado) : "—"}</td>
+                    <td className="px-3 py-1.5 text-right tabular-nums text-violet-600 dark:text-violet-400">{m.bonificado ? BRL(m.bonificado) : "—"}</td>
+                    <td className="px-3 py-1.5 text-right font-semibold tabular-nums">{BRL(m.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot className="border-t-2 border-border bg-muted/20 text-[11px] font-semibold">
+                <tr>
+                  <td className="px-3 py-1.5">Total</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{BRL(s.recebido)}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums text-amber-600 dark:text-amber-400">{BRL(s.aReceber)}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums text-rose-600 dark:text-rose-400">{BRL(s.atrasado)}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums text-violet-600 dark:text-violet-400">{BRL(s.bonificado)}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{BRL(s.total)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </Card>
+      )}
 
       {/* Ações */}
       <div className="flex flex-wrap gap-2">
