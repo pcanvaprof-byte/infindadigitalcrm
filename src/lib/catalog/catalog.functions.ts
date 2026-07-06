@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 import type { CatalogItem } from "./types";
 
@@ -114,6 +115,7 @@ function buildItemPayload(input: ItemMutationInput, createdBy?: string | null) {
 }
 
 export const listCatalogCategoriasQuery = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
   .handler(async () => {
     const admin = await getCatalogDb();
     const { data, error } = await admin
@@ -125,6 +127,7 @@ export const listCatalogCategoriasQuery = createServerFn({ method: "GET" })
   });
 
 export const listCatalogItemsQuery = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => ListItemsInput.parse(data))
   .handler(async ({ data }) => {
     const filters = data ?? {};
@@ -148,6 +151,7 @@ export const listCatalogItemsQuery = createServerFn({ method: "GET" })
   });
 
 export const getCatalogItemQuery = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => GetInput.parse(data))
   .handler(async ({ data }) => {
     const admin = await getCatalogDb();
@@ -161,6 +165,7 @@ export const getCatalogItemQuery = createServerFn({ method: "GET" })
   });
 
 export const createCatalogItemMutation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => RawItemInput.parse(data))
   .handler(async ({ data }) => {
     const payload = buildItemPayload(data, null);
@@ -176,6 +181,7 @@ export const createCatalogItemMutation = createServerFn({ method: "POST" })
   });
 
 export const updateCatalogItemMutation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => UpdateInput.parse(data))
   .handler(async ({ data }) => {
     const payload = buildItemPayload(data.patch);
@@ -193,6 +199,7 @@ export const updateCatalogItemMutation = createServerFn({ method: "POST" })
   });
 
 export const toggleCatalogItemMutation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => ToggleInput.parse(data))
   .handler(async ({ data }) => {
     const admin = await getCatalogDb();
@@ -205,6 +212,7 @@ export const toggleCatalogItemMutation = createServerFn({ method: "POST" })
   });
 
 export const deleteCatalogItemMutation = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => GetInput.parse(data))
   .handler(async ({ data }) => {
     const admin = await getCatalogDb();
