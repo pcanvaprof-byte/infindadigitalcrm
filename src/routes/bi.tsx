@@ -911,3 +911,81 @@ function BIPage() {
     </DrillDownProvider>
   );
 }
+
+// ---- Fluxo de caixa por mês (fonte: client_billing_items) ----
+const MONTH_LABEL_BR = (ym: string) => {
+  const [y, m] = ym.split("-");
+  const names = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+  return `${names[Number(m) - 1]}/${y.slice(2)}`;
+};
+
+function BillingCashflowCard({ data }: { data: BillingKpis }) {
+  const today = new Date().toISOString().slice(0, 7);
+  const meses = data.por_mes;
+  const totais = meses.reduce(
+    (a, m) => ({
+      recebido: a.recebido + m.recebido,
+      a_receber: a.a_receber + m.a_receber,
+      atrasado: a.atrasado + m.atrasado,
+      bonificado: a.bonificado + m.bonificado,
+      total: a.total + m.total,
+    }),
+    { recebido: 0, a_receber: 0, atrasado: 0, bonificado: 0, total: 0 },
+  );
+  return (
+    <Card>
+      <CardHeader className="pb-3 flex flex-row items-start justify-between gap-2">
+        <div>
+          <CardTitle className="text-base flex items-center gap-2">
+            <CalendarClock className="h-4 w-4 text-primary" /> Fluxo de caixa por mês
+          </CardTitle>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Fonte: parcelas dos clientes ({data.total_parcelas} parcela(s))
+          </p>
+        </div>
+        <div className="text-right text-xs text-muted-foreground">
+          Atrasado total <b className="text-rose-500">{fmtBRL(data.atrasado_total)}</b>
+        </div>
+      </CardHeader>
+      <CardContent className="overflow-x-auto p-0">
+        <table className="w-full text-xs">
+          <thead className="bg-muted/20 text-[10px] uppercase tracking-wider text-muted-foreground">
+            <tr>
+              <th className="px-3 py-1.5 text-left font-semibold">Mês</th>
+              <th className="px-3 py-1.5 text-right font-semibold text-emerald-500">Recebido</th>
+              <th className="px-3 py-1.5 text-right font-semibold text-amber-500">A receber</th>
+              <th className="px-3 py-1.5 text-right font-semibold text-rose-500">Atrasado</th>
+              <th className="px-3 py-1.5 text-right font-semibold text-violet-500">Bonificado</th>
+              <th className="px-3 py-1.5 text-right font-semibold">Total</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {meses.map((m) => (
+              <tr key={m.ym} className={m.ym === today ? "bg-primary/5" : "hover:bg-accent/30"}>
+                <td className="px-3 py-1.5 font-medium">
+                  {MONTH_LABEL_BR(m.ym)}
+                  {m.ym === today && <span className="ml-1 text-[9px] text-primary">atual</span>}
+                </td>
+                <td className="px-3 py-1.5 text-right tabular-nums text-emerald-500">{m.recebido ? fmtBRL(m.recebido) : "—"}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums text-amber-500">{m.a_receber ? fmtBRL(m.a_receber) : "—"}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums text-rose-500">{m.atrasado ? fmtBRL(m.atrasado) : "—"}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums text-violet-500">{m.bonificado ? fmtBRL(m.bonificado) : "—"}</td>
+                <td className="px-3 py-1.5 text-right font-semibold tabular-nums">{fmtBRL(m.total)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot className="border-t-2 border-border bg-muted/20 text-[11px] font-semibold">
+            <tr>
+              <td className="px-3 py-1.5">Total</td>
+              <td className="px-3 py-1.5 text-right tabular-nums text-emerald-500">{fmtBRL(totais.recebido)}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums text-amber-500">{fmtBRL(totais.a_receber)}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums text-rose-500">{fmtBRL(totais.atrasado)}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums text-violet-500">{fmtBRL(totais.bonificado)}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums">{fmtBRL(totais.total)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </CardContent>
+    </Card>
+  );
+}
