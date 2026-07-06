@@ -23,6 +23,7 @@ import { Route as CatalogoRouteImport } from './routes/catalogo'
 import { Route as CadenciaRouteImport } from './routes/cadencia'
 import { Route as BriefingsRouteImport } from './routes/briefings'
 import { Route as BiRouteImport } from './routes/bi'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OperacoesIndexRouteImport } from './routes/operacoes.index'
 import { Route as PropostasIdRouteImport } from './routes/propostas.$id'
@@ -117,6 +118,11 @@ const BriefingsRoute = BriefingsRouteImport.update({
 const BiRoute = BiRouteImport.update({
   id: '/bi',
   path: '/bi',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -258,6 +264,7 @@ const OperacoesClientesIdCampanhasRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/bi': typeof BiRouteWithChildren
   '/briefings': typeof BriefingsRouteWithChildren
   '/cadencia': typeof CadenciaRoute
@@ -299,6 +306,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/bi': typeof BiRouteWithChildren
   '/briefings': typeof BriefingsRouteWithChildren
   '/cadencia': typeof CadenciaRoute
@@ -339,6 +347,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/bi': typeof BiRouteWithChildren
   '/briefings': typeof BriefingsRouteWithChildren
   '/cadencia': typeof CadenciaRoute
@@ -382,6 +391,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/auth'
     | '/bi'
     | '/briefings'
     | '/cadencia'
@@ -423,6 +433,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/auth'
     | '/bi'
     | '/briefings'
     | '/cadencia'
@@ -462,6 +473,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/auth'
     | '/bi'
     | '/briefings'
     | '/cadencia'
@@ -504,6 +516,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
   BiRoute: typeof BiRouteWithChildren
   BriefingsRoute: typeof BriefingsRouteWithChildren
   CadenciaRoute: typeof CadenciaRoute
@@ -623,6 +636,13 @@ declare module '@tanstack/react-router' {
       path: '/bi'
       fullPath: '/bi'
       preLoaderRoute: typeof BiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -910,6 +930,7 @@ const OperacoesClientesRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
   BiRoute: BiRouteWithChildren,
   BriefingsRoute: BriefingsRouteWithChildren,
   CadenciaRoute: CadenciaRoute,

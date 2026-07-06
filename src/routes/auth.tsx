@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { LoginPage } from "./login";
+import { AuthPageContent } from "./login";
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (search) => ({
@@ -13,5 +13,11 @@ export const Route = createFileRoute("/auth")({
       { name: "description", content: "Acesse a plataforma INFINDA." },
     ],
   }),
-  component: LoginPage,
+  component: AuthPage,
 });
+
+function AuthPage() {
+  const { redirect, reason } = Route.useSearch();
+
+  return <AuthPageContent redirect={redirect} reason={reason} />;
+}
