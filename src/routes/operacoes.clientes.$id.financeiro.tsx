@@ -21,6 +21,7 @@ import {
   type BillingItem, type BillingStatus, type BillingTipo,
   listBillingPresets, createBillingPreset, updateBillingPreset, deleteBillingPreset,
   type BillingPreset, type BillingPresetInput,
+  extractPlanBase, addMonthsISO, addDaysISO,
 } from "@/lib/billing/api";
 
 export const Route = createFileRoute("/operacoes/clientes/$id/financeiro")({
@@ -353,6 +354,24 @@ function BillingItemDialog({
   const [saving, setSaving] = useState(false);
   const [saveErrors, setSaveErrors] = useState<string[]>([]);
 
+  // ---- Grupo (plano em lote) ----
+  const base = item ? extractPlanBase(item.descricao) : "";
+  const group = useMemo(() => {
+    if (!item || !existing) return [] as BillingItem[];
+    return existing
+      .filter((e) => e.tipo === item.tipo && extractPlanBase(e.descricao) === base)
+      .sort((a, b) => (a.vencimento < b.vencimento ? -1 : a.vencimento > b.vencimento ? 1 : a.ordem - b.ordem));
+  }, [item, existing, base]);
+  const groupNonBonif = useMemo(() => group.filter((g) => g.status !== "bonificado" && g.status !== "cancelado"), [group]);
+  const groupTotalAtual = useMemo(() => groupNonBonif.reduce((s, g) => s + Number(g.valor || 0), 0), [groupNonBonif]);
+  const hasPago = group.some((g) => g.status === "pago");
+
+  const [showBatch, setShowBatch] = useState(false);
+  const [batchTotal, setBatchTotal] = useState(String(groupTotalAtual || ""));
+  const [batchN, setBatchN] = useState(String(groupNonBonif.length || 1));
+  const [batchIntervalo, setBatchIntervalo] = useState(item?.tipo === "implantacao" ? "15" : "30");
+  const canBatch = !!item && group.length >= 2;
+
   const fieldErrors = useMemo(() => {
     const errs: string[] = [];
     if (!descricao.trim()) errs.push("Descrição é obrigatória.");
@@ -397,6 +416,78 @@ function BillingItemDialog({
       toast.error("Não foi possível salvar a parcela", { description: msg });
     }
     finally { setSaving(false); }
+  };
+
+  const saveBatch = async () => {
+    setSaveErrors([]);
+    if (!item || !canBatch) return;
+    const total = Number(batchTotal);
+    const N = Math.floor(Number(batchN));
+    const intervalo = Math.max(1, Math.floor(Number(batchIntervalo) || 30));
+    const errs: string[] = [];
+    if (!Number.isFinite(total) || total <= 0) errs.push("Valor total do plano deve ser maior que zero.");
+    if (!Number.isFinite(N) || N < 1) errs.push("Número de parcelas deve ser ao menos 1.");
+    if (hasPago) errs.push("Há parcelas já pagas neste plano — edição em lote não permitida. Ajuste as parcelas pendentes individualmente.");
+    if (errs.length) { setSaveErrors(errs); return; }
+    setSaving(true);
+    try {
+      // Ordena parcelas não-bonificadas por vencimento
+      const ordenadas = [...groupNonBonif].sort((a, b) =>
+        a.vencimento < b.vencimento ? -1 : a.vencimento > b.vencimento ? 1 : a.ordem - b.ordem,
+      );
+      const isMens = item.tipo === "mensalidade";
+      const each = Math.round((total / N) * 100) / 100;
+      const bonifCount = group.length - groupNonBonif.length;
+
+      // 1) Atualiza / remove parcelas existentes até chegar em N
+      const keep = ordenadas.slice(0, N);
+      const remove = ordenadas.slice(N);
+      for (let i = 0; i < keep.length; i++) {
+        const v = i === N - 1 ? Math.round((total - each * (N - 1)) * 100) / 100 : each;
+        const novaDesc = isMens
+          ? `${base} — Mês ${bonifCount + i + 1}`
+          : `${base} — ${i + 1}/${N}`;
+        await updateBillingItem(keep[i].id, { valor: v, descricao: novaDesc });
+      }
+      for (const r of remove) await deleteBillingItem(r.id);
+
+      // 2) Cria parcelas adicionais se N > atual
+      const faltam = N - keep.length;
+      if (faltam > 0) {
+        const ultimaData = keep.length > 0 ? keep[keep.length - 1].vencimento : item.vencimento;
+        const novos = [] as Array<Parameters<typeof createManyBillingItems>[0][number]>;
+        for (let i = 0; i < faltam; i++) {
+          const idx = keep.length + i;
+          const v = idx === N - 1 ? Math.round((total - each * (N - 1)) * 100) / 100 : each;
+          const venc = isMens
+            ? addMonthsISO(ultimaData, i + 1)
+            : addDaysISO(ultimaData, (i + 1) * intervalo);
+          const desc = isMens
+            ? `${base} — Mês ${bonifCount + idx + 1}`
+            : `${base} — ${idx + 1}/${N}`;
+          novos.push({
+            client_id: clientId,
+            descricao: desc,
+            tipo: item.tipo,
+            valor: v,
+            vencimento: venc,
+            status: "pendente",
+            metodo: null,
+            observacao: null,
+            ordem: (item.ordem ?? 0) + idx,
+          });
+        }
+        await createManyBillingItems(novos);
+      }
+
+      // 3) Renumera implantação restante (caso N tenha aumentado, já feito acima; caso reduzido, também)
+      toast.success(`Plano "${base}" atualizado (${N}x ${BRL(each)})`);
+      onClose();
+    } catch (e) {
+      const msg = (e as Error).message || "Erro ao atualizar o plano.";
+      setSaveErrors([msg]);
+      toast.error("Não foi possível atualizar o plano", { description: msg });
+    } finally { setSaving(false); }
   };
 
   return (
@@ -453,6 +544,47 @@ function BillingItemDialog({
             <Label className="text-xs">Observação (opcional)</Label>
             <Input value={observacao} onChange={(e) => setObservacao(e.target.value)} />
           </div>
+          {canBatch && (
+            <div className="rounded border border-border bg-muted/30 p-2">
+              <button
+                type="button"
+                onClick={() => setShowBatch((v) => !v)}
+                className="flex w-full items-center justify-between text-left text-xs font-semibold"
+              >
+                <span>
+                  Editar plano em lote — {group.length}x "{base}" · total atual {BRL(groupTotalAtual)}
+                </span>
+                <span className="text-muted-foreground">{showBatch ? "−" : "+"}</span>
+              </button>
+              {showBatch && (
+                <div className="mt-2 space-y-2">
+                  <p className="text-[11px] text-muted-foreground">
+                    Ajusta todas as parcelas do plano (mesma descrição base). Distribui o total igualmente entre N parcelas.
+                    {hasPago && <span className="mt-1 block text-rose-600 dark:text-rose-400">⚠ Há parcelas pagas — edição em lote bloqueada.</span>}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">Valor total (R$)</Label>
+                      <Input type="number" step="0.01" value={batchTotal} onChange={(e) => setBatchTotal(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Nº de parcelas</Label>
+                      <Input type="number" min="1" value={batchN} onChange={(e) => setBatchN(e.target.value)} />
+                    </div>
+                  </div>
+                  {item?.tipo !== "mensalidade" && (
+                    <div>
+                      <Label className="text-xs">Intervalo entre parcelas (dias, se adicionar novas)</Label>
+                      <Input type="number" min="1" value={batchIntervalo} onChange={(e) => setBatchIntervalo(e.target.value)} />
+                    </div>
+                  )}
+                  <Button size="sm" onClick={saveBatch} disabled={saving || hasPago} className="w-full">
+                    {saving ? "Aplicando…" : `Aplicar ao plano (${batchN}x)`}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
           {saveErrors.length > 0 && (
             <div className="rounded border border-rose-500/40 bg-rose-500/10 p-2">
               <p className="mb-1 flex items-center gap-1 text-[11px] font-semibold text-rose-700 dark:text-rose-400">
