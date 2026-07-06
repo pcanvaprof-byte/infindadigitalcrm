@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /**
  * Auditoria consistente de disparos calculada 100% no backend, lendo o banco
@@ -177,6 +178,7 @@ function spDateKey(iso: string): string {
 }
 
 export const auditDispatches = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: { from?: string; to?: string } | undefined) => input ?? {})
   .handler(async ({ data }) => {
     // ----- Cache + rate-limit (in-memory, por instância do worker) -----
