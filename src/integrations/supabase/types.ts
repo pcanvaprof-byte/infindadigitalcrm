@@ -1535,6 +1535,293 @@ export type Database = {
         }
         Relationships: []
       }
+      proposal_adjustments: {
+        Row: {
+          autor_cargo: string | null
+          autor_nome: string | null
+          created_at: string
+          id: string
+          mensagem: string
+          origem: string
+          proposal_id: string
+          resolvido_em: string | null
+          resolvido_por: string | null
+          status: string
+        }
+        Insert: {
+          autor_cargo?: string | null
+          autor_nome?: string | null
+          created_at?: string
+          id?: string
+          mensagem: string
+          origem: string
+          proposal_id: string
+          resolvido_em?: string | null
+          resolvido_por?: string | null
+          status?: string
+        }
+        Update: {
+          autor_cargo?: string | null
+          autor_nome?: string | null
+          created_at?: string
+          id?: string
+          mensagem?: string
+          origem?: string
+          proposal_id?: string
+          resolvido_em?: string | null
+          resolvido_por?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_adjustments_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proposal_events: {
+        Row: {
+          actor_id: string | null
+          actor_type: string
+          created_at: string
+          event_type: string
+          id: string
+          payload: Json
+          proposal_id: string
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_type?: string
+          created_at?: string
+          event_type: string
+          id?: string
+          payload?: Json
+          proposal_id: string
+        }
+        Update: {
+          actor_id?: string | null
+          actor_type?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+          proposal_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_events_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proposal_items: {
+        Row: {
+          area: string | null
+          catalog_item_id: string | null
+          categoria: string | null
+          cobranca: Database["public"]["Enums"]["cobranca_tipo"]
+          created_at: string
+          descricao: string | null
+          entregaveis: string[]
+          id: string
+          nome: string
+          ordem: number
+          prazo_dias: number | null
+          proposal_id: string
+          quantidade: number
+          valor_total: number
+          valor_unitario: number
+        }
+        Insert: {
+          area?: string | null
+          catalog_item_id?: string | null
+          categoria?: string | null
+          cobranca?: Database["public"]["Enums"]["cobranca_tipo"]
+          created_at?: string
+          descricao?: string | null
+          entregaveis?: string[]
+          id?: string
+          nome: string
+          ordem?: number
+          prazo_dias?: number | null
+          proposal_id: string
+          quantidade?: number
+          valor_total?: number
+          valor_unitario?: number
+        }
+        Update: {
+          area?: string | null
+          catalog_item_id?: string | null
+          categoria?: string | null
+          cobranca?: Database["public"]["Enums"]["cobranca_tipo"]
+          created_at?: string
+          descricao?: string | null
+          entregaveis?: string[]
+          id?: string
+          nome?: string
+          ordem?: number
+          prazo_dias?: number | null
+          proposal_id?: string
+          quantidade?: number
+          valor_total?: number
+          valor_unitario?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_items_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proposal_versions: {
+        Row: {
+          conteudo_json: Json
+          created_at: string
+          id: string
+          observacoes: string | null
+          proposal_id: string
+          valor_avulso: number
+          valor_implantacao: number
+          valor_mensal: number
+          version_number: number
+        }
+        Insert: {
+          conteudo_json?: Json
+          created_at?: string
+          id?: string
+          observacoes?: string | null
+          proposal_id: string
+          valor_avulso?: number
+          valor_implantacao?: number
+          valor_mensal?: number
+          version_number: number
+        }
+        Update: {
+          conteudo_json?: Json
+          created_at?: string
+          id?: string
+          observacoes?: string | null
+          proposal_id?: string
+          valor_avulso?: number
+          valor_implantacao?: number
+          valor_mensal?: number
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_versions_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proposals: {
+        Row: {
+          client_id: string | null
+          contract_status: Database["public"]["Enums"]["contract_status"]
+          converted_at: string | null
+          created_at: string
+          current_version_id: string | null
+          deal_id: string | null
+          decided_at: string | null
+          desconto_pct: number
+          expired_at: string | null
+          first_viewed_at: string | null
+          id: string
+          lead_id: string | null
+          motivo_aprovacao: string | null
+          motivo_perda: string | null
+          numero: string
+          organization_id: string | null
+          pdf_generated_at: string | null
+          pdf_url: string | null
+          sent_at: string | null
+          status: Database["public"]["Enums"]["proposal_status"]
+          titulo: string
+          token_publico: string
+          updated_at: string
+          user_id: string
+          valid_until: string | null
+          validade_dias: number
+          valor_avulso: number
+          valor_implantacao: number
+          valor_mensal: number
+        }
+        Insert: {
+          client_id?: string | null
+          contract_status?: Database["public"]["Enums"]["contract_status"]
+          converted_at?: string | null
+          created_at?: string
+          current_version_id?: string | null
+          deal_id?: string | null
+          decided_at?: string | null
+          desconto_pct?: number
+          expired_at?: string | null
+          first_viewed_at?: string | null
+          id?: string
+          lead_id?: string | null
+          motivo_aprovacao?: string | null
+          motivo_perda?: string | null
+          numero: string
+          organization_id?: string | null
+          pdf_generated_at?: string | null
+          pdf_url?: string | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["proposal_status"]
+          titulo?: string
+          token_publico?: string
+          updated_at?: string
+          user_id: string
+          valid_until?: string | null
+          validade_dias?: number
+          valor_avulso?: number
+          valor_implantacao?: number
+          valor_mensal?: number
+        }
+        Update: {
+          client_id?: string | null
+          contract_status?: Database["public"]["Enums"]["contract_status"]
+          converted_at?: string | null
+          created_at?: string
+          current_version_id?: string | null
+          deal_id?: string | null
+          decided_at?: string | null
+          desconto_pct?: number
+          expired_at?: string | null
+          first_viewed_at?: string | null
+          id?: string
+          lead_id?: string | null
+          motivo_aprovacao?: string | null
+          motivo_perda?: string | null
+          numero?: string
+          organization_id?: string | null
+          pdf_generated_at?: string | null
+          pdf_url?: string | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["proposal_status"]
+          titulo?: string
+          token_publico?: string
+          updated_at?: string
+          user_id?: string
+          valid_until?: string | null
+          validade_dias?: number
+          valor_avulso?: number
+          valor_implantacao?: number
+          valor_mensal?: number
+        }
+        Relationships: []
+      }
       prospect_imports: {
         Row: {
           created_at: string
@@ -1778,7 +2065,70 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      vw_proposal_conversion: {
+        Row: {
+          decididas: number | null
+          enviadas: number | null
+          tempo_medio_decisao_h: number | null
+          tempo_medio_visualizacao_h: number | null
+          visualizadas: number | null
+        }
+        Relationships: []
+      }
+      vw_proposal_funnel_full: {
+        Row: {
+          status: string | null
+          total: number | null
+          valor_total: number | null
+        }
+        Relationships: []
+      }
+      vw_proposal_kpis: {
+        Row: {
+          aprovadas: number | null
+          enviadas: number | null
+          expiradas: number | null
+          rascunho: number | null
+          rejeitadas: number | null
+          taxa_aprovacao: number | null
+          ticket_medio: number | null
+          total: number | null
+          valor_perdido: number | null
+          valor_total_aprovado: number | null
+          valor_total_enviado: number | null
+          visualizadas: number | null
+        }
+        Relationships: []
+      }
+      vw_proposal_revenue_forecast: {
+        Row: {
+          competencia_mes: string | null
+          propostas: number | null
+          tipo: string | null
+          valor: number | null
+        }
+        Relationships: []
+      }
+      vw_proposal_timeline: {
+        Row: {
+          actor_id: string | null
+          actor_type: string | null
+          created_at: string | null
+          event_type: string | null
+          id: string | null
+          payload: Json | null
+          proposal_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_events_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       _apply_tenant_isolation: { Args: { p_table: string }; Returns: undefined }
@@ -1958,10 +2308,19 @@ export type Database = {
           deal_id: string
         }[]
       }
+      create_proposal_from_source: {
+        Args: { p_deal_id: string; p_prospect_id: string; p_titulo: string }
+        Returns: string
+      }
+      create_proposal_version: {
+        Args: { p_conteudo: Json; p_observacoes: string; p_proposal_id: string }
+        Returns: string
+      }
       current_org_id: { Args: never; Returns: string }
       dashboard_current_org_id: { Args: never; Returns: string }
       dashboard_metrics: { Args: never; Returns: Json }
       gen_briefing_token: { Args: never; Returns: string }
+      gen_proposal_token: { Args: never; Returns: string }
       get_briefing_by_token: {
         Args: { p_token: string }
         Returns: {
@@ -1980,6 +2339,7 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_proposal_by_token: { Args: { p_token: string }; Returns: Json }
       is_member_of_org: { Args: { _org: string }; Returns: boolean }
       is_org_admin: { Args: { _org: string }; Returns: boolean }
       my_organizations: {
@@ -1992,6 +2352,19 @@ export type Database = {
           slug: string
         }[]
       }
+      register_proposal_send: {
+        Args: {
+          p_canal: string
+          p_destino: string
+          p_mensagem: string
+          p_proposal_id: string
+        }
+        Returns: undefined
+      }
+      register_proposal_view: {
+        Args: { p_referrer: string; p_token: string; p_ua: string }
+        Returns: undefined
+      }
       set_active_org: { Args: { p_org: string }; Returns: undefined }
       set_briefing_resumo_ia: {
         Args: { p_resumo: string; p_token: string }
@@ -2000,6 +2373,18 @@ export type Database = {
       snooze_prospect: {
         Args: { _days: number; _prospect_id: string }
         Returns: string
+      }
+      submit_proposal_decision: {
+        Args: {
+          p_cargo: string
+          p_decisao: string
+          p_documento: string
+          p_mensagem: string
+          p_nome: string
+          p_token: string
+          p_ua: string
+        }
+        Returns: Json
       }
       update_briefing_by_token: {
         Args: { p_respostas: Json; p_status?: string; p_token: string }
@@ -2066,6 +2451,13 @@ export type Database = {
         | "inadimplente"
       client_lc_contract_status: "nao_gerado" | "enviado" | "assinado"
       client_onboarding_status: "pendente" | "em_andamento" | "concluido"
+      cobranca_tipo: "implantacao" | "mensal" | "avulso"
+      contract_status:
+        | "nao_gerado"
+        | "gerado"
+        | "enviado"
+        | "assinado"
+        | "cancelado"
       pipeline_stage:
         | "PROSPECCAO"
         | "CADENCIA"
@@ -2079,6 +2471,15 @@ export type Database = {
         | "ATIVO"
         | "CHURNED"
         | "PERDIDO"
+      proposal_status:
+        | "rascunho"
+        | "enviada"
+        | "visualizada"
+        | "ajustes_solicitados"
+        | "aprovada"
+        | "rejeitada"
+        | "expirada"
+        | "convertida"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2245,6 +2646,14 @@ export const Constants = {
       ],
       client_lc_contract_status: ["nao_gerado", "enviado", "assinado"],
       client_onboarding_status: ["pendente", "em_andamento", "concluido"],
+      cobranca_tipo: ["implantacao", "mensal", "avulso"],
+      contract_status: [
+        "nao_gerado",
+        "gerado",
+        "enviado",
+        "assinado",
+        "cancelado",
+      ],
       pipeline_stage: [
         "PROSPECCAO",
         "CADENCIA",
@@ -2258,6 +2667,16 @@ export const Constants = {
         "ATIVO",
         "CHURNED",
         "PERDIDO",
+      ],
+      proposal_status: [
+        "rascunho",
+        "enviada",
+        "visualizada",
+        "ajustes_solicitados",
+        "aprovada",
+        "rejeitada",
+        "expirada",
+        "convertida",
       ],
     },
   },
