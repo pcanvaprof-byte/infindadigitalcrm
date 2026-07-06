@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const ALLOWED = [
   "brasilapi.com.br",
@@ -10,6 +11,7 @@ const ALLOWED = [
 ];
 
 export const proxyFetchExternal = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: { url: string }) => {
     const u = new URL(input.url);
     if (!ALLOWED.some((h) => u.hostname === h || u.hostname.endsWith("." + h))) {
