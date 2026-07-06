@@ -24,8 +24,13 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const navigate = useNavigate();
   const { redirect, reason } = Route.useSearch();
+
+  return <AuthPageContent redirect={redirect} reason={reason} />;
+}
+
+export function AuthPageContent({ redirect, reason }: { redirect: string; reason?: string }) {
+  const navigate = useNavigate();
   const { user, isReady, login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
