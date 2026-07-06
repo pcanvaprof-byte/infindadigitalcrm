@@ -110,7 +110,7 @@ import { convertProspectToClient, crmKeys, invalidateCrmCore } from "@/lib/crm/a
 import { TouchpointModal } from "@/components/cadence/TouchpointModal";
 import { ProspectTimeline } from "@/components/cadence/ProspectTimeline";
 import { CloseCadenceDialog } from "@/components/cadence/CloseCadenceDialog";
-import { TemplatePackSelector } from "@/components/cadence/TemplatePackSelector";
+import { TemplateLibrary } from "@/components/cadence/TemplateLibrary";
 import {
   addTouchpoint,
   cadenceKeys,
