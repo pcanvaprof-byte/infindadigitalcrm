@@ -858,7 +858,10 @@ function PresetEditorDialog({
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
           <Button onClick={salvar} disabled={saving}>
-            {saving ? "Salvando…" : (mode === "edit" ? "Salvar alterações" : "Criar preset")}
+            {saving ? "Salvando…"
+              : mode === "edit" ? "Salvar alterações"
+              : mode === "duplicate" ? "Criar cópia"
+              : "Criar preset"}
           </Button>
         </DialogFooter>
       </DialogContent>
