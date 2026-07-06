@@ -580,6 +580,50 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
     modo, dataInicial, valor, parcelas, intervaloDias, bonificar,
   ]);
 
+  const generatePlan = useServerFn(generateBillingPlan);
+
+  const buildServerInput = () => {
+    if (activePreset) {
+      return {
+        mode: "preset-combinado" as const,
+        clientId,
+        dataInicial: pDataInicial,
+        site: {
+          descricao: pSiteDesc || "Site",
+          valor: Number(pSiteValor) || 0,
+          parcelas: Math.max(1, Number(pSiteParcelas) || 1),
+          intervaloDias: Number(pSiteIntervalo) || 0,
+        },
+        mentoria: {
+          descricao: pMentDesc || "Mentoria",
+          valor: Number(pMentValor) || 0,
+          meses: Math.max(1, Number(pMentMeses) || 1),
+          bonificar: Number(pMentBonif) || 0,
+        },
+      };
+    }
+    if (modo === "implantacao") {
+      return {
+        mode: "single-implantacao" as const,
+        clientId,
+        descricao: descricao || "Implantação",
+        valor: Number(valor) || 0,
+        parcelas: Math.max(1, Number(parcelas) || 1),
+        dataInicial,
+        intervaloDias: Number(intervaloDias) || 0,
+      };
+    }
+    return {
+      mode: "single-mensalidade" as const,
+      clientId,
+      descricao: descricao || "Mensalidade",
+      valor: Number(valor) || 0,
+      parcelas: Math.max(1, Number(parcelas) || 1),
+      dataInicial,
+      bonificar: Number(bonificar) || 0,
+    };
+  };
+
   const gerar = async () => {
     if (validationErrors.length) {
       toast.error("Corrija os erros antes de salvar", { description: validationErrors[0] });
@@ -587,8 +631,8 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
     }
     setSaving(true);
     try {
-      await createManyBillingItems(preview);
-      toast.success(`${preview.length} parcela(s) criada(s)`);
+      const res = await generatePlan({ data: buildServerInput() });
+      toast.success(`${res.created} parcela(s) criada(s)`);
       onClose();
     } catch (e) { toast.error((e as Error).message); }
     finally { setSaving(false); }
