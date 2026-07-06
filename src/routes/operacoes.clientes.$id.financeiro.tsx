@@ -17,6 +17,7 @@ import {
   billingKeys, listBillingItems, createBillingItem, createManyBillingItems,
   updateBillingItem, deleteBillingItem, markAsPaid, summarize,
   buildImplantacaoPlan, buildMensalidadePlan,
+  validateBillingPlan,
   type BillingItem, type BillingStatus, type BillingTipo,
 } from "@/lib/billing/api";
 
@@ -159,8 +160,8 @@ function FinanceiroPage() {
       </Card>
 
       {showAdd && <BillingItemDialog clientId={id} onClose={() => { setShowAdd(false); invalidate(); }} />}
-      {editing && <BillingItemDialog clientId={id} item={editing} onClose={() => { setEditing(null); invalidate(); }} />}
-      {showPlan && <PlanGeneratorDialog clientId={id} onClose={() => { setShowPlan(false); invalidate(); }} />}
+      {editing && <BillingItemDialog clientId={id} item={editing} existing={items} onClose={() => { setEditing(null); invalidate(); }} />}
+      {showPlan && <PlanGeneratorDialog clientId={id} existing={items} onClose={() => { setShowPlan(false); invalidate(); }} />}
 
       <p className="text-[11px] text-muted-foreground">
         💡 Integração com gateway (Asaas / Pagar.me) fica para uma próxima etapa.
