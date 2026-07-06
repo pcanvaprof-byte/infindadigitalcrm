@@ -116,12 +116,6 @@ export function AuthPageContent({ redirect, reason }: { redirect: string; reason
               </p>
             </div>
 
-            {reason === "session" && (
-              <p className="mb-4 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
-                Sua sessão estava desatualizada. Entre novamente para continuar.
-              </p>
-            )}
-
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
