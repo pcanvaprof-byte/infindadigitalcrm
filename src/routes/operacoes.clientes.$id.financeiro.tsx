@@ -328,7 +328,7 @@ const PRESETS: Array<{
   },
 ];
 
-function PlanGeneratorDialog({ clientId, onClose }: { clientId: string; onClose: () => void }) {
+function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string; existing?: BillingItem[]; onClose: () => void }) {
   const [preset, setPreset] = useState<PresetKey>("none");
   const activePreset = PRESETS.find((p) => p.key === preset);
 
@@ -407,7 +407,27 @@ function PlanGeneratorDialog({ clientId, onClose }: { clientId: string; onClose:
     pMentDesc, pMentValor, pMentMeses, pMentBonif, pDataInicial,
   ]);
 
+  const expectedTotal = useMemo(() => {
+    if (activePreset) {
+      const site = Number(pSiteValor) || 0;
+      const mentBrutoMeses = Math.max(0, (Number(pMentMeses) || 0) - (Number(pMentBonif) || 0));
+      return site + mentBrutoMeses * (Number(pMentValor) || 0);
+    }
+    if (modo === "implantacao") return Number(valor) || 0;
+    const meses = Math.max(0, (Number(parcelas) || 0) - (Number(bonificar) || 0));
+    return meses * (Number(valor) || 0);
+  }, [activePreset, pSiteValor, pMentValor, pMentMeses, pMentBonif, modo, valor, parcelas, bonificar]);
+
+  const validationErrors = useMemo(
+    () => validateBillingPlan(preview, existing ?? [], { expectedTotal }),
+    [preview, existing, expectedTotal],
+  );
+
   const gerar = async () => {
+    if (validationErrors.length) {
+      toast.error("Corrija os erros antes de salvar", { description: validationErrors[0] });
+      return;
+    }
     setSaving(true);
     try {
       await createManyBillingItems(preview);
@@ -551,10 +571,22 @@ function PlanGeneratorDialog({ clientId, onClose }: { clientId: string; onClose:
               </div>
             ))}
           </div>
+
+          {validationErrors.length > 0 && (
+            <div className="rounded border border-rose-500/40 bg-rose-500/10 p-2">
+              <p className="mb-1 flex items-center gap-1 text-[11px] font-semibold text-rose-700 dark:text-rose-400">
+                <AlertTriangle className="h-3 w-3" /> {validationErrors.length} problema(s)
+              </p>
+              <ul className="ml-4 list-disc space-y-0.5 text-[11px] text-rose-700 dark:text-rose-300">
+                {validationErrors.slice(0, 6).map((e, i) => <li key={i}>{e}</li>)}
+                {validationErrors.length > 6 && <li>… e mais {validationErrors.length - 6}</li>}
+              </ul>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button onClick={gerar} disabled={saving || preview.length === 0}>
+          <Button onClick={gerar} disabled={saving || preview.length === 0 || validationErrors.length > 0}>
             {saving ? "Criando…" : `Criar ${preview.length} parcela(s)`}
           </Button>
         </DialogFooter>
