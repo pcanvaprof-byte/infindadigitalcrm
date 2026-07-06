@@ -2339,6 +2339,16 @@ const MobileProspectRow = memo(function MobileProspectRow({
   onEnrich: (p: Prospect) => void;
 }) {
   const noWhats = ((p.whatsapp || "").replace(/\D/g, "")).length < 10;
+  const [editing, setEditing] = useState(false);
+  if (editing) {
+    return (
+      <InlineEditProspect
+        p={p}
+        onCancel={() => setEditing(false)}
+        onSaved={() => setEditing(false)}
+      />
+    );
+  }
   return (
     <div className={`flex gap-3 border-b border-border/60 p-3 ${isSelected ? "bg-primary/5" : ""}`}>
       <NativeCheckbox
@@ -2363,6 +2373,16 @@ const MobileProspectRow = memo(function MobileProspectRow({
         </div>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8 text-primary-glow"
+          title="Editar campos"
+          aria-label={`Editar ${p.company}`}
+          onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
         <Button
           size="icon"
           variant={noWhats ? "default" : "ghost"}
