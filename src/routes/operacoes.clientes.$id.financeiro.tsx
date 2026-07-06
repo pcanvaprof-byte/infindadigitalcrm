@@ -729,7 +729,9 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
           initial={
             presetEditor.mode === "edit" && presetEditor.preset
               ? presetEditor.preset
-              : { ...currentFormAsPreset(), nome: "" }
+              : presetEditor.mode === "duplicate"
+                ? presetEditor.initial
+                : { ...currentFormAsPreset(), nome: "" }
           }
           onClose={() => setPresetEditor(null)}
           onSaved={async (saved) => {
