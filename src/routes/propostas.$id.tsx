@@ -74,6 +74,11 @@ function EditorPage() {
   const [content, setContent] = useState<ProposalContent>({});
   const [titulo, setTitulo] = useState("");
   const [validade, setValidade] = useState(7);
+  const [escopo, setEscopo] = useState("");
+  const [prazo, setPrazo] = useState("");
+  const [proximaAcao, setProximaAcao] = useState("");
+  const [proximaAcaoEm, setProximaAcaoEm] = useState("");
+  const [proximaAcaoResp, setProximaAcaoResp] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
   const [aiContext, setAiContext] = useState("");
@@ -101,6 +106,16 @@ function EditorPage() {
     if (propQ.data) {
       setTitulo(propQ.data.titulo);
       setValidade(propQ.data.validade_dias);
+      setEscopo(propQ.data.escopo ?? "");
+      setPrazo(propQ.data.prazo ?? "");
+      setProximaAcao(propQ.data.proxima_acao ?? "");
+      // input type=datetime-local usa "YYYY-MM-DDTHH:mm" (sem TZ).
+      setProximaAcaoEm(
+        propQ.data.proxima_acao_em
+          ? new Date(propQ.data.proxima_acao_em).toISOString().slice(0, 16)
+          : "",
+      );
+      setProximaAcaoResp(propQ.data.proxima_acao_responsavel ?? "");
     }
   }, [propQ.data]);
 
@@ -113,7 +128,15 @@ function EditorPage() {
 
   const saveDraft = useMutation({
     mutationFn: async () => {
-      await updateProposal(id, { titulo, validade_dias: validade });
+      await updateProposal(id, {
+        titulo,
+        validade_dias: validade,
+        escopo: escopo.trim() || null,
+        prazo: prazo.trim() || null,
+        proxima_acao: proximaAcao.trim() || null,
+        proxima_acao_em: proximaAcaoEm ? new Date(proximaAcaoEm).toISOString() : null,
+        proxima_acao_responsavel: proximaAcaoResp.trim() || null,
+      });
       await saveVersion(id, content);
     },
     onSuccess: async () => {
