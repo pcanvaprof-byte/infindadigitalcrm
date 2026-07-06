@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
-  Check, Plus, Sparkles, Trash2, Pencil, X, Calendar as CalendarIcon,
+  Check, Plus, Sparkles, Trash2, Pencil, Copy, X, Calendar as CalendarIcon,
   TrendingUp, Wallet, AlertTriangle, Gift,
 } from "lucide-react";
 import {
