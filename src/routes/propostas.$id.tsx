@@ -221,6 +221,73 @@ function EditorPage() {
             </div>
           </div>
 
+          {/* Escopo, prazo e próxima ação (edição rápida) */}
+          <div className="surface-card p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Escopo, prazo & próxima ação
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                Salvo junto com <b>Salvar versão</b>.
+              </p>
+            </div>
+            <div className="mt-3 grid gap-3">
+              <div>
+                <label className="text-[11px] font-medium text-muted-foreground">
+                  Resumo do escopo
+                </label>
+                <Textarea
+                  className="mt-1 min-h-[80px] text-sm"
+                  value={escopo}
+                  onChange={(e) => setEscopo(e.target.value)}
+                  placeholder="Ex.: Site institucional + gestão de tráfego pago (Meta/Google) por 6 meses, com relatório mensal."
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-muted-foreground">Prazo</label>
+                <Input
+                  className="mt-1 h-8 text-sm"
+                  value={prazo}
+                  onChange={(e) => setPrazo(e.target.value)}
+                  placeholder="Ex.: entrega do site em 30 dias · campanhas ativas em até 45 dias."
+                />
+              </div>
+              <div className="grid gap-2 sm:grid-cols-[1fr_180px_160px]">
+                <div>
+                  <label className="text-[11px] font-medium text-muted-foreground">
+                    Próxima ação
+                  </label>
+                  <Input
+                    className="mt-1 h-8 text-sm"
+                    value={proximaAcao}
+                    onChange={(e) => setProximaAcao(e.target.value)}
+                    placeholder="Ex.: Ligar quarta 14h para fechar contrato."
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-medium text-muted-foreground">Quando</label>
+                  <Input
+                    type="datetime-local"
+                    className="mt-1 h-8 text-sm"
+                    value={proximaAcaoEm}
+                    onChange={(e) => setProximaAcaoEm(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-medium text-muted-foreground">
+                    Responsável
+                  </label>
+                  <Input
+                    className="mt-1 h-8 text-sm"
+                    value={proximaAcaoResp}
+                    onChange={(e) => setProximaAcaoResp(e.target.value)}
+                    placeholder="Ex.: Ana"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Escopo / Itens */}
           <div className="surface-card p-4">
             <div className="flex items-center justify-between">
