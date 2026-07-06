@@ -145,6 +145,10 @@ export async function updateClient(
       | "contract_notes"
       | "origem"
       | "origem_detalhe"
+      | "ajustes_escopo"
+      | "ajustes_prazo"
+      | "ajustes_proxima_acao"
+      | "ajustes_updated_at"
     >
   >,
 ): Promise<LifecycleClient> {
