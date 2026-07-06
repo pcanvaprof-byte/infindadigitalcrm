@@ -274,6 +274,27 @@ export type Database = {
           },
         ]
       }
+      cad_pack_favorites: {
+        Row: {
+          created_at: string
+          organization_id: string | null
+          pack_key: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          organization_id?: string | null
+          pack_key: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          organization_id?: string | null
+          pack_key?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       cad_template_packs: {
         Row: {
           categoria: string
@@ -283,9 +304,13 @@ export type Database = {
           id: string
           is_system: boolean
           nome: string
+          objetivo: string | null
           organization_id: string | null
           pack_key: string
+          segmento: string | null
+          tags: string[]
           updated_at: string
+          variables: Json
         }
         Insert: {
           categoria?: string
@@ -295,9 +320,13 @@ export type Database = {
           id?: string
           is_system?: boolean
           nome: string
+          objetivo?: string | null
           organization_id?: string | null
           pack_key: string
+          segmento?: string | null
+          tags?: string[]
           updated_at?: string
+          variables?: Json
         }
         Update: {
           categoria?: string
@@ -307,9 +336,13 @@ export type Database = {
           id?: string
           is_system?: boolean
           nome?: string
+          objetivo?: string | null
           organization_id?: string | null
           pack_key?: string
+          segmento?: string | null
+          tags?: string[]
           updated_at?: string
+          variables?: Json
         }
         Relationships: [
           {
@@ -1621,6 +1654,20 @@ export type Database = {
     Functions: {
       _apply_tenant_isolation: { Args: { p_table: string }; Returns: undefined }
       _bi_org: { Args: never; Returns: string }
+      _cad_seed_system_pack: {
+        Args: {
+          _categoria: string
+          _descricao: string
+          _icon: string
+          _nome: string
+          _objetivo: string
+          _openers: Json
+          _pack_key: string
+          _segmento: string
+          _tags: string[]
+        }
+        Returns: undefined
+      }
       _infinda_log_activity: {
         Args: { p_kind: string; p_lead: string; p_text: string; p_user: string }
         Returns: undefined
@@ -1670,6 +1717,7 @@ export type Database = {
         Returns: string
       }
       cad_dashboard_metrics: { Args: never; Returns: Json }
+      cad_delete_pack: { Args: { _pack_key: string }; Returns: boolean }
       cad_get_default_seed_pack: { Args: never; Returns: string }
       cad_get_pack_templates: {
         Args: { _pack_key: string }
@@ -1687,9 +1735,13 @@ export type Database = {
           descricao: string
           icon: string
           is_active: boolean
+          is_favorite: boolean
           is_system: boolean
           nome: string
+          objetivo: string
           pack_key: string
+          segmento: string
+          tags: string[]
           template_count: number
         }[]
       }
@@ -1737,6 +1789,29 @@ export type Database = {
       cad_set_default_seed_pack: {
         Args: { _pack_key: string }
         Returns: boolean
+      }
+      cad_toggle_favorite: { Args: { _pack_key: string }; Returns: boolean }
+      cad_update_pack_meta: {
+        Args: {
+          _categoria: string
+          _descricao: string
+          _icon: string
+          _nome: string
+          _objetivo: string
+          _pack_key: string
+          _segmento: string
+          _tags: string[]
+        }
+        Returns: boolean
+      }
+      cad_upsert_template: {
+        Args: {
+          _corpo: string
+          _pack_key: string
+          _stage: Database["public"]["Enums"]["cad_stage"]
+          _titulo: string
+        }
+        Returns: undefined
       }
       close_cadence: {
         Args: { _note?: string; _prospect_id: string; _reason: string }
