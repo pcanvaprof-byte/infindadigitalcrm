@@ -162,3 +162,102 @@ export function summarize(items: BillingItem[]) {
   }
   return { total, recebido, aReceber, atrasado, bonificado };
 }
+
+// ------ Validação ------
+
+export type PlanDraftItem = Omit<
+  BillingItem,
+  "id" | "organization_id" | "created_at" | "updated_at" | "pago_em"
+> & { pago_em?: string | null };
+
+/**
+ * Valida uma lista de parcelas antes de salvar.
+ * Retorna array de mensagens (vazio = ok).
+ */
+export function validateBillingPlan(
+  drafts: PlanDraftItem[],
+  existing: BillingItem[] = [],
+  opts: { expectedTotal?: number } = {},
+): string[] {
+  const errors: string[] = [];
+  if (drafts.length === 0) {
+    errors.push("Nenhuma parcela para salvar.");
+    return errors;
+  }
+
+  const isoRe = /^\d{4}-\d{2}-\d{2}$/;
+  const seen = new Map<string, number>();
+  const existingKeys = new Set(
+    existing.map((e) => `${e.descricao.trim().toLowerCase()}|${e.vencimento}`),
+  );
+  const groupDates = new Map<string, string[]>();
+
+  let somaCobravel = 0;
+  let temValorPositivo = false;
+
+  drafts.forEach((d, idx) => {
+    const label = `Parcela ${idx + 1}`;
+    const desc = (d.descricao || "").trim();
+    if (!desc) errors.push(`${label}: descrição vazia.`);
+
+    if (!isoRe.test(d.vencimento) || Number.isNaN(new Date(d.vencimento + "T12:00:00").getTime())) {
+      errors.push(`${label}: vencimento inválido (${d.vencimento || "vazio"}).`);
+    }
+
+    const v = Number(d.valor);
+    if (Number.isNaN(v)) errors.push(`${label}: valor não numérico.`);
+    else if (v < 0) errors.push(`${label}: valor negativo (${v}).`);
+
+    if (d.status === "bonificado" && v !== 0) {
+      errors.push(`${label}: parcela bonificada deve ter valor 0.`);
+    }
+
+    if (d.status !== "bonificado" && d.status !== "cancelado") {
+      somaCobravel += v || 0;
+      if ((v || 0) > 0) temValorPositivo = true;
+    }
+
+    const key = `${desc.toLowerCase()}|${d.vencimento}`;
+    seen.set(key, (seen.get(key) ?? 0) + 1);
+
+    if (existingKeys.has(key)) {
+      errors.push(`${label}: já existe parcela "${desc}" com vencimento ${d.vencimento}.`);
+    }
+
+    const base = desc.split(" — ")[0] || desc;
+    const arr = groupDates.get(base) ?? [];
+    arr.push(d.vencimento);
+    groupDates.set(base, arr);
+  });
+
+  for (const [k, c] of seen) {
+    if (c > 1) {
+      const [desc, venc] = k.split("|");
+      errors.push(`Duplicidade: "${desc}" no vencimento ${venc} aparece ${c}x.`);
+    }
+  }
+
+  for (const [base, dates] of groupDates) {
+    for (let i = 1; i < dates.length; i++) {
+      if (dates[i] < dates[i - 1]) {
+        errors.push(`"${base}": vencimentos fora de ordem (${dates[i - 1]} → ${dates[i]}).`);
+        break;
+      }
+    }
+  }
+
+  if (!temValorPositivo) {
+    errors.push("Plano sem nenhum valor cobrável (todas as parcelas são 0/bonificadas).");
+  }
+
+  if (typeof opts.expectedTotal === "number" && !Number.isNaN(opts.expectedTotal)) {
+    const diff = Math.round((somaCobravel - opts.expectedTotal) * 100) / 100;
+    if (Math.abs(diff) > 0.05) {
+      errors.push(
+        `Total incoerente: soma das parcelas (R$${somaCobravel.toFixed(2)}) difere do esperado (R$${opts.expectedTotal.toFixed(2)}).`,
+      );
+    }
+  }
+
+  return errors;
+}
