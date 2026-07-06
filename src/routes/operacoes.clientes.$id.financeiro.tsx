@@ -66,6 +66,26 @@ function summarizeByMonth(items: BillingItem[]) {
     .map(([ym, v]) => ({ ym, ...v }));
 }
 
+// ---- Bonificação: modo de exibição escolhido pelo usuário ----
+type BonusMode = "separate" | "in-received" | "in-receivable";
+const BONUS_MODE_KEY = "financeiro.bonusMode";
+const BONUS_MODE_LABEL: Record<BonusMode, string> = {
+  separate: "Bonificado separado",
+  "in-received": "Bonificado em Recebido",
+  "in-receivable": "Bonificado em A receber",
+};
+function loadBonusMode(): BonusMode {
+  if (typeof window === "undefined") return "separate";
+  const raw = window.localStorage.getItem(BONUS_MODE_KEY);
+  return raw === "in-received" || raw === "in-receivable" ? raw : "separate";
+}
+type SummaryShape = { recebido: number; aReceber: number; atrasado: number; bonificado: number; total: number };
+function mergeBonusInSummary<T extends SummaryShape>(s: T, mode: BonusMode): T {
+  if (mode === "separate") return s;
+  if (mode === "in-received") return { ...s, recebido: s.recebido + s.bonificado, bonificado: 0 };
+  return { ...s, aReceber: s.aReceber + s.bonificado, bonificado: 0 };
+}
+
 const STATUS_META: Record<BillingStatus, { label: string; className: string }> = {
   pendente: { label: "Pendente", className: "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30" },
   pago: { label: "Pago", className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" },
@@ -88,8 +108,19 @@ function FinanceiroPage() {
 
   const q = useQuery({ queryKey: billingKeys.byClient(id), queryFn: () => listBillingItems(id) });
   const items = q.data ?? [];
-  const s = useMemo(() => summarize(items), [items]);
-  const porMes = useMemo(() => summarizeByMonth(items), [items]);
+  const [bonusMode, setBonusMode] = useState<BonusMode>(() => loadBonusMode());
+  const applyBonusMode = (mode: BonusMode) => {
+    setBonusMode(mode);
+    try { localStorage.setItem(BONUS_MODE_KEY, mode); } catch { /* ignore */ }
+  };
+
+  const sRaw = useMemo(() => summarize(items), [items]);
+  const porMesRaw = useMemo(() => summarizeByMonth(items), [items]);
+  const s = useMemo(() => mergeBonusInSummary(sRaw, bonusMode), [sRaw, bonusMode]);
+  const porMes = useMemo(
+    () => porMesRaw.map((m) => ({ ...mergeBonusInSummary(m, bonusMode), ym: m.ym })),
+    [porMesRaw, bonusMode],
+  );
 
   const invalidate = () => qc.invalidateQueries({ queryKey: billingKeys.byClient(id) });
 
@@ -106,13 +137,45 @@ function FinanceiroPage() {
 
   return (
     <div className="space-y-4">
+      {/* Modo de exibição da bonificação */}
+      <div className="flex flex-wrap items-center gap-2 rounded border border-border bg-muted/20 p-2">
+        <Label className="text-[11px] text-muted-foreground">Bonificado:</Label>
+        <Select value={bonusMode} onValueChange={(v) => applyBonusMode(v as BonusMode)}>
+          <SelectTrigger className="h-7 w-auto min-w-[200px] text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="separate">Separado (padrão)</SelectItem>
+            <SelectItem value="in-received">Somar em Recebido</SelectItem>
+            <SelectItem value="in-receivable">Somar em A receber</SelectItem>
+          </SelectContent>
+        </Select>
+        <span className="text-[10px] text-muted-foreground">
+          {bonusMode === "separate"
+            ? "Bonificados aparecem em coluna própria."
+            : bonusMode === "in-received"
+              ? "Bonificados somam ao valor Recebido."
+              : "Bonificados somam ao valor A receber."}
+        </span>
+      </div>
+
       {/* Resumo */}
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+      <div className={`grid grid-cols-2 gap-2 ${bonusMode === "separate" ? "md:grid-cols-5" : "md:grid-cols-4"}`}>
         <SummaryCard icon={<TrendingUp className="h-3.5 w-3.5" />} label="Total contratado" value={BRL(s.total)} tone="default" />
-        <SummaryCard icon={<Check className="h-3.5 w-3.5" />} label="Recebido" value={BRL(s.recebido)} tone="emerald" />
-        <SummaryCard icon={<Wallet className="h-3.5 w-3.5" />} label="A receber" value={BRL(s.aReceber)} tone="amber" />
+        <SummaryCard
+          icon={<Check className="h-3.5 w-3.5" />}
+          label={bonusMode === "in-received" ? "Recebido (+ bonif.)" : "Recebido"}
+          value={BRL(s.recebido)}
+          tone="emerald"
+        />
+        <SummaryCard
+          icon={<Wallet className="h-3.5 w-3.5" />}
+          label={bonusMode === "in-receivable" ? "A receber (+ bonif.)" : "A receber"}
+          value={BRL(s.aReceber)}
+          tone="amber"
+        />
         <SummaryCard icon={<AlertTriangle className="h-3.5 w-3.5" />} label="Atrasado" value={BRL(s.atrasado)} tone="rose" />
-        <SummaryCard icon={<Gift className="h-3.5 w-3.5" />} label="Bonificado" value={BRL(s.bonificado)} tone="violet" />
+        {bonusMode === "separate" && (
+          <SummaryCard icon={<Gift className="h-3.5 w-3.5" />} label="Bonificado" value={BRL(s.bonificado)} tone="violet" />
+        )}
       </div>
 
       {/* Fluxo de caixa por mês */}
@@ -130,7 +193,9 @@ function FinanceiroPage() {
                   <th className="px-3 py-1.5 text-right font-semibold text-emerald-600 dark:text-emerald-400">Recebido</th>
                   <th className="px-3 py-1.5 text-right font-semibold text-amber-600 dark:text-amber-400">A receber</th>
                   <th className="px-3 py-1.5 text-right font-semibold text-rose-600 dark:text-rose-400">Atrasado</th>
-                  <th className="px-3 py-1.5 text-right font-semibold text-violet-600 dark:text-violet-400">Bonificado</th>
+                  {bonusMode === "separate" && (
+                    <th className="px-3 py-1.5 text-right font-semibold text-violet-600 dark:text-violet-400">Bonificado</th>
+                  )}
                   <th className="px-3 py-1.5 text-right font-semibold">Total</th>
                 </tr>
               </thead>
@@ -141,7 +206,9 @@ function FinanceiroPage() {
                     <td className="px-3 py-1.5 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{m.recebido ? BRL(m.recebido) : "—"}</td>
                     <td className="px-3 py-1.5 text-right tabular-nums text-amber-600 dark:text-amber-400">{m.aReceber ? BRL(m.aReceber) : "—"}</td>
                     <td className="px-3 py-1.5 text-right tabular-nums text-rose-600 dark:text-rose-400">{m.atrasado ? BRL(m.atrasado) : "—"}</td>
-                    <td className="px-3 py-1.5 text-right tabular-nums text-violet-600 dark:text-violet-400">{m.bonificado ? BRL(m.bonificado) : "—"}</td>
+                    {bonusMode === "separate" && (
+                      <td className="px-3 py-1.5 text-right tabular-nums text-violet-600 dark:text-violet-400">{m.bonificado ? BRL(m.bonificado) : "—"}</td>
+                    )}
                     <td className="px-3 py-1.5 text-right font-semibold tabular-nums">{BRL(m.total)}</td>
                   </tr>
                 ))}
@@ -152,7 +219,9 @@ function FinanceiroPage() {
                   <td className="px-3 py-1.5 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{BRL(s.recebido)}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums text-amber-600 dark:text-amber-400">{BRL(s.aReceber)}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums text-rose-600 dark:text-rose-400">{BRL(s.atrasado)}</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums text-violet-600 dark:text-violet-400">{BRL(s.bonificado)}</td>
+                  {bonusMode === "separate" && (
+                    <td className="px-3 py-1.5 text-right tabular-nums text-violet-600 dark:text-violet-400">{BRL(s.bonificado)}</td>
+                  )}
                   <td className="px-3 py-1.5 text-right tabular-nums">{BRL(s.total)}</td>
                 </tr>
               </tfoot>
