@@ -353,8 +353,25 @@ function BillingItemDialog({
   const [metodo, setMetodo] = useState(item?.metodo ?? "");
   const [observacao, setObservacao] = useState(item?.observacao ?? "");
   const [saving, setSaving] = useState(false);
+  const [saveErrors, setSaveErrors] = useState<string[]>([]);
+
+  const fieldErrors = useMemo(() => {
+    const errs: string[] = [];
+    if (!descricao.trim()) errs.push("Descrição é obrigatória.");
+    else if (descricao.trim().length > 120) errs.push("Descrição deve ter no máximo 120 caracteres.");
+    const v = Number(valor);
+    if (!valor.trim()) errs.push("Valor é obrigatório.");
+    else if (Number.isNaN(v)) errs.push("Valor deve ser um número.");
+    else if (v <= 0 && status !== "bonificado" && status !== "cancelado")
+      errs.push("Valor deve ser maior que zero (use status Bonificado/Cancelado para R$ 0).");
+    if (!vencimento) errs.push("Vencimento é obrigatório.");
+    else if (!/^\d{4}-\d{2}-\d{2}$/.test(vencimento)) errs.push("Vencimento em formato inválido.");
+    return errs;
+  }, [descricao, valor, vencimento, status]);
 
   const save = async () => {
+    setSaveErrors([]);
+    if (fieldErrors.length) { setSaveErrors(fieldErrors); return; }
     setSaving(true);
     try {
       const payload = {
@@ -365,11 +382,10 @@ function BillingItemDialog({
         observacao: observacao.trim() || null,
         ordem: item?.ordem ?? 0,
       };
-      if (!payload.descricao) { toast.error("Descrição obrigatória"); setSaving(false); return; }
       const others = (existing ?? []).filter((e) => e.id !== item?.id);
       const errs = validateBillingPlan([payload], others);
       if (errs.length) {
-        toast.error(errs[0], { description: errs.slice(1, 4).join(" · ") || undefined });
+        setSaveErrors(errs);
         setSaving(false);
         return;
       }
@@ -377,7 +393,11 @@ function BillingItemDialog({
       else await createBillingItem(payload);
       toast.success(item ? "Parcela atualizada" : "Parcela criada");
       onClose();
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) {
+      const msg = (e as Error).message || "Erro desconhecido ao salvar a parcela.";
+      setSaveErrors([msg]);
+      toast.error("Não foi possível salvar a parcela", { description: msg });
+    }
     finally { setSaving(false); }
   };
 
