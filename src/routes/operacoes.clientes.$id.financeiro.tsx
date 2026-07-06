@@ -835,18 +835,76 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
             </>
           )}
 
-          <div className="max-h-52 overflow-auto rounded border border-border bg-muted/20 p-2">
-            <p className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">Preview ({preview.length})</p>
-            {preview.map((p, i) => (
-              <div key={i} className="flex items-center justify-between border-b border-border/50 py-1 text-xs last:border-0">
-                <span className="truncate">{p.descricao}</span>
-                <span className="ml-2 whitespace-nowrap text-muted-foreground">
-                  {fmtDate(p.vencimento)} · <b className="text-foreground">{BRL(p.valor)}</b>
-                  {p.status === "bonificado" && <span className="ml-1 text-violet-500">🎁</span>}
-                </span>
-              </div>
-            ))}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="max-h-56 overflow-auto rounded border border-border bg-muted/20 p-2">
+              <p className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
+                <span>Existentes na janela ({existingInWindow.length})</span>
+              </p>
+              {existingInWindow.length === 0 ? (
+                <p className="py-2 text-center text-[11px] text-muted-foreground">Nenhuma parcela no intervalo.</p>
+              ) : (
+                existingInWindow.map((e) => {
+                  const key = `${e.descricao.trim().toLowerCase()}|${e.vencimento}`;
+                  const conflict = previewAnnotated.some((r) => r.key === key);
+                  return (
+                    <div
+                      key={e.id}
+                      className={`flex items-center justify-between border-b border-border/50 py-1 text-[11px] last:border-0 ${
+                        conflict ? "text-rose-600 dark:text-rose-400" : ""
+                      }`}
+                    >
+                      <span className="truncate" title={e.descricao}>
+                        {conflict && <span className="mr-1">⚠</span>}
+                        {e.descricao}
+                      </span>
+                      <span className="ml-2 whitespace-nowrap text-muted-foreground">
+                        {fmtDate(e.vencimento)} · {BRL(Number(e.valor))}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            <div className="max-h-56 overflow-auto rounded border border-border bg-muted/20 p-2">
+              <p className="mb-1 flex items-center justify-between text-[10px] uppercase tracking-wider text-muted-foreground">
+                <span>A gerar ({preview.length})</span>
+                {blockedCount > 0 && (
+                  <span className="text-rose-600 dark:text-rose-400">{blockedCount} bloqueada(s)</span>
+                )}
+              </p>
+              {previewAnnotated.map((r, i) => (
+                <div
+                  key={i}
+                  className={`flex items-center justify-between border-b border-border/50 py-1 text-[11px] last:border-0 ${
+                    r.blocked
+                      ? "bg-rose-500/10 text-rose-700 line-through decoration-rose-500/70 dark:text-rose-300"
+                      : ""
+                  }`}
+                  title={
+                    r.existingMatch
+                      ? `Já existe: ${r.existingMatch.descricao} em ${fmtDate(r.existingMatch.vencimento)}`
+                      : r.duplicateInDraft
+                        ? "Duplicada dentro do próprio plano"
+                        : ""
+                  }
+                >
+                  <span className="truncate">
+                    {r.blocked && <span className="mr-1">⛔</span>}
+                    {r.draft.descricao}
+                  </span>
+                  <span className="ml-2 whitespace-nowrap text-muted-foreground">
+                    {fmtDate(r.draft.vencimento)} · <b className="text-foreground">{BRL(r.draft.valor)}</b>
+                    {r.draft.status === "bonificado" && <span className="ml-1 text-violet-500">🎁</span>}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
+          {blockedCount > 0 && (
+            <p className="text-[11px] text-rose-600 dark:text-rose-400">
+              {blockedCount} parcela(s) serão bloqueada(s) por duplicidade — ajuste a descrição base ou a data inicial para liberar.
+            </p>
+          )}
 
           {validationErrors.length > 0 && (
             <div className="rounded border border-rose-500/40 bg-rose-500/10 p-2">
