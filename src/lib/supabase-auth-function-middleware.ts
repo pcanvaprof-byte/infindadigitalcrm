@@ -1,7 +1,6 @@
 import { createMiddleware } from "@tanstack/react-start";
 
 import { supabase } from "@/integrations/supabase/client";
-import { clearStoredAuthSession, isAuthTokenError } from "@/lib/auth-session-recovery";
 
 type JwtPayload = {
   exp?: number;
@@ -33,17 +32,10 @@ async function getValidatedAccessToken(): Promise<string | null> {
   const token = data.session?.access_token;
   if (!token) return null;
 
-  if (!isUsableToken(token)) {
-    clearStoredAuthSession();
-    return null;
-  }
-
-  const { data: userData, error } = await supabase.auth.getUser(token);
-  if (error || !userData.user) {
-    if (isAuthTokenError(error)) clearStoredAuthSession();
-    return null;
-  }
-
+  // Do not clear stored session here — that forces the user to sign out again
+  // on any transient token error. Just skip attaching a bad token and let the
+  // caller decide how to handle a 401.
+  if (!isUsableToken(token)) return null;
   return token;
 }
 
