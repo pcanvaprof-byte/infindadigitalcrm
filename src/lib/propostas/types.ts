@@ -149,3 +149,33 @@ export interface PublicProposal {
   versao: { version_number: number; conteudo_json: ProposalContent } | null;
   items: ProposalItem[];
 }
+
+export type ProposalAdjustmentOrigem = "cliente" | "interno";
+export type ProposalAdjustmentStatus = "aberto" | "em_analise" | "resolvido" | "descartado";
+
+export const ADJUSTMENT_STATUS_LABEL: Record<ProposalAdjustmentStatus, string> = {
+  aberto: "Aberto",
+  em_analise: "Em análise",
+  resolvido: "Resolvido",
+  descartado: "Descartado",
+};
+
+export const ADJUSTMENT_STATUS_TONE: Record<ProposalAdjustmentStatus, string> = {
+  aberto: "bg-amber-500/15 text-amber-300",
+  em_analise: "bg-sky-500/15 text-sky-300",
+  resolvido: "bg-emerald-500/15 text-emerald-300",
+  descartado: "bg-zinc-500/15 text-zinc-300",
+};
+
+export interface ProposalAdjustment {
+  id: string;
+  proposal_id: string;
+  origem: ProposalAdjustmentOrigem;
+  autor_nome: string | null;
+  autor_cargo: string | null;
+  mensagem: string;
+  status: ProposalAdjustmentStatus;
+  resolvido_em: string | null;
+  resolvido_por: string | null;
+  created_at: string;
+}
