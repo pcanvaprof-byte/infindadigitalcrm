@@ -381,7 +381,12 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
   const presets = presetsQ.data ?? [];
   const [presetId, setPresetId] = useState<string>("none");
   const activePreset = presetId !== "none" ? presets.find((p) => p.id === presetId) ?? null : null;
-  const [presetEditor, setPresetEditor] = useState<{ mode: "create" | "edit"; preset?: BillingPreset } | null>(null);
+  const [presetEditor, setPresetEditor] = useState<
+    | { mode: "create"; initial?: BillingPresetInput }
+    | { mode: "edit"; preset: BillingPreset }
+    | { mode: "duplicate"; initial: BillingPresetInput }
+    | null
+  >(null);
 
   // ---- Estado do preset combinado (Site + Mentoria) ----
   const [pSiteDesc, setPSiteDesc] = useState("Site");
@@ -440,6 +445,22 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
       setPresetId("none");
       toast.success("Preset excluído");
     } catch (e) { toast.error((e as Error).message); }
+  };
+
+  const duplicateActivePreset = () => {
+    if (!activePreset) return;
+    const initial: BillingPresetInput = {
+      nome: `${activePreset.nome} (cópia)`,
+      site_descricao: activePreset.site_descricao,
+      site_valor: activePreset.site_valor,
+      site_parcelas: activePreset.site_parcelas,
+      site_intervalo_dias: activePreset.site_intervalo_dias,
+      mentoria_descricao: activePreset.mentoria_descricao,
+      mentoria_valor: activePreset.mentoria_valor,
+      mentoria_meses: activePreset.mentoria_meses,
+      mentoria_bonif: activePreset.mentoria_bonif,
+    };
+    setPresetEditor({ mode: "duplicate", initial });
   };
 
   const preview = useMemo(() => {
