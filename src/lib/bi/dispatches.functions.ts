@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireSupabaseAuth } from "@/lib/app-auth-middleware";
 
 /**
  * Auditoria consistente de disparos calculada 100% no backend, lendo o banco

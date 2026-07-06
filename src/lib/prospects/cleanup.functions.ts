@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { dbExt } from "@/integrations/supabase/types.extra";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireSupabaseAuth } from "@/lib/app-auth-middleware";
 
 /**
  * Limpa owner_name de prospects do usuário atual quando o valor é

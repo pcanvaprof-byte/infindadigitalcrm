@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireSupabaseAuth } from "@/lib/app-auth-middleware";
 import { z } from "zod";
 
 /** Briefing rico opcional — quando não vier, cai no modo simples (só segmento). */
