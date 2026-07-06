@@ -85,7 +85,7 @@ ${JSON.stringify(items, null, 2)}`;
       _descricao: data.descricao || `Adaptação IA para ${data.segmento}`,
       _categoria: data.categoria || "custom",
       _icon: "Sparkles",
-      _items: adapted as unknown as object,
+      _items: adapted as unknown as never,
     });
     if (createErr) throw new Error(`Falha ao criar pack: ${createErr.message}`);
 
