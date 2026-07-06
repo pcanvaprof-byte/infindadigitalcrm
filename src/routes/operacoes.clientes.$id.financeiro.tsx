@@ -773,8 +773,51 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
     }
     setSaving(true);
     try {
-      const res = await generatePlan({ data: buildServerInput() });
-      toast.success(`${res.created} parcela(s) criada(s)`);
+      const input = buildPlanInput();
+      // 1. Confere cliente (RLS filtra)
+      const existing = await listBillingItems(clientId);
+      // 2. Constrói drafts + total esperado
+      let drafts: ReturnType<typeof buildImplantacaoPlan> = [];
+      let expectedTotal = 0;
+      if (input.mode === "single-implantacao") {
+        drafts = buildImplantacaoPlan({
+          clientId, valorTotal: input.valor, parcelas: input.parcelas,
+          dataInicial: input.dataInicial, intervaloDias: input.intervaloDias,
+          descricaoBase: input.descricao,
+        });
+        expectedTotal = input.valor;
+      } else if (input.mode === "single-mensalidade") {
+        const bonif = input.bonificar ?? 0;
+        drafts = buildMensalidadePlan({
+          clientId, valorMensal: input.valor, meses: input.parcelas,
+          dataInicial: input.dataInicial, descricaoBase: input.descricao,
+          bonificarPrimeirosMeses: bonif,
+        });
+        expectedTotal = Math.max(0, input.parcelas - bonif) * input.valor;
+      } else {
+        const site = buildImplantacaoPlan({
+          clientId, valorTotal: input.site.valor, parcelas: input.site.parcelas,
+          dataInicial: input.dataInicial, intervaloDias: input.site.intervaloDias,
+          descricaoBase: input.site.descricao,
+        });
+        const bonif = input.mentoria.bonificar ?? 0;
+        const ment = buildMensalidadePlan({
+          clientId, valorMensal: input.mentoria.valor, meses: input.mentoria.meses,
+          dataInicial: input.dataInicial, descricaoBase: input.mentoria.descricao,
+          bonificarPrimeirosMeses: bonif,
+        });
+        drafts = [...site, ...ment];
+        expectedTotal =
+          input.site.valor +
+          Math.max(0, input.mentoria.meses - bonif) * input.mentoria.valor;
+      }
+      // 3. Valida contra as parcelas existentes
+      const errs = validateBillingPlan(drafts, existing, { expectedTotal });
+      if (errs.length) throw new Error(`Plano inválido: ${errs.join(" | ")}`);
+      // 4. Insere via RLS do usuário
+      await createManyBillingItems(drafts);
+      qc.invalidateQueries({ queryKey: billingKeys.byClient(clientId) });
+      toast.success(`${drafts.length} parcela(s) criada(s)`);
       onClose();
     } catch (e) {
       const raw = (e as Error).message || "Erro desconhecido ao gerar o plano.";
