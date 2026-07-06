@@ -492,6 +492,43 @@ function EditClientDialog({ clientId }: { clientId: string }) {
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Outras informações
           </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Origem do cliente">
+              <Select
+                value={form.origem || "nao_informado"}
+                onValueChange={(v) => setForm({ ...form, origem: v === "nao_informado" ? "" : v })}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nao_informado">Não informado</SelectItem>
+                  {ORIGEM_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field
+              label={
+                form.origem === "indicacao"
+                  ? "Indicado por (nome)"
+                  : form.origem === "anuncio"
+                    ? "Nome da campanha"
+                    : form.origem === "parceiro"
+                      ? "Nome do parceiro"
+                      : "Detalhe da origem (opcional)"
+              }
+            >
+              <Input
+                value={form.origem_detalhe}
+                onChange={(e) => setForm({ ...form, origem_detalhe: e.target.value })}
+                placeholder={
+                  form.origem === "indicacao"
+                    ? "Ex.: João da Silva (Klug Motors)"
+                    : "Ex.: Campanha Black Friday"
+                }
+              />
+            </Field>
+          </div>
           <Field label="Observações do contrato">
             <Textarea
               rows={3}
