@@ -599,6 +599,72 @@ export type Database = {
           },
         ]
       }
+      client_billing_items: {
+        Row: {
+          client_id: string
+          created_at: string
+          descricao: string
+          id: string
+          metodo: string | null
+          observacao: string | null
+          ordem: number
+          organization_id: string
+          pago_em: string | null
+          status: string
+          tipo: string
+          updated_at: string
+          valor: number
+          vencimento: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          descricao: string
+          id?: string
+          metodo?: string | null
+          observacao?: string | null
+          ordem?: number
+          organization_id?: string
+          pago_em?: string | null
+          status?: string
+          tipo?: string
+          updated_at?: string
+          valor?: number
+          vencimento: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          descricao?: string
+          id?: string
+          metodo?: string | null
+          observacao?: string | null
+          ordem?: number
+          organization_id?: string
+          pago_em?: string | null
+          status?: string
+          tipo?: string
+          updated_at?: string
+          valor?: number
+          vencimento?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_billing_items_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_billing_items_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           activated_at: string | null
