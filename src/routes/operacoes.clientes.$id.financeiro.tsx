@@ -21,6 +21,7 @@ import {
   type BillingItem, type BillingStatus, type BillingTipo,
   listBillingPresets, createBillingPreset, updateBillingPreset, deleteBillingPreset,
   type BillingPreset, type BillingPresetInput,
+  extractPlanBase, addMonthsISO, addDaysISO,
 } from "@/lib/billing/api";
 
 export const Route = createFileRoute("/operacoes/clientes/$id/financeiro")({
