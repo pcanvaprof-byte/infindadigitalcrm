@@ -774,6 +774,21 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
               </ul>
             </div>
           )}
+
+          {inputWarnings.length > 0 && (
+            <div className="rounded border border-amber-500/40 bg-amber-500/10 p-2">
+              <p className="mb-1 flex items-center gap-1 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-3 w-3" /> {inputWarnings.length} aviso(s) de inconsistência
+              </p>
+              <ul className="ml-4 list-disc space-y-0.5 text-[11px] text-amber-700 dark:text-amber-300">
+                {inputWarnings.slice(0, 6).map((w, i) => <li key={i}>{w}</li>)}
+                {inputWarnings.length > 6 && <li>… e mais {inputWarnings.length - 6}</li>}
+              </ul>
+              <p className="mt-1 text-[10px] text-amber-700/80 dark:text-amber-300/80">
+                Você ainda pode gerar o plano — revise se for intencional.
+              </p>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
