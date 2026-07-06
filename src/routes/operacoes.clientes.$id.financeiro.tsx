@@ -17,13 +17,11 @@ import {
   billingKeys, listBillingItems, createBillingItem,
   updateBillingItem, deleteBillingItem, markAsPaid, summarize,
   buildImplantacaoPlan, buildMensalidadePlan,
-  validateBillingPlan,
+  validateBillingPlan, createManyBillingItems,
   type BillingItem, type BillingStatus, type BillingTipo,
   listBillingPresets, createBillingPreset, updateBillingPreset, deleteBillingPreset,
   type BillingPreset, type BillingPresetInput,
 } from "@/lib/billing/api";
-import { generateBillingPlan } from "@/lib/billing/plan.functions";
-import { useServerFn } from "@tanstack/react-start";
 
 export const Route = createFileRoute("/operacoes/clientes/$id/financeiro")({
   ssr: false,
