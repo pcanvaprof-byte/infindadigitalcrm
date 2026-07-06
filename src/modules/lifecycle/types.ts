@@ -93,6 +93,10 @@ export type LifecycleClient = {
   contract_notes: string | null;
   origem: string | null;
   origem_detalhe: string | null;
+  ajustes_escopo: string | null;
+  ajustes_prazo: string | null;
+  ajustes_proxima_acao: string | null;
+  ajustes_updated_at: string | null;
   created_at: string;
   updated_at: string;
 };

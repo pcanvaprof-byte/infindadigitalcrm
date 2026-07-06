@@ -26,6 +26,7 @@ import {
 import { getClient, listPlanTemplates, updateClient } from "@/modules/lifecycle/api";
 import { STAGE_LABEL, ORIGEM_OPTIONS, ORIGEM_LABEL } from "@/modules/lifecycle/types";
 import { jsPDF } from "jspdf";
+import { AjustesCard } from "@/components/clients/AjustesCard";
 
 export const Route = createFileRoute("/operacoes/clientes/$id/")({
   ssr: false,
@@ -138,6 +139,20 @@ function ResumoPage() {
       label: "Observações",
       value: c.contract_notes ? c.contract_notes : "—",
     },
+    {
+      label: "Ajustes solicitados",
+      value: c.ajustes_escopo
+        ? `${c.ajustes_escopo.slice(0, 60)}${c.ajustes_escopo.length > 60 ? "…" : ""}`
+        : "—",
+    },
+    {
+      label: "Prazo dos ajustes",
+      value: c.ajustes_prazo ? new Date(c.ajustes_prazo).toLocaleDateString("pt-BR") : "—",
+    },
+    {
+      label: "Próxima ação (ajustes)",
+      value: c.ajustes_proxima_acao ?? "—",
+    },
   ];
 
   return (
@@ -161,6 +176,7 @@ function ResumoPage() {
           </Card>
         ))}
       </div>
+      <AjustesCard clientId={id} />
     </div>
   );
 }
