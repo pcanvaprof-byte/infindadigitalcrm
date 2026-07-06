@@ -25,7 +25,53 @@ export interface BillingItem {
 
 export const billingKeys = {
   byClient: (clientId: string) => ["billing", clientId] as const,
+  presets: ["billing", "presets"] as const,
 };
+
+// ---------------- Presets ----------------
+
+export interface BillingPreset {
+  id: string;
+  nome: string;
+  site_descricao: string;
+  site_valor: number;
+  site_parcelas: number;
+  site_intervalo_dias: number;
+  mentoria_descricao: string;
+  mentoria_valor: number;
+  mentoria_meses: number;
+  mentoria_bonif: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type BillingPresetInput = Omit<BillingPreset, "id" | "created_at" | "updated_at">;
+
+export async function listBillingPresets(): Promise<BillingPreset[]> {
+  const { data, error } = await sb
+    .from("billing_presets")
+    .select("*")
+    .order("nome", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as BillingPreset[];
+}
+
+export async function createBillingPreset(input: BillingPresetInput): Promise<BillingPreset> {
+  const { data, error } = await sb.from("billing_presets").insert(input).select("*").single();
+  if (error) throw error;
+  return data as BillingPreset;
+}
+
+export async function updateBillingPreset(id: string, patch: Partial<BillingPresetInput>): Promise<BillingPreset> {
+  const { data, error } = await sb.from("billing_presets").update(patch).eq("id", id).select("*").single();
+  if (error) throw error;
+  return data as BillingPreset;
+}
+
+export async function deleteBillingPreset(id: string): Promise<void> {
+  const { error } = await sb.from("billing_presets").delete().eq("id", id);
+  if (error) throw error;
+}
 
 export async function listBillingItems(clientId: string): Promise<BillingItem[]> {
   const { data, error } = await sb
