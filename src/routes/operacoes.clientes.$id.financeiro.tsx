@@ -354,6 +354,24 @@ function BillingItemDialog({
   const [saving, setSaving] = useState(false);
   const [saveErrors, setSaveErrors] = useState<string[]>([]);
 
+  // ---- Grupo (plano em lote) ----
+  const base = item ? extractPlanBase(item.descricao) : "";
+  const group = useMemo(() => {
+    if (!item || !existing) return [] as BillingItem[];
+    return existing
+      .filter((e) => e.tipo === item.tipo && extractPlanBase(e.descricao) === base)
+      .sort((a, b) => (a.vencimento < b.vencimento ? -1 : a.vencimento > b.vencimento ? 1 : a.ordem - b.ordem));
+  }, [item, existing, base]);
+  const groupNonBonif = useMemo(() => group.filter((g) => g.status !== "bonificado" && g.status !== "cancelado"), [group]);
+  const groupTotalAtual = useMemo(() => groupNonBonif.reduce((s, g) => s + Number(g.valor || 0), 0), [groupNonBonif]);
+  const hasPago = group.some((g) => g.status === "pago");
+
+  const [showBatch, setShowBatch] = useState(false);
+  const [batchTotal, setBatchTotal] = useState(String(groupTotalAtual || ""));
+  const [batchN, setBatchN] = useState(String(groupNonBonif.length || 1));
+  const [batchIntervalo, setBatchIntervalo] = useState(item?.tipo === "implantacao" ? "15" : "30");
+  const canBatch = !!item && group.length >= 2;
+
   const fieldErrors = useMemo(() => {
     const errs: string[] = [];
     if (!descricao.trim()) errs.push("Descrição é obrigatória.");
