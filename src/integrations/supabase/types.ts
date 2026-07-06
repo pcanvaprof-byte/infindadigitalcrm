@@ -94,7 +94,7 @@ export type Database = {
           status?: string
           telefone?: string | null
           tipo?: string
-          token_publico: string
+          token_publico?: string
           updated_at?: string
           user_id: string
         }
@@ -1832,6 +1832,7 @@ export type Database = {
       current_org_id: { Args: never; Returns: string }
       dashboard_current_org_id: { Args: never; Returns: string }
       dashboard_metrics: { Args: never; Returns: Json }
+      gen_briefing_token: { Args: never; Returns: string }
       get_briefing_by_token: {
         Args: { p_token: string }
         Returns: {
