@@ -521,6 +521,45 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
     [preview, existing, expectedTotal],
   );
 
+  // Índice das parcelas já existentes por (descrição normalizada | vencimento),
+  // usado para marcar cada linha do preview como duplicada.
+  const existingKeyIndex = useMemo(() => {
+    const map = new Map<string, BillingItem>();
+    for (const e of existing ?? []) {
+      map.set(`${e.descricao.trim().toLowerCase()}|${e.vencimento}`, e);
+    }
+    return map;
+  }, [existing]);
+
+  const previewAnnotated = useMemo(() => {
+    // Detecta duplicidade contra existentes + contra outras linhas do próprio preview.
+    const draftSeen = new Map<string, number>();
+    const rows = preview.map((p) => {
+      const key = `${(p.descricao || "").trim().toLowerCase()}|${p.vencimento}`;
+      const existingMatch = existingKeyIndex.get(key) ?? null;
+      draftSeen.set(key, (draftSeen.get(key) ?? 0) + 1);
+      return { draft: p, key, existingMatch };
+    });
+    return rows.map((r) => ({
+      ...r,
+      duplicateInDraft: (draftSeen.get(r.key) ?? 0) > 1,
+      blocked: !!r.existingMatch || (draftSeen.get(r.key) ?? 0) > 1,
+    }));
+  }, [preview, existingKeyIndex]);
+
+  const blockedCount = previewAnnotated.filter((r) => r.blocked).length;
+
+  // Existentes que dividem o mesmo intervalo de datas do plano proposto — mostrados como contexto.
+  const existingInWindow = useMemo(() => {
+    if (preview.length === 0) return [] as BillingItem[];
+    const dates = preview.map((p) => p.vencimento).sort();
+    const min = dates[0];
+    const max = dates[dates.length - 1];
+    return (existing ?? [])
+      .filter((e) => e.vencimento >= min && e.vencimento <= max)
+      .sort((a, b) => a.vencimento.localeCompare(b.vencimento));
+  }, [existing, preview]);
+
   const inputWarnings = useMemo(() => {
     const ws: string[] = [];
     const today = todayISO();
