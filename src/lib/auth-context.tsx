@@ -1,6 +1,7 @@
 import { Navigate, useRouterState } from "@tanstack/react-router";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
 import type { MockUser, Role } from "@/lib/mvp-accounts";
@@ -66,12 +67,15 @@ async function toAppUser(authUser: SupabaseUser): Promise<MockUser> {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<MockUser | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     let cancelled = false;
+    let currentUserId: string | null = null;
 
     const applyUser = async (authUser: SupabaseUser | null) => {
       if (!authUser) {
+        currentUserId = null;
         setUser(null);
         setIsReady(true);
         return;
@@ -79,6 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const appUser = await toAppUser(authUser);
       if (!cancelled) {
+        currentUserId = appUser.id;
         setUser(appUser);
         setIsReady(true);
       }
@@ -91,11 +96,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
-      // Invalida o cache de organization_id em qualquer transição de identidade
-      // (SIGNED_IN, SIGNED_OUT, USER_UPDATED) para impedir vazamento cross-tenant.
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
-        void import("@/lib/bi/tz").then((m) => m.resetOrgIdCache());
+      // Ignora eventos ruidosos (TOKEN_REFRESHED, INITIAL_SESSION) que
+      // disparariam re-fetch em toda a árvore sem trocar de identidade.
+      if (
+        event !== "SIGNED_IN" &&
+        event !== "SIGNED_OUT" &&
+        event !== "USER_UPDATED"
+      ) {
+        return;
       }
+
+      const nextId = session?.user?.id ?? null;
+      const identityChanged = nextId !== currentUserId;
+
+      // Invalida o cache de organization_id sempre que a identidade muda,
+      // e limpa completamente o cache de queries no logout / troca de usuário
+      // para impedir vazamento cross-tenant.
+      if (identityChanged) {
+        void import("@/lib/bi/tz").then((m) => m.resetOrgIdCache());
+        queryClient.clear();
+      }
+
       void applyUser(session?.user ?? null);
     });
 
@@ -105,24 +126,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       listener.subscription.unsubscribe();
     };
-  }, []);
+  }, [queryClient]);
 
   const login: AuthCtx["login"] = async (email, password) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       return { ok: false, error: "E-mail ou senha inválidos." };
     }
 
-    if (data.user) {
-      setUser(await toAppUser(data.user));
-    }
-
+    // Não chamamos setUser aqui: o onAuthStateChange (SIGNED_IN) é a única
+    // fonte de verdade, evitando race condition com applyUser concorrente.
     return { ok: true };
   };
 
   const logout = async () => {
     await supabase.auth.signOut();
+    // O onAuthStateChange (SIGNED_OUT) limpa o cache e o user; forçamos
+    // aqui também para feedback imediato caso o evento demore a chegar.
     setUser(null);
+    queryClient.clear();
   };
 
   return <Ctx.Provider value={{ user, isReady, login, logout }}>{children}</Ctx.Provider>;
