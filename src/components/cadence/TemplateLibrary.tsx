@@ -650,60 +650,307 @@ function EditPackDialog({ pack, onClose, onSaved }: {
   );
 }
 
-/* ================= Adapt with AI dialog ================= */
+/* ================= Adapt with AI (Briefing) dialog ================= */
+
+type Briefing = {
+  tom: "consultivo" | "formal" | "casual" | "provocativo" | "amigavel";
+  objetivo: string;
+  publico_alvo: string;
+  dor_principal: string;
+  proposta_valor: string;
+  diferenciais: string;
+  cta_preferido: string;
+  restricoes: string;
+  observacoes: string;
+};
+
+const EMPTY_BRIEFING: Briefing = {
+  tom: "consultivo",
+  objetivo: "",
+  publico_alvo: "",
+  dor_principal: "",
+  proposta_valor: "",
+  diferenciais: "",
+  cta_preferido: "",
+  restricoes: "",
+  observacoes: "",
+};
+
+type AdaptFn = (opts: {
+  data: {
+    source_pack_key: string;
+    segmento: string;
+    briefing?: Partial<Briefing>;
+    preview?: boolean;
+    new_pack_key?: string;
+    nome?: string;
+    categoria?: string;
+    descricao?: string;
+    items_override?: Item[];
+  };
+}) => Promise<{
+  ok: true;
+  preview: boolean;
+  count: number;
+  items?: Item[];
+  pack_key?: string;
+}>;
 
 function AdaptWithAIDialog({ pack, onClose, onDone, adaptFn }: {
   pack: Pack;
   onClose: () => void;
   onDone: (key: string) => void | Promise<void>;
-  adaptFn: (opts: { data: { source_pack_key: string; new_pack_key: string; nome: string; segmento: string; categoria: string; descricao: string } }) => Promise<{ pack_key: string; count: number }>;
+  adaptFn: AdaptFn;
 }) {
+  const [step, setStep] = useState<"briefing" | "preview">("briefing");
   const [segmento, setSegmento] = useState("");
   const [nome, setNome] = useState("");
+  const [briefing, setBriefing] = useState<Briefing>(EMPTY_BRIEFING);
+  const [previewItems, setPreviewItems] = useState<Item[]>([]);
+  const [activeStage, setActiveStage] = useState<string>(STAGES[0]);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  async function run() {
+  function update<K extends keyof Briefing>(k: K, v: Briefing[K]) {
+    setBriefing((prev) => ({ ...prev, [k]: v }));
+  }
+
+  async function gerarPreview() {
     if (!segmento.trim()) return toast.error("Informe o segmento");
     setLoading(true);
+    try {
+      const res = await adaptFn({
+        data: {
+          source_pack_key: pack.pack_key,
+          segmento: segmento.trim(),
+          briefing,
+          preview: true,
+        },
+      });
+      const items = (res.items ?? []) as Item[];
+      if (items.length === 0) throw new Error("IA não retornou mensagens");
+      // Garante 13 stages
+      const byStage = new Map(items.map((i) => [i.stage, i]));
+      const full = STAGES.map((s) => byStage.get(s) ?? { stage: s, titulo: "", corpo: "" });
+      setPreviewItems(full);
+      setActiveStage(STAGES[0]);
+      setStep("preview");
+      toast.success(`Preview gerado: ${items.length} mensagens`);
+    } catch (e) {
+      toast.error(`IA: ${(e as Error).message}`);
+    } finally { setLoading(false); }
+  }
+
+  async function regenerar() {
+    setPreviewItems([]);
+    setStep("briefing");
+  }
+
+  async function salvar() {
+    setSaving(true);
     try {
       const slug = segmento.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
         .replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40);
       const key = `ia_${slug}_${Date.now().toString(36).slice(-4)}`;
       const finalNome = nome.trim() || `${pack.nome} · ${segmento}`;
-      const res = await adaptFn({ data: {
-        source_pack_key: pack.pack_key,
-        new_pack_key: key,
-        nome: finalNome, segmento: segmento.trim(),
-        categoria: "custom",
-        descricao: `Adaptação IA de "${pack.nome}" para ${segmento}`,
-      } });
-      toast.success(`Adaptado ${res.count} mensagens`);
-      await onDone(res.pack_key);
-    } catch (e) { toast.error(`IA: ${(e as Error).message}`); }
-    finally { setLoading(false); }
+      const res = await adaptFn({
+        data: {
+          source_pack_key: pack.pack_key,
+          segmento: segmento.trim(),
+          briefing,
+          preview: false,
+          new_pack_key: key,
+          nome: finalNome,
+          categoria: "custom",
+          descricao: `Adaptação IA de "${pack.nome}" para ${segmento}`,
+          items_override: previewItems.filter((i) => i.titulo || i.corpo),
+        },
+      });
+      toast.success(`Pack salvo com ${res.count} mensagens`);
+      if (res.pack_key) await onDone(res.pack_key);
+    } catch (e) {
+      toast.error(`Salvar: ${(e as Error).message}`);
+    } finally { setSaving(false); }
+  }
+
+  const current = previewItems.find((i) => i.stage === activeStage);
+
+  function updatePreviewItem(patch: Partial<Item>) {
+    setPreviewItems((prev) => prev.map((i) => i.stage === activeStage ? { ...i, ...patch } : i));
   }
 
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
-      <DialogContent>
+      <DialogContent className="max-w-5xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle><Sparkles className="mr-1 inline h-4 w-4" /> Adaptar com IA</DialogTitle>
-          <DialogDescription>Reescreve as 13 mensagens do pack "{pack.nome}" para o segmento informado.</DialogDescription>
+          <DialogTitle>
+            <Sparkles className="mr-1 inline h-4 w-4" /> Adaptar com IA — {pack.nome}
+          </DialogTitle>
+          <DialogDescription>
+            {step === "briefing"
+              ? "Preencha o briefing e a IA vai reescrever as 13 mensagens para o seu contexto."
+              : "Revise, edite qualquer mensagem, e salve como um novo pack."}
+          </DialogDescription>
         </DialogHeader>
-        <div className="space-y-2">
-          <div><Label className="text-xs">Segmento alvo *</Label>
-            <Input value={segmento} onChange={(e) => setSegmento(e.target.value)}
-              placeholder="Ex: Clínicas de fisioterapia" /></div>
-          <div><Label className="text-xs">Nome do novo pack (opcional)</Label>
-            <Input value={nome} onChange={(e) => setNome(e.target.value)}
-              placeholder="Deixe em branco para nome automático" /></div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={() => void run()} disabled={loading}>
-            {loading ? "Adaptando…" : "Gerar com IA"}
-          </Button>
-        </DialogFooter>
+
+        {step === "briefing" && (
+          <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label className="text-xs">Segmento alvo *</Label>
+                <Input value={segmento} onChange={(e) => setSegmento(e.target.value)}
+                  placeholder="Ex: Clínicas de fisioterapia em SP" />
+              </div>
+              <div>
+                <Label className="text-xs">Nome do novo pack (opcional)</Label>
+                <Input value={nome} onChange={(e) => setNome(e.target.value)}
+                  placeholder="Automático se em branco" />
+              </div>
+              <div>
+                <Label className="text-xs">Tom de voz</Label>
+                <Select value={briefing.tom} onValueChange={(v) => update("tom", v as Briefing["tom"])}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="consultivo">Consultivo</SelectItem>
+                    <SelectItem value="formal">Formal</SelectItem>
+                    <SelectItem value="casual">Casual</SelectItem>
+                    <SelectItem value="provocativo">Provocativo</SelectItem>
+                    <SelectItem value="amigavel">Amigável</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">CTA preferido</Label>
+                <Input value={briefing.cta_preferido} onChange={(e) => update("cta_preferido", e.target.value)}
+                  placeholder="Ex: Agendar 15min de conversa" />
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label className="text-xs">Objetivo da cadência</Label>
+                <Textarea rows={2} value={briefing.objetivo} onChange={(e) => update("objetivo", e.target.value)}
+                  placeholder="Ex: agendar reunião para apresentar plataforma de fidelidade" />
+              </div>
+              <div>
+                <Label className="text-xs">Público-alvo</Label>
+                <Textarea rows={2} value={briefing.publico_alvo} onChange={(e) => update("publico_alvo", e.target.value)}
+                  placeholder="Ex: proprietários de clínicas com 2+ profissionais" />
+              </div>
+              <div>
+                <Label className="text-xs">Dor principal do cliente</Label>
+                <Textarea rows={2} value={briefing.dor_principal} onChange={(e) => update("dor_principal", e.target.value)}
+                  placeholder="Ex: agenda vazia às segundas e faltas sem aviso" />
+              </div>
+              <div>
+                <Label className="text-xs">Proposta de valor</Label>
+                <Textarea rows={2} value={briefing.proposta_valor} onChange={(e) => update("proposta_valor", e.target.value)}
+                  placeholder="Ex: reduzir 40% das faltas com lembretes automáticos" />
+              </div>
+              <div>
+                <Label className="text-xs">Diferenciais</Label>
+                <Textarea rows={2} value={briefing.diferenciais} onChange={(e) => update("diferenciais", e.target.value)}
+                  placeholder="Ex: integração com Doctoralia, sem fidelidade" />
+              </div>
+              <div>
+                <Label className="text-xs">Restrições (evitar)</Label>
+                <Textarea rows={2} value={briefing.restricoes} onChange={(e) => update("restricoes", e.target.value)}
+                  placeholder="Ex: não citar preço, não usar emojis" />
+              </div>
+              <div className="sm:col-span-2">
+                <Label className="text-xs">Observações livres</Label>
+                <Textarea rows={2} value={briefing.observacoes} onChange={(e) => update("observacoes", e.target.value)}
+                  placeholder="Qualquer contexto extra que a IA deva considerar" />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={onClose}>Cancelar</Button>
+              <Button onClick={() => void gerarPreview()} disabled={loading || !segmento.trim()}>
+                <Wand2 className="mr-1 h-3.5 w-3.5" />
+                {loading ? "Gerando preview…" : "Gerar preview com IA"}
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
+
+        {step === "preview" && (
+          <div className="space-y-3">
+            <div className="rounded border border-primary/30 bg-primary/5 p-2 text-[11px]">
+              Segmento: <b>{segmento}</b> · Tom: <b>{briefing.tom}</b>
+              {briefing.cta_preferido && <> · CTA: <b>{briefing.cta_preferido}</b></>}
+            </div>
+            <div className="grid gap-3 md:grid-cols-[200px_1fr_280px]">
+              <ScrollArea className="max-h-[420px]">
+                <div className="space-y-1">
+                  {previewItems.map((it) => (
+                    <button key={it.stage} onClick={() => setActiveStage(it.stage)}
+                      className={`w-full rounded border px-2 py-1.5 text-left text-[11px] ${
+                        activeStage === it.stage ? "border-primary bg-primary/5" : "border-border/50 hover:border-border"
+                      }`}>
+                      <p className="truncate font-medium">{STAGE_LABEL[it.stage] ?? it.stage}</p>
+                      <p className="line-clamp-1 text-muted-foreground">{it.titulo || <span className="italic opacity-60">(sem título)</span>}</p>
+                    </button>
+                  ))}
+                </div>
+              </ScrollArea>
+
+              {current && (
+                <div className="space-y-2">
+                  <div>
+                    <Label className="text-xs">Título</Label>
+                    <Input value={current.titulo} onChange={(e) => updatePreviewItem({ titulo: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Mensagem</Label>
+                    <Textarea rows={12} className="font-mono text-xs"
+                      value={current.corpo} onChange={(e) => updatePreviewItem({ corpo: e.target.value })} />
+                  </div>
+                </div>
+              )}
+
+              {current && (
+                <div className="flex flex-col gap-2 rounded-lg border border-border bg-[#0b141a] p-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400/80">Preview WhatsApp</p>
+                  <ScrollArea className="max-h-[380px] pr-1">
+                    <div className="space-y-1.5">
+                      {current.titulo && (
+                        <p className="text-[10px] font-medium text-emerald-300/80">
+                          {renderPreview(current.titulo, SAMPLE_DEFAULTS)}
+                        </p>
+                      )}
+                      <div className="ml-auto max-w-[85%] rounded-lg rounded-tr-sm bg-[#005c4b] px-2.5 py-1.5 text-[12px] text-white shadow-sm">
+                        <p className="whitespace-pre-wrap break-words">
+                          {renderPreview(current.corpo, SAMPLE_DEFAULTS) || <span className="italic opacity-60">(vazio)</span>}
+                        </p>
+                        <p className="mt-0.5 text-right text-[9px] text-white/50">agora ✓✓</p>
+                      </div>
+                      <p className="text-center text-[9px] text-muted-foreground/60">
+                        {STAGE_LABEL[current.stage] ?? current.stage}
+                      </p>
+                    </div>
+                  </ScrollArea>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="ghost" onClick={onClose} disabled={saving}>Cancelar</Button>
+              <Button variant="outline" onClick={() => void regenerar()} disabled={saving || loading}>
+                Voltar ao briefing
+              </Button>
+              <Button variant="outline" onClick={() => void gerarPreview()} disabled={saving || loading}>
+                <Wand2 className="mr-1 h-3.5 w-3.5" />
+                {loading ? "Regenerando…" : "Regenerar tudo"}
+              </Button>
+              <Button onClick={() => void salvar()} disabled={saving}>
+                {saving ? "Salvando…" : "Salvar como novo pack"}
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
