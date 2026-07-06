@@ -355,13 +355,14 @@ function BillingItemDialog({
   const [saveErrors, setSaveErrors] = useState<string[]>([]);
 
   // ---- Grupo (plano em lote) ----
-  const base = item ? extractPlanBase(item.descricao) : "";
+  const originalBase = item ? extractPlanBase(item.descricao) : "";
+  const base = item ? extractPlanBase(descricao || item.descricao) : "";
   const group = useMemo(() => {
     if (!item || !existing) return [] as BillingItem[];
     return existing
-      .filter((e) => e.tipo === item.tipo && extractPlanBase(e.descricao) === base)
+      .filter((e) => e.tipo === item.tipo && extractPlanBase(e.descricao) === originalBase)
       .sort((a, b) => (a.vencimento < b.vencimento ? -1 : a.vencimento > b.vencimento ? 1 : a.ordem - b.ordem));
-  }, [item, existing, base]);
+  }, [item, existing, originalBase]);
   const groupNonBonif = useMemo(() => group.filter((g) => g.status !== "bonificado" && g.status !== "cancelado"), [group]);
   const groupTotalAtual = useMemo(() => groupNonBonif.reduce((s, g) => s + Number(g.valor || 0), 0), [groupNonBonif]);
   const hasPago = group.some((g) => g.status === "pago");
@@ -370,7 +371,7 @@ function BillingItemDialog({
   const [batchTotal, setBatchTotal] = useState(String(groupTotalAtual || ""));
   const [batchN, setBatchN] = useState(String(groupNonBonif.length || 1));
   const [batchIntervalo, setBatchIntervalo] = useState(item?.tipo === "implantacao" ? "15" : "30");
-  const canBatch = !!item && group.length >= 2;
+  const canBatch = !!item; // permite dividir 1 parcela em N ou reajustar grupo existente
 
   const fieldErrors = useMemo(() => {
     const errs: string[] = [];
