@@ -17,6 +17,7 @@ import { fetchBIDashboard, fetchComercialFunnel, type BIArea, type BIDashboardPa
 import { fetchBIGoals, DEFAULT_GOALS, type BIGoals } from "@/lib/bi/goals";
 import { fetchDiretoriaKpis, type DiretoriaKpis } from "@/lib/bi/diretoria";
 import { fetchForecastForPeriod, type ForecastBreakdown } from "@/lib/bi/forecast";
+import { fetchBillingKpis, type BillingKpis } from "@/lib/bi/billing";
 import { AIInsightsPanel } from "@/components/bi/AIInsightsPanel";
 import { ExportMenu, type ExportSection } from "@/components/bi/ExportMenu";
 import { EvolucaoMes } from "@/components/bi/EvolucaoMes";
@@ -416,6 +417,15 @@ function BIPage() {
     placeholderData: (prev) => prev,
   });
 
+  // KPIs financeiros vindos das parcelas (client_billing_items) — fonte de caixa real
+  const billingQuery = useQuery<BillingKpis>({
+    queryKey: ["bi", "billing"],
+    queryFn: fetchBillingKpis,
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+
   // Quando o usuário muda fallback/janela/mínimo de amostra, invalidamos a previsão
   // para que a probabilidade reflita imediatamente a nova configuração.
   const queryClient = useQueryClient();
@@ -706,15 +716,15 @@ function BIPage() {
 
             {a.id === "financeiro" && (diretoriaKpis || data?.kpis) && (
               <FinanceiroPanel
-                mrr={data?.kpis?.mrr ?? diretoriaKpis?.mrr ?? 0}
-                arr={data?.kpis?.arr ?? diretoriaKpis?.arr ?? 0}
-                receitaRealizada={data?.kpis?.receita_realizada ?? diretoriaKpis?.receita_realizada ?? 0}
-                receitaPrevistaMes={data?.kpis?.receita_prevista_mes ?? diretoriaKpis?.mrr ?? 0}
+                mrr={billingQuery.data?.mrr_ativo || data?.kpis?.mrr || diretoriaKpis?.mrr || 0}
+                arr={(billingQuery.data?.mrr_ativo ? billingQuery.data.mrr_ativo * 12 : 0) || data?.kpis?.arr || diretoriaKpis?.arr || 0}
+                receitaRealizada={billingQuery.data?.recebido_mes || data?.kpis?.receita_realizada || diretoriaKpis?.receita_realizada || 0}
+                receitaPrevistaMes={billingQuery.data?.previsao_30d || data?.kpis?.receita_prevista_mes || diretoriaKpis?.mrr || 0}
                 custoMarketing={data?.kpis?.custo_marketing ?? 0}
                 ticketMedio={data?.kpis?.ticket_medio ?? diretoriaKpis?.ticket_medio ?? 0}
-                pipelineAberto={data?.forecast?.pipeline_aberto ?? 0}
-                previsao30d={data?.forecast?.previsao_30d ?? 0}
-                previsao90d={data?.forecast?.previsao_90d ?? 0}
+                pipelineAberto={billingQuery.data?.a_receber_total || data?.forecast?.pipeline_aberto || 0}
+                previsao30d={billingQuery.data?.previsao_30d || data?.forecast?.previsao_30d || 0}
+                previsao90d={billingQuery.data?.previsao_90d || data?.forecast?.previsao_90d || 0}
                 folha={folhaCalc}
                 infra={infraCalc}
                 veiculos={veiculosCalc}
@@ -722,6 +732,9 @@ function BIPage() {
                 taxasPct={goals.taxes_pct}
                 expensesSource={hasExpenses ? "expenses" : "goals"}
               />
+            )}
+            {a.id === "financeiro" && billingQuery.data && billingQuery.data.total_parcelas > 0 && (
+              <BillingCashflowCard data={billingQuery.data} />
             )}
             {a.id === "financeiro" && <FinanceiroCharts period={period} />}
 
@@ -896,5 +909,83 @@ function BIPage() {
     </div>
     </AppShell>
     </DrillDownProvider>
+  );
+}
+
+// ---- Fluxo de caixa por mês (fonte: client_billing_items) ----
+const MONTH_LABEL_BR = (ym: string) => {
+  const [y, m] = ym.split("-");
+  const names = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+  return `${names[Number(m) - 1]}/${y.slice(2)}`;
+};
+
+function BillingCashflowCard({ data }: { data: BillingKpis }) {
+  const today = new Date().toISOString().slice(0, 7);
+  const meses = data.por_mes;
+  const totais = meses.reduce(
+    (a, m) => ({
+      recebido: a.recebido + m.recebido,
+      a_receber: a.a_receber + m.a_receber,
+      atrasado: a.atrasado + m.atrasado,
+      bonificado: a.bonificado + m.bonificado,
+      total: a.total + m.total,
+    }),
+    { recebido: 0, a_receber: 0, atrasado: 0, bonificado: 0, total: 0 },
+  );
+  return (
+    <Card>
+      <CardHeader className="pb-3 flex flex-row items-start justify-between gap-2">
+        <div>
+          <CardTitle className="text-base flex items-center gap-2">
+            <CalendarClock className="h-4 w-4 text-primary" /> Fluxo de caixa por mês
+          </CardTitle>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Fonte: parcelas dos clientes ({data.total_parcelas} parcela(s))
+          </p>
+        </div>
+        <div className="text-right text-xs text-muted-foreground">
+          Atrasado total <b className="text-rose-500">{fmtBRL(data.atrasado_total)}</b>
+        </div>
+      </CardHeader>
+      <CardContent className="overflow-x-auto p-0">
+        <table className="w-full text-xs">
+          <thead className="bg-muted/20 text-[10px] uppercase tracking-wider text-muted-foreground">
+            <tr>
+              <th className="px-3 py-1.5 text-left font-semibold">Mês</th>
+              <th className="px-3 py-1.5 text-right font-semibold text-emerald-500">Recebido</th>
+              <th className="px-3 py-1.5 text-right font-semibold text-amber-500">A receber</th>
+              <th className="px-3 py-1.5 text-right font-semibold text-rose-500">Atrasado</th>
+              <th className="px-3 py-1.5 text-right font-semibold text-violet-500">Bonificado</th>
+              <th className="px-3 py-1.5 text-right font-semibold">Total</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {meses.map((m) => (
+              <tr key={m.ym} className={m.ym === today ? "bg-primary/5" : "hover:bg-accent/30"}>
+                <td className="px-3 py-1.5 font-medium">
+                  {MONTH_LABEL_BR(m.ym)}
+                  {m.ym === today && <span className="ml-1 text-[9px] text-primary">atual</span>}
+                </td>
+                <td className="px-3 py-1.5 text-right tabular-nums text-emerald-500">{m.recebido ? fmtBRL(m.recebido) : "—"}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums text-amber-500">{m.a_receber ? fmtBRL(m.a_receber) : "—"}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums text-rose-500">{m.atrasado ? fmtBRL(m.atrasado) : "—"}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums text-violet-500">{m.bonificado ? fmtBRL(m.bonificado) : "—"}</td>
+                <td className="px-3 py-1.5 text-right font-semibold tabular-nums">{fmtBRL(m.total)}</td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot className="border-t-2 border-border bg-muted/20 text-[11px] font-semibold">
+            <tr>
+              <td className="px-3 py-1.5">Total</td>
+              <td className="px-3 py-1.5 text-right tabular-nums text-emerald-500">{fmtBRL(totais.recebido)}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums text-amber-500">{fmtBRL(totais.a_receber)}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums text-rose-500">{fmtBRL(totais.atrasado)}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums text-violet-500">{fmtBRL(totais.bonificado)}</td>
+              <td className="px-3 py-1.5 text-right tabular-nums">{fmtBRL(totais.total)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </CardContent>
+    </Card>
   );
 }
