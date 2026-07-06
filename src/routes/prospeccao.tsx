@@ -1269,7 +1269,7 @@ function ProspeccaoPage() {
       </section>
 
       {/* Pack de templates por nicho / data especial */}
-      <TemplatePackSelector />
+      <TemplateLibrary />
 
       {/* Toolbar */}
       <section className="mt-6 surface-card p-4">
