@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getClient, listPlanTemplates, updateClient } from "@/modules/lifecycle/api";
-import { STAGE_LABEL } from "@/modules/lifecycle/types";
+import { STAGE_LABEL, ORIGEM_OPTIONS, ORIGEM_LABEL } from "@/modules/lifecycle/types";
 import { jsPDF } from "jspdf";
 
 export const Route = createFileRoute("/operacoes/clientes/$id/")({
@@ -71,6 +71,12 @@ function ResumoPage() {
 
   const items = [
     { label: "Plano", value: c.plano_code ?? "—" },
+    {
+      label: "Origem",
+      value: c.origem
+        ? `${ORIGEM_LABEL[c.origem] ?? c.origem}${c.origem_detalhe ? ` · ${c.origem_detalhe}` : ""}`
+        : "—",
+    },
     {
       label: "Mensalidade",
       value: c.mensalidade != null ? `R$ ${Number(c.mensalidade).toFixed(2)}` : "—",
@@ -186,6 +192,8 @@ function EditClientDialog({ clientId }: { clientId: string }) {
     site_recurring_value: "",
     site_payment_status: "nao_aplica",
     contract_notes: "",
+    origem: "",
+    origem_detalhe: "",
   });
 
   useEffect(() => {
@@ -214,6 +222,8 @@ function EditClientDialog({ clientId }: { clientId: string }) {
         c.site_recurring_value != null ? String(c.site_recurring_value) : "",
       site_payment_status: c.site_payment_status ?? "nao_aplica",
       contract_notes: c.contract_notes ?? "",
+      origem: c.origem ?? "",
+      origem_detalhe: c.origem_detalhe ?? "",
     });
   }, [open, cq.data]);
 
@@ -250,6 +260,8 @@ function EditClientDialog({ clientId }: { clientId: string }) {
             ? form.site_payment_status
             : null,
         contract_notes: form.contract_notes.trim() || null,
+        origem: form.origem || null,
+        origem_detalhe: form.origem_detalhe.trim() || null,
       });
     },
     onSuccess: () => {
