@@ -57,7 +57,7 @@ export const attachValidSupabaseAuth = createMiddleware({ type: "function" }).cl
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
 
-    const headers = token && isUsableToken(token) ? { Authorization: `Bearer ${token}` } : {};
+    const headers: HeadersInit = token && isUsableToken(token) ? { Authorization: `Bearer ${token}` } : {};
 
     try {
       return await next({ headers });
