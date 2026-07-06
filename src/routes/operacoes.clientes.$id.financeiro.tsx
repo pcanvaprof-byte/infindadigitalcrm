@@ -816,7 +816,6 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
       if (errs.length) throw new Error(`Plano inválido: ${errs.join(" | ")}`);
       // 4. Insere via RLS do usuário
       await createManyBillingItems(drafts);
-      qc.invalidateQueries({ queryKey: billingKeys.byClient(clientId) });
       toast.success(`${drafts.length} parcela(s) criada(s)`);
       onClose();
     } catch (e) {
