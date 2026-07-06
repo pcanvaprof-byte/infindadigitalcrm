@@ -1,3 +1,48 @@
+import { ORIGEM_OPTIONS } from "./types";
+
+const ORIGEM_VALUES = new Set(ORIGEM_OPTIONS.map((o) => o.value));
+
+/**
+ * Normaliza + valida os campos de origem antes de persistir.
+ * - `origem`: aceita null/"" (limpa) ou um valor do allow-list; qualquer
+ *   outra string vira erro em vez de ser gravada como texto livre.
+ * - `origem_detalhe`: trim, limita a 240 chars; string vazia vira null.
+ *   Só faz sentido quando há `origem` — se o patch limpa `origem`,
+ *   `origem_detalhe` também é zerado por consistência.
+ */
+function normalizeOrigemPatch(patch: Record<string, unknown>) {
+  if ("origem" in patch) {
+    const raw = patch.origem;
+    if (raw === null || raw === "" || raw === undefined) {
+      patch.origem = null;
+      // limpar detalhe junto para evitar detalhe órfão
+      if ("origem_detalhe" in patch === false) patch.origem_detalhe = null;
+      else if (patch.origem_detalhe != null) patch.origem_detalhe = null;
+    } else if (typeof raw === "string") {
+      const v = raw.trim();
+      if (!ORIGEM_VALUES.has(v)) {
+        throw new Error(
+          `Origem inválida: "${v}". Selecione uma das opções da lista.`,
+        );
+      }
+      patch.origem = v;
+    } else {
+      throw new Error("Origem inválida: valor precisa ser texto.");
+    }
+  }
+  if ("origem_detalhe" in patch) {
+    const raw = patch.origem_detalhe;
+    if (raw == null) {
+      patch.origem_detalhe = null;
+    } else if (typeof raw === "string") {
+      const v = raw.trim().slice(0, 240);
+      patch.origem_detalhe = v.length ? v : null;
+    } else {
+      throw new Error("Detalhe da origem inválido: valor precisa ser texto.");
+    }
+  }
+}
+
 import { supabase } from "@/integrations/supabase/client";
 import type {
   ClientTimelineItem,
