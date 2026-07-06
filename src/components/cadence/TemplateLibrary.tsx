@@ -184,7 +184,7 @@ export function TemplateLibrary() {
       Object.keys(sessionStorage).filter((k) => k.startsWith("sb-")).forEach((k) => sessionStorage.removeItem(k));
       await supabase.auth.signOut().catch(() => {});
     } finally {
-      window.location.replace("/auth");
+      window.location.replace("/login?reason=session");
     }
   }
 

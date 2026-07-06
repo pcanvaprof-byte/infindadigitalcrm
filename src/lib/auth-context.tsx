@@ -4,6 +4,7 @@ import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
+import { isAuthTokenError, recoverFromInvalidAuthSession } from "@/lib/auth-session-recovery";
 import type { MockUser, Role } from "@/lib/mvp-accounts";
 
 export type { MockUser, Role };
@@ -92,6 +93,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initializeSession = async () => {
       const { data, error } = await supabase.auth.getUser();
       if (cancelled) return;
+      if (error && isAuthTokenError(error)) {
+        recoverFromInvalidAuthSession();
+        return;
+      }
       await applyUser(error ? null : data.user);
     };
 
@@ -140,11 +145,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    await queryClient.cancelQueries();
+    queryClient.clear();
     await supabase.auth.signOut();
     // O onAuthStateChange (SIGNED_OUT) limpa o cache e o user; forçamos
     // aqui também para feedback imediato caso o evento demore a chegar.
     setUser(null);
-    queryClient.clear();
   };
 
   return <Ctx.Provider value={{ user, isReady, login, logout }}>{children}</Ctx.Provider>;
