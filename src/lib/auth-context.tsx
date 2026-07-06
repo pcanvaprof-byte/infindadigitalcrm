@@ -139,8 +139,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { ok: false, error: "E-mail ou senha inválidos." };
     }
 
-    // Não chamamos setUser aqui: o onAuthStateChange (SIGNED_IN) é a única
-    // fonte de verdade, evitando race condition com applyUser concorrente.
+    const { data, error: userError } = await supabase.auth.getUser();
+    if (userError || !data.user) {
+      return { ok: false, error: "Não foi possível validar a sessão. Tente novamente." };
+    }
+
+    setUser(await toAppUser(data.user));
+    setIsReady(true);
     return { ok: true };
   };
 

@@ -81,9 +81,20 @@ export const attachValidSupabaseAuth = createMiddleware({ type: "function" }).cl
       const token = await getValidatedAccessToken();
       const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
       return await next({ headers });
-    } catch (error) {
-      if (isAuthTokenError(error)) {
-        recoverFromInvalidAuthSession();
+    } catch (caught) {
+      if (isAuthTokenError(caught)) {
+        const { error } = await supabase.auth.getUser();
+        if (error && isAuthTokenError(error)) {
+          recoverFromInvalidAuthSession();
+          return await holdForRedirect();
+        }
+
+        throw caught;
+      }
+      throw caught;
+    }
+  },
+);
         return await holdForRedirect();
       }
       throw error;
