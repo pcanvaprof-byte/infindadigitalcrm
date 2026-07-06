@@ -283,6 +283,8 @@ function EditClientDialog({ clientId }: { clientId: string }) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["lc-client", clientId] });
       qc.invalidateQueries({ queryKey: ["lc-clients"] });
+      // Reprocessa o BI: origem/mensalidade/permuta/contrato entram nos KPIs.
+      qc.invalidateQueries({ queryKey: ["bi"] });
       toast.success("Dados atualizados");
       setOpen(false);
     },
