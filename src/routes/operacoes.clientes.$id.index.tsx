@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getClient, listPlanTemplates, updateClient } from "@/modules/lifecycle/api";
-import { STAGE_LABEL } from "@/modules/lifecycle/types";
+import { STAGE_LABEL, ORIGEM_OPTIONS, ORIGEM_LABEL } from "@/modules/lifecycle/types";
 import { jsPDF } from "jspdf";
 
 export const Route = createFileRoute("/operacoes/clientes/$id/")({
@@ -71,6 +71,12 @@ function ResumoPage() {
 
   const items = [
     { label: "Plano", value: c.plano_code ?? "—" },
+    {
+      label: "Origem",
+      value: c.origem
+        ? `${ORIGEM_LABEL[c.origem] ?? c.origem}${c.origem_detalhe ? ` · ${c.origem_detalhe}` : ""}`
+        : "—",
+    },
     {
       label: "Mensalidade",
       value: c.mensalidade != null ? `R$ ${Number(c.mensalidade).toFixed(2)}` : "—",
@@ -186,6 +192,8 @@ function EditClientDialog({ clientId }: { clientId: string }) {
     site_recurring_value: "",
     site_payment_status: "nao_aplica",
     contract_notes: "",
+    origem: "",
+    origem_detalhe: "",
   });
 
   useEffect(() => {
@@ -214,6 +222,8 @@ function EditClientDialog({ clientId }: { clientId: string }) {
         c.site_recurring_value != null ? String(c.site_recurring_value) : "",
       site_payment_status: c.site_payment_status ?? "nao_aplica",
       contract_notes: c.contract_notes ?? "",
+      origem: c.origem ?? "",
+      origem_detalhe: c.origem_detalhe ?? "",
     });
   }, [open, cq.data]);
 
@@ -250,6 +260,8 @@ function EditClientDialog({ clientId }: { clientId: string }) {
             ? form.site_payment_status
             : null,
         contract_notes: form.contract_notes.trim() || null,
+        origem: form.origem || null,
+        origem_detalhe: form.origem_detalhe.trim() || null,
       });
     },
     onSuccess: () => {
@@ -480,6 +492,43 @@ function EditClientDialog({ clientId }: { clientId: string }) {
           <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             Outras informações
           </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Origem do cliente">
+              <Select
+                value={form.origem || "nao_informado"}
+                onValueChange={(v) => setForm({ ...form, origem: v === "nao_informado" ? "" : v })}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="nao_informado">Não informado</SelectItem>
+                  {ORIGEM_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Field
+              label={
+                form.origem === "indicacao"
+                  ? "Indicado por (nome)"
+                  : form.origem === "anuncio"
+                    ? "Nome da campanha"
+                    : form.origem === "parceiro"
+                      ? "Nome do parceiro"
+                      : "Detalhe da origem (opcional)"
+              }
+            >
+              <Input
+                value={form.origem_detalhe}
+                onChange={(e) => setForm({ ...form, origem_detalhe: e.target.value })}
+                placeholder={
+                  form.origem === "indicacao"
+                    ? "Ex.: João da Silva (Klug Motors)"
+                    : "Ex.: Campanha Black Friday"
+                }
+              />
+            </Field>
+          </div>
           <Field label="Observações do contrato">
             <Textarea
               rows={3}

@@ -688,6 +688,8 @@ export type Database = {
           onboarding_status: Database["public"]["Enums"]["client_onboarding_status"]
           operations_locked: boolean
           organization_id: string
+          origem: string | null
+          origem_detalhe: string | null
           owner_name: string | null
           phone: string | null
           pipeline_stage: Database["public"]["Enums"]["pipeline_stage"]
@@ -723,6 +725,8 @@ export type Database = {
           onboarding_status?: Database["public"]["Enums"]["client_onboarding_status"]
           operations_locked?: boolean
           organization_id?: string
+          origem?: string | null
+          origem_detalhe?: string | null
           owner_name?: string | null
           phone?: string | null
           pipeline_stage?: Database["public"]["Enums"]["pipeline_stage"]
@@ -758,6 +762,8 @@ export type Database = {
           onboarding_status?: Database["public"]["Enums"]["client_onboarding_status"]
           operations_locked?: boolean
           organization_id?: string
+          origem?: string | null
+          origem_detalhe?: string | null
           owner_name?: string | null
           phone?: string | null
           pipeline_stage?: Database["public"]["Enums"]["pipeline_stage"]

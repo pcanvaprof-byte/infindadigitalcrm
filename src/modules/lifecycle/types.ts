@@ -91,9 +91,27 @@ export type LifecycleClient = {
   site_recurring_value: number | null;
   site_payment_status: string | null;
   contract_notes: string | null;
+  origem: string | null;
+  origem_detalhe: string | null;
   created_at: string;
   updated_at: string;
 };
+
+export const ORIGEM_OPTIONS: { value: string; label: string }[] = [
+  { value: "indicacao", label: "Indicação" },
+  { value: "prospeccao_fria", label: "Prospecção fria" },
+  { value: "instagram", label: "Instagram" },
+  { value: "anuncio", label: "Anúncio pago" },
+  { value: "evento", label: "Evento / networking" },
+  { value: "parceiro", label: "Parceiro" },
+  { value: "site_organico", label: "Site / busca orgânica" },
+  { value: "retorno", label: "Cliente antigo (retorno)" },
+  { value: "outro", label: "Outro" },
+];
+
+export const ORIGEM_LABEL: Record<string, string> = Object.fromEntries(
+  ORIGEM_OPTIONS.map((o) => [o.value, o.label]),
+);
 
 export type CommercialPlan = {
   client_id: string;
