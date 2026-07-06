@@ -39,7 +39,6 @@ export const redirectToLoginForFreshSession = redirectToAuthForFreshSession;
 
 export function recoverFromInvalidAuthSession() {
   clearStoredAuthSession();
-  redirectToAuthForFreshSession();
 }
 
 export function isAuthTokenError(error: unknown) {
