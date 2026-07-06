@@ -19,7 +19,6 @@ import {
   Sparkles, Check, Copy, Star, Trash2, Pencil, Search, Wand2, Eye, Plus, X,
 } from "lucide-react";
 import { adaptarPackComIA } from "@/lib/cadence/adapt-ai.functions";
-import { recoverFromInvalidAuthSession } from "@/lib/auth-session-recovery";
 import { DuplicatePackDialog } from "./DuplicatePackDialog";
 
 type Pack = {
@@ -169,16 +168,9 @@ export function TemplateLibrary() {
       const { data, error } = await supabase.rpc("cad_list_packs");
       if (error) throw error;
       const list = (data ?? []) as Pack[];
-      if (list.length === 0) {
-        // Sessão vinculada a outro backend/projeto — limpa e redireciona automaticamente.
-        recoverFromInvalidAuthSession();
-        return;
-      }
       setPacks(list);
     } catch (e) {
       toast.error(`Falha ao carregar biblioteca: ${(e as Error).message}`);
-      recoverFromInvalidAuthSession();
-      return;
     } finally { setLoading(false); }
   }
   useEffect(() => { void load(); }, []);
