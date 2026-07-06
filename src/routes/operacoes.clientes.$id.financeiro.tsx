@@ -748,7 +748,7 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
 function PresetEditorDialog({
   mode, initial, onClose, onSaved,
 }: {
-  mode: "create" | "edit";
+  mode: "create" | "edit" | "duplicate";
   initial: BillingPresetInput | BillingPreset;
   onClose: () => void;
   onSaved: (p: BillingPreset) => void;
@@ -782,7 +782,11 @@ function PresetEditorDialog({
       const saved = mode === "edit" && "id" in initial
         ? await updateBillingPreset(initial.id, payload)
         : await createBillingPreset(payload);
-      toast.success(mode === "edit" ? "Preset atualizado" : "Preset criado");
+      toast.success(
+        mode === "edit" ? "Preset atualizado"
+        : mode === "duplicate" ? "Preset duplicado"
+        : "Preset criado"
+      );
       onSaved(saved);
     } catch (e) { toast.error((e as Error).message); }
     finally { setSaving(false); }
