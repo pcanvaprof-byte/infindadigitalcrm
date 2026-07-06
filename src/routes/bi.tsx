@@ -417,6 +417,15 @@ function BIPage() {
     placeholderData: (prev) => prev,
   });
 
+  // KPIs financeiros vindos das parcelas (client_billing_items) — fonte de caixa real
+  const billingQuery = useQuery<BillingKpis>({
+    queryKey: ["bi", "billing"],
+    queryFn: fetchBillingKpis,
+    staleTime: 60_000,
+    gcTime: 10 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+
   // Quando o usuário muda fallback/janela/mínimo de amostra, invalidamos a previsão
   // para que a probabilidade reflita imediatamente a nova configuração.
   const queryClient = useQueryClient();
