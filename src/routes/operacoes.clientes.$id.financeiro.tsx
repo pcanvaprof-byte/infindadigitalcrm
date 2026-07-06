@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
-  Check, Plus, Sparkles, Trash2, Pencil, X, Calendar as CalendarIcon,
+  Check, Plus, Sparkles, Trash2, Pencil, Copy, X, Calendar as CalendarIcon,
   TrendingUp, Wallet, AlertTriangle, Gift,
 } from "lucide-react";
 import {
@@ -381,7 +381,12 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
   const presets = presetsQ.data ?? [];
   const [presetId, setPresetId] = useState<string>("none");
   const activePreset = presetId !== "none" ? presets.find((p) => p.id === presetId) ?? null : null;
-  const [presetEditor, setPresetEditor] = useState<{ mode: "create" | "edit"; preset?: BillingPreset } | null>(null);
+  const [presetEditor, setPresetEditor] = useState<
+    | { mode: "create"; initial?: BillingPresetInput }
+    | { mode: "edit"; preset: BillingPreset }
+    | { mode: "duplicate"; initial: BillingPresetInput }
+    | null
+  >(null);
 
   // ---- Estado do preset combinado (Site + Mentoria) ----
   const [pSiteDesc, setPSiteDesc] = useState("Site");
@@ -440,6 +445,22 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
       setPresetId("none");
       toast.success("Preset excluído");
     } catch (e) { toast.error((e as Error).message); }
+  };
+
+  const duplicateActivePreset = () => {
+    if (!activePreset) return;
+    const initial: BillingPresetInput = {
+      nome: `${activePreset.nome} (cópia)`,
+      site_descricao: activePreset.site_descricao,
+      site_valor: activePreset.site_valor,
+      site_parcelas: activePreset.site_parcelas,
+      site_intervalo_dias: activePreset.site_intervalo_dias,
+      mentoria_descricao: activePreset.mentoria_descricao,
+      mentoria_valor: activePreset.mentoria_valor,
+      mentoria_meses: activePreset.mentoria_meses,
+      mentoria_bonif: activePreset.mentoria_bonif,
+    };
+    setPresetEditor({ mode: "duplicate", initial });
   };
 
   const preview = useMemo(() => {
@@ -548,6 +569,14 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
                 title="Editar preset selecionado"
               >
                 <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                type="button" variant="outline" size="sm"
+                disabled={!activePreset}
+                onClick={duplicateActivePreset}
+                title="Duplicar preset selecionado e ajustar valores"
+              >
+                <Copy className="h-3.5 w-3.5" />
               </Button>
               <Button
                 type="button" variant="outline" size="sm"
@@ -700,7 +729,9 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
           initial={
             presetEditor.mode === "edit" && presetEditor.preset
               ? presetEditor.preset
-              : { ...currentFormAsPreset(), nome: "" }
+              : presetEditor.mode === "duplicate"
+                ? presetEditor.initial
+                : { ...currentFormAsPreset(), nome: "" }
           }
           onClose={() => setPresetEditor(null)}
           onSaved={async (saved) => {
@@ -717,7 +748,7 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
 function PresetEditorDialog({
   mode, initial, onClose, onSaved,
 }: {
-  mode: "create" | "edit";
+  mode: "create" | "edit" | "duplicate";
   initial: BillingPresetInput | BillingPreset;
   onClose: () => void;
   onSaved: (p: BillingPreset) => void;
@@ -751,7 +782,11 @@ function PresetEditorDialog({
       const saved = mode === "edit" && "id" in initial
         ? await updateBillingPreset(initial.id, payload)
         : await createBillingPreset(payload);
-      toast.success(mode === "edit" ? "Preset atualizado" : "Preset criado");
+      toast.success(
+        mode === "edit" ? "Preset atualizado"
+        : mode === "duplicate" ? "Preset duplicado"
+        : "Preset criado"
+      );
       onSaved(saved);
     } catch (e) { toast.error((e as Error).message); }
     finally { setSaving(false); }
@@ -761,9 +796,15 @@ function PresetEditorDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{mode === "edit" ? "Editar preset" : "Novo preset"}</DialogTitle>
+          <DialogTitle>
+            {mode === "edit" ? "Editar preset"
+             : mode === "duplicate" ? "Duplicar preset"
+             : "Novo preset"}
+          </DialogTitle>
           <DialogDescription>
-            Presets ficam disponíveis para qualquer cliente.
+            {mode === "duplicate"
+              ? "Ajuste o nome e os valores. O preset original permanece inalterado."
+              : "Presets ficam disponíveis para qualquer cliente."}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -817,7 +858,10 @@ function PresetEditorDialog({
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
           <Button onClick={salvar} disabled={saving}>
-            {saving ? "Salvando…" : (mode === "edit" ? "Salvar alterações" : "Criar preset")}
+            {saving ? "Salvando…"
+              : mode === "edit" ? "Salvar alterações"
+              : mode === "duplicate" ? "Criar cópia"
+              : "Criar preset"}
           </Button>
         </DialogFooter>
       </DialogContent>
