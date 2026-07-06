@@ -370,7 +370,7 @@ function BillingItemDialog({
   const [batchTotal, setBatchTotal] = useState(String(groupTotalAtual || ""));
   const [batchN, setBatchN] = useState(String(groupNonBonif.length || 1));
   const [batchIntervalo, setBatchIntervalo] = useState(item?.tipo === "implantacao" ? "15" : "30");
-  const canBatch = !!item && group.length >= 2;
+  const canBatch = !!item; // permite dividir 1 parcela em N ou reajustar grupo existente
 
   const fieldErrors = useMemo(() => {
     const errs: string[] = [];
