@@ -404,7 +404,6 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
   const [bonificar, setBonificar] = useState("0");
   const [saving, setSaving] = useState(false);
 
-  const applyPreset = (key: PresetKey) => {
   const applyPreset = (id: string) => {
     setPresetId(id);
     if (id === "none") return;
