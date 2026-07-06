@@ -18,13 +18,18 @@ import {
   addItemFromCatalog, removeItem, updateItem, saveVersion,
   getCurrentVersion, updateProposal, registerSend,
   propostasKeys, buildPublicUrl,
+  listAdjustments, addInternalAdjustment, updateAdjustmentStatus, deleteAdjustment,
 } from "@/lib/propostas/api";
-import { PROPOSAL_STATUS_LABEL, PROPOSAL_STATUS_TONE, type ProposalContent } from "@/lib/propostas/types";
+import {
+  PROPOSAL_STATUS_LABEL, PROPOSAL_STATUS_TONE,
+  ADJUSTMENT_STATUS_LABEL, ADJUSTMENT_STATUS_TONE,
+  type ProposalContent, type ProposalAdjustment, type ProposalAdjustmentStatus,
+} from "@/lib/propostas/types";
 import { listItems as listCatalogItems, listCategorias } from "@/lib/catalog/api";
 import { COBRANCA_LABEL, formatBRL } from "@/lib/catalog/types";
 import {
   Copy, ExternalLink, Plus, Save, Send, Trash2,
-  History, FileText, MessageCircle, Mail, Link as LinkIcon, Sparkles,
+  History, FileText, MessageCircle, Mail, Link as LinkIcon, Sparkles, Edit3,
   FileSignature,
 } from "lucide-react";
 import { toast } from "sonner";
