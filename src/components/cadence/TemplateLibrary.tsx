@@ -39,12 +39,58 @@ type Pack = {
 type Item = { stage: string; titulo: string; corpo: string };
 
 const CAT_LABEL: Record<string, string> = {
-  geral: "Geral", nicho: "Nicho", data_especial: "Datas comemorativas", custom: "Personalizados",
-  saude: "Saúde", odontologia: "Odontologia", contabilidade: "Contabilidade",
-  imobiliaria: "Imobiliárias", academia: "Academias", loja_infantil: "Loja Infantil",
-  concessionaria: "Concessionárias", b2b: "B2B", restaurante: "Restaurantes",
-  estetica: "Estética & Beleza", educacao: "Educação", petshop: "Pet & Vet",
+  geral: "Geral",
+  nicho: "Nicho",
+  utilitario: "Utilitários (Reativação, Follow-up, Pós-venda)",
+  data_especial: "Datas comemorativas",
+  custom: "Personalizados",
+  saude: "Saúde",
+  odontologia: "Odontologia",
+  contabilidade: "Contabilidade",
+  advocacia: "Advocacia",
+  imobiliaria: "Imobiliárias",
+  academia: "Academias",
+  loja_infantil: "Loja Infantil",
+  loja_roupas: "Loja de Roupas",
+  auto_center: "Auto Center",
+  concessionaria: "Concessionárias",
+  b2b: "B2B",
+  restaurante: "Restaurantes & Delivery",
+  estetica: "Estética",
+  barbearia: "Barbearia",
+  salao_beleza: "Salão de Beleza",
+  educacao: "Educação",
+  turismo: "Turismo",
+  petshop: "Pet & Vet",
+  marketing: "Marketing",
+  tecnologia: "Tecnologia",
+  engenharia: "Engenharia",
+  arquitetura: "Arquitetura",
+  seguros: "Seguros",
+  financeiro: "Financeiro",
+  energia_solar: "Energia Solar",
+  moveis_planejados: "Móveis Planejados",
+  eventos: "Eventos",
 };
+
+// Ordem estável de exibição das categorias na listagem (grupos > alfabético).
+const CAT_ORDER: string[] = [
+  "custom",
+  "utilitario",
+  "data_especial",
+  "geral",
+  "nicho",
+  "saude", "odontologia", "estetica", "salao_beleza", "barbearia", "petshop",
+  "restaurante", "loja_infantil", "loja_roupas", "auto_center", "concessionaria",
+  "academia", "educacao", "turismo", "eventos",
+  "contabilidade", "advocacia", "imobiliaria", "seguros", "financeiro",
+  "b2b", "marketing", "tecnologia", "engenharia", "arquitetura",
+  "energia_solar", "moveis_planejados",
+];
+function catRank(c: string) {
+  const i = CAT_ORDER.indexOf(c);
+  return i === -1 ? 999 : i;
+}
 
 const STAGE_LABEL: Record<string, string> = {
   followup_1: "Follow-up 1 (dia 0)", followup_2: "Follow-up 2 (+3d)",
@@ -159,7 +205,12 @@ export function TemplateLibrary() {
       arr.push(p);
       map.set(p.categoria, arr);
     });
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    return Array.from(map.entries()).sort((a, b) => {
+      const ra = catRank(a[0]);
+      const rb = catRank(b[0]);
+      if (ra !== rb) return ra - rb;
+      return (CAT_LABEL[a[0]] ?? a[0]).localeCompare(CAT_LABEL[b[0]] ?? b[0]);
+    });
   }, [filtered]);
 
   return (
