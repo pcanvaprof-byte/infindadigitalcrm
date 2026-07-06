@@ -2,13 +2,36 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
+/** Briefing rico opcional — quando não vier, cai no modo simples (só segmento). */
+const Briefing = z.object({
+  tom: z.enum(["consultivo", "formal", "casual", "provocativo", "amigavel"]).optional(),
+  objetivo: z.string().max(400).optional(),
+  publico_alvo: z.string().max(400).optional(),
+  dor_principal: z.string().max(400).optional(),
+  proposta_valor: z.string().max(400).optional(),
+  diferenciais: z.string().max(400).optional(),
+  cta_preferido: z.string().max(200).optional(),
+  restricoes: z.string().max(400).optional(),
+  observacoes: z.string().max(600).optional(),
+}).partial();
+
 const Input = z.object({
   source_pack_key: z.string().min(1),
-  new_pack_key: z.string().min(2).max(60).regex(/^[a-z0-9_]+$/, "use apenas letras minúsculas, números e _"),
-  nome: z.string().min(2).max(120),
   segmento: z.string().min(2).max(120),
-  categoria: z.string().default("custom"),
+  briefing: Briefing.optional(),
+  // preview: apenas devolve os itens adaptados sem persistir
+  preview: z.boolean().optional().default(false),
+  // Campos exigidos apenas quando preview=false (para persistir)
+  new_pack_key: z.string().min(2).max(60).regex(/^[a-z0-9_]+$/, "use apenas letras minúsculas, números e _").optional(),
+  nome: z.string().min(2).max(120).optional(),
+  categoria: z.string().optional().default("custom"),
   descricao: z.string().optional().default(""),
+  // Quando o cliente já editou o preview, pode enviar os items para persistência direta
+  items_override: z.array(z.object({
+    stage: z.string(),
+    titulo: z.string().default(""),
+    corpo: z.string().default(""),
+  })).optional(),
 });
 
 const STAGES = [
@@ -19,66 +42,109 @@ const STAGES = [
 type StageKey = typeof STAGES[number];
 type TplItem = { stage: StageKey; titulo: string; corpo: string };
 
+function buildBriefingBlock(b?: z.infer<typeof Briefing>) {
+  if (!b) return "";
+  const lines: string[] = [];
+  if (b.tom) lines.push(`- Tom de voz: ${b.tom}`);
+  if (b.objetivo) lines.push(`- Objetivo da cadência: ${b.objetivo}`);
+  if (b.publico_alvo) lines.push(`- Público-alvo: ${b.publico_alvo}`);
+  if (b.dor_principal) lines.push(`- Dor principal do cliente: ${b.dor_principal}`);
+  if (b.proposta_valor) lines.push(`- Proposta de valor: ${b.proposta_valor}`);
+  if (b.diferenciais) lines.push(`- Diferenciais: ${b.diferenciais}`);
+  if (b.cta_preferido) lines.push(`- CTA preferido: ${b.cta_preferido}`);
+  if (b.restricoes) lines.push(`- Restrições (evitar): ${b.restricoes}`);
+  if (b.observacoes) lines.push(`- Observações: ${b.observacoes}`);
+  return lines.length ? `\nBRIEFING DO CLIENTE:\n${lines.join("\n")}\n` : "";
+}
+
 /**
- * Adapta um pack existente para um segmento específico via IA.
- * - Carrega os 13 templates do pack de origem (respeitando RLS do usuário).
- * - Reescreve título+corpo de cada etapa para o segmento informado.
- * - Cria novo pack (org, is_system=false) com as mensagens adaptadas.
+ * Adapta um pack existente com base em segmento + briefing opcional (tom, objetivo, dor, etc.).
+ * - `preview=true`  → retorna { items } sem persistir (para o usuário revisar/editar).
+ * - `preview=false` → cria novo pack. Se `items_override` vier preenchido, usa-os direto (usuário editou); caso contrário roda IA.
  */
 export const adaptarPackComIA = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((v: unknown) => Input.parse(v))
   .handler(async ({ data, context }) => {
-    const key = process.env.GROQ_API_KEY;
-    if (!key) throw new Error("GROQ_API_KEY ausente no servidor");
+    const key = process.env.LOVABLE_API_KEY;
+    if (!key) throw new Error("LOVABLE_API_KEY ausente no servidor");
 
     const { supabase } = context;
 
-    const { data: rows, error } = await supabase
-      .rpc("cad_get_pack_templates", { _pack_key: data.source_pack_key });
-    if (error) throw new Error(`Falha ao carregar pack origem: ${error.message}`);
-    const items = (rows ?? []) as TplItem[];
-    if (items.length === 0) throw new Error("Pack origem vazio");
+    let adapted: TplItem[] = [];
 
-    const prompt = `Você é um copywriter de vendas B2B especializado em cadências no WhatsApp.
-Adapte as mensagens abaixo para o segmento "${data.segmento}".
+    // Se o cliente já enviou items editados (fluxo: preview → editar → salvar), usa direto.
+    if (data.items_override && data.items_override.length > 0 && !data.preview) {
+      adapted = data.items_override
+        .filter((i) => STAGES.includes(i.stage as StageKey))
+        .map((i) => ({ stage: i.stage as StageKey, titulo: i.titulo ?? "", corpo: i.corpo ?? "" }));
+    } else {
+      const { data: rows, error } = await supabase
+        .rpc("cad_get_pack_templates", { _pack_key: data.source_pack_key });
+      if (error) throw new Error(`Falha ao carregar pack origem: ${error.message}`);
+      const items = (rows ?? []) as TplItem[];
+      if (items.length === 0) throw new Error("Pack origem vazio");
+
+      const briefingBlock = buildBriefingBlock(data.briefing);
+      const tom = data.briefing?.tom ?? "consultivo";
+
+      const prompt = `Você é um copywriter sênior de vendas B2B especializado em cadências no WhatsApp.
+Adapte as 13 mensagens abaixo para o segmento "${data.segmento}", respeitando o briefing do cliente.
 
 REGRAS OBRIGATÓRIAS:
-- Preserve exatamente as variáveis {{responsavel}}, {{empresa}}, {{cidade}}, {{segmento}}, {{telefone}}, {{cargo}} — não invente novas.
-- Português BR, tom consultivo, curto, direto, sem exageros.
-- Mantenha o mesmo objetivo/estágio de cada mensagem original.
+- Preserve EXATAMENTE as variáveis {{responsavel}}, {{empresa}}, {{cidade}}, {{segmento}}, {{telefone}}, {{cargo}}, {{remetente}}, {{data_reuniao}} — não invente novas nem traduza.
+- Português BR, tom ${tom}, curto, direto, sem clichês ("espero que este e-mail te encontre bem", "gostaria de aproveitar…"), sem emojis exagerados.
+- Cada mensagem MANTÉM o mesmo objetivo/estágio original (follow-up N mantém intenção de follow-up N, etapa "reuniao_agendada" continua confirmando reunião, etc.).
+- Nas mensagens de follow-up (followup_1..7), varie a abordagem: reforçar valor, quebrar objeção, prova social, urgência leve, última tentativa etc.
+- Se o briefing mencionar CTA, use-o de forma natural nas etapas iniciais e nas de proposta.
 - Retorne SOMENTE JSON válido no formato: {"items":[{"stage":"<stage>","titulo":"...","corpo":"..."}]}
-
+${briefingBlock}
 Mensagens originais:
 ${JSON.stringify(items, null, 2)}`;
 
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        response_format: { type: "json_object" },
-        temperature: 0.5,
-        messages: [
-          { role: "system", content: "Você retorna apenas JSON válido, sem texto extra." },
-          { role: "user", content: prompt },
-        ],
-      }),
-    });
-    if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      throw new Error(`IA falhou (${res.status}): ${txt.slice(0, 200)}`);
+      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "Lovable-API-Key": key,
+          "X-Lovable-AIG-SDK": "custom-fetch",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          response_format: { type: "json_object" },
+          temperature: 0.6,
+          messages: [
+            { role: "system", content: "Você retorna APENAS JSON válido, sem texto extra, sem markdown, sem crases." },
+            { role: "user", content: prompt },
+          ],
+        }),
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        if (res.status === 429) throw new Error("Limite de uso da IA atingido — aguarde alguns segundos e tente novamente.");
+        if (res.status === 402) throw new Error("Créditos de IA esgotados no workspace.");
+        throw new Error(`IA falhou (${res.status}): ${txt.slice(0, 200)}`);
+      }
+      const j = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
+      const raw = j.choices?.[0]?.message?.content ?? "{}";
+      let parsed: { items?: TplItem[] };
+      try { parsed = JSON.parse(raw); } catch { throw new Error("Resposta IA inválida (JSON malformado)"); }
+      adapted = (parsed.items ?? []).filter(
+        (i) => i && typeof i.stage === "string" && STAGES.includes(i.stage as StageKey),
+      );
+      if (adapted.length === 0) throw new Error("IA não retornou mensagens válidas");
     }
-    const j = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
-    const raw = j.choices?.[0]?.message?.content ?? "{}";
-    let parsed: { items?: TplItem[] };
-    try { parsed = JSON.parse(raw); } catch { throw new Error("Resposta IA inválida"); }
-    const adapted = (parsed.items ?? []).filter(
-      (i) => i && typeof i.stage === "string" && STAGES.includes(i.stage as StageKey),
-    );
-    if (adapted.length === 0) throw new Error("IA não retornou mensagens válidas");
 
-    // Cria pack novo com as adaptações
+    // Modo preview: só devolve os itens.
+    if (data.preview) {
+      return { ok: true, preview: true, items: adapted, count: adapted.length };
+    }
+
+    // Persistência
+    if (!data.new_pack_key || !data.nome) {
+      throw new Error("Para salvar é preciso informar new_pack_key e nome");
+    }
+
     const { error: createErr } = await supabase.rpc("cad_create_pack_with_templates", {
       _pack_key: data.new_pack_key,
       _nome: data.nome,
@@ -89,17 +155,20 @@ ${JSON.stringify(items, null, 2)}`;
     });
     if (createErr) throw new Error(`Falha ao criar pack: ${createErr.message}`);
 
-    // Atualiza segmento/tags via meta
+    const briefingSummary = data.briefing
+      ? [data.briefing.tom, data.briefing.objetivo, data.briefing.publico_alvo].filter(Boolean).join(" · ")
+      : "";
+
     await supabase.rpc("cad_update_pack_meta", {
       _pack_key: data.new_pack_key,
       _nome: data.nome,
-      _descricao: data.descricao || `Adaptação IA para ${data.segmento}`,
+      _descricao: data.descricao || `Adaptação IA para ${data.segmento}${briefingSummary ? ` — ${briefingSummary}` : ""}`,
       _categoria: data.categoria || "custom",
       _icon: "Sparkles",
-      _objetivo: `Prospectar ${data.segmento}`,
+      _objetivo: data.briefing?.objetivo || `Prospectar ${data.segmento}`,
       _segmento: data.segmento,
-      _tags: ["ia", data.segmento.toLowerCase()],
+      _tags: ["ia", data.segmento.toLowerCase(), ...(data.briefing?.tom ? [data.briefing.tom] : [])],
     });
 
-    return { ok: true, pack_key: data.new_pack_key, count: adapted.length };
+    return { ok: true, preview: false, pack_key: data.new_pack_key, count: adapted.length, items: adapted };
   });
