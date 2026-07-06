@@ -519,6 +519,65 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
     [preview, existing, expectedTotal],
   );
 
+  const inputWarnings = useMemo(() => {
+    const ws: string[] = [];
+    const today = todayISO();
+    const isValidDate = (s: string) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(new Date(s).getTime());
+
+    const checkDate = (label: string, d: string) => {
+      if (!d) { ws.push(`${label}: data inicial vazia`); return; }
+      if (!isValidDate(d)) { ws.push(`${label}: data inicial inválida`); return; }
+      if (d < today) ws.push(`${label}: data inicial está no passado (${fmtDate(d)})`);
+    };
+    const checkIntervalo = (label: string, dias: number) => {
+      if (!Number.isFinite(dias) || dias <= 0) {
+        ws.push(`${label}: intervalo entre parcelas deve ser maior que zero`);
+      } else if (dias > 90) {
+        ws.push(`${label}: intervalo de ${dias}d parece muito longo (padrão 15d)`);
+      } else if (dias % 15 !== 0) {
+        ws.push(`${label}: intervalo de ${dias}d não é múltiplo de 15d (padrão da casa)`);
+      }
+    };
+    const checkParcelas = (label: string, n: number, max = 36) => {
+      if (!Number.isFinite(n) || n < 1) ws.push(`${label}: quantidade de parcelas deve ser ≥ 1`);
+      else if (!Number.isInteger(n)) ws.push(`${label}: quantidade de parcelas deve ser um número inteiro`);
+      else if (n > max) ws.push(`${label}: ${n} parcelas parece excessivo (máx sugerido ${max})`);
+    };
+    const checkValor = (label: string, v: number) => {
+      if (!Number.isFinite(v) || v <= 0) ws.push(`${label}: valor deve ser maior que zero`);
+    };
+
+    if (activePreset) {
+      checkDate("Site + Mentoria", pDataInicial);
+      checkValor("Site", Number(pSiteValor));
+      checkParcelas("Site", Number(pSiteParcelas), 12);
+      checkIntervalo("Site", Number(pSiteIntervalo));
+      checkValor("Mentoria", Number(pMentValor));
+      checkParcelas("Mentoria", Number(pMentMeses), 24);
+      const bonif = Number(pMentBonif) || 0;
+      const meses = Number(pMentMeses) || 0;
+      if (bonif < 0) ws.push("Mentoria: bonificação não pode ser negativa");
+      else if (bonif >= meses && meses > 0) ws.push(`Mentoria: bonificação (${bonif}) ≥ meses (${meses}) — nenhuma parcela será cobrada`);
+    } else {
+      checkDate(modo === "implantacao" ? "Implantação" : "Mensalidade", dataInicial);
+      checkValor(modo === "implantacao" ? "Implantação" : "Mensalidade", Number(valor));
+      checkParcelas(modo === "implantacao" ? "Implantação" : "Mensalidade", Number(parcelas), modo === "implantacao" ? 12 : 24);
+      if (modo === "implantacao") {
+        checkIntervalo("Implantação", Number(intervaloDias));
+      } else {
+        const bonif = Number(bonificar) || 0;
+        const meses = Number(parcelas) || 0;
+        if (bonif < 0) ws.push("Mensalidade: bonificação não pode ser negativa");
+        else if (bonif >= meses && meses > 0) ws.push(`Mensalidade: bonificação (${bonif}) ≥ meses (${meses}) — nenhuma parcela será cobrada`);
+      }
+    }
+    return ws;
+  }, [
+    activePreset, pDataInicial, pSiteValor, pSiteParcelas, pSiteIntervalo,
+    pMentValor, pMentMeses, pMentBonif,
+    modo, dataInicial, valor, parcelas, intervaloDias, bonificar,
+  ]);
+
   const gerar = async () => {
     if (validationErrors.length) {
       toast.error("Corrija os erros antes de salvar", { description: validationErrors[0] });
@@ -713,6 +772,21 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
                 {validationErrors.slice(0, 6).map((e, i) => <li key={i}>{e}</li>)}
                 {validationErrors.length > 6 && <li>… e mais {validationErrors.length - 6}</li>}
               </ul>
+            </div>
+          )}
+
+          {inputWarnings.length > 0 && (
+            <div className="rounded border border-amber-500/40 bg-amber-500/10 p-2">
+              <p className="mb-1 flex items-center gap-1 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-3 w-3" /> {inputWarnings.length} aviso(s) de inconsistência
+              </p>
+              <ul className="ml-4 list-disc space-y-0.5 text-[11px] text-amber-700 dark:text-amber-300">
+                {inputWarnings.slice(0, 6).map((w, i) => <li key={i}>{w}</li>)}
+                {inputWarnings.length > 6 && <li>… e mais {inputWarnings.length - 6}</li>}
+              </ul>
+              <p className="mt-1 text-[10px] text-amber-700/80 dark:text-amber-300/80">
+                Você ainda pode gerar o plano — revise se for intencional.
+              </p>
             </div>
           )}
         </div>
