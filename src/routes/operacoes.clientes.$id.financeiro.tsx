@@ -19,6 +19,8 @@ import {
   buildImplantacaoPlan, buildMensalidadePlan,
   validateBillingPlan,
   type BillingItem, type BillingStatus, type BillingTipo,
+  listBillingPresets, createBillingPreset, updateBillingPreset, deleteBillingPreset,
+  type BillingPreset, type BillingPresetInput,
 } from "@/lib/billing/api";
 
 export const Route = createFileRoute("/operacoes/clientes/$id/financeiro")({
@@ -373,37 +375,13 @@ function BillingItemDialog({
 }
 
 // -------- Dialog: gerador de plano rápido --------
-type PresetKey = "none" | "site2x_mentoria3x_bonif3";
-
-const PRESETS: Array<{
-  key: PresetKey;
-  label: string;
-  descricaoSite: string;
-  siteValor: number;
-  siteParcelas: number;
-  siteIntervaloDias: number;
-  descricaoMentoria: string;
-  mentoriaValor: number;
-  mentoriaMeses: number;
-  mentoriaBonif: number;
-}> = [
-  {
-    key: "site2x_mentoria3x_bonif3",
-    label: "Mentoria + Site (2x) + Bonif 3 meses",
-    descricaoSite: "Site",
-    siteValor: 1500,
-    siteParcelas: 2,
-    siteIntervaloDias: 15,
-    descricaoMentoria: "Mentoria",
-    mentoriaValor: 500,
-    mentoriaMeses: 6,
-    mentoriaBonif: 3,
-  },
-];
-
 function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string; existing?: BillingItem[]; onClose: () => void }) {
-  const [preset, setPreset] = useState<PresetKey>("none");
-  const activePreset = PRESETS.find((p) => p.key === preset);
+  const qc = useQueryClient();
+  const presetsQ = useQuery({ queryKey: billingKeys.presets, queryFn: listBillingPresets });
+  const presets = presetsQ.data ?? [];
+  const [presetId, setPresetId] = useState<string>("none");
+  const activePreset = presetId !== "none" ? presets.find((p) => p.id === presetId) ?? null : null;
+  const [presetEditor, setPresetEditor] = useState<{ mode: "create" | "edit"; preset?: BillingPreset } | null>(null);
 
   // ---- Estado do preset combinado (Site + Mentoria) ----
   const [pSiteDesc, setPSiteDesc] = useState("Site");
@@ -426,18 +404,42 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
   const [bonificar, setBonificar] = useState("0");
   const [saving, setSaving] = useState(false);
 
-  const applyPreset = (key: PresetKey) => {
-    setPreset(key);
-    const p = PRESETS.find((x) => x.key === key);
+  const applyPreset = (id: string) => {
+    setPresetId(id);
+    if (id === "none") return;
+    const p = presets.find((x) => x.id === id);
     if (!p) return;
-    setPSiteDesc(p.descricaoSite);
-    setPSiteValor(String(p.siteValor));
-    setPSiteParcelas(String(p.siteParcelas));
-    setPSiteIntervalo(String(p.siteIntervaloDias));
-    setPMentDesc(p.descricaoMentoria);
-    setPMentValor(String(p.mentoriaValor));
-    setPMentMeses(String(p.mentoriaMeses));
-    setPMentBonif(String(p.mentoriaBonif));
+    setPSiteDesc(p.site_descricao);
+    setPSiteValor(String(p.site_valor));
+    setPSiteParcelas(String(p.site_parcelas));
+    setPSiteIntervalo(String(p.site_intervalo_dias));
+    setPMentDesc(p.mentoria_descricao);
+    setPMentValor(String(p.mentoria_valor));
+    setPMentMeses(String(p.mentoria_meses));
+    setPMentBonif(String(p.mentoria_bonif));
+  };
+
+  const currentFormAsPreset = (): BillingPresetInput => ({
+    nome: "",
+    site_descricao: pSiteDesc || "Site",
+    site_valor: Number(pSiteValor) || 0,
+    site_parcelas: Math.max(1, Number(pSiteParcelas) || 1),
+    site_intervalo_dias: Number(pSiteIntervalo) || 0,
+    mentoria_descricao: pMentDesc || "Mentoria",
+    mentoria_valor: Number(pMentValor) || 0,
+    mentoria_meses: Math.max(1, Number(pMentMeses) || 1),
+    mentoria_bonif: Number(pMentBonif) || 0,
+  });
+
+  const removeActivePreset = async () => {
+    if (!activePreset) return;
+    if (!confirm(`Excluir o preset "${activePreset.nome}"?`)) return;
+    try {
+      await deleteBillingPreset(activePreset.id);
+      await qc.invalidateQueries({ queryKey: billingKeys.presets });
+      setPresetId("none");
+      toast.success("Preset excluído");
+    } catch (e) { toast.error((e as Error).message); }
   };
 
   const preview = useMemo(() => {
@@ -522,15 +524,43 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
         <div className="space-y-3">
           <div>
             <Label className="text-xs">Preset</Label>
-            <Select value={preset} onValueChange={(v) => applyPreset(v as PresetKey)}>
-              <SelectTrigger><SelectValue placeholder="Sem preset" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Sem preset (configurar manualmente)</SelectItem>
-                {PRESETS.map((p) => (
-                  <SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Select value={presetId} onValueChange={applyPreset}>
+                <SelectTrigger className="flex-1"><SelectValue placeholder="Sem preset" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem preset (configurar manualmente)</SelectItem>
+                  {presets.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button" variant="outline" size="sm"
+                onClick={() => setPresetEditor({ mode: "create" })}
+                title="Salvar valores atuais como novo preset"
+              >
+                <Plus className="h-3.5 w-3.5" /> Novo
+              </Button>
+              <Button
+                type="button" variant="outline" size="sm"
+                disabled={!activePreset}
+                onClick={() => activePreset && setPresetEditor({ mode: "edit", preset: activePreset })}
+                title="Editar preset selecionado"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                type="button" variant="outline" size="sm"
+                disabled={!activePreset}
+                onClick={removeActivePreset}
+                title="Excluir preset selecionado"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              Presets ficam salvos e podem ser reusados em qualquer cliente.
+            </p>
           </div>
 
           {activePreset ? (
@@ -661,6 +691,133 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
           <Button variant="ghost" onClick={onClose}>Cancelar</Button>
           <Button onClick={gerar} disabled={saving || preview.length === 0 || validationErrors.length > 0}>
             {saving ? "Criando…" : `Criar ${preview.length} parcela(s)`}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+      {presetEditor && (
+        <PresetEditorDialog
+          mode={presetEditor.mode}
+          initial={
+            presetEditor.mode === "edit" && presetEditor.preset
+              ? presetEditor.preset
+              : { ...currentFormAsPreset(), nome: "" }
+          }
+          onClose={() => setPresetEditor(null)}
+          onSaved={async (saved) => {
+            await qc.invalidateQueries({ queryKey: billingKeys.presets });
+            setPresetEditor(null);
+            applyPreset(saved.id);
+          }}
+        />
+      )}
+    </Dialog>
+  );
+}
+
+function PresetEditorDialog({
+  mode, initial, onClose, onSaved,
+}: {
+  mode: "create" | "edit";
+  initial: BillingPresetInput | BillingPreset;
+  onClose: () => void;
+  onSaved: (p: BillingPreset) => void;
+}) {
+  const [nome, setNome] = useState(initial.nome);
+  const [siteDesc, setSiteDesc] = useState(initial.site_descricao);
+  const [siteValor, setSiteValor] = useState(String(initial.site_valor));
+  const [siteParcelas, setSiteParcelas] = useState(String(initial.site_parcelas));
+  const [siteIntervalo, setSiteIntervalo] = useState(String(initial.site_intervalo_dias));
+  const [mentDesc, setMentDesc] = useState(initial.mentoria_descricao);
+  const [mentValor, setMentValor] = useState(String(initial.mentoria_valor));
+  const [mentMeses, setMentMeses] = useState(String(initial.mentoria_meses));
+  const [mentBonif, setMentBonif] = useState(String(initial.mentoria_bonif));
+  const [saving, setSaving] = useState(false);
+
+  const salvar = async () => {
+    if (!nome.trim()) { toast.error("Informe um nome para o preset"); return; }
+    setSaving(true);
+    try {
+      const payload: BillingPresetInput = {
+        nome: nome.trim(),
+        site_descricao: siteDesc || "Site",
+        site_valor: Number(siteValor) || 0,
+        site_parcelas: Math.max(1, Number(siteParcelas) || 1),
+        site_intervalo_dias: Number(siteIntervalo) || 0,
+        mentoria_descricao: mentDesc || "Mentoria",
+        mentoria_valor: Number(mentValor) || 0,
+        mentoria_meses: Math.max(1, Number(mentMeses) || 1),
+        mentoria_bonif: Number(mentBonif) || 0,
+      };
+      const saved = mode === "edit" && "id" in initial
+        ? await updateBillingPreset(initial.id, payload)
+        : await createBillingPreset(payload);
+      toast.success(mode === "edit" ? "Preset atualizado" : "Preset criado");
+      onSaved(saved);
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{mode === "edit" ? "Editar preset" : "Novo preset"}</DialogTitle>
+          <DialogDescription>
+            Presets ficam disponíveis para qualquer cliente.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Nome do preset</Label>
+            <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex: Site 2x + Mentoria 6m" />
+          </div>
+          <div className="rounded border border-border bg-muted/20 p-2">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Site (implantação)</p>
+            <div className="grid grid-cols-4 gap-2">
+              <div className="col-span-2">
+                <Label className="text-xs">Descrição</Label>
+                <Input value={siteDesc} onChange={(e) => setSiteDesc(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Total (R$)</Label>
+                <Input type="number" step="0.01" value={siteValor} onChange={(e) => setSiteValor(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Parcelas</Label>
+                <Input type="number" value={siteParcelas} onChange={(e) => setSiteParcelas(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Intervalo (dias)</Label>
+                <Input type="number" value={siteIntervalo} onChange={(e) => setSiteIntervalo(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <div className="rounded border border-border bg-muted/20 p-2">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Mentoria (mensalidade)</p>
+            <div className="grid grid-cols-4 gap-2">
+              <div className="col-span-2">
+                <Label className="text-xs">Descrição</Label>
+                <Input value={mentDesc} onChange={(e) => setMentDesc(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Valor mensal</Label>
+                <Input type="number" step="0.01" value={mentValor} onChange={(e) => setMentValor(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Meses</Label>
+                <Input type="number" value={mentMeses} onChange={(e) => setMentMeses(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Bonif. 1ºs meses</Label>
+                <Input type="number" value={mentBonif} onChange={(e) => setMentBonif(e.target.value)} />
+              </div>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button onClick={salvar} disabled={saving}>
+            {saving ? "Salvando…" : (mode === "edit" ? "Salvar alterações" : "Criar preset")}
           </Button>
         </DialogFooter>
       </DialogContent>
