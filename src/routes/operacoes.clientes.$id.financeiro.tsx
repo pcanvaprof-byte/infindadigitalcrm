@@ -292,7 +292,50 @@ function BillingItemDialog({
 }
 
 // -------- Dialog: gerador de plano rápido --------
+type PresetKey = "none" | "site2x_mentoria3x_bonif3";
+
+const PRESETS: Array<{
+  key: PresetKey;
+  label: string;
+  descricaoSite: string;
+  siteValor: number;
+  siteParcelas: number;
+  siteIntervaloDias: number;
+  descricaoMentoria: string;
+  mentoriaValor: number;
+  mentoriaMeses: number;
+  mentoriaBonif: number;
+}> = [
+  {
+    key: "site2x_mentoria3x_bonif3",
+    label: "Mentoria + Site (2x) + Bonif 3 meses",
+    descricaoSite: "Site",
+    siteValor: 1500,
+    siteParcelas: 2,
+    siteIntervaloDias: 15,
+    descricaoMentoria: "Mentoria",
+    mentoriaValor: 500,
+    mentoriaMeses: 6,
+    mentoriaBonif: 3,
+  },
+];
+
 function PlanGeneratorDialog({ clientId, onClose }: { clientId: string; onClose: () => void }) {
+  const [preset, setPreset] = useState<PresetKey>("none");
+  const activePreset = PRESETS.find((p) => p.key === preset);
+
+  // ---- Estado do preset combinado (Site + Mentoria) ----
+  const [pSiteDesc, setPSiteDesc] = useState("Site");
+  const [pSiteValor, setPSiteValor] = useState("1500");
+  const [pSiteParcelas, setPSiteParcelas] = useState("2");
+  const [pSiteIntervalo, setPSiteIntervalo] = useState("15");
+  const [pMentDesc, setPMentDesc] = useState("Mentoria");
+  const [pMentValor, setPMentValor] = useState("500");
+  const [pMentMeses, setPMentMeses] = useState("6");
+  const [pMentBonif, setPMentBonif] = useState("3");
+  const [pDataInicial, setPDataInicial] = useState(todayISO());
+
+  // ---- Estado do modo single (padrão) ----
   const [modo, setModo] = useState<"implantacao" | "mensalidade">("implantacao");
   const [descricao, setDescricao] = useState("Site");
   const [valor, setValor] = useState("1500");
@@ -302,7 +345,40 @@ function PlanGeneratorDialog({ clientId, onClose }: { clientId: string; onClose:
   const [bonificar, setBonificar] = useState("0");
   const [saving, setSaving] = useState(false);
 
+  const applyPreset = (key: PresetKey) => {
+    setPreset(key);
+    const p = PRESETS.find((x) => x.key === key);
+    if (!p) return;
+    setPSiteDesc(p.descricaoSite);
+    setPSiteValor(String(p.siteValor));
+    setPSiteParcelas(String(p.siteParcelas));
+    setPSiteIntervalo(String(p.siteIntervaloDias));
+    setPMentDesc(p.descricaoMentoria);
+    setPMentValor(String(p.mentoriaValor));
+    setPMentMeses(String(p.mentoriaMeses));
+    setPMentBonif(String(p.mentoriaBonif));
+  };
+
   const preview = useMemo(() => {
+    if (activePreset) {
+      const site = buildImplantacaoPlan({
+        clientId,
+        valorTotal: Number(pSiteValor) || 0,
+        parcelas: Math.max(1, Number(pSiteParcelas) || 1),
+        dataInicial: pDataInicial,
+        intervaloDias: Number(pSiteIntervalo) || 0,
+        descricaoBase: pSiteDesc || "Site",
+      });
+      const ment = buildMensalidadePlan({
+        clientId,
+        valorMensal: Number(pMentValor) || 0,
+        meses: Math.max(1, Number(pMentMeses) || 1),
+        dataInicial: pDataInicial,
+        descricaoBase: pMentDesc || "Mentoria",
+        bonificarPrimeirosMeses: Number(pMentBonif) || 0,
+      });
+      return [...site, ...ment];
+    }
     if (modo === "implantacao") {
       return buildImplantacaoPlan({
         clientId, valorTotal: Number(valor) || 0,
@@ -317,7 +393,11 @@ function PlanGeneratorDialog({ clientId, onClose }: { clientId: string; onClose:
       dataInicial, descricaoBase: descricao || "Mensalidade",
       bonificarPrimeirosMeses: Number(bonificar) || 0,
     });
-  }, [clientId, modo, valor, parcelas, dataInicial, intervaloDias, descricao, bonificar]);
+  }, [
+    clientId, modo, valor, parcelas, dataInicial, intervaloDias, descricao, bonificar,
+    activePreset, pSiteDesc, pSiteValor, pSiteParcelas, pSiteIntervalo,
+    pMentDesc, pMentValor, pMentMeses, pMentBonif, pDataInicial,
+  ]);
 
   const gerar = async () => {
     setSaving(true);
@@ -339,6 +419,72 @@ function PlanGeneratorDialog({ clientId, onClose }: { clientId: string; onClose:
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Preset</Label>
+            <Select value={preset} onValueChange={(v) => applyPreset(v as PresetKey)}>
+              <SelectTrigger><SelectValue placeholder="Sem preset" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sem preset (configurar manualmente)</SelectItem>
+                {PRESETS.map((p) => (
+                  <SelectItem key={p.key} value={p.key}>{p.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {activePreset ? (
+            <>
+              <div className="rounded border border-border bg-muted/20 p-2">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Site (implantação)</p>
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="col-span-2">
+                    <Label className="text-xs">Descrição</Label>
+                    <Input value={pSiteDesc} onChange={(e) => setPSiteDesc(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Total (R$)</Label>
+                    <Input type="number" step="0.01" value={pSiteValor} onChange={(e) => setPSiteValor(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Parcelas</Label>
+                    <Input type="number" value={pSiteParcelas} onChange={(e) => setPSiteParcelas(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Intervalo (dias)</Label>
+                    <Input type="number" value={pSiteIntervalo} onChange={(e) => setPSiteIntervalo(e.target.value)} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded border border-border bg-muted/20 p-2">
+                <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Mentoria (mensalidade)</p>
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="col-span-2">
+                    <Label className="text-xs">Descrição</Label>
+                    <Input value={pMentDesc} onChange={(e) => setPMentDesc(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Valor mensal (R$)</Label>
+                    <Input type="number" step="0.01" value={pMentValor} onChange={(e) => setPMentValor(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Meses</Label>
+                    <Input type="number" value={pMentMeses} onChange={(e) => setPMentMeses(e.target.value)} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Bonif. 1ºs meses</Label>
+                    <Input type="number" value={pMentBonif} onChange={(e) => setPMentBonif(e.target.value)} />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs">Data inicial (aplica aos dois)</Label>
+                <Input type="date" value={pDataInicial} onChange={(e) => setPDataInicial(e.target.value)} />
+              </div>
+            </>
+          ) : (
+            <>
           <div>
             <Label className="text-xs">Modelo</Label>
             <Select value={modo} onValueChange={(v) => setModo(v as typeof modo)}>
@@ -382,6 +528,8 @@ function PlanGeneratorDialog({ clientId, onClose }: { clientId: string; onClose:
               </div>
             )}
           </div>
+            </>
+          )}
 
           <div className="max-h-52 overflow-auto rounded border border-border bg-muted/20 p-2">
             <p className="mb-1 text-[10px] uppercase tracking-wider text-muted-foreground">Preview ({preview.length})</p>
