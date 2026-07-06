@@ -544,6 +544,47 @@ function BillingItemDialog({
             <Label className="text-xs">Observação (opcional)</Label>
             <Input value={observacao} onChange={(e) => setObservacao(e.target.value)} />
           </div>
+          {canBatch && (
+            <div className="rounded border border-border bg-muted/30 p-2">
+              <button
+                type="button"
+                onClick={() => setShowBatch((v) => !v)}
+                className="flex w-full items-center justify-between text-left text-xs font-semibold"
+              >
+                <span>
+                  Editar plano em lote — {group.length}x "{base}" · total atual {BRL(groupTotalAtual)}
+                </span>
+                <span className="text-muted-foreground">{showBatch ? "−" : "+"}</span>
+              </button>
+              {showBatch && (
+                <div className="mt-2 space-y-2">
+                  <p className="text-[11px] text-muted-foreground">
+                    Ajusta todas as parcelas do plano (mesma descrição base). Distribui o total igualmente entre N parcelas.
+                    {hasPago && <span className="mt-1 block text-rose-600 dark:text-rose-400">⚠ Há parcelas pagas — edição em lote bloqueada.</span>}
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">Valor total (R$)</Label>
+                      <Input type="number" step="0.01" value={batchTotal} onChange={(e) => setBatchTotal(e.target.value)} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Nº de parcelas</Label>
+                      <Input type="number" min="1" value={batchN} onChange={(e) => setBatchN(e.target.value)} />
+                    </div>
+                  </div>
+                  {item?.tipo !== "mensalidade" && (
+                    <div>
+                      <Label className="text-xs">Intervalo entre parcelas (dias, se adicionar novas)</Label>
+                      <Input type="number" min="1" value={batchIntervalo} onChange={(e) => setBatchIntervalo(e.target.value)} />
+                    </div>
+                  )}
+                  <Button size="sm" onClick={saveBatch} disabled={saving || hasPago} className="w-full">
+                    {saving ? "Aplicando…" : `Aplicar ao plano (${batchN}x)`}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
           {saveErrors.length > 0 && (
             <div className="rounded border border-rose-500/40 bg-rose-500/10 p-2">
               <p className="mb-1 flex items-center gap-1 text-[11px] font-semibold text-rose-700 dark:text-rose-400">
