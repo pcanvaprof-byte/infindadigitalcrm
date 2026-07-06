@@ -4,7 +4,7 @@ import type { User as SupabaseUser } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
-import { isAuthTokenError, recoverFromInvalidAuthSession } from "@/lib/auth-session-recovery";
+import { clearStoredAuthSession, isAuthTokenError } from "@/lib/auth-session-recovery";
 import type { MockUser, Role } from "@/lib/mvp-accounts";
 
 export type { MockUser, Role };
@@ -94,7 +94,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase.auth.getUser();
       if (cancelled) return;
       if (error && isAuthTokenError(error)) {
-        recoverFromInvalidAuthSession();
+        clearStoredAuthSession();
+        await applyUser(null);
         return;
       }
       await applyUser(error ? null : data.user);
