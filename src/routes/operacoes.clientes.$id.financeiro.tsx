@@ -197,8 +197,8 @@ function SummaryCard({
 
 // -------- Dialog: criar / editar parcela --------
 function BillingItemDialog({
-  clientId, item, onClose,
-}: { clientId: string; item?: BillingItem; onClose: () => void }) {
+  clientId, item, existing, onClose,
+}: { clientId: string; item?: BillingItem; existing?: BillingItem[]; onClose: () => void }) {
   const [descricao, setDescricao] = useState(item?.descricao ?? "");
   const [tipo, setTipo] = useState<BillingTipo>(item?.tipo ?? "avulso");
   const [valor, setValor] = useState(String(item?.valor ?? ""));
@@ -220,6 +220,13 @@ function BillingItemDialog({
         ordem: item?.ordem ?? 0,
       };
       if (!payload.descricao) { toast.error("Descrição obrigatória"); setSaving(false); return; }
+      const others = (existing ?? []).filter((e) => e.id !== item?.id);
+      const errs = validateBillingPlan([payload], others);
+      if (errs.length) {
+        toast.error(errs[0], { description: errs.slice(1, 4).join(" · ") || undefined });
+        setSaving(false);
+        return;
+      }
       if (item) await updateBillingItem(item.id, payload);
       else await createBillingItem(payload);
       toast.success(item ? "Parcela atualizada" : "Parcela criada");
