@@ -510,6 +510,7 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
   const [intervaloDias, setIntervaloDias] = useState("15");
   const [bonificar, setBonificar] = useState("0");
   const [saving, setSaving] = useState(false);
+  const [serverErrors, setServerErrors] = useState<string[]>([]);
 
   const applyPreset = (id: string) => {
     setPresetId(id);
@@ -764,7 +765,9 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
   };
 
   const gerar = async () => {
+    setServerErrors([]);
     if (validationErrors.length) {
+      setServerErrors(validationErrors);
       toast.error("Corrija os erros antes de salvar", { description: validationErrors[0] });
       return;
     }
@@ -773,7 +776,18 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
       const res = await generatePlan({ data: buildServerInput() });
       toast.success(`${res.created} parcela(s) criada(s)`);
       onClose();
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) {
+      const raw = (e as Error).message || "Erro desconhecido ao gerar o plano.";
+      // Server throws `Plano inválido: err1 | err2 | ...` — quebrar em itens.
+      const m = raw.match(/^Plano inválido:\s*(.+)$/i);
+      const list = m
+        ? m[1].split(" | ").map((s) => s.trim()).filter(Boolean)
+        : [raw];
+      setServerErrors(list);
+      toast.error("Plano rejeitado pelo servidor", {
+        description: list[0] + (list.length > 1 ? ` (+${list.length - 1} outro(s))` : ""),
+      });
+    }
     finally { setSaving(false); }
   };
 
