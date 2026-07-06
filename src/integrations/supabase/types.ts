@@ -126,6 +126,57 @@ export type Database = {
           },
         ]
       }
+      billing_presets: {
+        Row: {
+          created_at: string
+          id: string
+          mentoria_bonif: number
+          mentoria_descricao: string
+          mentoria_meses: number
+          mentoria_valor: number
+          nome: string
+          organization_id: string
+          site_descricao: string
+          site_intervalo_dias: number
+          site_parcelas: number
+          site_valor: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mentoria_bonif?: number
+          mentoria_descricao?: string
+          mentoria_meses?: number
+          mentoria_valor?: number
+          nome: string
+          organization_id?: string
+          site_descricao?: string
+          site_intervalo_dias?: number
+          site_parcelas?: number
+          site_valor?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mentoria_bonif?: number
+          mentoria_descricao?: string
+          mentoria_meses?: number
+          mentoria_valor?: number
+          nome?: string
+          organization_id?: string
+          site_descricao?: string
+          site_intervalo_dias?: number
+          site_parcelas?: number
+          site_valor?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       briefings: {
         Row: {
           client_id: string | null
