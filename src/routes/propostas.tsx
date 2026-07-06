@@ -557,6 +557,79 @@ function NovaPropostaDialog({
             <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} className="mt-1 h-9" />
           </div>
 
+          {/* Templates prontos */}
+          <div className="rounded border border-border/40 bg-card/30 p-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-muted-foreground">Templates rápidos</label>
+              <span className="text-[10px] text-muted-foreground">Preenche título + parcelas com datas editáveis</span>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8"
+                onClick={() => {
+                  setTitulo("Proposta E-commerce — Implantação");
+                  const parcelas = 6;
+                  const valorParcela = 2500;
+                  const base = new Date();
+                  const novas: Avulso[] = Array.from({ length: parcelas }).map((_, i) => {
+                    const d = new Date(base.getFullYear(), base.getMonth() + i, base.getDate());
+                    return {
+                      id: crypto.randomUUID(),
+                      nome: `Implantação E-commerce — Parcela ${i + 1}/${parcelas}`,
+                      cobranca: "implantacao",
+                      valor: valorParcela,
+                      due_date: d.toISOString().slice(0, 10),
+                    };
+                  });
+                  setAvulsos((a) => [...a, ...novas]);
+                  toast.success(`Template E-commerce aplicado — ${parcelas} parcelas`);
+                }}
+              >
+                E-commerce (implantação 6x)
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8"
+                onClick={() => {
+                  setTitulo("Proposta Mentoria — Programa Mensal");
+                  const meses = 12;
+                  const valorMensal = 1500;
+                  const base = new Date();
+                  const novas: Avulso[] = Array.from({ length: meses }).map((_, i) => {
+                    const d = new Date(base.getFullYear(), base.getMonth() + i, base.getDate());
+                    return {
+                      id: crypto.randomUUID(),
+                      nome: `Mentoria — Mês ${i + 1}/${meses}`,
+                      cobranca: "mensal",
+                      valor: valorMensal,
+                      due_date: d.toISOString().slice(0, 10),
+                    };
+                  });
+                  setAvulsos((a) => [...a, ...novas]);
+                  toast.success(`Template Mentoria aplicado — ${meses} meses`);
+                }}
+              >
+                Mentoria (mensal 12x)
+              </Button>
+              {avulsos.length > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-muted-foreground"
+                  onClick={() => setAvulsos([])}
+                >
+                  Limpar parcelas
+                </Button>
+              )}
+            </div>
+          </div>
+
           {/* Serviços */}
           <div>
             <div className="flex items-center justify-between">
