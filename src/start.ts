@@ -2,6 +2,7 @@ import { createStart, createMiddleware } from "@tanstack/react-start";
 
 import { attachValidSupabaseAuth } from "./lib/supabase-auth-function-middleware";
 import { renderErrorPage } from "./lib/error-page";
+import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
 
 function alignAuthBackendEnv() {
   const ownUrl = process.env.OWN_SB_URL;
@@ -34,5 +35,5 @@ const errorMiddleware = createMiddleware().server(async ({ next, request }) => {
 
 export const startInstance = createStart(() => ({
   requestMiddleware: [errorMiddleware],
-  functionMiddleware: [attachValidSupabaseAuth],
+  functionMiddleware: [attachSupabaseAuth, attachValidSupabaseAuth],
 }));
