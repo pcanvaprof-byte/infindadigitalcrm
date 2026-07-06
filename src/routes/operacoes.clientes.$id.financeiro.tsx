@@ -418,6 +418,78 @@ function BillingItemDialog({
     finally { setSaving(false); }
   };
 
+  const saveBatch = async () => {
+    setSaveErrors([]);
+    if (!item || !canBatch) return;
+    const total = Number(batchTotal);
+    const N = Math.floor(Number(batchN));
+    const intervalo = Math.max(1, Math.floor(Number(batchIntervalo) || 30));
+    const errs: string[] = [];
+    if (!Number.isFinite(total) || total <= 0) errs.push("Valor total do plano deve ser maior que zero.");
+    if (!Number.isFinite(N) || N < 1) errs.push("Número de parcelas deve ser ao menos 1.");
+    if (hasPago) errs.push("Há parcelas já pagas neste plano — edição em lote não permitida. Ajuste as parcelas pendentes individualmente.");
+    if (errs.length) { setSaveErrors(errs); return; }
+    setSaving(true);
+    try {
+      // Ordena parcelas não-bonificadas por vencimento
+      const ordenadas = [...groupNonBonif].sort((a, b) =>
+        a.vencimento < b.vencimento ? -1 : a.vencimento > b.vencimento ? 1 : a.ordem - b.ordem,
+      );
+      const isMens = item.tipo === "mensalidade";
+      const each = Math.round((total / N) * 100) / 100;
+      const bonifCount = group.length - groupNonBonif.length;
+
+      // 1) Atualiza / remove parcelas existentes até chegar em N
+      const keep = ordenadas.slice(0, N);
+      const remove = ordenadas.slice(N);
+      for (let i = 0; i < keep.length; i++) {
+        const v = i === N - 1 ? Math.round((total - each * (N - 1)) * 100) / 100 : each;
+        const novaDesc = isMens
+          ? `${base} — Mês ${bonifCount + i + 1}`
+          : `${base} — ${i + 1}/${N}`;
+        await updateBillingItem(keep[i].id, { valor: v, descricao: novaDesc });
+      }
+      for (const r of remove) await deleteBillingItem(r.id);
+
+      // 2) Cria parcelas adicionais se N > atual
+      const faltam = N - keep.length;
+      if (faltam > 0) {
+        const ultimaData = keep.length > 0 ? keep[keep.length - 1].vencimento : item.vencimento;
+        const novos = [] as Array<Parameters<typeof createManyBillingItems>[0][number]>;
+        for (let i = 0; i < faltam; i++) {
+          const idx = keep.length + i;
+          const v = idx === N - 1 ? Math.round((total - each * (N - 1)) * 100) / 100 : each;
+          const venc = isMens
+            ? addMonthsISO(ultimaData, i + 1)
+            : addDaysISO(ultimaData, (i + 1) * intervalo);
+          const desc = isMens
+            ? `${base} — Mês ${bonifCount + idx + 1}`
+            : `${base} — ${idx + 1}/${N}`;
+          novos.push({
+            client_id: clientId,
+            descricao: desc,
+            tipo: item.tipo,
+            valor: v,
+            vencimento: venc,
+            status: "pendente",
+            metodo: null,
+            observacao: null,
+            ordem: (item.ordem ?? 0) + idx,
+          });
+        }
+        await createManyBillingItems(novos);
+      }
+
+      // 3) Renumera implantação restante (caso N tenha aumentado, já feito acima; caso reduzido, também)
+      toast.success(`Plano "${base}" atualizado (${N}x ${BRL(each)})`);
+      onClose();
+    } catch (e) {
+      const msg = (e as Error).message || "Erro ao atualizar o plano.";
+      setSaveErrors([msg]);
+      toast.error("Não foi possível atualizar o plano", { description: msg });
+    } finally { setSaving(false); }
+  };
+
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-md">
