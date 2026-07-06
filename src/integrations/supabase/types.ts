@@ -390,6 +390,54 @@ export type Database = {
           },
         ]
       }
+      cad_notifications: {
+        Row: {
+          created_at: string
+          handled_at: string | null
+          handled_by: string | null
+          id: string
+          kind: Database["public"]["Enums"]["cad_notif_kind"]
+          lead_id: string
+          organization_id: string
+          payload: Json
+        }
+        Insert: {
+          created_at?: string
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["cad_notif_kind"]
+          lead_id: string
+          organization_id?: string
+          payload?: Json
+        }
+        Update: {
+          created_at?: string
+          handled_at?: string | null
+          handled_by?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["cad_notif_kind"]
+          lead_id?: string
+          organization_id?: string
+          payload?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cad_notifications_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "cad_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cad_notifications_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cad_pack_favorites: {
         Row: {
           created_at: string
@@ -838,6 +886,7 @@ export type Database = {
           cnpj: string | null
           company: string
           contact_name: string | null
+          contract_term_months: number | null
           contract_value: number
           created_at: string
           created_from: string | null
@@ -856,11 +905,14 @@ export type Database = {
           origem: string | null
           origem_detalhe: string | null
           owner_name: string | null
+          permuta_value: number | null
           phone: string | null
           pipeline_stage: Database["public"]["Enums"]["pipeline_stage"]
           plano_code: string | null
           prospect_id: string | null
           segment: string | null
+          site_one_time_value: number | null
+          site_recurring_value: number | null
           source_ref: string | null
           state: string | null
           tags: string[]
@@ -879,6 +931,7 @@ export type Database = {
           cnpj?: string | null
           company: string
           contact_name?: string | null
+          contract_term_months?: number | null
           contract_value?: number
           created_at?: string
           created_from?: string | null
@@ -897,11 +950,14 @@ export type Database = {
           origem?: string | null
           origem_detalhe?: string | null
           owner_name?: string | null
+          permuta_value?: number | null
           phone?: string | null
           pipeline_stage?: Database["public"]["Enums"]["pipeline_stage"]
           plano_code?: string | null
           prospect_id?: string | null
           segment?: string | null
+          site_one_time_value?: number | null
+          site_recurring_value?: number | null
           source_ref?: string | null
           state?: string | null
           tags?: string[]
@@ -920,6 +976,7 @@ export type Database = {
           cnpj?: string | null
           company?: string
           contact_name?: string | null
+          contract_term_months?: number | null
           contract_value?: number
           created_at?: string
           created_from?: string | null
@@ -938,11 +995,14 @@ export type Database = {
           origem?: string | null
           origem_detalhe?: string | null
           owner_name?: string | null
+          permuta_value?: number | null
           phone?: string | null
           pipeline_stage?: Database["public"]["Enums"]["pipeline_stage"]
           plano_code?: string | null
           prospect_id?: string | null
           segment?: string | null
+          site_one_time_value?: number | null
+          site_recurring_value?: number | null
           source_ref?: string | null
           state?: string | null
           tags?: string[]
@@ -1437,6 +1497,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "contrato_eventos_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "op_contracts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "contrato_eventos_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
@@ -1785,6 +1852,95 @@ export type Database = {
           },
         ]
       }
+      op_client_interactions: {
+        Row: {
+          client_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          interaction_date: string
+          interaction_type: string
+          next_followup_at: string | null
+          notes: string | null
+          owner_id: string
+          title: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          interaction_date?: string
+          interaction_type: string
+          next_followup_at?: string | null
+          notes?: string | null
+          owner_id?: string
+          title: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          interaction_date?: string
+          interaction_type?: string
+          next_followup_at?: string | null
+          notes?: string | null
+          owner_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "op_client_interactions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "op_clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      op_clientes: {
+        Row: {
+          created_at: string
+          email: string | null
+          empresa: string | null
+          id: string
+          nome: string
+          observacoes: string | null
+          responsavel_id: string | null
+          status: Database["public"]["Enums"]["op_cliente_status"]
+          telefone: string | null
+          updated_at: string
+          whatsapp: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          empresa?: string | null
+          id?: string
+          nome: string
+          observacoes?: string | null
+          responsavel_id?: string | null
+          status?: Database["public"]["Enums"]["op_cliente_status"]
+          telefone?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          empresa?: string | null
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          responsavel_id?: string | null
+          status?: Database["public"]["Enums"]["op_cliente_status"]
+          telefone?: string | null
+          updated_at?: string
+          whatsapp?: string | null
+        }
+        Relationships: []
+      }
       op_contract_renewals: {
         Row: {
           client_id: string
@@ -1902,6 +2058,56 @@ export type Database = {
           },
         ]
       }
+      op_entregas: {
+        Row: {
+          cliente_id: string | null
+          created_at: string
+          descricao: string | null
+          id: string
+          ordem: number
+          prazo: string | null
+          responsavel_id: string | null
+          status: Database["public"]["Enums"]["op_entrega_status"]
+          tipo: Database["public"]["Enums"]["op_entrega_tipo"]
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          cliente_id?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          ordem?: number
+          prazo?: string | null
+          responsavel_id?: string | null
+          status?: Database["public"]["Enums"]["op_entrega_status"]
+          tipo?: Database["public"]["Enums"]["op_entrega_tipo"]
+          titulo: string
+          updated_at?: string
+        }
+        Update: {
+          cliente_id?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          ordem?: number
+          prazo?: string | null
+          responsavel_id?: string | null
+          status?: Database["public"]["Enums"]["op_entrega_status"]
+          tipo?: Database["public"]["Enums"]["op_entrega_tipo"]
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "op_entregas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "op_clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       op_onboarding: {
         Row: {
           analytics_connected: boolean
@@ -1976,6 +2182,131 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      op_trafego_campanhas: {
+        Row: {
+          cliente_id: string
+          cliques: number | null
+          conta_id: string | null
+          conversoes: number | null
+          cpa: number | null
+          created_at: string
+          gasto: number | null
+          id: string
+          impressoes: number | null
+          nome: string
+          periodo_fim: string | null
+          periodo_inicio: string | null
+          plataforma: Database["public"]["Enums"]["op_plataforma"]
+          roas: number | null
+          status: string
+          ultima_sync: string | null
+          updated_at: string
+          verba: number | null
+        }
+        Insert: {
+          cliente_id: string
+          cliques?: number | null
+          conta_id?: string | null
+          conversoes?: number | null
+          cpa?: number | null
+          created_at?: string
+          gasto?: number | null
+          id?: string
+          impressoes?: number | null
+          nome: string
+          periodo_fim?: string | null
+          periodo_inicio?: string | null
+          plataforma: Database["public"]["Enums"]["op_plataforma"]
+          roas?: number | null
+          status?: string
+          ultima_sync?: string | null
+          updated_at?: string
+          verba?: number | null
+        }
+        Update: {
+          cliente_id?: string
+          cliques?: number | null
+          conta_id?: string | null
+          conversoes?: number | null
+          cpa?: number | null
+          created_at?: string
+          gasto?: number | null
+          id?: string
+          impressoes?: number | null
+          nome?: string
+          periodo_fim?: string | null
+          periodo_inicio?: string | null
+          plataforma?: Database["public"]["Enums"]["op_plataforma"]
+          roas?: number | null
+          status?: string
+          ultima_sync?: string | null
+          updated_at?: string
+          verba?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "op_trafego_campanhas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "op_clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "op_trafego_campanhas_conta_id_fkey"
+            columns: ["conta_id"]
+            isOneToOne: false
+            referencedRelation: "op_trafego_contas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      op_trafego_contas: {
+        Row: {
+          cliente_id: string
+          conta_id_externa: string | null
+          created_at: string
+          id: string
+          nome_conta: string
+          objetivo: string | null
+          plataforma: Database["public"]["Enums"]["op_plataforma"]
+          status: string
+          updated_at: string
+          verba_mensal: number | null
+        }
+        Insert: {
+          cliente_id: string
+          conta_id_externa?: string | null
+          created_at?: string
+          id?: string
+          nome_conta: string
+          objetivo?: string | null
+          plataforma: Database["public"]["Enums"]["op_plataforma"]
+          status?: string
+          updated_at?: string
+          verba_mensal?: number | null
+        }
+        Update: {
+          cliente_id?: string
+          conta_id_externa?: string | null
+          created_at?: string
+          id?: string
+          nome_conta?: string
+          objetivo?: string | null
+          plataforma?: Database["public"]["Enums"]["op_plataforma"]
+          status?: string
+          updated_at?: string
+          verba_mensal?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "op_trafego_contas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "op_clientes"
             referencedColumns: ["id"]
           },
         ]
@@ -2684,6 +3015,70 @@ export type Database = {
         }
         Relationships: []
       }
+      team_members: {
+        Row: {
+          created_at: string
+          owner_name: string | null
+          team_id: string
+          team_role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          owner_name?: string | null
+          team_id: string
+          team_role?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          owner_name?: string | null
+          team_id?: string
+          team_role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          organization_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          organization_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          organization_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teams_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_active_org: {
         Row: {
           organization_id: string
@@ -2733,12 +3128,83 @@ export type Database = {
       }
     }
     Views: {
+      cad_notifications_v: {
+        Row: {
+          created_at: string | null
+          empresa: string | null
+          handled_at: string | null
+          id: string | null
+          kind: Database["public"]["Enums"]["cad_notif_kind"] | null
+          last_response_at: string | null
+          lead_id: string | null
+          next_action_at: string | null
+          organization_id: string | null
+          payload: Json | null
+          responsavel: string | null
+          stage: Database["public"]["Enums"]["cad_stage"] | null
+          telefone: string | null
+          temperatura: Database["public"]["Enums"]["cad_temp"] | null
+          whatsapp: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cad_notifications_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "cad_leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cad_notifications_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_timeline: {
         Row: {
           client_id: string | null
           created_at: string | null
           data: Json | null
           kind: string | null
+        }
+        Relationships: []
+      }
+      op_contracts: {
+        Row: {
+          contract_value: number | null
+          empresa: string | null
+          id: string | null
+          monthly_value: number | null
+          origem: string | null
+          signed_at: string | null
+          source: string | null
+          status: string | null
+          user_id: string | null
+        }
+        Insert: {
+          contract_value?: never
+          empresa?: string | null
+          id?: string | null
+          monthly_value?: number | null
+          origem?: never
+          signed_at?: string | null
+          source?: never
+          status?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          contract_value?: never
+          empresa?: string | null
+          id?: string | null
+          monthly_value?: number | null
+          origem?: never
+          signed_at?: string | null
+          source?: never
+          status?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -3043,6 +3509,19 @@ export type Database = {
           template_count: number
         }[]
       }
+      cad_mark_all_notifications_handled: { Args: never; Returns: number }
+      cad_mark_notification_handled: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
+      cad_metrics_serie_30d: {
+        Args: never
+        Returns: {
+          dia: string
+          enviadas: number
+          respostas: number
+        }[]
+      }
       cad_move_stage: {
         Args: {
           p_lead: string
@@ -3061,6 +3540,7 @@ export type Database = {
         Args: { p_stage: Database["public"]["Enums"]["cad_stage"] }
         Returns: Database["public"]["Enums"]["cad_stage"]
       }
+      cad_refresh_notifications: { Args: never; Returns: number }
       cad_register_response: {
         Args: { p_lead: string; p_mensagem: string }
         Returns: string
@@ -3111,6 +3591,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      cadencia_followup_comparativo: {
+        Args: { _days?: number }
+        Returns: {
+          desvio: number
+          dia: string
+          pct_aderencia: number
+          previstos: number
+          realizados: number
+        }[]
+      }
       close_cadence: {
         Args: { _note?: string; _prospect_id: string; _reason: string }
         Returns: undefined
@@ -3135,9 +3625,24 @@ export type Database = {
         Args: { p_conteudo: Json; p_observacoes: string; p_proposal_id: string }
         Returns: string
       }
+      criar_contrato_from_proposta: {
+        Args: { p_proposal_id: string }
+        Returns: string
+      }
       current_org_id: { Args: never; Returns: string }
       dashboard_current_org_id: { Args: never; Returns: string }
       dashboard_metrics: { Args: never; Returns: Json }
+      finalizar_contrato: {
+        Args: {
+          p_assinatura_nome: string
+          p_assinatura_payload: string
+          p_assinatura_tipo: string
+          p_contrato_id: string
+          p_ip?: string
+          p_ua?: string
+        }
+        Returns: undefined
+      }
       gen_briefing_token: { Args: never; Returns: string }
       gen_proposal_token: { Args: never; Returns: string }
       get_briefing_by_token: {
@@ -3168,6 +3673,15 @@ export type Database = {
       }
       is_member_of_org: { Args: { _org: string }; Returns: boolean }
       is_org_admin: { Args: { _org: string }; Returns: boolean }
+      log_evt: {
+        Args: {
+          p_actor_type?: string
+          p_payload?: Json
+          p_proposal_id: string
+          p_tipo: string
+        }
+        Returns: string
+      }
       my_organizations: {
         Args: never
         Returns: {
@@ -3244,6 +3758,7 @@ export type Database = {
       app_role: "admin" | "consultor"
       cad_msg_direction: "out" | "in" | "system"
       cad_msg_tipo: "whatsapp" | "email" | "ligacao" | "nota" | "sistema"
+      cad_notif_kind: "overdue" | "last_attempt" | "response_pending"
       cad_stage:
         | "followup_1"
         | "followup_2"
@@ -3285,6 +3800,15 @@ export type Database = {
         | "enviado"
         | "assinado"
         | "cancelado"
+      op_cliente_status: "ativo" | "pausado" | "offboarding" | "encerrado"
+      op_entrega_status: "backlog" | "em_andamento" | "revisao" | "entregue"
+      op_entrega_tipo:
+        | "criativo"
+        | "relatorio"
+        | "otimizacao"
+        | "reuniao"
+        | "outro"
+      op_plataforma: "meta_ads" | "google_ads" | "tiktok_ads" | "linkedin_ads"
       pipeline_stage:
         | "PROSPECCAO"
         | "CADENCIA"
@@ -3437,6 +3961,7 @@ export const Constants = {
       app_role: ["admin", "consultor"],
       cad_msg_direction: ["out", "in", "system"],
       cad_msg_tipo: ["whatsapp", "email", "ligacao", "nota", "sistema"],
+      cad_notif_kind: ["overdue", "last_attempt", "response_pending"],
       cad_stage: [
         "followup_1",
         "followup_2",
@@ -3482,6 +4007,16 @@ export const Constants = {
         "assinado",
         "cancelado",
       ],
+      op_cliente_status: ["ativo", "pausado", "offboarding", "encerrado"],
+      op_entrega_status: ["backlog", "em_andamento", "revisao", "entregue"],
+      op_entrega_tipo: [
+        "criativo",
+        "relatorio",
+        "otimizacao",
+        "reuniao",
+        "outro",
+      ],
+      op_plataforma: ["meta_ads", "google_ads", "tiktok_ads", "linkedin_ads"],
       pipeline_stage: [
         "PROSPECCAO",
         "CADENCIA",
