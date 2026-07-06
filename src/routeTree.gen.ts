@@ -47,7 +47,6 @@ import { Route as OperacoesClientesIdImplantacaoRouteImport } from './routes/ope
 import { Route as OperacoesClientesIdHistoricoRouteImport } from './routes/operacoes.clientes.$id.historico'
 import { Route as OperacoesClientesIdFinanceiroRouteImport } from './routes/operacoes.clientes.$id.financeiro'
 import { Route as OperacoesClientesIdDocumentosRouteImport } from './routes/operacoes.clientes.$id.documentos'
-import { Route as OperacoesClientesIdComercialRouteImport } from './routes/operacoes.clientes.$id.comercial'
 import { Route as OperacoesClientesIdCampanhasRouteImport } from './routes/operacoes.clientes.$id.campanhas'
 
 const TarefasRoute = TarefasRouteImport.update({
@@ -249,12 +248,6 @@ const OperacoesClientesIdDocumentosRoute =
     path: '/documentos',
     getParentRoute: () => OperacoesClientesIdRoute,
   } as any)
-const OperacoesClientesIdComercialRoute =
-  OperacoesClientesIdComercialRouteImport.update({
-    id: '/comercial',
-    path: '/comercial',
-    getParentRoute: () => OperacoesClientesIdRoute,
-  } as any)
 const OperacoesClientesIdCampanhasRoute =
   OperacoesClientesIdCampanhasRouteImport.update({
     id: '/campanhas',
@@ -294,7 +287,6 @@ export interface FileRoutesByFullPath {
   '/operacoes/clientes/$id': typeof OperacoesClientesIdRouteWithChildren
   '/operacoes/clientes/': typeof OperacoesClientesIndexRoute
   '/operacoes/clientes/$id/campanhas': typeof OperacoesClientesIdCampanhasRoute
-  '/operacoes/clientes/$id/comercial': typeof OperacoesClientesIdComercialRoute
   '/operacoes/clientes/$id/documentos': typeof OperacoesClientesIdDocumentosRoute
   '/operacoes/clientes/$id/financeiro': typeof OperacoesClientesIdFinanceiroRoute
   '/operacoes/clientes/$id/historico': typeof OperacoesClientesIdHistoricoRoute
@@ -334,7 +326,6 @@ export interface FileRoutesByTo {
   '/operacoes': typeof OperacoesIndexRoute
   '/operacoes/clientes': typeof OperacoesClientesIndexRoute
   '/operacoes/clientes/$id/campanhas': typeof OperacoesClientesIdCampanhasRoute
-  '/operacoes/clientes/$id/comercial': typeof OperacoesClientesIdComercialRoute
   '/operacoes/clientes/$id/documentos': typeof OperacoesClientesIdDocumentosRoute
   '/operacoes/clientes/$id/financeiro': typeof OperacoesClientesIdFinanceiroRoute
   '/operacoes/clientes/$id/historico': typeof OperacoesClientesIdHistoricoRoute
@@ -377,7 +368,6 @@ export interface FileRoutesById {
   '/operacoes/clientes/$id': typeof OperacoesClientesIdRouteWithChildren
   '/operacoes/clientes/': typeof OperacoesClientesIndexRoute
   '/operacoes/clientes/$id/campanhas': typeof OperacoesClientesIdCampanhasRoute
-  '/operacoes/clientes/$id/comercial': typeof OperacoesClientesIdComercialRoute
   '/operacoes/clientes/$id/documentos': typeof OperacoesClientesIdDocumentosRoute
   '/operacoes/clientes/$id/financeiro': typeof OperacoesClientesIdFinanceiroRoute
   '/operacoes/clientes/$id/historico': typeof OperacoesClientesIdHistoricoRoute
@@ -421,7 +411,6 @@ export interface FileRouteTypes {
     | '/operacoes/clientes/$id'
     | '/operacoes/clientes/'
     | '/operacoes/clientes/$id/campanhas'
-    | '/operacoes/clientes/$id/comercial'
     | '/operacoes/clientes/$id/documentos'
     | '/operacoes/clientes/$id/financeiro'
     | '/operacoes/clientes/$id/historico'
@@ -461,7 +450,6 @@ export interface FileRouteTypes {
     | '/operacoes'
     | '/operacoes/clientes'
     | '/operacoes/clientes/$id/campanhas'
-    | '/operacoes/clientes/$id/comercial'
     | '/operacoes/clientes/$id/documentos'
     | '/operacoes/clientes/$id/financeiro'
     | '/operacoes/clientes/$id/historico'
@@ -503,7 +491,6 @@ export interface FileRouteTypes {
     | '/operacoes/clientes/$id'
     | '/operacoes/clientes/'
     | '/operacoes/clientes/$id/campanhas'
-    | '/operacoes/clientes/$id/comercial'
     | '/operacoes/clientes/$id/documentos'
     | '/operacoes/clientes/$id/financeiro'
     | '/operacoes/clientes/$id/historico'
@@ -806,13 +793,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OperacoesClientesIdDocumentosRouteImport
       parentRoute: typeof OperacoesClientesIdRoute
     }
-    '/operacoes/clientes/$id/comercial': {
-      id: '/operacoes/clientes/$id/comercial'
-      path: '/comercial'
-      fullPath: '/operacoes/clientes/$id/comercial'
-      preLoaderRoute: typeof OperacoesClientesIdComercialRouteImport
-      parentRoute: typeof OperacoesClientesIdRoute
-    }
     '/operacoes/clientes/$id/campanhas': {
       id: '/operacoes/clientes/$id/campanhas'
       path: '/campanhas'
@@ -887,7 +867,6 @@ const PropostasRouteWithChildren = PropostasRoute._addFileChildren(
 
 interface OperacoesClientesIdRouteChildren {
   OperacoesClientesIdCampanhasRoute: typeof OperacoesClientesIdCampanhasRoute
-  OperacoesClientesIdComercialRoute: typeof OperacoesClientesIdComercialRoute
   OperacoesClientesIdDocumentosRoute: typeof OperacoesClientesIdDocumentosRoute
   OperacoesClientesIdFinanceiroRoute: typeof OperacoesClientesIdFinanceiroRoute
   OperacoesClientesIdHistoricoRoute: typeof OperacoesClientesIdHistoricoRoute
@@ -900,7 +879,6 @@ interface OperacoesClientesIdRouteChildren {
 
 const OperacoesClientesIdRouteChildren: OperacoesClientesIdRouteChildren = {
   OperacoesClientesIdCampanhasRoute: OperacoesClientesIdCampanhasRoute,
-  OperacoesClientesIdComercialRoute: OperacoesClientesIdComercialRoute,
   OperacoesClientesIdDocumentosRoute: OperacoesClientesIdDocumentosRoute,
   OperacoesClientesIdFinanceiroRoute: OperacoesClientesIdFinanceiroRoute,
   OperacoesClientesIdHistoricoRoute: OperacoesClientesIdHistoricoRoute,
