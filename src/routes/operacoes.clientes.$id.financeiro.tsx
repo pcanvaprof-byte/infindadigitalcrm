@@ -694,6 +694,133 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
           </Button>
         </DialogFooter>
       </DialogContent>
+      {presetEditor && (
+        <PresetEditorDialog
+          mode={presetEditor.mode}
+          initial={
+            presetEditor.mode === "edit" && presetEditor.preset
+              ? presetEditor.preset
+              : { ...currentFormAsPreset(), nome: "" }
+          }
+          onClose={() => setPresetEditor(null)}
+          onSaved={async (saved) => {
+            await qc.invalidateQueries({ queryKey: billingKeys.presets });
+            setPresetEditor(null);
+            applyPreset(saved.id);
+          }}
+        />
+      )}
+    </Dialog>
+  );
+}
+
+function PresetEditorDialog({
+  mode, initial, onClose, onSaved,
+}: {
+  mode: "create" | "edit";
+  initial: BillingPresetInput | BillingPreset;
+  onClose: () => void;
+  onSaved: (p: BillingPreset) => void;
+}) {
+  const [nome, setNome] = useState(initial.nome);
+  const [siteDesc, setSiteDesc] = useState(initial.site_descricao);
+  const [siteValor, setSiteValor] = useState(String(initial.site_valor));
+  const [siteParcelas, setSiteParcelas] = useState(String(initial.site_parcelas));
+  const [siteIntervalo, setSiteIntervalo] = useState(String(initial.site_intervalo_dias));
+  const [mentDesc, setMentDesc] = useState(initial.mentoria_descricao);
+  const [mentValor, setMentValor] = useState(String(initial.mentoria_valor));
+  const [mentMeses, setMentMeses] = useState(String(initial.mentoria_meses));
+  const [mentBonif, setMentBonif] = useState(String(initial.mentoria_bonif));
+  const [saving, setSaving] = useState(false);
+
+  const salvar = async () => {
+    if (!nome.trim()) { toast.error("Informe um nome para o preset"); return; }
+    setSaving(true);
+    try {
+      const payload: BillingPresetInput = {
+        nome: nome.trim(),
+        site_descricao: siteDesc || "Site",
+        site_valor: Number(siteValor) || 0,
+        site_parcelas: Math.max(1, Number(siteParcelas) || 1),
+        site_intervalo_dias: Number(siteIntervalo) || 0,
+        mentoria_descricao: mentDesc || "Mentoria",
+        mentoria_valor: Number(mentValor) || 0,
+        mentoria_meses: Math.max(1, Number(mentMeses) || 1),
+        mentoria_bonif: Number(mentBonif) || 0,
+      };
+      const saved = mode === "edit" && "id" in initial
+        ? await updateBillingPreset(initial.id, payload)
+        : await createBillingPreset(payload);
+      toast.success(mode === "edit" ? "Preset atualizado" : "Preset criado");
+      onSaved(saved);
+    } catch (e) { toast.error((e as Error).message); }
+    finally { setSaving(false); }
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{mode === "edit" ? "Editar preset" : "Novo preset"}</DialogTitle>
+          <DialogDescription>
+            Presets ficam disponíveis para qualquer cliente.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div>
+            <Label className="text-xs">Nome do preset</Label>
+            <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex: Site 2x + Mentoria 6m" />
+          </div>
+          <div className="rounded border border-border bg-muted/20 p-2">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Site (implantação)</p>
+            <div className="grid grid-cols-4 gap-2">
+              <div className="col-span-2">
+                <Label className="text-xs">Descrição</Label>
+                <Input value={siteDesc} onChange={(e) => setSiteDesc(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Total (R$)</Label>
+                <Input type="number" step="0.01" value={siteValor} onChange={(e) => setSiteValor(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Parcelas</Label>
+                <Input type="number" value={siteParcelas} onChange={(e) => setSiteParcelas(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Intervalo (dias)</Label>
+                <Input type="number" value={siteIntervalo} onChange={(e) => setSiteIntervalo(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <div className="rounded border border-border bg-muted/20 p-2">
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Mentoria (mensalidade)</p>
+            <div className="grid grid-cols-4 gap-2">
+              <div className="col-span-2">
+                <Label className="text-xs">Descrição</Label>
+                <Input value={mentDesc} onChange={(e) => setMentDesc(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Valor mensal</Label>
+                <Input type="number" step="0.01" value={mentValor} onChange={(e) => setMentValor(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Meses</Label>
+                <Input type="number" value={mentMeses} onChange={(e) => setMentMeses(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Bonif. 1ºs meses</Label>
+                <Input type="number" value={mentBonif} onChange={(e) => setMentBonif(e.target.value)} />
+              </div>
+            </div>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+          <Button onClick={salvar} disabled={saving}>
+            {saving ? "Salvando…" : (mode === "edit" ? "Salvar alterações" : "Criar preset")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
     </Dialog>
   );
 }
