@@ -74,6 +74,11 @@ function EditorPage() {
   const [content, setContent] = useState<ProposalContent>({});
   const [titulo, setTitulo] = useState("");
   const [validade, setValidade] = useState(7);
+  const [escopo, setEscopo] = useState("");
+  const [prazo, setPrazo] = useState("");
+  const [proximaAcao, setProximaAcao] = useState("");
+  const [proximaAcaoEm, setProximaAcaoEm] = useState("");
+  const [proximaAcaoResp, setProximaAcaoResp] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [sendOpen, setSendOpen] = useState(false);
   const [aiContext, setAiContext] = useState("");
@@ -101,6 +106,16 @@ function EditorPage() {
     if (propQ.data) {
       setTitulo(propQ.data.titulo);
       setValidade(propQ.data.validade_dias);
+      setEscopo(propQ.data.escopo ?? "");
+      setPrazo(propQ.data.prazo ?? "");
+      setProximaAcao(propQ.data.proxima_acao ?? "");
+      // input type=datetime-local usa "YYYY-MM-DDTHH:mm" (sem TZ).
+      setProximaAcaoEm(
+        propQ.data.proxima_acao_em
+          ? new Date(propQ.data.proxima_acao_em).toISOString().slice(0, 16)
+          : "",
+      );
+      setProximaAcaoResp(propQ.data.proxima_acao_responsavel ?? "");
     }
   }, [propQ.data]);
 
@@ -113,7 +128,15 @@ function EditorPage() {
 
   const saveDraft = useMutation({
     mutationFn: async () => {
-      await updateProposal(id, { titulo, validade_dias: validade });
+      await updateProposal(id, {
+        titulo,
+        validade_dias: validade,
+        escopo: escopo.trim() || null,
+        prazo: prazo.trim() || null,
+        proxima_acao: proximaAcao.trim() || null,
+        proxima_acao_em: proximaAcaoEm ? new Date(proximaAcaoEm).toISOString() : null,
+        proxima_acao_responsavel: proximaAcaoResp.trim() || null,
+      });
       await saveVersion(id, content);
     },
     onSuccess: async () => {
@@ -195,6 +218,73 @@ function EditorPage() {
                 </div>
               </Info>
               <Info label="Token"><Input className="h-8 font-mono text-xs" readOnly value={p.token_publico} /></Info>
+            </div>
+          </div>
+
+          {/* Escopo, prazo e próxima ação (edição rápida) */}
+          <div className="surface-card p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Escopo, prazo & próxima ação
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                Salvo junto com <b>Salvar versão</b>.
+              </p>
+            </div>
+            <div className="mt-3 grid gap-3">
+              <div>
+                <label className="text-[11px] font-medium text-muted-foreground">
+                  Resumo do escopo
+                </label>
+                <Textarea
+                  className="mt-1 min-h-[80px] text-sm"
+                  value={escopo}
+                  onChange={(e) => setEscopo(e.target.value)}
+                  placeholder="Ex.: Site institucional + gestão de tráfego pago (Meta/Google) por 6 meses, com relatório mensal."
+                />
+              </div>
+              <div>
+                <label className="text-[11px] font-medium text-muted-foreground">Prazo</label>
+                <Input
+                  className="mt-1 h-8 text-sm"
+                  value={prazo}
+                  onChange={(e) => setPrazo(e.target.value)}
+                  placeholder="Ex.: entrega do site em 30 dias · campanhas ativas em até 45 dias."
+                />
+              </div>
+              <div className="grid gap-2 sm:grid-cols-[1fr_180px_160px]">
+                <div>
+                  <label className="text-[11px] font-medium text-muted-foreground">
+                    Próxima ação
+                  </label>
+                  <Input
+                    className="mt-1 h-8 text-sm"
+                    value={proximaAcao}
+                    onChange={(e) => setProximaAcao(e.target.value)}
+                    placeholder="Ex.: Ligar quarta 14h para fechar contrato."
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-medium text-muted-foreground">Quando</label>
+                  <Input
+                    type="datetime-local"
+                    className="mt-1 h-8 text-sm"
+                    value={proximaAcaoEm}
+                    onChange={(e) => setProximaAcaoEm(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] font-medium text-muted-foreground">
+                    Responsável
+                  </label>
+                  <Input
+                    className="mt-1 h-8 text-sm"
+                    value={proximaAcaoResp}
+                    onChange={(e) => setProximaAcaoResp(e.target.value)}
+                    placeholder="Ex.: Ana"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

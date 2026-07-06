@@ -120,6 +120,16 @@ export interface Proposal {
   converted_at: string | null;
   created_at: string;
   updated_at: string;
+  /** Resumo do escopo comercial (texto livre, além dos itens do catálogo). */
+  escopo: string | null;
+  /** Prazo/cronograma acordado com o cliente (texto curto). */
+  prazo: string | null;
+  /** Próxima ação combinada (ex.: "Ligar quarta às 14h para fechar"). */
+  proxima_acao: string | null;
+  /** Quando a próxima ação deve acontecer (ISO string). */
+  proxima_acao_em: string | null;
+  /** Responsável pela próxima ação. */
+  proxima_acao_responsavel: string | null;
 }
 
 export interface ProposalEvent {
