@@ -1,6 +1,7 @@
 import { createMiddleware } from "@tanstack/react-start";
 
 import { supabase } from "@/integrations/supabase/client";
+import { isAuthTokenError, recoverFromInvalidAuthSession } from "@/lib/auth-session-recovery";
 
 type JwtPayload = {
   exp?: number;
@@ -56,19 +57,16 @@ export const attachValidSupabaseAuth = createMiddleware({ type: "function" }).cl
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
 
-    if (!token) return next({ headers: {} });
+    const headers = token && isUsableToken(token) ? { Authorization: `Bearer ${token}` } : {};
 
-    // Não redireciona aqui: um redirect dentro do middleware do serverFn
-    // pode disparar logo após o login (ex.: token recém-emitido em formato
-    // novo que a heurística local considera "inválido") e derrubar a sessão.
-    // Se o token parecer inutilizável, apenas não anexa — o backend responde
-    // 401 e a UI decide o que fazer.
-    if (!isUsableToken(token)) {
-      return next({ headers: {} });
+    try {
+      return await next({ headers });
+    } catch (error) {
+      if (isAuthTokenError(error)) {
+        recoverFromInvalidAuthSession();
+        return await new Promise<never>(() => {});
+      }
+      throw error;
     }
-
-    return next({
-      headers: { Authorization: `Bearer ${token}` },
-    });
   },
 );
