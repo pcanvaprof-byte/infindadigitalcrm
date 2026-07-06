@@ -1682,6 +1682,53 @@ export type Database = {
           },
         ]
       }
+      proposal_notes: {
+        Row: {
+          autor_cargo: string | null
+          autor_nome: string | null
+          created_at: string
+          id: string
+          mensagem: string
+          organization_id: string
+          proposal_id: string
+          tipo: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          autor_cargo?: string | null
+          autor_nome?: string | null
+          created_at?: string
+          id?: string
+          mensagem: string
+          organization_id: string
+          proposal_id: string
+          tipo?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          autor_cargo?: string | null
+          autor_nome?: string | null
+          created_at?: string
+          id?: string
+          mensagem?: string
+          organization_id?: string
+          proposal_id?: string
+          tipo?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_notes_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       proposal_versions: {
         Row: {
           conteudo_json: Json
@@ -1736,6 +1783,7 @@ export type Database = {
           deal_id: string | null
           decided_at: string | null
           desconto_pct: number
+          escopo: string | null
           expired_at: string | null
           first_viewed_at: string | null
           id: string
@@ -1746,6 +1794,10 @@ export type Database = {
           organization_id: string | null
           pdf_generated_at: string | null
           pdf_url: string | null
+          prazo: string | null
+          proxima_acao: string | null
+          proxima_acao_em: string | null
+          proxima_acao_responsavel: string | null
           sent_at: string | null
           status: Database["public"]["Enums"]["proposal_status"]
           titulo: string
@@ -1767,6 +1819,7 @@ export type Database = {
           deal_id?: string | null
           decided_at?: string | null
           desconto_pct?: number
+          escopo?: string | null
           expired_at?: string | null
           first_viewed_at?: string | null
           id?: string
@@ -1777,6 +1830,10 @@ export type Database = {
           organization_id?: string | null
           pdf_generated_at?: string | null
           pdf_url?: string | null
+          prazo?: string | null
+          proxima_acao?: string | null
+          proxima_acao_em?: string | null
+          proxima_acao_responsavel?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["proposal_status"]
           titulo?: string
@@ -1798,6 +1855,7 @@ export type Database = {
           deal_id?: string | null
           decided_at?: string | null
           desconto_pct?: number
+          escopo?: string | null
           expired_at?: string | null
           first_viewed_at?: string | null
           id?: string
@@ -1808,6 +1866,10 @@ export type Database = {
           organization_id?: string | null
           pdf_generated_at?: string | null
           pdf_url?: string | null
+          prazo?: string | null
+          proxima_acao?: string | null
+          proxima_acao_em?: string | null
+          proxima_acao_responsavel?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["proposal_status"]
           titulo?: string
