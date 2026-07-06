@@ -398,6 +398,149 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
   );
 }
 
+function AdjustmentsCard({ proposalId }: { proposalId: string }) {
+  const qc = useQueryClient();
+  const q = useQuery({
+    queryKey: propostasKeys.adjustments(proposalId),
+    queryFn: () => listAdjustments(proposalId),
+  });
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [newMsg, setNewMsg] = useState("");
+  const [filter, setFilter] = useState<"todos" | "cliente" | "interno">("todos");
+
+  const items = q.data ?? [];
+  const filtered = items.filter((a) => filter === "todos" || a.origem === filter);
+  const selected = filtered.find((a) => a.id === selectedId) ?? filtered[0] ?? null;
+
+  const add = useMutation({
+    mutationFn: async () => {
+      if (!newMsg.trim()) throw new Error("Escreva uma mensagem");
+      await addInternalAdjustment(proposalId, newMsg.trim());
+    },
+    onSuccess: async () => {
+      setNewMsg("");
+      toast.success("Nota interna adicionada");
+      await qc.invalidateQueries({ queryKey: propostasKeys.adjustments(proposalId) });
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+
+  const setStatus = useMutation({
+    mutationFn: async (v: { id: string; status: ProposalAdjustmentStatus }) =>
+      updateAdjustmentStatus(v.id, v.status),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: propostasKeys.adjustments(proposalId) });
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+
+  const remove = useMutation({
+    mutationFn: async (id: string) => deleteAdjustment(id),
+    onSuccess: async () => {
+      setSelectedId(null);
+      await qc.invalidateQueries({ queryKey: propostasKeys.adjustments(proposalId) });
+    },
+    onError: (e) => toast.error((e as Error).message),
+  });
+
+  return (
+    <div className="surface-card p-4">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <Edit3 className="h-3.5 w-3.5" /> Ajustes vinculados
+        </p>
+        <Select value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
+          <SelectTrigger className="h-7 w-[130px] text-[11px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos</SelectItem>
+            <SelectItem value="cliente">Do cliente</SelectItem>
+            <SelectItem value="interno">Notas internas</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      {q.isLoading ? (
+        <p className="py-4 text-center text-[11px] text-muted-foreground">Carregando…</p>
+      ) : filtered.length === 0 ? (
+        <p className="py-4 text-center text-[11px] text-muted-foreground">
+          Nenhum ajuste registrado. Pedidos enviados pelo cliente e notas internas aparecerão aqui.
+        </p>
+      ) : (
+        <>
+          <ul className="max-h-[220px] space-y-1 overflow-y-auto">
+            {filtered.map((a) => (
+              <li key={a.id}>
+                <button
+                  onClick={() => setSelectedId(a.id)}
+                  className={`w-full rounded border p-2 text-left transition-colors ${
+                    selected?.id === a.id
+                      ? "border-primary/40 bg-primary/10"
+                      : "border-border/40 hover:bg-accent/40"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`inline-flex rounded px-1.5 py-0.5 text-[9px] font-medium ${ADJUSTMENT_STATUS_TONE[a.status]}`}>
+                      {ADJUSTMENT_STATUS_LABEL[a.status]}
+                    </span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {a.origem === "cliente" ? "Cliente" : "Interno"}
+                    </span>
+                  </div>
+                  <p className="mt-1 line-clamp-2 text-[11px]">{a.mensagem}</p>
+                  <p className="mt-0.5 text-[10px] text-muted-foreground">
+                    {a.autor_nome ? `${a.autor_nome} · ` : ""}
+                    {new Date(a.created_at).toLocaleString("pt-BR")}
+                  </p>
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          {selected && (
+            <div className="mt-3 rounded border border-border/40 bg-card/30 p-2">
+              <p className="whitespace-pre-wrap text-xs">{selected.mensagem}</p>
+              <div className="mt-2 flex items-center gap-1">
+                <Select
+                  value={selected.status}
+                  onValueChange={(v) => setStatus.mutate({ id: selected.id, status: v as ProposalAdjustmentStatus })}
+                >
+                  <SelectTrigger className="h-7 w-[130px] text-[11px]"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {(Object.keys(ADJUSTMENT_STATUS_LABEL) as ProposalAdjustmentStatus[]).map((k) => (
+                      <SelectItem key={k} value={k}>{ADJUSTMENT_STATUS_LABEL[k]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => remove.mutate(selected.id)}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      <div className="mt-3 border-t border-border/40 pt-3">
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Adicionar nota interna</p>
+        <Textarea
+          className="mt-1 min-h-[60px] text-xs"
+          placeholder="Ex.: cliente pediu para reduzir escopo do módulo X."
+          value={newMsg}
+          onChange={(e) => setNewMsg(e.target.value)}
+        />
+        <Button
+          size="sm"
+          className="btn-gradient mt-2 h-7 w-full text-xs"
+          disabled={!newMsg.trim() || add.isPending}
+          onClick={() => add.mutate()}
+        >
+          <Plus className="mr-1 h-3 w-3" /> {add.isPending ? "Salvando…" : "Registrar nota"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 type CrescimentoCfg = NonNullable<ProposalContent["crescimento"]>;
 
 function CrescimentoEditor({
