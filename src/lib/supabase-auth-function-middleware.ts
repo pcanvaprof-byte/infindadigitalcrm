@@ -1,6 +1,10 @@
 import { createMiddleware } from "@tanstack/react-start";
 
 import { supabase } from "@/integrations/supabase/client";
+import {
+  clearStoredAuthSession,
+  redirectToAuthForFreshSession,
+} from "@/lib/auth-session-recovery";
 
 type JwtPayload = {
   exp?: number;
@@ -27,16 +31,30 @@ function isUsableToken(token: string) {
   return true;
 }
 
+function resetInvalidSession(): never {
+  clearStoredAuthSession();
+  redirectToAuthForFreshSession();
+  throw new Error("Sessão expirada. Faça login novamente.");
+}
+
 async function getValidatedAccessToken(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
   if (!token) return null;
 
-  // Do not clear stored session here — that forces the user to sign out again
-  // on any transient token error. Just skip attaching a bad token and let the
-  // caller decide how to handle a 401.
-  if (!isUsableToken(token)) return null;
-  return token;
+  if (!isUsableToken(token)) return resetInvalidSession();
+
+  // Decoding catches malformed/expired JWTs, but not rotated signing keys.
+  // Revalidate with the auth backend before any protected server function call
+  // so an old browser session is cleared locally instead of being sent to the
+  // server and crashing the preview with "Unauthorized: Invalid token".
+  const { data: userData, error } = await supabase.auth.getUser();
+  if (error || !userData.user) return resetInvalidSession();
+
+  const { data: refreshed } = await supabase.auth.getSession();
+  const refreshedToken = refreshed.session?.access_token ?? token;
+  if (!isUsableToken(refreshedToken)) return resetInvalidSession();
+  return refreshedToken;
 }
 
 export const attachValidSupabaseAuth = createMiddleware({ type: "function" }).client(
