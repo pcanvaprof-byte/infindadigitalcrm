@@ -22,6 +22,8 @@ export type Database = {
           id: string
           nota: string
           organization_id: string
+          proposal_id: string | null
+          synced_adjustment_id: string | null
           user_id: string
         }
         Insert: {
@@ -31,6 +33,8 @@ export type Database = {
           id?: string
           nota: string
           organization_id?: string
+          proposal_id?: string | null
+          synced_adjustment_id?: string | null
           user_id?: string
         }
         Update: {
@@ -40,6 +44,8 @@ export type Database = {
           id?: string
           nota?: string
           organization_id?: string
+          proposal_id?: string | null
+          synced_adjustment_id?: string | null
           user_id?: string
         }
         Relationships: [
@@ -55,6 +61,20 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adjustment_notes_synced_adjustment_id_fkey"
+            columns: ["synced_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "proposal_adjustments"
             referencedColumns: ["id"]
           },
         ]
@@ -1547,6 +1567,7 @@ export type Database = {
           resolvido_em: string | null
           resolvido_por: string | null
           status: string
+          synced_note_id: string | null
         }
         Insert: {
           autor_cargo?: string | null
@@ -1559,6 +1580,7 @@ export type Database = {
           resolvido_em?: string | null
           resolvido_por?: string | null
           status?: string
+          synced_note_id?: string | null
         }
         Update: {
           autor_cargo?: string | null
@@ -1571,6 +1593,7 @@ export type Database = {
           resolvido_em?: string | null
           resolvido_por?: string | null
           status?: string
+          synced_note_id?: string | null
         }
         Relationships: [
           {
@@ -1578,6 +1601,13 @@ export type Database = {
             columns: ["proposal_id"]
             isOneToOne: false
             referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proposal_adjustments_synced_note_id_fkey"
+            columns: ["synced_note_id"]
+            isOneToOne: false
+            referencedRelation: "adjustment_notes"
             referencedColumns: ["id"]
           },
         ]
