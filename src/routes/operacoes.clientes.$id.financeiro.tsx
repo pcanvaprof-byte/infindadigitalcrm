@@ -14,7 +14,7 @@ import {
   TrendingUp, Wallet, AlertTriangle, Gift,
 } from "lucide-react";
 import {
-  billingKeys, listBillingItems, createBillingItem, createManyBillingItems,
+  billingKeys, listBillingItems, createBillingItem,
   updateBillingItem, deleteBillingItem, markAsPaid, summarize,
   buildImplantacaoPlan, buildMensalidadePlan,
   validateBillingPlan,
@@ -22,6 +22,8 @@ import {
   listBillingPresets, createBillingPreset, updateBillingPreset, deleteBillingPreset,
   type BillingPreset, type BillingPresetInput,
 } from "@/lib/billing/api";
+import { generateBillingPlan } from "@/lib/billing/plan.functions";
+import { useServerFn } from "@tanstack/react-start";
 
 export const Route = createFileRoute("/operacoes/clientes/$id/financeiro")({
   ssr: false,
