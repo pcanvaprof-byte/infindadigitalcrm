@@ -95,9 +95,3 @@ export const attachValidSupabaseAuth = createMiddleware({ type: "function" }).cl
     }
   },
 );
-        return await holdForRedirect();
-      }
-      throw error;
-    }
-  },
-);
