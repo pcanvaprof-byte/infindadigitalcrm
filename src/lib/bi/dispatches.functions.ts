@@ -283,6 +283,7 @@ export interface DispatchRow {
 }
 
 export const listDispatchRows = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((input: { from: string; to: string }) => {
     if (!input?.from || !input?.to) throw new Error("from/to obrigatórios");
     return input;
