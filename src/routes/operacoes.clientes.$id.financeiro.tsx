@@ -193,7 +193,9 @@ function FinanceiroPage() {
                   <th className="px-3 py-1.5 text-right font-semibold text-emerald-600 dark:text-emerald-400">Recebido</th>
                   <th className="px-3 py-1.5 text-right font-semibold text-amber-600 dark:text-amber-400">A receber</th>
                   <th className="px-3 py-1.5 text-right font-semibold text-rose-600 dark:text-rose-400">Atrasado</th>
-                  <th className="px-3 py-1.5 text-right font-semibold text-violet-600 dark:text-violet-400">Bonificado</th>
+                  {bonusMode === "separate" && (
+                    <th className="px-3 py-1.5 text-right font-semibold text-violet-600 dark:text-violet-400">Bonificado</th>
+                  )}
                   <th className="px-3 py-1.5 text-right font-semibold">Total</th>
                 </tr>
               </thead>
@@ -204,7 +206,9 @@ function FinanceiroPage() {
                     <td className="px-3 py-1.5 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{m.recebido ? BRL(m.recebido) : "—"}</td>
                     <td className="px-3 py-1.5 text-right tabular-nums text-amber-600 dark:text-amber-400">{m.aReceber ? BRL(m.aReceber) : "—"}</td>
                     <td className="px-3 py-1.5 text-right tabular-nums text-rose-600 dark:text-rose-400">{m.atrasado ? BRL(m.atrasado) : "—"}</td>
-                    <td className="px-3 py-1.5 text-right tabular-nums text-violet-600 dark:text-violet-400">{m.bonificado ? BRL(m.bonificado) : "—"}</td>
+                    {bonusMode === "separate" && (
+                      <td className="px-3 py-1.5 text-right tabular-nums text-violet-600 dark:text-violet-400">{m.bonificado ? BRL(m.bonificado) : "—"}</td>
+                    )}
                     <td className="px-3 py-1.5 text-right font-semibold tabular-nums">{BRL(m.total)}</td>
                   </tr>
                 ))}
@@ -215,7 +219,9 @@ function FinanceiroPage() {
                   <td className="px-3 py-1.5 text-right tabular-nums text-emerald-600 dark:text-emerald-400">{BRL(s.recebido)}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums text-amber-600 dark:text-amber-400">{BRL(s.aReceber)}</td>
                   <td className="px-3 py-1.5 text-right tabular-nums text-rose-600 dark:text-rose-400">{BRL(s.atrasado)}</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums text-violet-600 dark:text-violet-400">{BRL(s.bonificado)}</td>
+                  {bonusMode === "separate" && (
+                    <td className="px-3 py-1.5 text-right tabular-nums text-violet-600 dark:text-violet-400">{BRL(s.bonificado)}</td>
+                  )}
                   <td className="px-3 py-1.5 text-right tabular-nums">{BRL(s.total)}</td>
                 </tr>
               </tfoot>
