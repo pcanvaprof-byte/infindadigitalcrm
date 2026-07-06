@@ -455,6 +455,17 @@ function BillingItemDialog({
             <Label className="text-xs">Observação (opcional)</Label>
             <Input value={observacao} onChange={(e) => setObservacao(e.target.value)} />
           </div>
+          {saveErrors.length > 0 && (
+            <div className="rounded border border-rose-500/40 bg-rose-500/10 p-2">
+              <p className="mb-1 flex items-center gap-1 text-[11px] font-semibold text-rose-700 dark:text-rose-400">
+                <AlertTriangle className="h-3 w-3" />
+                Não foi possível salvar — corrija {saveErrors.length === 1 ? "o problema abaixo" : `os ${saveErrors.length} problemas abaixo`}:
+              </p>
+              <ul className="ml-4 list-disc space-y-0.5 text-[11px] text-rose-700 dark:text-rose-300">
+                {saveErrors.map((e, i) => <li key={i}>{e}</li>)}
+              </ul>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}><X className="mr-1 h-4 w-4" /> Cancelar</Button>
