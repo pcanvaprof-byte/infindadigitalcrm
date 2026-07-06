@@ -118,7 +118,7 @@ function FinanceiroPage() {
   const porMesRaw = useMemo(() => summarizeByMonth(items), [items]);
   const s = useMemo(() => mergeBonusInSummary(sRaw, bonusMode), [sRaw, bonusMode]);
   const porMes = useMemo(
-    () => porMesRaw.map((m) => ({ ym: m.ym, ...mergeBonusInSummary(m, bonusMode) })),
+    () => porMesRaw.map((m) => ({ ...mergeBonusInSummary(m, bonusMode), ym: m.ym })),
     [porMesRaw, bonusMode],
   );
 
