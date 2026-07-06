@@ -24,6 +24,40 @@ import { Copy } from "lucide-react";
 
 type Item = { stage: string; titulo: string; corpo: string };
 
+const CATEGORIAS: Array<{ value: string; label: string }> = [
+  { value: "custom", label: "Personalizado" },
+  { value: "nicho", label: "Nicho (genérico)" },
+  { value: "utilitario", label: "Utilitário (Reativação, Follow-up, Pós-venda)" },
+  { value: "data_especial", label: "Data comemorativa" },
+  { value: "saude", label: "Saúde" },
+  { value: "odontologia", label: "Odontologia" },
+  { value: "estetica", label: "Estética" },
+  { value: "salao_beleza", label: "Salão de Beleza" },
+  { value: "barbearia", label: "Barbearia" },
+  { value: "petshop", label: "Pet & Vet" },
+  { value: "restaurante", label: "Restaurantes & Delivery" },
+  { value: "loja_infantil", label: "Loja Infantil" },
+  { value: "loja_roupas", label: "Loja de Roupas" },
+  { value: "auto_center", label: "Auto Center" },
+  { value: "concessionaria", label: "Concessionárias" },
+  { value: "academia", label: "Academias" },
+  { value: "educacao", label: "Educação" },
+  { value: "turismo", label: "Turismo" },
+  { value: "eventos", label: "Eventos" },
+  { value: "contabilidade", label: "Contabilidade" },
+  { value: "advocacia", label: "Advocacia" },
+  { value: "imobiliaria", label: "Imobiliárias" },
+  { value: "seguros", label: "Seguros" },
+  { value: "financeiro", label: "Financeiro" },
+  { value: "b2b", label: "B2B" },
+  { value: "marketing", label: "Marketing" },
+  { value: "tecnologia", label: "Tecnologia" },
+  { value: "engenharia", label: "Engenharia" },
+  { value: "arquitetura", label: "Arquitetura" },
+  { value: "energia_solar", label: "Energia Solar" },
+  { value: "moveis_planejados", label: "Móveis Planejados" },
+];
+
 const STAGE_LABEL: Record<string, string> = {
   followup_1: "Follow-up 1",
   followup_2: "Follow-up 2",
@@ -136,10 +170,10 @@ export function DuplicatePackDialog({
             <Label className="text-xs">Categoria</Label>
             <Select value={meta.categoria} onValueChange={(v) => setMeta({ ...meta, categoria: v })}>
               <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="nicho">Nicho</SelectItem>
-                <SelectItem value="data_especial">Data especial</SelectItem>
-                <SelectItem value="custom">Personalizado</SelectItem>
+              <SelectContent className="max-h-72">
+                {CATEGORIAS.map((c) => (
+                  <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
