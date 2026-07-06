@@ -3,7 +3,6 @@ import { createMiddleware } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import {
   clearStoredAuthSession,
-  isAuthTokenError,
   redirectToAuthForFreshSession,
 } from "@/lib/auth-session-recovery";
 
@@ -50,10 +49,7 @@ async function getValidatedAccessToken(): Promise<string | null> {
   // so an old browser session is cleared locally instead of being sent to the
   // server and crashing the preview with "Unauthorized: Invalid token".
   const { data: userData, error } = await supabase.auth.getUser();
-  if (error || !userData.user) {
-    if (!error || isAuthTokenError(error)) return resetInvalidSession();
-    return null;
-  }
+  if (error || !userData.user) return resetInvalidSession();
 
   const { data: refreshed } = await supabase.auth.getSession();
   const refreshedToken = refreshed.session?.access_token ?? token;
