@@ -124,16 +124,27 @@ export async function markAsPaid(id: string, metodo?: string): Promise<void> {
 
 // ------ Helpers ------
 
-function addDaysISO(baseISO: string, days: number): string {
+export function addDaysISO(baseISO: string, days: number): string {
   const d = new Date(baseISO + "T12:00:00");
   d.setDate(d.getDate() + days);
   return d.toISOString().slice(0, 10);
 }
 
-function addMonthsISO(baseISO: string, months: number): string {
+export function addMonthsISO(baseISO: string, months: number): string {
   const d = new Date(baseISO + "T12:00:00");
   d.setMonth(d.getMonth() + months);
   return d.toISOString().slice(0, 10);
+}
+
+/**
+ * Extrai o "nome base" de uma parcela gerada pelos planos
+ * (ex.: "Mentoria — Mês 3 (bonificado)" → "Mentoria",
+ *  "Site — 2/3" → "Site"). Usa " — " (em dash) como separador.
+ */
+export function extractPlanBase(descricao: string): string {
+  const sep = " — ";
+  const idx = descricao.indexOf(sep);
+  return (idx > 0 ? descricao.slice(0, idx) : descricao).trim();
 }
 
 /** Gera N parcelas de implantação a partir de uma data base (dias entre parcelas). */
