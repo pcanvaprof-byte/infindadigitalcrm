@@ -296,7 +296,13 @@ function NovaPropostaDialog({
   const [prospectId, setProspectId] = useState<string>("");
   const [titulo, setTitulo] = useState("Proposta Comercial");
   const [selected, setSelected] = useState<Record<string, number>>({}); // catalogId -> qty
-  type Avulso = { id: string; nome: string; cobranca: "implantacao" | "mensal" | "avulso"; valor: number };
+  type Avulso = {
+    id: string;
+    nome: string;
+    cobranca: "implantacao" | "mensal" | "avulso";
+    valor: number;
+    due_date?: string; // YYYY-MM-DD, editável — usado para parcelas
+  };
   const [avulsos, setAvulsos] = useState<Avulso[]>([]);
   const [avNome, setAvNome] = useState("");
   const [avValor, setAvValor] = useState("");
@@ -384,6 +390,7 @@ function NovaPropostaDialog({
           proposal_id: proposalId,
           catalog_item_id: null,
           nome: av.nome,
+          descricao: av.due_date ? `Vencimento: ${av.due_date}` : null,
           cobranca: av.cobranca,
           quantidade: 1,
           valor_unitario: av.valor,
