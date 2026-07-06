@@ -718,9 +718,11 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
     modo, dataInicial, valor, parcelas, intervaloDias, bonificar,
   ]);
 
-  const generatePlan = useServerFn(generateBillingPlan);
-
-  const buildServerInput = () => {
+  // Mesmo pipeline do server fn, mas rodando no client:
+  // o browser está autenticado no OWN_SB (onde a tabela vive), enquanto o
+  // server fn valida token contra o projeto Lovable Cloud e devolve
+  // "Invalid API key". Client-side com RLS do usuário é seguro.
+  const buildPlanInput = () => {
     if (activePreset) {
       return {
         mode: "preset-combinado" as const,
