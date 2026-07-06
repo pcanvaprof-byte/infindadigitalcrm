@@ -105,6 +105,35 @@ const STAGE_LABEL: Record<string, string> = {
 const STAGES = Object.keys(STAGE_LABEL);
 const VARIABLES = ["responsavel", "empresa", "cidade", "segmento", "telefone", "cargo"];
 
+const SAMPLE_DEFAULTS: Record<string, string> = {
+  responsavel: "Ana Souza",
+  empresa: "Padaria Trigo Dourado",
+  cidade: "Belo Horizonte",
+  segmento: "Padaria",
+  telefone: "(31) 99999-1234",
+  cargo: "Proprietária",
+  remetente: "João / Infinda",
+  data_reuniao: "quinta às 15h",
+  nome: "Ana",
+};
+
+function renderPreview(text: string, sample: Record<string, string>) {
+  if (!text) return "";
+  return text.replace(/\{\{\s*([a-z_]+)\s*\}\}/gi, (_m, key: string) => {
+    const v = sample[key.toLowerCase()];
+    return v && v.trim() ? v : `{{${key}}}`;
+  });
+}
+
+function countUnknownVars(text: string, sample: Record<string, string>) {
+  const found = new Set<string>();
+  for (const m of text.matchAll(/\{\{\s*([a-z_]+)\s*\}\}/gi)) {
+    const k = m[1].toLowerCase();
+    if (!sample[k] || !sample[k].trim()) found.add(k);
+  }
+  return Array.from(found);
+}
+
 async function getActiveOrgId(): Promise<string> {
   const { data: u } = await supabase.auth.getUser();
   const uid = u.user?.id;
@@ -414,6 +443,8 @@ function EditPackDialog({ pack, onClose, onSaved }: {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [activeStage, setActiveStage] = useState<string>(STAGES[0]);
+  const [sample, setSample] = useState<Record<string, string>>(SAMPLE_DEFAULTS);
+  const [showSample, setShowSample] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -439,6 +470,13 @@ function EditPackDialog({ pack, onClose, onSaved }: {
     const tag = `{{${v}}}`;
     updateCurrent({ corpo: (current.corpo ?? "") + tag });
   }
+
+  const previewTitulo = current ? renderPreview(current.titulo, sample) : "";
+  const previewCorpo = current ? renderPreview(current.corpo, sample) : "";
+  const unknownVars = current ? countUnknownVars(current.corpo + " " + current.titulo, sample) : [];
+  const charCount = current?.corpo?.length ?? 0;
+  const wordCount = current?.corpo ? current.corpo.trim().split(/\s+/).filter(Boolean).length : 0;
+  const totalFilled = items.filter((i) => i.titulo || i.corpo).length;
 
   async function save() {
     setSaving(true);
@@ -467,10 +505,12 @@ function EditPackDialog({ pack, onClose, onSaved }: {
 
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-6xl">
         <DialogHeader>
           <DialogTitle>Editar pack — {pack.nome}</DialogTitle>
-          <DialogDescription>Edite metadados e as 13 mensagens da cadência.</DialogDescription>
+          <DialogDescription>
+            Edite metadados e as 13 mensagens da cadência. O preview à direita renderiza em tempo real com valores de exemplo.
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-2">
@@ -488,15 +528,21 @@ function EditPackDialog({ pack, onClose, onSaved }: {
         </div>
         <Separator />
         {loading ? <p className="text-xs text-muted-foreground">Carregando…</p> : (
-          <div className="grid gap-3 md:grid-cols-[220px_1fr]">
+          <div className="grid gap-3 md:grid-cols-[200px_1fr_300px]">
             <ScrollArea className="max-h-[360px]">
               <div className="space-y-1">
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Etapas · {totalFilled}/13 preenchidas
+                </p>
                 {items.map((it) => (
                   <button key={it.stage} onClick={() => setActiveStage(it.stage)}
-                    className={`w-full rounded border px-2 py-1.5 text-left text-[11px] ${
-                      activeStage === it.stage ? "border-primary bg-primary/5" : "border-border/50"
+                    className={`w-full rounded border px-2 py-1.5 text-left text-[11px] transition ${
+                      activeStage === it.stage ? "border-primary bg-primary/5" : "border-border/50 hover:border-border"
                     }`}>
-                    <p className="font-medium">{STAGE_LABEL[it.stage] ?? it.stage}</p>
+                    <div className="flex items-center justify-between gap-1">
+                      <p className="truncate font-medium">{STAGE_LABEL[it.stage] ?? it.stage}</p>
+                      {(it.titulo || it.corpo) && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />}
+                    </div>
                     <p className="line-clamp-1 text-muted-foreground">{it.titulo || <span className="italic opacity-60">(sem título)</span>}</p>
                   </button>
                 ))}
@@ -504,12 +550,29 @@ function EditPackDialog({ pack, onClose, onSaved }: {
             </ScrollArea>
             {current && (
               <div className="space-y-2">
-                <div><Label className="text-xs">Título da etapa</Label>
-                  <Input value={current.titulo} onChange={(e) => updateCurrent({ titulo: e.target.value })} /></div>
-                <div><Label className="text-xs">Mensagem</Label>
-                  <Textarea value={current.corpo} onChange={(e) => updateCurrent({ corpo: e.target.value })} rows={10} /></div>
+                <div>
+                  <Label className="text-xs">Título da etapa</Label>
+                  <Input value={current.titulo} onChange={(e) => updateCurrent({ titulo: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Mensagem</Label>
+                  <Textarea
+                    value={current.corpo}
+                    onChange={(e) => updateCurrent({ corpo: e.target.value })}
+                    rows={10}
+                    className="font-mono text-xs"
+                  />
+                  <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
+                    <span>{charCount} caracteres · {wordCount} palavras</span>
+                    {unknownVars.length > 0 && (
+                      <span className="text-amber-600 dark:text-amber-400">
+                        ⚠ variáveis sem valor: {unknownVars.map((v) => `{{${v}}}`).join(", ")}
+                      </span>
+                    )}
+                  </div>
+                </div>
                 <div className="flex flex-wrap gap-1">
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground mr-1">Variáveis:</span>
+                  <span className="mr-1 text-[10px] uppercase tracking-wider text-muted-foreground">Inserir variável:</span>
                   {VARIABLES.map((v) => (
                     <button key={v} type="button" onClick={() => insertVar(v)}
                       className="rounded border border-border/50 bg-muted/40 px-1.5 py-0.5 text-[10px] hover:bg-muted">
@@ -520,6 +583,60 @@ function EditPackDialog({ pack, onClose, onSaved }: {
                 <p className="text-[10px] text-muted-foreground">
                   Delays de follow-up são definidos pelo motor (3/7/10/14/18/24/30 dias). Só a mensagem é editável.
                 </p>
+              </div>
+            )}
+
+            {/* Live preview */}
+            {current && (
+              <div className="flex flex-col gap-2 rounded-lg border border-border bg-[#0b141a] p-2">
+                <div className="flex items-center justify-between gap-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-400/80">
+                    Preview · WhatsApp
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowSample((v) => !v)}
+                    className="text-[10px] text-muted-foreground hover:text-foreground"
+                  >
+                    {showSample ? "Ocultar dados" : "Editar dados exemplo"}
+                  </button>
+                </div>
+
+                {showSample && (
+                  <div className="grid grid-cols-1 gap-1 rounded border border-border/40 bg-background/90 p-2 text-foreground">
+                    {VARIABLES.map((v) => (
+                      <div key={v} className="flex items-center gap-1">
+                        <span className="w-20 shrink-0 text-[10px] text-muted-foreground">{`{{${v}}}`}</span>
+                        <Input
+                          value={sample[v] ?? ""}
+                          onChange={(e) => setSample((prev) => ({ ...prev, [v]: e.target.value }))}
+                          className="h-6 text-[11px]"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <ScrollArea className="max-h-[360px] pr-1">
+                  <div className="space-y-1.5">
+                    {previewTitulo && (
+                      <p className="text-[10px] font-medium text-emerald-300/80">
+                        {previewTitulo}
+                      </p>
+                    )}
+                    <div className="ml-auto max-w-[85%] rounded-lg rounded-tr-sm bg-[#005c4b] px-2.5 py-1.5 text-[12px] text-white shadow-sm">
+                      {previewCorpo ? (
+                        <p className="whitespace-pre-wrap break-words">{previewCorpo}</p>
+                      ) : (
+                        <p className="italic opacity-60">(mensagem vazia)</p>
+                      )}
+                      <p className="mt-0.5 text-right text-[9px] text-white/50">agora ✓✓</p>
+                    </div>
+                    <p className="text-center text-[9px] text-muted-foreground/60">
+                      {STAGE_LABEL[current.stage] ?? current.stage}
+                    </p>
+                  </div>
+                </ScrollArea>
               </div>
             )}
           </div>
