@@ -187,8 +187,11 @@ function _subscribeUidInvalidator() {
   _uidSubscribed = true;
   try {
     supabase.auth.onAuthStateChange((event, session) => {
-      if (event === "SIGNED_OUT") _cachedUid = null;
-      else if (event === "SIGNED_IN" || event === "USER_UPDATED" || event === "TOKEN_REFRESHED") {
+      // Só reage a transições de identidade. TOKEN_REFRESHED / INITIAL_SESSION
+      // não trocam o usuário e apenas causariam re-escrita ruidosa do cache.
+      if (event === "SIGNED_OUT") {
+        _cachedUid = null;
+      } else if (event === "SIGNED_IN" || event === "USER_UPDATED") {
         _cachedUid = session?.user?.id ?? null;
       }
     });
