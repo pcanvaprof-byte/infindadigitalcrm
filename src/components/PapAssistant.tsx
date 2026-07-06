@@ -147,6 +147,24 @@ function score(p: Prospect, q: string) {
   return s;
 }
 
+/**
+ * Alguns modelos emitem uma "tool call textual" no conteúdo
+ * (ex.: `{ "action": "search_prospects", "action_input": "{...}" }`)
+ * mesmo quando já retornaram tool_calls estruturados. Removemos qualquer
+ * bloco JSON de ação para não vazar na conversa.
+ */
+function sanitizeAssistantContent(raw: string | null | undefined): string {
+  if (!raw) return "";
+  let out = raw;
+  // Remove code fences ```json ... ``` que só contêm um "action"
+  out = out.replace(/```(?:json|tool_code|tool)?\s*\{[\s\S]*?"action"[\s\S]*?\}\s*```/gi, "");
+  // Remove objetos JSON soltos (não cercados por fence) contendo "action" + "action_input"
+  out = out.replace(/\{\s*"action"\s*:\s*"[^"]+"\s*,\s*"action_input"\s*:\s*[\s\S]*?\}\s*/g, "");
+  // Remove linhas "Thought:" / "Action:" / "Observation:" (padrão ReAct)
+  out = out.replace(/^\s*(Thought|Action|Action Input|Observation)\s*:.*$/gim, "");
+  return out.trim();
+}
+
 async function runTool(name: string, args: any): Promise<unknown> {
   if (name === "search_prospects") {
     const list = await loadAllProspects();
@@ -286,7 +304,7 @@ export function PapAssistant() {
         conv = [...conv, assistantMsg];
 
         if (!reply.tool_calls || reply.tool_calls.length === 0) {
-          setMsgs((m) => [...m, { role: "assistant", content: reply.content || "" }]);
+          setMsgs((m) => [...m, { role: "assistant", content: sanitizeAssistantContent(reply.content) }]);
           break;
         }
 
@@ -375,10 +393,12 @@ export function PapAssistant() {
                 );
               }
               if (m.role === "assistant" && m.content) {
+                const clean = sanitizeAssistantContent(m.content);
+                if (!clean) return null;
                 return (
                   <div key={i} className="max-w-[90%] text-sm">
                     <div className="prose prose-sm prose-invert max-w-none [&_p]:my-1 [&_ul]:my-1 [&_ol]:my-1">
-                      <ReactMarkdown>{m.content}</ReactMarkdown>
+                      <ReactMarkdown>{clean}</ReactMarkdown>
                     </div>
                   </div>
                 );
