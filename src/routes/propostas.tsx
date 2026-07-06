@@ -296,7 +296,13 @@ function NovaPropostaDialog({
   const [prospectId, setProspectId] = useState<string>("");
   const [titulo, setTitulo] = useState("Proposta Comercial");
   const [selected, setSelected] = useState<Record<string, number>>({}); // catalogId -> qty
-  type Avulso = { id: string; nome: string; cobranca: "implantacao" | "mensal" | "avulso"; valor: number };
+  type Avulso = {
+    id: string;
+    nome: string;
+    cobranca: "implantacao" | "mensal" | "avulso";
+    valor: number;
+    due_date?: string; // YYYY-MM-DD, editável — usado para parcelas
+  };
   const [avulsos, setAvulsos] = useState<Avulso[]>([]);
   const [avNome, setAvNome] = useState("");
   const [avValor, setAvValor] = useState("");
@@ -384,6 +390,7 @@ function NovaPropostaDialog({
           proposal_id: proposalId,
           catalog_item_id: null,
           nome: av.nome,
+          descricao: av.due_date ? `Vencimento: ${av.due_date}` : null,
           cobranca: av.cobranca,
           quantidade: 1,
           valor_unitario: av.valor,
@@ -550,6 +557,79 @@ function NovaPropostaDialog({
             <Input value={titulo} onChange={(e) => setTitulo(e.target.value)} className="mt-1 h-9" />
           </div>
 
+          {/* Templates prontos */}
+          <div className="rounded border border-border/40 bg-card/30 p-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-muted-foreground">Templates rápidos</label>
+              <span className="text-[10px] text-muted-foreground">Preenche título + parcelas com datas editáveis</span>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8"
+                onClick={() => {
+                  setTitulo("Proposta E-commerce — Implantação");
+                  const parcelas = 6;
+                  const valorParcela = 2500;
+                  const base = new Date();
+                  const novas: Avulso[] = Array.from({ length: parcelas }).map((_, i) => {
+                    const d = new Date(base.getFullYear(), base.getMonth() + i, base.getDate());
+                    return {
+                      id: crypto.randomUUID(),
+                      nome: `Implantação E-commerce — Parcela ${i + 1}/${parcelas}`,
+                      cobranca: "implantacao",
+                      valor: valorParcela,
+                      due_date: d.toISOString().slice(0, 10),
+                    };
+                  });
+                  setAvulsos((a) => [...a, ...novas]);
+                  toast.success(`Template E-commerce aplicado — ${parcelas} parcelas`);
+                }}
+              >
+                E-commerce (implantação 6x)
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8"
+                onClick={() => {
+                  setTitulo("Proposta Mentoria — Programa Mensal");
+                  const meses = 12;
+                  const valorMensal = 1500;
+                  const base = new Date();
+                  const novas: Avulso[] = Array.from({ length: meses }).map((_, i) => {
+                    const d = new Date(base.getFullYear(), base.getMonth() + i, base.getDate());
+                    return {
+                      id: crypto.randomUUID(),
+                      nome: `Mentoria — Mês ${i + 1}/${meses}`,
+                      cobranca: "mensal",
+                      valor: valorMensal,
+                      due_date: d.toISOString().slice(0, 10),
+                    };
+                  });
+                  setAvulsos((a) => [...a, ...novas]);
+                  toast.success(`Template Mentoria aplicado — ${meses} meses`);
+                }}
+              >
+                Mentoria (mensal 12x)
+              </Button>
+              {avulsos.length > 0 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-muted-foreground"
+                  onClick={() => setAvulsos([])}
+                >
+                  Limpar parcelas
+                </Button>
+              )}
+            </div>
+          </div>
+
           {/* Serviços */}
           <div>
             <div className="flex items-center justify-between">
@@ -610,16 +690,39 @@ function NovaPropostaDialog({
             {avulsos.length > 0 && (
               <ul className="mt-2 space-y-1">
                 {avulsos.map((a) => (
-                  <li key={a.id} className="flex items-center justify-between text-xs rounded bg-card/40 px-2 py-1">
-                    <span className="truncate">{a.nome} <span className="text-muted-foreground">({a.cobranca})</span></span>
-                    <span className="flex items-center gap-2">
-                      <span className="font-semibold tabular-nums">{formatBRL(a.valor)}</span>
-                      <button
-                        type="button"
-                        className="text-muted-foreground hover:text-destructive"
-                        onClick={() => setAvulsos((arr) => arr.filter((x) => x.id !== a.id))}
-                      >✕</button>
+                  <li key={a.id} className="grid grid-cols-[1fr_130px_130px_auto] items-center gap-2 text-xs rounded bg-card/40 px-2 py-1">
+                    <span className="truncate">
+                      {a.nome}{" "}
+                      <span className="text-muted-foreground">({a.cobranca})</span>
                     </span>
+                    <Input
+                      type="date"
+                      className="h-7 text-xs"
+                      value={a.due_date ?? ""}
+                      onChange={(e) =>
+                        setAvulsos((arr) =>
+                          arr.map((x) => (x.id === a.id ? { ...x, due_date: e.target.value || undefined } : x)),
+                        )
+                      }
+                    />
+                    <Input
+                      inputMode="decimal"
+                      className="h-7 text-xs text-right tabular-nums"
+                      value={String(a.valor)}
+                      onChange={(e) => {
+                        const v = Number(e.target.value.replace(",", "."));
+                        setAvulsos((arr) =>
+                          arr.map((x) => (x.id === a.id ? { ...x, valor: isFinite(v) ? v : 0 } : x)),
+                        );
+                      }}
+                    />
+                    <button
+                      type="button"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => setAvulsos((arr) => arr.filter((x) => x.id !== a.id))}
+                    >
+                      ✕
+                    </button>
                   </li>
                 ))}
               </ul>
