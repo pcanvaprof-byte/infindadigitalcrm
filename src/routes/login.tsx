@@ -12,6 +12,7 @@ import { APP_VERSION } from "@/lib/version";
 export const Route = createFileRoute("/login")({
   validateSearch: (search) => ({
     redirect: typeof search.redirect === "string" ? search.redirect : "/dashboard",
+    reason: typeof search.reason === "string" ? search.reason : undefined,
   }),
   head: () => ({
     meta: [
@@ -24,7 +25,7 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
-  const { redirect } = Route.useSearch();
+  const { redirect, reason } = Route.useSearch();
   const { user, isReady, login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -109,6 +110,12 @@ function LoginPage() {
                 Entre com seu email e senha para continuar.
               </p>
             </div>
+
+            {reason === "session" && (
+              <p className="mb-4 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm text-amber-200">
+                Sua sessão estava desatualizada. Entre novamente para continuar.
+              </p>
+            )}
 
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div className="space-y-2">
