@@ -52,11 +52,17 @@ function ClientDetail() {
 
   const advanceM = useMutation({
     mutationFn: (to: PipelineStage) => advanceStage(id, to),
-    onSuccess: () => {
+    onSuccess: (_data, to) => {
       qc.invalidateQueries({ queryKey: ["lc-client", id] });
       qc.invalidateQueries({ queryKey: ["lc-clients"] });
       qc.invalidateQueries({ queryKey: ["lc-timeline", id] });
-      toast.success("Estágio atualizado");
+      qc.invalidateQueries({ queryKey: ["adjustment-notes", id] });
+      const msg: Partial<Record<PipelineStage, string>> = {
+        PROPOSTA: "Estágio: Proposta — próxima ação preenchida automaticamente",
+        CONTRATO: "Estágio: Contrato — contrato marcado como enviado",
+        ATIVO: "Estágio: Ativo — operações liberadas, contrato assinado, financeiro confirmado",
+      };
+      toast.success(msg[to] ?? "Estágio atualizado");
     },
     onError: (e: Error) => toast.error(e.message),
   });
