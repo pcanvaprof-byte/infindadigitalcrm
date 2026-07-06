@@ -796,9 +796,15 @@ function PresetEditorDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>{mode === "edit" ? "Editar preset" : "Novo preset"}</DialogTitle>
+          <DialogTitle>
+            {mode === "edit" ? "Editar preset"
+             : mode === "duplicate" ? "Duplicar preset"
+             : "Novo preset"}
+          </DialogTitle>
           <DialogDescription>
-            Presets ficam disponíveis para qualquer cliente.
+            {mode === "duplicate"
+              ? "Ajuste o nome e os valores. O preset original permanece inalterado."
+              : "Presets ficam disponíveis para qualquer cliente."}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
