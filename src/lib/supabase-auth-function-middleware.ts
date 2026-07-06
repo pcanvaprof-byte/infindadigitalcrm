@@ -50,21 +50,41 @@ function isUsableToken(token: string) {
   return true;
 }
 
+function holdForRedirect(): Promise<never> {
+  return new Promise<never>(() => {});
+}
+
+async function getValidatedAccessToken(): Promise<string | null> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) return null;
+
+  if (!isUsableToken(token)) {
+    recoverFromInvalidAuthSession();
+    await holdForRedirect();
+  }
+
+  const { data: userData, error } = await supabase.auth.getUser(token);
+  if (error || !userData.user) {
+    recoverFromInvalidAuthSession();
+    await holdForRedirect();
+  }
+
+  return token;
+}
+
 export const attachValidSupabaseAuth = createMiddleware({ type: "function" }).client(
   async ({ next }) => {
     if (typeof window === "undefined") return next();
 
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
-
-    const headers: HeadersInit = token && isUsableToken(token) ? { Authorization: `Bearer ${token}` } : {};
-
     try {
+      const token = await getValidatedAccessToken();
+      const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {};
       return await next({ headers });
     } catch (error) {
       if (isAuthTokenError(error)) {
         recoverFromInvalidAuthSession();
-        return await new Promise<never>(() => {});
+        return await holdForRedirect();
       }
       throw error;
     }
