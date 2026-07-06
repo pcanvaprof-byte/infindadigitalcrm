@@ -299,6 +299,17 @@ export function TemplateLibrary() {
 
       {loading ? (
         <p className="text-xs text-muted-foreground">Carregando biblioteca…</p>
+      ) : sessionMismatch ? (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4 text-xs">
+          <p className="font-semibold text-amber-500">Sessão desatualizada</p>
+          <p className="mt-1 text-muted-foreground">
+            Nenhum pack foi carregado. Isso normalmente significa que sua sessão está vinculada a outro projeto.
+            Faça logout e entre novamente para restaurar o acesso à biblioteca.
+          </p>
+          <Button size="sm" className="mt-3 h-8 text-xs" onClick={() => void forceReauth()}>
+            Sair e entrar novamente
+          </Button>
+        </div>
       ) : (
         <div className="grid gap-3 lg:grid-cols-[1fr_360px]">
           <ScrollArea className="max-h-[520px] pr-2">
