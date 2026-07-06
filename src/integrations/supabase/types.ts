@@ -781,6 +781,51 @@ export type Database = {
           },
         ]
       }
+      client_events: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          organization_id: string
+          payload: Json
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          organization_id?: string
+          payload?: Json
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          organization_id?: string
+          payload?: Json
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_events_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           activated_at: string | null
@@ -918,6 +963,66 @@ export type Database = {
             columns: ["prospect_id"]
             isOneToOne: true
             referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      commercial_plans: {
+        Row: {
+          client_id: string
+          created_at: string
+          cronograma: Json
+          entregas: Json
+          id: string
+          investimento_gestao: number | null
+          investimento_trafego: number | null
+          objetivo: string | null
+          organization_id: string
+          plano_code: string | null
+          updated_at: string
+          validade_dias: number
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          cronograma?: Json
+          entregas?: Json
+          id?: string
+          investimento_gestao?: number | null
+          investimento_trafego?: number | null
+          objetivo?: string | null
+          organization_id?: string
+          plano_code?: string | null
+          updated_at?: string
+          validade_dias?: number
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          cronograma?: Json
+          entregas?: Json
+          id?: string
+          investimento_gestao?: number | null
+          investimento_trafego?: number | null
+          objetivo?: string | null
+          organization_id?: string
+          plano_code?: string | null
+          updated_at?: string
+          validade_dias?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "commercial_plans_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "commercial_plans_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -1289,6 +1394,180 @@ export type Database = {
           },
         ]
       }
+      contrato_eventos: {
+        Row: {
+          actor_id: string | null
+          actor_type: string
+          contrato_id: string
+          created_at: string
+          id: string
+          ip: string | null
+          organization_id: string
+          payload: Json
+          tipo: string
+        }
+        Insert: {
+          actor_id?: string | null
+          actor_type?: string
+          contrato_id: string
+          created_at?: string
+          id?: string
+          ip?: string | null
+          organization_id?: string
+          payload?: Json
+          tipo: string
+        }
+        Update: {
+          actor_id?: string | null
+          actor_type?: string
+          contrato_id?: string
+          created_at?: string
+          id?: string
+          ip?: string | null
+          organization_id?: string
+          payload?: Json
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contrato_eventos_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "contratos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contrato_eventos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contratos: {
+        Row: {
+          aceites: Json
+          assinado_em: string | null
+          assinatura_ip: string | null
+          assinatura_nome: string | null
+          assinatura_payload: string | null
+          assinatura_tipo: string | null
+          assinatura_user_agent: string | null
+          cancelado_em: string | null
+          cancelado_motivo: string | null
+          created_at: string
+          dados_bancarios: Json
+          dados_pessoa: Json
+          dia_vencimento: number | null
+          escopo: Json
+          formalizado_em: string | null
+          id: string
+          metodo_pagamento: string | null
+          numero: string
+          observacoes_financeiras: string | null
+          organization_id: string
+          parcelamento_implantacao: number | null
+          pdf_gerado_em: string | null
+          pdf_url: string | null
+          prazo_implantacao_dias: number | null
+          prazo_minimo_meses: number
+          proposal_id: string | null
+          status: string
+          tipo_pessoa: string | null
+          updated_at: string
+          user_id: string
+          valor_implantacao: number
+          valor_investimento_midia: number | null
+          valor_mensal: number
+        }
+        Insert: {
+          aceites?: Json
+          assinado_em?: string | null
+          assinatura_ip?: string | null
+          assinatura_nome?: string | null
+          assinatura_payload?: string | null
+          assinatura_tipo?: string | null
+          assinatura_user_agent?: string | null
+          cancelado_em?: string | null
+          cancelado_motivo?: string | null
+          created_at?: string
+          dados_bancarios?: Json
+          dados_pessoa?: Json
+          dia_vencimento?: number | null
+          escopo?: Json
+          formalizado_em?: string | null
+          id?: string
+          metodo_pagamento?: string | null
+          numero: string
+          observacoes_financeiras?: string | null
+          organization_id?: string
+          parcelamento_implantacao?: number | null
+          pdf_gerado_em?: string | null
+          pdf_url?: string | null
+          prazo_implantacao_dias?: number | null
+          prazo_minimo_meses?: number
+          proposal_id?: string | null
+          status?: string
+          tipo_pessoa?: string | null
+          updated_at?: string
+          user_id?: string
+          valor_implantacao?: number
+          valor_investimento_midia?: number | null
+          valor_mensal?: number
+        }
+        Update: {
+          aceites?: Json
+          assinado_em?: string | null
+          assinatura_ip?: string | null
+          assinatura_nome?: string | null
+          assinatura_payload?: string | null
+          assinatura_tipo?: string | null
+          assinatura_user_agent?: string | null
+          cancelado_em?: string | null
+          cancelado_motivo?: string | null
+          created_at?: string
+          dados_bancarios?: Json
+          dados_pessoa?: Json
+          dia_vencimento?: number | null
+          escopo?: Json
+          formalizado_em?: string | null
+          id?: string
+          metodo_pagamento?: string | null
+          numero?: string
+          observacoes_financeiras?: string | null
+          organization_id?: string
+          parcelamento_implantacao?: number | null
+          pdf_gerado_em?: string | null
+          pdf_url?: string | null
+          prazo_implantacao_dias?: number | null
+          prazo_minimo_meses?: number
+          proposal_id?: string | null
+          status?: string
+          tipo_pessoa?: string | null
+          updated_at?: string
+          user_id?: string
+          valor_implantacao?: number
+          valor_investimento_midia?: number | null
+          valor_mensal?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contratos_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contratos_proposal_id_fkey"
+            columns: ["proposal_id"]
+            isOneToOne: false
+            referencedRelation: "proposals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deal_activities: {
         Row: {
           created_at: string
@@ -1506,6 +1785,201 @@ export type Database = {
           },
         ]
       }
+      op_contract_renewals: {
+        Row: {
+          client_id: string
+          contract_end: string
+          contract_start: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          organization_id: string
+          owner_id: string
+          renewal_status: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          contract_end: string
+          contract_start?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          owner_id: string
+          renewal_status?: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          contract_end?: string
+          contract_start?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organization_id?: string
+          owner_id?: string
+          renewal_status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "op_contract_renewals_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "op_contract_renewals_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      op_deployments: {
+        Row: {
+          assigned_to: string | null
+          category: string
+          client_id: string
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          organization_id: string
+          owner_id: string
+          priority: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          category: string
+          client_id: string
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          organization_id?: string
+          owner_id: string
+          priority?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          category?: string
+          client_id?: string
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          organization_id?: string
+          owner_id?: string
+          priority?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "op_deployments_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "op_deployments_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      op_onboarding: {
+        Row: {
+          analytics_connected: boolean
+          client_id: string
+          cnpj: string | null
+          company_name: string | null
+          created_at: string
+          facebook: string | null
+          goal_type: string | null
+          google_ads_connected: boolean
+          id: string
+          instagram: string | null
+          meta_ads_connected: boolean
+          organization_id: string
+          owner_id: string
+          status: string
+          tag_manager_connected: boolean
+          updated_at: string
+          website: string | null
+          youtube: string | null
+        }
+        Insert: {
+          analytics_connected?: boolean
+          client_id: string
+          cnpj?: string | null
+          company_name?: string | null
+          created_at?: string
+          facebook?: string | null
+          goal_type?: string | null
+          google_ads_connected?: boolean
+          id?: string
+          instagram?: string | null
+          meta_ads_connected?: boolean
+          organization_id?: string
+          owner_id: string
+          status?: string
+          tag_manager_connected?: boolean
+          updated_at?: string
+          website?: string | null
+          youtube?: string | null
+        }
+        Update: {
+          analytics_connected?: boolean
+          client_id?: string
+          cnpj?: string | null
+          company_name?: string | null
+          created_at?: string
+          facebook?: string | null
+          goal_type?: string | null
+          google_ads_connected?: boolean
+          id?: string
+          instagram?: string | null
+          meta_ads_connected?: boolean
+          organization_id?: string
+          owner_id?: string
+          status?: string
+          tag_manager_connected?: boolean
+          updated_at?: string
+          website?: string | null
+          youtube?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "op_onboarding_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "op_onboarding_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_goals: {
         Row: {
           created_at: string
@@ -1603,6 +2077,36 @@ export type Database = {
           id?: string
           name?: string
           slug?: string | null
+        }
+        Relationships: []
+      }
+      plan_templates: {
+        Row: {
+          campaigns: Json
+          code: string
+          created_at: string
+          deliveries: Json
+          mensalidade: number
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          campaigns?: Json
+          code: string
+          created_at?: string
+          deliveries?: Json
+          mensalidade?: number
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          campaigns?: Json
+          code?: string
+          created_at?: string
+          deliveries?: Json
+          mensalidade?: number
+          name?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -2229,6 +2733,157 @@ export type Database = {
       }
     }
     Views: {
+      client_timeline: {
+        Row: {
+          client_id: string | null
+          created_at: string | null
+          data: Json | null
+          kind: string | null
+        }
+        Relationships: []
+      }
+      op_dashboard_exec_metrics: {
+        Row: {
+          campanhas_ativas: number | null
+          campanhas_encerradas: number | null
+          campanhas_pausadas: number | null
+          clientes_ativos: number | null
+          clientes_com_implantacao_pendente: number | null
+          clientes_inativos: number | null
+          clientes_sem_campanha_ativa: number | null
+          clientes_sem_onboarding: number | null
+          contratos_vencendo_30d: number | null
+          deployments_andamento: number | null
+          deployments_concluidos: number | null
+          deployments_total: number | null
+          interacoes_30d: number | null
+          onboarding_concluido: number | null
+          onboarding_em_configuracao: number | null
+          onboarding_pendente: number | null
+          total_clientes: number | null
+        }
+        Relationships: []
+      }
+      op_onboarding_progress: {
+        Row: {
+          client_id: string | null
+          id: string | null
+          organization_id: string | null
+          owner_id: string | null
+          progress: number | null
+          status: string | null
+          steps_done: number | null
+          steps_total: number | null
+        }
+        Insert: {
+          client_id?: string | null
+          id?: string | null
+          organization_id?: string | null
+          owner_id?: string | null
+          progress?: never
+          status?: string | null
+          steps_done?: never
+          steps_total?: never
+        }
+        Update: {
+          client_id?: string | null
+          id?: string | null
+          organization_id?: string | null
+          owner_id?: string | null
+          progress?: never
+          status?: string | null
+          steps_done?: never
+          steps_total?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "op_onboarding_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "op_onboarding_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      op_renewals_status: {
+        Row: {
+          client_id: string | null
+          computed_status: string | null
+          contract_end: string | null
+          contract_start: string | null
+          created_at: string | null
+          days_to_expire: number | null
+          id: string | null
+          notes: string | null
+          organization_id: string | null
+          owner_id: string | null
+          renewal_status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          computed_status?: never
+          contract_end?: string | null
+          contract_start?: string | null
+          created_at?: string | null
+          days_to_expire?: never
+          id?: string | null
+          notes?: string | null
+          organization_id?: string | null
+          owner_id?: string | null
+          renewal_status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string | null
+          computed_status?: never
+          contract_end?: string | null
+          contract_start?: string | null
+          created_at?: string | null
+          days_to_expire?: never
+          id?: string | null
+          notes?: string | null
+          organization_id?: string | null
+          owner_id?: string | null
+          renewal_status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "op_contract_renewals_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "op_contract_renewals_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vw_contratos_kpis: {
+        Row: {
+          arr: number | null
+          assinados: number | null
+          ativos: number | null
+          cancelados: number | null
+          mrr: number | null
+          pendentes: number | null
+          ticket_medio: number | null
+        }
+        Relationships: []
+      }
       vw_proposal_conversion: {
         Row: {
           decididas: number | null
