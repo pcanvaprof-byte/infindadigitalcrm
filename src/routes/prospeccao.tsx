@@ -101,6 +101,7 @@ import {
   type ImportLog,
 } from "@/lib/prospects-api";
 import { History, FileSpreadsheet } from "lucide-react";
+import { Pencil, Save as SaveIcon, XCircle } from "lucide-react";
 import { EnrichmentDrawer } from "@/components/EnrichmentDrawer";
 import { runEnrichment } from "@/lib/enrichment/api";
 import { Loader2 } from "lucide-react";
@@ -2320,6 +2321,131 @@ function ImportHistoryDialog({ open }: { open: boolean }) {
 }
 
 
+function InlineEditProspect({ p, onCancel, onSaved }: {
+  p: Prospect;
+  onCancel: () => void;
+  onSaved: () => void;
+}) {
+  const qc = useQueryClient();
+  const [form, setForm] = useState({
+    company: p.company ?? "",
+    owner: p.owner ?? "",
+    segment: p.segment ?? "",
+    whatsapp: p.whatsapp ?? "",
+    phone: p.phone ?? "",
+    email: p.email ?? "",
+    city: p.city ?? "",
+    state: p.state ?? "",
+    potential: p.potential,
+    status: p.status,
+  });
+  const [saving, setSaving] = useState(false);
+  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) =>
+    setForm((s) => ({ ...s, [k]: v }));
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      const patch: Partial<Prospect> = {
+        company: form.company.trim(),
+        owner: form.owner.trim(),
+        segment: form.segment.trim(),
+        whatsapp: form.whatsapp.trim(),
+        phone: form.phone.trim(),
+        email: form.email.trim(),
+        city: form.city.trim(),
+        state: form.state.trim().toUpperCase().slice(0, 2),
+        potential: form.potential,
+        status: form.status,
+      };
+      // Optimistic
+      qc.setQueryData<Prospect[]>(crmKeys.prospects, (old) =>
+        (Array.isArray(old) ? old : []).map((x) => (x.id === p.id ? { ...x, ...patch } : x)),
+      );
+      await updateProspect(p.id, patch);
+      await qc.invalidateQueries({ queryKey: crmKeys.prospects });
+      toast.success("Prospect atualizado");
+      onSaved();
+    } catch (e) {
+      toast.error(`Falha ao salvar: ${(e as Error).message}`);
+      qc.invalidateQueries({ queryKey: crmKeys.prospects });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="border-b border-border/60 bg-primary/5 p-3">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div className="col-span-2 sm:col-span-3">
+          <Label className="text-[10px] uppercase text-muted-foreground">Empresa</Label>
+          <Input className="h-8" value={form.company} onChange={(e) => set("company", e.target.value)} />
+        </div>
+        <div>
+          <Label className="text-[10px] uppercase text-muted-foreground">Contato</Label>
+          <Input className="h-8" value={form.owner} onChange={(e) => set("owner", e.target.value)} />
+        </div>
+        <div>
+          <Label className="text-[10px] uppercase text-muted-foreground">Segmento</Label>
+          <Input className="h-8" value={form.segment} onChange={(e) => set("segment", e.target.value)} />
+        </div>
+        <div>
+          <Label className="text-[10px] uppercase text-muted-foreground">WhatsApp</Label>
+          <Input className="h-8" value={form.whatsapp} onChange={(e) => set("whatsapp", e.target.value)} />
+        </div>
+        <div>
+          <Label className="text-[10px] uppercase text-muted-foreground">Telefone</Label>
+          <Input className="h-8" value={form.phone} onChange={(e) => set("phone", e.target.value)} />
+        </div>
+        <div>
+          <Label className="text-[10px] uppercase text-muted-foreground">Email</Label>
+          <Input className="h-8" value={form.email} onChange={(e) => set("email", e.target.value)} />
+        </div>
+        <div>
+          <Label className="text-[10px] uppercase text-muted-foreground">Cidade</Label>
+          <Input className="h-8" value={form.city} onChange={(e) => set("city", e.target.value)} />
+        </div>
+        <div>
+          <Label className="text-[10px] uppercase text-muted-foreground">UF</Label>
+          <Select value={form.state} onValueChange={(v) => set("state", v)}>
+            <SelectTrigger className="h-8"><SelectValue placeholder="UF" /></SelectTrigger>
+            <SelectContent>
+              {UFS.map((uf) => <SelectItem key={uf} value={uf}>{uf}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label className="text-[10px] uppercase text-muted-foreground">Potencial</Label>
+          <Select value={form.potential} onValueChange={(v) => set("potential", v as ProspectPotential)}>
+            <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {POTENTIALS.map((v) => <SelectItem key={v} value={v}>{POTENTIAL_LABEL[v]}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="col-span-2 sm:col-span-3">
+          <Label className="text-[10px] uppercase text-muted-foreground">Status</Label>
+          <Select value={form.status} onValueChange={(v) => set("status", v as ProspectStatus)}>
+            <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {STATUSES.map((s) => <SelectItem key={s} value={s}>{STATUS_LABEL[s]}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="mt-3 flex justify-end gap-2">
+        <Button size="sm" variant="ghost" onClick={onCancel} disabled={saving}>
+          <XCircle className="mr-1 h-4 w-4" /> Cancelar
+        </Button>
+        <Button size="sm" onClick={save} disabled={saving}>
+          {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <SaveIcon className="mr-1 h-4 w-4" />}
+          Salvar
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 const MobileProspectRow = memo(function MobileProspectRow({
   p, isSelected, busy, busyWhats, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
 }: {
@@ -2338,6 +2464,16 @@ const MobileProspectRow = memo(function MobileProspectRow({
   onEnrich: (p: Prospect) => void;
 }) {
   const noWhats = ((p.whatsapp || "").replace(/\D/g, "")).length < 10;
+  const [editing, setEditing] = useState(false);
+  if (editing) {
+    return (
+      <InlineEditProspect
+        p={p}
+        onCancel={() => setEditing(false)}
+        onSaved={() => setEditing(false)}
+      />
+    );
+  }
   return (
     <div className={`flex gap-3 border-b border-border/60 p-3 ${isSelected ? "bg-primary/5" : ""}`}>
       <NativeCheckbox
@@ -2362,6 +2498,16 @@ const MobileProspectRow = memo(function MobileProspectRow({
         </div>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8 text-primary-glow"
+          title="Editar campos"
+          aria-label={`Editar ${p.company}`}
+          onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+        >
+          <Pencil className="h-4 w-4" />
+        </Button>
         <Button
           size="icon"
           variant={noWhats ? "default" : "ghost"}
