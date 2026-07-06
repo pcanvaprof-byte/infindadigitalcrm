@@ -143,6 +143,8 @@ export async function updateClient(
       | "site_recurring_value"
       | "site_payment_status"
       | "contract_notes"
+      | "origem"
+      | "origem_detalhe"
     >
   >,
 ): Promise<LifecycleClient> {
