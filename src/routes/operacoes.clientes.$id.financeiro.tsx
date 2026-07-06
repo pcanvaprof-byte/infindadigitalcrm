@@ -353,8 +353,25 @@ function BillingItemDialog({
   const [metodo, setMetodo] = useState(item?.metodo ?? "");
   const [observacao, setObservacao] = useState(item?.observacao ?? "");
   const [saving, setSaving] = useState(false);
+  const [saveErrors, setSaveErrors] = useState<string[]>([]);
+
+  const fieldErrors = useMemo(() => {
+    const errs: string[] = [];
+    if (!descricao.trim()) errs.push("Descrição é obrigatória.");
+    else if (descricao.trim().length > 120) errs.push("Descrição deve ter no máximo 120 caracteres.");
+    const v = Number(valor);
+    if (!valor.trim()) errs.push("Valor é obrigatório.");
+    else if (Number.isNaN(v)) errs.push("Valor deve ser um número.");
+    else if (v <= 0 && status !== "bonificado" && status !== "cancelado")
+      errs.push("Valor deve ser maior que zero (use status Bonificado/Cancelado para R$ 0).");
+    if (!vencimento) errs.push("Vencimento é obrigatório.");
+    else if (!/^\d{4}-\d{2}-\d{2}$/.test(vencimento)) errs.push("Vencimento em formato inválido.");
+    return errs;
+  }, [descricao, valor, vencimento, status]);
 
   const save = async () => {
+    setSaveErrors([]);
+    if (fieldErrors.length) { setSaveErrors(fieldErrors); return; }
     setSaving(true);
     try {
       const payload = {
@@ -365,11 +382,10 @@ function BillingItemDialog({
         observacao: observacao.trim() || null,
         ordem: item?.ordem ?? 0,
       };
-      if (!payload.descricao) { toast.error("Descrição obrigatória"); setSaving(false); return; }
       const others = (existing ?? []).filter((e) => e.id !== item?.id);
       const errs = validateBillingPlan([payload], others);
       if (errs.length) {
-        toast.error(errs[0], { description: errs.slice(1, 4).join(" · ") || undefined });
+        setSaveErrors(errs);
         setSaving(false);
         return;
       }
@@ -377,7 +393,11 @@ function BillingItemDialog({
       else await createBillingItem(payload);
       toast.success(item ? "Parcela atualizada" : "Parcela criada");
       onClose();
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) {
+      const msg = (e as Error).message || "Erro desconhecido ao salvar a parcela.";
+      setSaveErrors([msg]);
+      toast.error("Não foi possível salvar a parcela", { description: msg });
+    }
     finally { setSaving(false); }
   };
 
@@ -435,6 +455,17 @@ function BillingItemDialog({
             <Label className="text-xs">Observação (opcional)</Label>
             <Input value={observacao} onChange={(e) => setObservacao(e.target.value)} />
           </div>
+          {saveErrors.length > 0 && (
+            <div className="rounded border border-rose-500/40 bg-rose-500/10 p-2">
+              <p className="mb-1 flex items-center gap-1 text-[11px] font-semibold text-rose-700 dark:text-rose-400">
+                <AlertTriangle className="h-3 w-3" />
+                Não foi possível salvar — corrija {saveErrors.length === 1 ? "o problema abaixo" : `os ${saveErrors.length} problemas abaixo`}:
+              </p>
+              <ul className="ml-4 list-disc space-y-0.5 text-[11px] text-rose-700 dark:text-rose-300">
+                {saveErrors.map((e, i) => <li key={i}>{e}</li>)}
+              </ul>
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}><X className="mr-1 h-4 w-4" /> Cancelar</Button>
@@ -479,6 +510,7 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
   const [intervaloDias, setIntervaloDias] = useState("15");
   const [bonificar, setBonificar] = useState("0");
   const [saving, setSaving] = useState(false);
+  const [serverErrors, setServerErrors] = useState<string[]>([]);
 
   const applyPreset = (id: string) => {
     setPresetId(id);
@@ -733,7 +765,9 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
   };
 
   const gerar = async () => {
+    setServerErrors([]);
     if (validationErrors.length) {
+      setServerErrors(validationErrors);
       toast.error("Corrija os erros antes de salvar", { description: validationErrors[0] });
       return;
     }
@@ -742,7 +776,18 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
       const res = await generatePlan({ data: buildServerInput() });
       toast.success(`${res.created} parcela(s) criada(s)`);
       onClose();
-    } catch (e) { toast.error((e as Error).message); }
+    } catch (e) {
+      const raw = (e as Error).message || "Erro desconhecido ao gerar o plano.";
+      // Server throws `Plano inválido: err1 | err2 | ...` — quebrar em itens.
+      const m = raw.match(/^Plano inválido:\s*(.+)$/i);
+      const list = m
+        ? m[1].split(" | ").map((s) => s.trim()).filter(Boolean)
+        : [raw];
+      setServerErrors(list);
+      toast.error("Plano rejeitado pelo servidor", {
+        description: list[0] + (list.length > 1 ? ` (+${list.length - 1} outro(s))` : ""),
+      });
+    }
     finally { setSaving(false); }
   };
 
@@ -998,6 +1043,22 @@ function PlanGeneratorDialog({ clientId, existing, onClose }: { clientId: string
               </ul>
               <p className="mt-1 text-[10px] text-amber-700/80 dark:text-amber-300/80">
                 Você ainda pode gerar o plano — revise se for intencional.
+              </p>
+            </div>
+          )}
+
+          {serverErrors.length > 0 && (
+            <div className="rounded border border-rose-600/50 bg-rose-500/10 p-2">
+              <p className="mb-1 flex items-center gap-1 text-[11px] font-semibold text-rose-700 dark:text-rose-400">
+                <AlertTriangle className="h-3 w-3" />
+                O servidor rejeitou o plano ({serverErrors.length} motivo{serverErrors.length === 1 ? "" : "s"}):
+              </p>
+              <ul className="ml-4 list-disc space-y-0.5 text-[11px] text-rose-700 dark:text-rose-300">
+                {serverErrors.slice(0, 8).map((e, i) => <li key={i}>{e}</li>)}
+                {serverErrors.length > 8 && <li>… e mais {serverErrors.length - 8}</li>}
+              </ul>
+              <p className="mt-1 text-[10px] text-rose-700/80 dark:text-rose-300/80">
+                Ajuste os campos acima e tente gerar novamente.
               </p>
             </div>
           )}
