@@ -137,13 +137,45 @@ function FinanceiroPage() {
 
   return (
     <div className="space-y-4">
+      {/* Modo de exibição da bonificação */}
+      <div className="flex flex-wrap items-center gap-2 rounded border border-border bg-muted/20 p-2">
+        <Label className="text-[11px] text-muted-foreground">Bonificado:</Label>
+        <Select value={bonusMode} onValueChange={(v) => applyBonusMode(v as BonusMode)}>
+          <SelectTrigger className="h-7 w-auto min-w-[200px] text-xs"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="separate">Separado (padrão)</SelectItem>
+            <SelectItem value="in-received">Somar em Recebido</SelectItem>
+            <SelectItem value="in-receivable">Somar em A receber</SelectItem>
+          </SelectContent>
+        </Select>
+        <span className="text-[10px] text-muted-foreground">
+          {bonusMode === "separate"
+            ? "Bonificados aparecem em coluna própria."
+            : bonusMode === "in-received"
+              ? "Bonificados somam ao valor Recebido."
+              : "Bonificados somam ao valor A receber."}
+        </span>
+      </div>
+
       {/* Resumo */}
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+      <div className={`grid grid-cols-2 gap-2 ${bonusMode === "separate" ? "md:grid-cols-5" : "md:grid-cols-4"}`}>
         <SummaryCard icon={<TrendingUp className="h-3.5 w-3.5" />} label="Total contratado" value={BRL(s.total)} tone="default" />
-        <SummaryCard icon={<Check className="h-3.5 w-3.5" />} label="Recebido" value={BRL(s.recebido)} tone="emerald" />
-        <SummaryCard icon={<Wallet className="h-3.5 w-3.5" />} label="A receber" value={BRL(s.aReceber)} tone="amber" />
+        <SummaryCard
+          icon={<Check className="h-3.5 w-3.5" />}
+          label={bonusMode === "in-received" ? "Recebido (+ bonif.)" : "Recebido"}
+          value={BRL(s.recebido)}
+          tone="emerald"
+        />
+        <SummaryCard
+          icon={<Wallet className="h-3.5 w-3.5" />}
+          label={bonusMode === "in-receivable" ? "A receber (+ bonif.)" : "A receber"}
+          value={BRL(s.aReceber)}
+          tone="amber"
+        />
         <SummaryCard icon={<AlertTriangle className="h-3.5 w-3.5" />} label="Atrasado" value={BRL(s.atrasado)} tone="rose" />
-        <SummaryCard icon={<Gift className="h-3.5 w-3.5" />} label="Bonificado" value={BRL(s.bonificado)} tone="violet" />
+        {bonusMode === "separate" && (
+          <SummaryCard icon={<Gift className="h-3.5 w-3.5" />} label="Bonificado" value={BRL(s.bonificado)} tone="violet" />
+        )}
       </div>
 
       {/* Fluxo de caixa por mês */}
