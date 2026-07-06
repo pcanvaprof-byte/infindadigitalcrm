@@ -38,7 +38,6 @@ const TABS = [
   { to: "campanhas", label: "Campanhas" },
   { to: "relacionamento", label: "Relacionamento" },
   { to: "renovacoes", label: "Renovações" },
-  { to: "comercial", label: "Comercial" },
   { to: "documentos", label: "Documentos" },
   { to: "financeiro", label: "Financeiro" },
   { to: "historico", label: "Histórico" },
