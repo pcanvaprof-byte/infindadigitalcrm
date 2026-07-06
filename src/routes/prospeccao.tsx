@@ -2340,6 +2340,33 @@ const MobileProspectRow = memo(function MobileProspectRow({
 }) {
   const noWhats = ((p.whatsapp || "").replace(/\D/g, "")).length < 10;
   const [editing, setEditing] = useState(false);
+  return (
+    <MobileProspectRowInner
+      p={p}
+      isSelected={isSelected}
+      busy={busy}
+      busyWhats={busyWhats}
+      noWhats={noWhats}
+      editing={editing}
+      setEditing={setEditing}
+      onToggleSelect={onToggleSelect}
+      onOpen={onOpen}
+      onWhats={onWhats}
+      onCall={onCall}
+      onAgendar={onAgendar}
+      onConvert={onConvert}
+      onStatus={onStatus}
+      onRemove={onRemove}
+      onEnrich={onEnrich}
+    />
+  );
+});
+
+// Placeholder to keep old body harmless — actual body replaced below.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _MobileProspectRow_OldBody(props: unknown) { void props;
+  const noWhats = false;
+  const [editing, setEditing] = useState(false);
   if (editing) {
     return (
       <InlineEditProspect
