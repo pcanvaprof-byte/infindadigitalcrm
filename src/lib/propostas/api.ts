@@ -7,6 +7,8 @@ import type {
   ProposalContent,
   PublicProposal,
   Cobranca,
+  ProposalAdjustment,
+  ProposalAdjustmentStatus,
 } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -18,6 +20,7 @@ export const propostasKeys = {
   items: (id: string) => ["propostas", id, "items"] as const,
   events: (id: string) => ["propostas", id, "events"] as const,
   versions: (id: string) => ["propostas", id, "versions"] as const,
+  adjustments: (id: string) => ["propostas", id, "adjustments"] as const,
   stats: ["propostas", "stats"] as const,
 };
 
