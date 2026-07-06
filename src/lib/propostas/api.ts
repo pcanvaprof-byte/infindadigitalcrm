@@ -7,6 +7,8 @@ import type {
   ProposalContent,
   PublicProposal,
   Cobranca,
+  ProposalAdjustment,
+  ProposalAdjustmentStatus,
 } from "./types";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -18,6 +20,7 @@ export const propostasKeys = {
   items: (id: string) => ["propostas", id, "items"] as const,
   events: (id: string) => ["propostas", id, "events"] as const,
   versions: (id: string) => ["propostas", id, "versions"] as const,
+  adjustments: (id: string) => ["propostas", id, "adjustments"] as const,
   stats: ["propostas", "stats"] as const,
 };
 
@@ -359,4 +362,48 @@ export function getPublicBaseUrl(): string {
 
 export function buildPublicUrl(token: string): string {
   return `${getPublicBaseUrl()}/proposta/${token}`;
+}
+
+// -------- Ajustes vinculados --------
+export async function listAdjustments(proposalId: string): Promise<ProposalAdjustment[]> {
+  const { data, error } = await sb
+    .from("proposal_adjustments")
+    .select("*")
+    .eq("proposal_id", proposalId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as ProposalAdjustment[];
+}
+
+export async function addInternalAdjustment(
+  proposalId: string,
+  mensagem: string,
+  autorNome?: string,
+): Promise<void> {
+  const { error } = await sb.from("proposal_adjustments").insert({
+    proposal_id: proposalId,
+    origem: "interno",
+    mensagem,
+    autor_nome: autorNome ?? null,
+  });
+  if (error) throw error;
+}
+
+export async function updateAdjustmentStatus(
+  adjustmentId: string,
+  status: ProposalAdjustmentStatus,
+): Promise<void> {
+  const patch: Record<string, unknown> = { status };
+  if (status === "resolvido" || status === "descartado") {
+    patch.resolvido_em = new Date().toISOString();
+  } else {
+    patch.resolvido_em = null;
+  }
+  const { error } = await sb.from("proposal_adjustments").update(patch).eq("id", adjustmentId);
+  if (error) throw error;
+}
+
+export async function deleteAdjustment(adjustmentId: string): Promise<void> {
+  const { error } = await sb.from("proposal_adjustments").delete().eq("id", adjustmentId);
+  if (error) throw error;
 }
