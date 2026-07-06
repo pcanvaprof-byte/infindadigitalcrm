@@ -364,6 +364,8 @@ function EditorPage() {
             {/* Lê vw_proposal_timeline (Etapa 6) — nada calculado no front. */}
             <ProposalTimeline proposalId={id} />
           </div>
+
+          <AdjustmentsCard proposalId={id} />
         </div>
       </div>
 
