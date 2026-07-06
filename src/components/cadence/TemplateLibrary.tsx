@@ -180,11 +180,31 @@ export function TemplateLibrary() {
 
   async function forceReauth() {
     try {
-      Object.keys(localStorage).filter((k) => k.startsWith("sb-")).forEach((k) => localStorage.removeItem(k));
-      Object.keys(sessionStorage).filter((k) => k.startsWith("sb-")).forEach((k) => sessionStorage.removeItem(k));
-      await supabase.auth.signOut().catch(() => {});
+      await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+      try {
+        Object.keys(localStorage)
+          .filter((k) => k.startsWith("sb-") || k.toLowerCase().includes("supabase"))
+          .forEach((k) => localStorage.removeItem(k));
+      } catch {}
+      try {
+        Object.keys(sessionStorage)
+          .filter((k) => k.startsWith("sb-") || k.toLowerCase().includes("supabase"))
+          .forEach((k) => sessionStorage.removeItem(k));
+      } catch {}
+      try {
+        const hosts = [window.location.hostname, `.${window.location.hostname}`, ""];
+        document.cookie.split(";").forEach((c) => {
+          const name = c.split("=")[0]?.trim();
+          if (!name) return;
+          if (!(name.startsWith("sb-") || name.toLowerCase().includes("supabase"))) return;
+          hosts.forEach((h) => {
+            const domain = h ? `; domain=${h}` : "";
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/${domain}`;
+          });
+        });
+      } catch {}
     } finally {
-      window.location.replace("/login?reason=session");
+      window.location.replace("/auth?reason=session");
     }
   }
 
