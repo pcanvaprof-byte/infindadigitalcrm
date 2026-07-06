@@ -1,0 +1,3 @@
+ALTER TABLE public.clients
+  ADD COLUMN IF NOT EXISTS origem TEXT,
+  ADD COLUMN IF NOT EXISTS origem_detalhe TEXT;
