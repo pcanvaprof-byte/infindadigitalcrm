@@ -28,23 +28,11 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 
 
 function createSupabaseClient() {
-  // Conecta ao projeto Lovable Cloud gerenciado (via VITE_SUPABASE_*).
-  // Fallback para SUPABASE_* durante SSR quando os VITE_* não estão expostos.
-  const SUPABASE_URL =
-    import.meta.env.VITE_SUPABASE_URL ?? (process.env.SUPABASE_URL as string | undefined);
+  // Hard-coded para apontar ao projeto Supabase externo do cliente (oxmhwwopxurwqcrwgsyf),
+  // onde estão os dados legados. Chaves publishable/anon são seguras no bundle.
+  const SUPABASE_URL = 'https://oxmhwwopxurwqcrwgsyf.supabase.co';
   const SUPABASE_PUBLISHABLE_KEY =
-    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ??
-    (process.env.SUPABASE_PUBLISHABLE_KEY as string | undefined);
-
-  if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-    const missing = [
-      ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
-      ...(!SUPABASE_PUBLISHABLE_KEY ? ['SUPABASE_PUBLISHABLE_KEY'] : []),
-    ];
-    const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Connect Supabase in Lovable Cloud.`;
-    console.error(`[Supabase] ${message}`);
-    throw new Error(message);
-  }
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94bWh3d29weHVyd3Fjcndnc3lmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MzA2NjYsImV4cCI6MjA5NzEwNjY2Nn0.nAGtGeU-7YkzIjjCKJnfH5yeJ7LsQ-2s5ltMgHF7v88';
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     global: {
