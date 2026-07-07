@@ -122,11 +122,9 @@ import { wasDispatchedToday, dispatchBlockedMessage } from "@/lib/dispatch-lock"
 import {
   renderTemplate,
   sanitizeTemplateForSend,
-  splitVariants,
-  expandVariants,
-  pickVariantIndex,
 } from "@/lib/cadencia/types";
 import { pickNicheMessage } from "@/lib/prospeccao/niche-templates";
+import { chooseVariant } from "@/lib/prospeccao/variant-telemetry";
 import {
   listCurrentNicheTemplates,
   nicheTemplateKeys,
@@ -825,26 +823,28 @@ function ProspeccaoPage() {
       const corpo = (row as { corpo?: string } | null)?.corpo;
       const packKey = (row as { pack_key?: string } | null)?.pack_key ?? "default";
       if (corpo && corpo.trim()) {
-        // Se o corpo do pack tiver múltiplas variantes separadas por `\n---\n`
-        // (ex.: empresas_novas fase 2), rotaciona entre elas via round-robin
-        // persistido em localStorage — sem isso todas as variantes iriam
-        // concatenadas no disparo.
         // Usa variantes explícitas (`---`) quando existem; caso contrário
-        // gera 3 variações naturais rotacionando saudação/softener pra
-        // evitar disparos com texto 100% idêntico.
-        const variants = expandVariants(corpo);
-        const chosen =
-          variants.length > 1
-            ? variants[pickVariantIndex(variants.length, `prospeccao:pack:${packKey}:${stage}`)]
-            : (variants[0] ?? corpo);
-        msg = renderTemplate(chosen, {
+        // gera 3 variações naturais (source="auto") rotacionando
+        // saudação/softener pra evitar disparos idênticos. `chooseVariant`
+        // também loga o pick (índice/tipo) em `window.__variantLog`.
+        const pick = chooseVariant(corpo, {
+          scope: "pack",
+          bucketKey: `prospeccao:pack:${packKey}:${stage}`,
+          pack: packKey,
+          stage,
+          prospectId: p.id,
+          company: p.company ?? null,
+        });
+        msg = renderTemplate(pick.text, {
           empresa: p.company || "",
           responsavel: responsavelLead,
         });
         console.log("[prosp] openWhats:usando-template-pack", {
           stage,
           pack: packKey,
-          variants: variants.length,
+          variantSource: pick.source,
+          variantIndex: pick.index,
+          variantTotal: pick.total,
         });
       }
     } catch (e) {
@@ -861,6 +861,7 @@ function ProspeccaoPage() {
         p.segment,
         nicheOverrides,
         "prospeccao:niche",
+        { prospectId: p.id },
       );
       msg = renderTemplate(nicheTpl, {
         empresa: p.company || "",
