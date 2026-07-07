@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { listTemplates, registerSend, markProspectContactedFromLead } from "@/lib/cadencia/api";
 import {
   renderTemplate,
+  sanitizeTemplateForSend,
   splitVariants,
   pickVariantIndex,
   leadElegivelParaDisparo,
@@ -91,6 +92,14 @@ export function SendMessageDialog({
 
   async function handleSend() {
     if (!lead || !msg.trim() || sending) return;
+    // Sanitiza antes do envio: remove placeholders remanescentes e
+    // limpa espaços/pontuação. Preview mantém `{{...}}` cru para o
+    // operador identificar templates incompletos.
+    const sendMsg = sanitizeTemplateForSend(msg);
+    if (!sendMsg) {
+      toast.warning("Mensagem vazia após limpeza.");
+      return;
+    }
     // TRAVA DE ELEGIBILIDADE: bloqueia antes de tudo (frontend).
     const elig = leadElegivelParaDisparo(lead);
     if (!elig.elegivel) {
@@ -113,7 +122,7 @@ export function SendMessageDialog({
       setSending(false);
       return;
     }
-    const url = buildSendUrl(phone, msg, account);
+    const url = buildSendUrl(phone, sendMsg, account);
 
     // ESTRATÉGIA: no desktop abrimos a aba IMEDIATAMENTE (dentro do gesto)
     // e registramos depois — a página atual fica viva.
@@ -127,7 +136,7 @@ export function SendMessageDialog({
     }
 
     try {
-      await registerSend({ leadId: lead.id, tipo: "whatsapp", mensagem: msg, advance: true });
+      await registerSend({ leadId: lead.id, tipo: "whatsapp", mensagem: sendMsg, advance: true });
       try {
         await markProspectContactedFromLead(lead.id);
       } catch (syncErr) {

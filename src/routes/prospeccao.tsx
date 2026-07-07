@@ -119,7 +119,7 @@ import {
   type TouchpointTipo,
 } from "@/lib/cadence/api";
 import { wasDispatchedToday, dispatchBlockedMessage } from "@/lib/dispatch-lock";
-import { renderTemplate } from "@/lib/cadencia/types";
+import { renderTemplate, sanitizeTemplateForSend } from "@/lib/cadencia/types";
 
 
 export const Route = createFileRoute("/prospeccao")({
@@ -818,6 +818,9 @@ function ProspeccaoPage() {
       window.localStorage.setItem(rotKey, String((cur + 1) % variants.length));
     } catch { /* ignore */ }
     if (!msg) msg = variants[rotIdx];
+    // Sanitização final antes do envio — remove qualquer placeholder
+    // remanescente e colapsa espaços/linhas em branco.
+    msg = sanitizeTemplateForSend(msg);
     // Define o confirm ANTES de abrir o WhatsApp para garantir que o estado
     // esteja commitado caso o navegador móvel saia da aba para o app.
     console.log("[prosp] openWhats:setConfirm", { id: p.id, company: p.company });
