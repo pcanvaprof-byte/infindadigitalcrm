@@ -1369,7 +1369,7 @@ function ProspeccaoPage() {
       {/* Pack de templates por nicho / data especial */}
       <div className="mb-2 flex justify-end">
         <Button asChild variant="outline" size="sm">
-          <a href="/prospeccao/templates-nicho">
+          <a href="/prospeccao-templates-nicho">
             <MessageSquare className="mr-1 h-4 w-4" />
             Editar templates por nicho
           </a>
