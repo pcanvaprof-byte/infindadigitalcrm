@@ -390,6 +390,50 @@ export type Database = {
           },
         ]
       }
+      cad_niche_templates: {
+        Row: {
+          corpo: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_current: boolean
+          niche_key: string
+          organization_id: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          corpo: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_current?: boolean
+          niche_key: string
+          organization_id?: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          corpo?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_current?: boolean
+          niche_key?: string
+          organization_id?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cad_niche_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cad_notifications: {
         Row: {
           created_at: string
@@ -3590,6 +3634,18 @@ export type Database = {
       cad_next_stage: {
         Args: { p_stage: Database["public"]["Enums"]["cad_stage"] }
         Returns: Database["public"]["Enums"]["cad_stage"]
+      }
+      cad_niche_template_reset: {
+        Args: { _niche_key: string }
+        Returns: number
+      }
+      cad_niche_template_restore_version: {
+        Args: { _version_id: string }
+        Returns: string
+      }
+      cad_niche_template_save: {
+        Args: { _corpo: string; _niche_key: string }
+        Returns: string
       }
       cad_refresh_notifications: { Args: never; Returns: number }
       cad_register_response: {
