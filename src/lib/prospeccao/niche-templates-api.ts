@@ -19,15 +19,38 @@ export type NicheTemplateRow = {
 
 const TABLE = "cad_niche_templates" as never;
 
-/** Lista todas as versões correntes da organização ativa. */
+/**
+ * Lista o corpo da ABERTURA (Follow-up 1) de cada pack de nicho editado
+ * pela organização ativa. Usado pela Prospecção como fallback para a
+ * mensagem de primeiro contato.
+ *
+ * Fonte de verdade unificada: `cad_templates` com `pack_key = 'niche_<key>'`
+ * (editado em /cadencia > Templates).
+ */
 export async function listCurrentNicheTemplates(): Promise<NicheTemplateRow[]> {
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select("id, niche_key, corpo, version, is_current, created_by, created_at, updated_at")
-    .eq("is_current", true)
-    .order("niche_key", { ascending: true });
-  if (error) throw error;
-  return (data ?? []) as unknown as NicheTemplateRow[];
+  const { data, error } = await (supabase as unknown as {
+    from: (t: string) => {
+      select: (cols: string) => {
+        like: (col: string, pat: string) => {
+          eq: (col: string, val: string) => Promise<{ data: unknown; error: { message: string } | null }>;
+        };
+      };
+    };
+  }).from("cad_templates").select("id, pack_key, corpo, updated_at")
+    .like("pack_key", "niche\\_%")
+    .eq("stage", "followup_1");
+  if (error) throw new Error(error.message);
+  const rows = (data ?? []) as Array<{ id: string; pack_key: string; corpo: string; updated_at: string }>;
+  return rows.map((r) => ({
+    id: r.id,
+    niche_key: r.pack_key.replace(/^niche_/, "") as NicheKey,
+    corpo: r.corpo ?? "",
+    version: 1,
+    is_current: true,
+    created_by: null,
+    created_at: r.updated_at,
+    updated_at: r.updated_at,
+  }));
 }
 
 /** Histórico completo (todas as versões) para um nicho. */
