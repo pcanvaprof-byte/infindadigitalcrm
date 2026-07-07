@@ -15,7 +15,7 @@ import {
   type TouchpointResultado,
 } from "@/lib/cadence/api";
 import { crmKeys } from "@/lib/crm/api";
-import { renderTemplate } from "@/lib/cadencia/types";
+import { renderTemplate, sanitizeTemplateForSend } from "@/lib/cadencia/types";
 import { supabase } from "@/integrations/supabase/client";
 
 const TIPOS: { value: TouchpointTipo; label: string }[] = [
@@ -88,13 +88,8 @@ export function TouchpointModal(props: TouchpointModalProps) {
 
   const m = useMutation({
     mutationFn: () => {
-      // Última barreira: se o operador editou o texto e deixou um
-      // placeholder cru, remove antes de gravar/enviar.
-      const clean = mensagem
-        .replace(/\{\{[^}]*\}\}/g, "")
-        .replace(/\{(?:primeiro_nome|nome|contato|responsavel|cliente|empresa|empresa_curta|empresa_nome|company|owner)\}/gi, "")
-        .replace(/[ \t]+/g, " ")
-        .trim();
+      // Última barreira antes de gravar/enviar — motor único.
+      const clean = sanitizeTemplateForSend(mensagem);
       return addTouchpoint({ prospect_id: prospectId, tipo, resultado, mensagem: clean || null });
     },
     onSuccess: () => {
