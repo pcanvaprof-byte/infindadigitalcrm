@@ -13,10 +13,11 @@ const SignInput = z.object({
 });
 
 function getAdmin() {
-  const url = process.env.SUPABASE_URL ?? process.env.OWN_SB_URL;
-  const key =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.OWN_SB_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error("Supabase server env ausente");
+  // Hard-coded para o projeto Supabase externo (oxmhwwopxurwqcrwgsyf).
+  // O service role vem do secret OWN_SB_SERVICE_ROLE_KEY (nunca do Cloud interno).
+  const url = "https://oxmhwwopxurwqcrwgsyf.supabase.co";
+  const key = process.env.OWN_SB_SERVICE_ROLE_KEY;
+  if (!key) throw new Error("OWN_SB_SERVICE_ROLE_KEY ausente");
   return import("@supabase/supabase-js").then(({ createClient }) =>
     createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } }),
   );
