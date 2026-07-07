@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TarefasRouteImport } from './routes/tarefas'
+import { Route as ProspeccaoTemplatesNichoRouteImport } from './routes/prospeccao-templates-nicho'
 import { Route as ProspeccaoRouteImport } from './routes/prospeccao'
 import { Route as PropostasRouteImport } from './routes/propostas'
 import { Route as MetasObjetivosRouteImport } from './routes/metas-objetivos'
@@ -54,6 +55,12 @@ const TarefasRoute = TarefasRouteImport.update({
   path: '/tarefas',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProspeccaoTemplatesNichoRoute =
+  ProspeccaoTemplatesNichoRouteImport.update({
+    id: '/prospeccao-templates-nicho',
+    path: '/prospeccao-templates-nicho',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ProspeccaoRoute = ProspeccaoRouteImport.update({
   id: '/prospeccao',
   path: '/prospeccao',
@@ -271,6 +278,7 @@ export interface FileRoutesByFullPath {
   '/metas-objetivos': typeof MetasObjetivosRoute
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
+  '/prospeccao-templates-nicho': typeof ProspeccaoTemplatesNichoRoute
   '/tarefas': typeof TarefasRoute
   '/bi/configuracoes': typeof BiConfiguracoesRoute
   '/bi/disparos': typeof BiDisparosRoute
@@ -312,6 +320,7 @@ export interface FileRoutesByTo {
   '/metas-objetivos': typeof MetasObjetivosRoute
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
+  '/prospeccao-templates-nicho': typeof ProspeccaoTemplatesNichoRoute
   '/tarefas': typeof TarefasRoute
   '/bi/configuracoes': typeof BiConfiguracoesRoute
   '/bi/disparos': typeof BiDisparosRoute
@@ -352,6 +361,7 @@ export interface FileRoutesById {
   '/metas-objetivos': typeof MetasObjetivosRoute
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
+  '/prospeccao-templates-nicho': typeof ProspeccaoTemplatesNichoRoute
   '/tarefas': typeof TarefasRoute
   '/bi/configuracoes': typeof BiConfiguracoesRoute
   '/bi/disparos': typeof BiDisparosRoute
@@ -395,6 +405,7 @@ export interface FileRouteTypes {
     | '/metas-objetivos'
     | '/propostas'
     | '/prospeccao'
+    | '/prospeccao-templates-nicho'
     | '/tarefas'
     | '/bi/configuracoes'
     | '/bi/disparos'
@@ -436,6 +447,7 @@ export interface FileRouteTypes {
     | '/metas-objetivos'
     | '/propostas'
     | '/prospeccao'
+    | '/prospeccao-templates-nicho'
     | '/tarefas'
     | '/bi/configuracoes'
     | '/bi/disparos'
@@ -475,6 +487,7 @@ export interface FileRouteTypes {
     | '/metas-objetivos'
     | '/propostas'
     | '/prospeccao'
+    | '/prospeccao-templates-nicho'
     | '/tarefas'
     | '/bi/configuracoes'
     | '/bi/disparos'
@@ -517,6 +530,7 @@ export interface RootRouteChildren {
   MetasObjetivosRoute: typeof MetasObjetivosRoute
   PropostasRoute: typeof PropostasRouteWithChildren
   ProspeccaoRoute: typeof ProspeccaoRoute
+  ProspeccaoTemplatesNichoRoute: typeof ProspeccaoTemplatesNichoRoute
   TarefasRoute: typeof TarefasRoute
   BriefingTokenRoute: typeof BriefingTokenRoute
   OperacoesAuditoriaLifecycleRoute: typeof OperacoesAuditoriaLifecycleRoute
@@ -532,6 +546,13 @@ declare module '@tanstack/react-router' {
       path: '/tarefas'
       fullPath: '/tarefas'
       preLoaderRoute: typeof TarefasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/prospeccao-templates-nicho': {
+      id: '/prospeccao-templates-nicho'
+      path: '/prospeccao-templates-nicho'
+      fullPath: '/prospeccao-templates-nicho'
+      preLoaderRoute: typeof ProspeccaoTemplatesNichoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/prospeccao': {
@@ -922,6 +943,7 @@ const rootRouteChildren: RootRouteChildren = {
   MetasObjetivosRoute: MetasObjetivosRoute,
   PropostasRoute: PropostasRouteWithChildren,
   ProspeccaoRoute: ProspeccaoRoute,
+  ProspeccaoTemplatesNichoRoute: ProspeccaoTemplatesNichoRoute,
   TarefasRoute: TarefasRoute,
   BriefingTokenRoute: BriefingTokenRoute,
   OperacoesAuditoriaLifecycleRoute: OperacoesAuditoriaLifecycleRoute,

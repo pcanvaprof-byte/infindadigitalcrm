@@ -27,6 +27,29 @@ export type NicheKey =
   | "recem_aberta"
   | "generico";
 
+export const NICHE_LABELS: Record<NicheKey, string> = {
+  restaurante: "Restaurantes",
+  cafeteria: "Cafeterias",
+  pizzaria: "Pizzarias",
+  hamburgueria: "Hamburguerias",
+  confeitaria: "Confeitarias e Padarias",
+  acougue: "Açougues",
+  mercado: "Mercados e Hortifruti",
+  farmacia: "Farmácias e Drogarias",
+  petshop: "Pet Shops e Veterinárias",
+  salao: "Salões de Beleza e Estética",
+  barbearia: "Barbearias",
+  academia: "Academias e Studios",
+  materiais_construcao: "Materiais de Construção",
+  moveis: "Móveis e Decoração",
+  roupas: "Moda e Vestuário",
+  autopecas: "Autopeças e Oficinas",
+  recem_aberta: "Empresas Recém-Abertas",
+  generico: "Genérico (fallback)",
+};
+
+export const NICHE_KEYS = Object.keys(NICHE_LABELS) as NicheKey[];
+
 export const NICHE_TEMPLATES: Record<NicheKey, string> = {
   restaurante: `Olá, {{primeiro_nome}}! Tudo bem?
 
@@ -209,4 +232,19 @@ export function pickNicheKey(company: string, segment?: string | null): NicheKey
 /** Devolve o template do nicho detectado (com `{{primeiro_nome}}` cru). */
 export function pickNicheTemplate(company: string, segment?: string | null): string {
   return NICHE_TEMPLATES[pickNicheKey(company, segment)];
+}
+
+/**
+ * Igual ao `pickNicheTemplate`, mas prioriza um override vindo do banco
+ * (edição da tela "Templates por nicho"). Se a chave detectada não tem
+ * override cadastrado para a organização, cai no texto padrão do código.
+ */
+export function pickNicheTemplateWithOverrides(
+  company: string,
+  segment: string | null | undefined,
+  overrides?: ReadonlyMap<string, string> | null,
+): string {
+  const key = pickNicheKey(company, segment);
+  const custom = overrides?.get(key);
+  return custom && custom.trim() ? custom : NICHE_TEMPLATES[key];
 }

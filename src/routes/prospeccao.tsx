@@ -120,7 +120,12 @@ import {
 } from "@/lib/cadence/api";
 import { wasDispatchedToday, dispatchBlockedMessage } from "@/lib/dispatch-lock";
 import { renderTemplate, sanitizeTemplateForSend } from "@/lib/cadencia/types";
-import { pickNicheTemplate } from "@/lib/prospeccao/niche-templates";
+import { pickNicheTemplateWithOverrides } from "@/lib/prospeccao/niche-templates";
+import {
+  listCurrentNicheTemplates,
+  nicheTemplateKeys,
+  toOverridesMap,
+} from "@/lib/prospeccao/niche-templates-api";
 
 
 export const Route = createFileRoute("/prospeccao")({
@@ -336,6 +341,18 @@ function ProspeccaoPage() {
   const navigate = useNavigate();
   const fileRef = useRef<HTMLInputElement>(null);
   const qc = useQueryClient();
+
+  // Overrides de templates por nicho (editados na tela `/prospeccao/templates-nicho`).
+  // Fica em cache global — o `openWhats` lê o snapshot atual via `useMemo`.
+  const { data: nicheOverrideRows } = useQuery({
+    queryKey: nicheTemplateKeys.current(),
+    queryFn: listCurrentNicheTemplates,
+    staleTime: 5 * 60_000,
+  });
+  const nicheOverrides = useMemo(
+    () => toOverridesMap(nicheOverrideRows ?? []),
+    [nicheOverrideRows],
+  );
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProspectStatus | "all">("all");
@@ -816,7 +833,11 @@ function ProspeccaoPage() {
     // tem mensagem configurada. Detectado pelo nome fantasia ou pelo
     // segmento cadastrado; também passa pelo `renderTemplate`.
     if (!msg) {
-      const nicheTpl = pickNicheTemplate(p.company || "", p.segment);
+      const nicheTpl = pickNicheTemplateWithOverrides(
+        p.company || "",
+        p.segment,
+        nicheOverrides,
+      );
       msg = renderTemplate(nicheTpl, {
         empresa: p.company || "",
         responsavel: responsavelLead,
@@ -1346,6 +1367,14 @@ function ProspeccaoPage() {
       </section>
 
       {/* Pack de templates por nicho / data especial */}
+      <div className="mb-2 flex justify-end">
+        <Button asChild variant="outline" size="sm">
+          <a href="/prospeccao-templates-nicho">
+            <MessageSquare className="mr-1 h-4 w-4" />
+            Editar templates por nicho
+          </a>
+        </Button>
+      </div>
       <TemplateLibrary />
 
       {/* Toolbar */}
