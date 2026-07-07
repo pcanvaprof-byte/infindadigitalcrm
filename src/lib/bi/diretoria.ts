@@ -31,16 +31,6 @@ type ContractRow = {
   status?: string | null;
 };
 
-async function safeSelect(table: string, columns: string): Promise<ContractRow[] | null> {
-  try {
-    const { data, error } = await sb.from(table as never).select(columns).limit(5000);
-    if (error) return null;
-    return (data ?? []) as unknown as ContractRow[];
-  } catch {
-    return null;
-  }
-}
-
 export async function fetchDiretoriaKpis(): Promise<DiretoriaKpis> {
   // Fonte canônica: lifecycle de `clients` (Ficha 360°). As antigas tabelas
   // `contracts`/`op_contracts` nunca existiram neste projeto — removidas
