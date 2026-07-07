@@ -737,7 +737,8 @@ function ProspeccaoPage() {
       }
     // 1) Usa a mensagem já cadastrada no pack ativo, resolvida pelo passo
     // atual da cadência do prospect (followup_1..7). Placeholders
-    // {{responsavel}} e {{empresa}} são substituídos aqui.
+    // {{primeiro_nome}}, {{responsavel}}, {{empresa}}, {{empresa_curta}} etc.
+    // são substituídos aqui pelo renderTemplate único da cadência.
     let msg: string | null = null;
     try {
       const step = Math.min(Math.max((p.cadenceStep ?? 0) + 1, 1), 7);
@@ -746,9 +747,10 @@ function ProspeccaoPage() {
       const row = Array.isArray(tpl) ? tpl[0] : null;
       const corpo = (row as { corpo?: string } | null)?.corpo;
       if (corpo && corpo.trim()) {
-        msg = corpo
-          .replace(/\{\{\s*responsavel\s*\}\}/gi, p.owner || "tudo bem")
-          .replace(/\{\{\s*empresa\s*\}\}/gi, p.company || "sua empresa");
+        msg = renderTemplate(corpo, {
+          empresa: p.company || "",
+          responsavel: p.owner || "",
+        });
         console.log("[prosp] openWhats:usando-template-pack", { stage });
       }
     } catch (e) {
