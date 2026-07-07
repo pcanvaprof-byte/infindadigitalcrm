@@ -829,11 +829,14 @@ function ProspeccaoPage() {
         // (ex.: empresas_novas fase 2), rotaciona entre elas via round-robin
         // persistido em localStorage — sem isso todas as variantes iriam
         // concatenadas no disparo.
-        const variants = splitVariants(corpo);
+        // Usa variantes explícitas (`---`) quando existem; caso contrário
+        // gera 3 variações naturais rotacionando saudação/softener pra
+        // evitar disparos com texto 100% idêntico.
+        const variants = expandVariants(corpo);
         const chosen =
           variants.length > 1
             ? variants[pickVariantIndex(variants.length, `prospeccao:pack:${packKey}:${stage}`)]
-            : corpo;
+            : (variants[0] ?? corpo);
         msg = renderTemplate(chosen, {
           empresa: p.company || "",
           responsavel: responsavelLead,
