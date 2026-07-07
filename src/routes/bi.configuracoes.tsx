@@ -89,13 +89,13 @@ function Page() {
     );
   }, [autoSyncMrr, liveMrr, mrrQ.isLoading]);
 
-  // Realtime: qualquer mudança em contracts/op_contracts invalida o MRR.
+  // Realtime: qualquer mudança em clients/contratos invalida o MRR.
   useEffect(() => {
     const invalidate = () => qc.invalidateQueries({ queryKey: ["bi", "diretoria-kpis", "mrr"] });
     const ch = supabase
       .channel("bi-mrr-sync")
-      .on("postgres_changes", { event: "*", schema: "public", table: "contracts" }, invalidate)
-      .on("postgres_changes", { event: "*", schema: "public", table: "op_contracts" }, invalidate)
+      .on("postgres_changes", { event: "*", schema: "public", table: "clients" }, invalidate)
+      .on("postgres_changes", { event: "*", schema: "public", table: "contratos" }, invalidate)
       .subscribe();
     return () => {
       supabase.removeChannel(ch);
