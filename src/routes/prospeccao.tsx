@@ -265,13 +265,13 @@ function StatCard({
   icon: Icon, label, value, hint,
 }: { icon: typeof Users; label: string; value: number; hint: string }) {
   return (
-    <div className="surface-card flex h-full min-w-0 flex-col p-2.5 sm:p-3">
-      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-accent">
-        <Icon className="h-3.5 w-3.5 text-primary-glow" />
+    <div className="surface-card flex h-full min-w-0 flex-col p-1.5 sm:p-3">
+      <span className="grid h-5 w-5 shrink-0 place-items-center rounded bg-accent sm:h-7 sm:w-7 sm:rounded-md">
+        <Icon className="h-2.5 w-2.5 text-primary-glow sm:h-3.5 sm:w-3.5" />
       </span>
-      <p className="mt-2 truncate text-[10px] leading-tight text-muted-foreground sm:text-[11px]">{label}</p>
-      <p className="mt-0.5 text-lg font-bold tracking-tight sm:text-xl">{value.toLocaleString("pt-BR")}</p>
-      <p className="mt-0.5 line-clamp-2 text-[10px] leading-tight text-muted-foreground">{hint}</p>
+      <p className="mt-1 truncate text-[9px] leading-tight text-muted-foreground sm:mt-2 sm:text-[11px]">{label}</p>
+      <p className="mt-0.5 text-sm font-bold tracking-tight sm:text-xl">{value.toLocaleString("pt-BR")}</p>
+      <p className="mt-0.5 line-clamp-2 text-[9px] leading-tight text-muted-foreground sm:text-[10px]">{hint}</p>
     </div>
   );
 }
