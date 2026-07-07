@@ -14,10 +14,10 @@ export const gerarResumoBriefing = createServerFn({ method: "POST" })
     const groqKey = process.env.GROQ_API_KEY;
     if (!groqKey) throw new Error("GROQ_API_KEY ausente");
 
-    const supabaseUrl = process.env.SUPABASE_URL ?? process.env.OWN_SB_URL;
-    const serviceKey =
-      process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.OWN_SB_SERVICE_ROLE_KEY;
-    if (!supabaseUrl || !serviceKey) throw new Error("Supabase server env ausente");
+    // Hard-coded para o projeto Supabase externo (oxmhwwopxurwqcrwgsyf).
+    const supabaseUrl = "https://oxmhwwopxurwqcrwgsyf.supabase.co";
+    const serviceKey = process.env.OWN_SB_SERVICE_ROLE_KEY;
+    if (!serviceKey) throw new Error("OWN_SB_SERVICE_ROLE_KEY ausente");
 
     const { createClient } = await import("@supabase/supabase-js");
     const admin = createClient(supabaseUrl, serviceKey, {
