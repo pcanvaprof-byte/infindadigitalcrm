@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.is_member_of_org(uuid) TO authenticated, anon, service_role;
