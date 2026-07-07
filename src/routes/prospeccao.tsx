@@ -265,7 +265,7 @@ function StatCard({
   icon: Icon, label, value, hint,
 }: { icon: typeof Users; label: string; value: number; hint: string }) {
   return (
-    <div className="surface-card min-w-0 p-2.5 sm:p-3">
+    <div className="surface-card flex h-full min-w-0 flex-col p-2.5 sm:p-3">
       <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-accent">
         <Icon className="h-3.5 w-3.5 text-primary-glow" />
       </span>
@@ -1294,7 +1294,7 @@ function ProspeccaoPage() {
       }
     >
       {/* Stats */}
-      <section className="grid grid-cols-5 gap-2 sm:gap-3">
+      <section className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-5">
         <StatCard icon={Building2} label={hasActiveFilters ? "Empresas (filtro)" : "Empresas cadastradas"} value={stats.t} hint={hasActiveFilters ? `de ${stats.total} · filtro ativo` : "Base total"} />
         <StatCard icon={MessageSquare} label="Contatadas" value={stats.contatadas} hint={hasActiveFilters ? "no filtro atual" : "Pelo menos 1 contato"} />
         <StatCard icon={MessageSquare} label="Conversas iniciadas" value={stats.disparos} hint={hasActiveFilters ? "no filtro atual" : "WhatsApp · ligação · e-mail"} />
