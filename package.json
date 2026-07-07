@@ -14,7 +14,9 @@
     "prebuild": "node scripts/lint-ebd.mjs",
     "format": "prettier --write .",
     "test": "node --test scripts/tests/*.test.mjs",
-    "test:integration": "node --test scripts/tests/billing-plan-integration.test.mjs"
+    "test:integration": "node --test scripts/tests/billing-plan-integration.test.mjs",
+    "audit:schema": "node scripts/audits/schema-consistency.mjs",
+    "audit:schema:strict": "node scripts/audits/schema-consistency.mjs --fail-on-error"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
