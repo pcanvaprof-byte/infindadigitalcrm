@@ -833,7 +833,11 @@ function ProspeccaoPage() {
     // tem mensagem configurada. Detectado pelo nome fantasia ou pelo
     // segmento cadastrado; também passa pelo `renderTemplate`.
     if (!msg) {
-      const nicheTpl = pickNicheTemplate(p.company || "", p.segment);
+      const nicheTpl = pickNicheTemplateWithOverrides(
+        p.company || "",
+        p.segment,
+        nicheOverrides,
+      );
       msg = renderTemplate(nicheTpl, {
         empresa: p.company || "",
         responsavel: responsavelLead,
