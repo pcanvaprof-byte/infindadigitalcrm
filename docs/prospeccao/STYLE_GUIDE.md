@@ -126,6 +126,97 @@ Preferir:
 
 Evite frases excessivamente institucionais, voz passiva pesada e substantivos abstratos ("otimização", "maximização", "potencialização").
 
+## Arquitetura das Mensagens (Framework AIDA)
+
+Toda mensagem da cadência deve possuir um objetivo claro. Para garantir consistência entre todos os packs e todos os nichos, as mensagens seguem um framework inspirado em **AIDA (Attention, Interest, Desire, Action)**, adaptado para prospecção via WhatsApp.
+
+A intenção **não** é produzir textos comerciais longos, mas mensagens curtas, naturais e conversacionais — AIDA aqui é uma ordem lógica de argumento, não um roteiro de e-mail marketing.
+
+### Primeiro Contato — estrutura obrigatória
+
+Todo primeiro contato deve seguir esta estrutura, nesta ordem.
+
+#### A — Atenção
+
+As primeiras linhas devem responder imediatamente: **"Por que essa pessoa está falando comigo?"**
+
+Exemplos:
+
+- "Vi que vocês trabalham com..."
+- "Passei aqui rapidinho porque..."
+- "Achei que essa ideia poderia fazer sentido para vocês..."
+- "Percebi que muitas empresas desse segmento acabam enfrentando..."
+
+Evitar:
+
+- "Somos especialistas..."
+- "Gostaria de apresentar..."
+- "Estamos entrando em contato..."
+- "Nossa empresa..."
+
+#### I — Interesse
+
+Apresentar um contexto que faça sentido para o nicho. **Não falar da plataforma. Falar do negócio do cliente.**
+
+Ângulos possíveis: atendimento, pedidos, orçamento, divulgação, organização, agilidade, experiência do cliente.
+
+#### D — Desejo
+
+Mostrar um benefício concreto — **não listar funcionalidades**. Sempre mostrar o resultado para o cliente.
+
+Trocar:
+
+> "Temos um catálogo digital."
+
+Por:
+
+> "O cliente consegue visualizar tudo antes mesmo de entrar em contato."
+
+#### A — Ação
+
+Finalizar com um CTA simples e único. **Nunca utilizar mais de um CTA na mesma mensagem.**
+
+Exemplos:
+
+- "Posso te mostrar?"
+- "Faz sentido conhecer?"
+- "Quer que eu envie um exemplo?"
+- "Posso explicar rapidamente?"
+
+### Estrutura dos Follow-ups
+
+Os follow-ups **não devem repetir** a mensagem anterior. Cada etapa acrescenta um novo motivo para responder.
+
+| Etapa | Objetivo | Como abordar |
+| --- | --- | --- |
+| Follow-up 1 | Criar curiosidade | Atenção → Benefício → Pergunta |
+| Follow-up 2 | Trazer um novo benefício | Economia de tempo, organização, praticidade, atendimento — nunca repetir o texto anterior |
+| Follow-up 3 | Apresentar uma mini prova | Experiência comum do mercado, comportamento observado, situações do dia a dia — sem inventar números |
+| Follow-up 4 | Responder uma possível objeção | Demora para atualizar, dificuldade de usar, falta de tempo, custo percebido |
+| Follow-up 5 | Mudar o formato da conversa | Oferecer e-mail, ligação ou demonstração rápida |
+| Follow-up 6 | Pergunta objetiva | "Isso faz sentido para vocês este mês?" / "Vale a pena conversarmos?" / "Está nos planos melhorar esse processo?" |
+| Follow-up 7 (break-up) | Encerrar educadamente | Nunca tentar vender novamente, nunca criar urgência falsa — apenas deixar a porta aberta |
+
+### Regras gerais da AIDA
+
+Toda mensagem deve:
+
+- responder rapidamente por que o contato faz sentido;
+- apresentar apenas **um** benefício principal;
+- possuir apenas **um** CTA;
+- parecer escrita por uma pessoa;
+- evitar excesso de informações;
+- evitar listas de funcionalidades.
+
+### O que NÃO fazer
+
+- Não transformar a mensagem em um texto comercial.
+- Não escrever parágrafos longos.
+- Não tentar convencer usando pressão.
+- Não utilizar gatilhos artificiais.
+- Não inventar prova social.
+- Não exagerar benefícios.
+
 ## Proibições
 
 | ❌ Evitar                                        | ✅ Preferir                                             |
@@ -198,3 +289,11 @@ Sempre que possível, cadastrar **3 ou mais variantes** por estágio separadas p
 - [ ] O CTA é de baixo compromisso?
 - [ ] Cada follow-up traz uma informação nova em relação ao anterior?
 - [ ] Nenhuma afirmação que não possa ser comprovada?
+- [ ] O primeiro contato segue AIDA (Atenção → Interesse → Desejo → Ação)?
+- [ ] O primeiro parágrafo prende atenção?
+- [ ] Existe apenas **um** benefício principal?
+- [ ] Existe apenas **um** CTA?
+- [ ] O follow-up acrescenta uma informação nova em relação ao anterior?
+- [ ] Não há repetição da mensagem anterior?
+- [ ] O texto parece uma conversa real?
+- [ ] A mensagem continua natural quando lida em voz alta?
