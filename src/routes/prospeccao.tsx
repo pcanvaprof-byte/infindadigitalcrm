@@ -120,6 +120,7 @@ import {
 } from "@/lib/cadence/api";
 import { wasDispatchedToday, dispatchBlockedMessage } from "@/lib/dispatch-lock";
 import { renderTemplate, sanitizeTemplateForSend } from "@/lib/cadencia/types";
+import { pickNicheTemplate } from "@/lib/prospeccao/niche-templates";
 
 
 export const Route = createFileRoute("/prospeccao")({
