@@ -136,10 +136,10 @@ export function TemplatePackSelector() {
   async function changeSeed(pack_key: string) {
     setSeedPack(pack_key);
     try {
-      const { error: seedError } = await supabase.rpc("cad_set_default_seed_pack", { _pack_key: pack_key || null });
+      const { error: seedError } = await supabase.rpc("cad_set_default_seed_pack", { _pack_key: pack_key });
       if (seedError) throw seedError;
       if (pack_key) {
-        const { error: applyError } = await supabase.rpc("cad_apply_pack", { _pack_key });
+        const { error: applyError } = await supabase.rpc("cad_apply_pack", { _pack_key: pack_key });
         if (applyError) throw applyError;
       }
       if (pack_key) {
