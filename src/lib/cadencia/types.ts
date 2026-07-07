@@ -141,6 +141,12 @@ export function renderTemplate(corpo: string, lead: Pick<CadLead, "empresa" | "r
     if (v === undefined) return ""; // placeholder desconhecido → remove
     return v;
   });
+  // Safety net: qualquer sintaxe alternativa ({var} chave simples) ou
+  // placeholder que tenha escapado do regex acima é removido antes de sair.
+  // Garante que o destinatário JAMAIS receba `{{...}}` cru.
+  out = out
+    .replace(/\{\{[^}]*\}\}/g, "")
+    .replace(/\{(?:primeiro_nome|nome|contato|responsavel|cliente|empresa|empresa_curta|empresa_nome|company|owner)\}/gi, "");
   // Limpeza pós-substituição: espaços duplos, "Olá ," "Olá !", vírgulas soltas.
   out = out
     .replace(/[ \t]+/g, " ")

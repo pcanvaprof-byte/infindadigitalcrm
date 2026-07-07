@@ -781,13 +781,21 @@ function ProspeccaoPage() {
     try {
       const step = Math.min(Math.max((p.cadenceStep ?? 0) + 1, 1), 7);
       const stage = `followup_${step}` as const;
-      const { data: tpl } = await supabase.rpc("cad_resolve_template" as never, { _stage: stage } as never);
+      // Busca em paralelo o template resolvido E o nome do contato no cad_leads
+      // (fonte oficial do `responsavel`). `p.owner` é o VENDEDOR interno,
+      // NÃO deve ser usado como {{primeiro_nome}} no texto enviado ao cliente.
+      const [tplRes, leadRes] = await Promise.all([
+        supabase.rpc("cad_resolve_template" as never, { _stage: stage } as never),
+        supabase.from("cad_leads").select("responsavel").eq("prospect_id", p.id).maybeSingle(),
+      ]);
+      const tpl = tplRes.data;
+      const responsavelLead = (leadRes.data as { responsavel?: string | null } | null)?.responsavel ?? "";
       const row = Array.isArray(tpl) ? tpl[0] : null;
       const corpo = (row as { corpo?: string } | null)?.corpo;
       if (corpo && corpo.trim()) {
         msg = renderTemplate(corpo, {
           empresa: p.company || "",
-          responsavel: p.owner || "",
+          responsavel: responsavelLead,
         });
         console.log("[prosp] openWhats:usando-template-pack", { stage });
       }

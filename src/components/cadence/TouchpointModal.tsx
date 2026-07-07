@@ -15,6 +15,8 @@ import {
   type TouchpointResultado,
 } from "@/lib/cadence/api";
 import { crmKeys } from "@/lib/crm/api";
+import { renderTemplate } from "@/lib/cadencia/types";
+import { supabase } from "@/integrations/supabase/client";
 
 const TIPOS: { value: TouchpointTipo; label: string }[] = [
   { value: "whatsapp", label: "WhatsApp" },
@@ -54,15 +56,47 @@ export function TouchpointModal(props: TouchpointModalProps) {
     if (!open) return;
     setTipo(defaultTipo);
     setResultado("enviado");
-    const tpl = (CADENCE_TEMPLATES[cadenceStep] || "")
-      .replace("{company}", company)
-      .replace("{owner}", ownerName || "");
-    setMensagem(tpl);
-  }, [open, defaultTipo, cadenceStep, company, ownerName]);
+    // Motor unificado: `renderTemplate` cobre `{{primeiro_nome}}`,
+    // `{{empresa}}` etc. E aplica safety-net que remove qualquer
+    // placeholder cru (`{company}`, `{{qualquer_coisa}}`) antes de
+    // chegar no textarea/mensagem enviada.
+    let cancelled = false;
+    (async () => {
+      // Busca o nome do contato oficial (cad_leads.responsavel) —
+      // NUNCA usa o vendedor (`ownerName`) como `{{primeiro_nome}}`.
+      let responsavelLead = "";
+      try {
+        const { data } = await supabase
+          .from("cad_leads")
+          .select("responsavel")
+          .eq("prospect_id", prospectId)
+          .maybeSingle();
+        responsavelLead = (data as { responsavel?: string | null } | null)?.responsavel ?? "";
+      } catch (e) {
+        console.warn("[touchpoint] fetch responsavel fail", e);
+      }
+      if (cancelled) return;
+      const corpo = CADENCE_TEMPLATES[cadenceStep] || "";
+      const tpl = renderTemplate(corpo, {
+        empresa: company,
+        responsavel: responsavelLead,
+      });
+      setMensagem(tpl);
+    })();
+    return () => { cancelled = true; };
+  }, [open, defaultTipo, cadenceStep, company, ownerName, prospectId]);
 
   const m = useMutation({
-    mutationFn: () =>
-      addTouchpoint({ prospect_id: prospectId, tipo, resultado, mensagem: mensagem.trim() || null }),
+    mutationFn: () => {
+      // Última barreira: se o operador editou o texto e deixou um
+      // placeholder cru, remove antes de gravar/enviar.
+      const clean = mensagem
+        .replace(/\{\{[^}]*\}\}/g, "")
+        .replace(/\{(?:primeiro_nome|nome|contato|responsavel|cliente|empresa|empresa_curta|empresa_nome|company|owner)\}/gi, "")
+        .replace(/[ \t]+/g, " ")
+        .trim();
+      return addTouchpoint({ prospect_id: prospectId, tipo, resultado, mensagem: clean || null });
+    },
     onSuccess: () => {
       toast.success("Contato registrado — cadência atualizada.");
       qc.invalidateQueries({ queryKey: crmKeys.prospects });
