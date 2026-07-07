@@ -119,7 +119,12 @@ import {
   type TouchpointTipo,
 } from "@/lib/cadence/api";
 import { wasDispatchedToday, dispatchBlockedMessage } from "@/lib/dispatch-lock";
-import { renderTemplate, sanitizeTemplateForSend } from "@/lib/cadencia/types";
+import {
+  renderTemplate,
+  sanitizeTemplateForSend,
+  splitVariants,
+  pickVariantIndex,
+} from "@/lib/cadencia/types";
 import { pickNicheMessage } from "@/lib/prospeccao/niche-templates";
 import {
   listCurrentNicheTemplates,
@@ -817,12 +822,26 @@ function ProspeccaoPage() {
       responsavelLead = (leadRes.data as { responsavel?: string | null } | null)?.responsavel ?? "";
       const row = Array.isArray(tpl) ? tpl[0] : null;
       const corpo = (row as { corpo?: string } | null)?.corpo;
+      const packKey = (row as { pack_key?: string } | null)?.pack_key ?? "default";
       if (corpo && corpo.trim()) {
-        msg = renderTemplate(corpo, {
+        // Se o corpo do pack tiver múltiplas variantes separadas por `\n---\n`
+        // (ex.: empresas_novas fase 2), rotaciona entre elas via round-robin
+        // persistido em localStorage — sem isso todas as variantes iriam
+        // concatenadas no disparo.
+        const variants = splitVariants(corpo);
+        const chosen =
+          variants.length > 1
+            ? variants[pickVariantIndex(variants.length, `prospeccao:pack:${packKey}:${stage}`)]
+            : corpo;
+        msg = renderTemplate(chosen, {
           empresa: p.company || "",
           responsavel: responsavelLead,
         });
-        console.log("[prosp] openWhats:usando-template-pack", { stage });
+        console.log("[prosp] openWhats:usando-template-pack", {
+          stage,
+          pack: packKey,
+          variants: variants.length,
+        });
       }
     } catch (e) {
       console.warn("[prosp] openWhats:resolve-template-fail", e);
