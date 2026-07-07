@@ -123,6 +123,7 @@ import {
   renderTemplate,
   sanitizeTemplateForSend,
   splitVariants,
+  expandVariants,
   pickVariantIndex,
 } from "@/lib/cadencia/types";
 import { pickNicheMessage } from "@/lib/prospeccao/niche-templates";
