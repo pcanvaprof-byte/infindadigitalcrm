@@ -170,6 +170,7 @@ function norm(s: string): string {
 export function pickNicheKey(company: string, segment?: string | null): NicheKey {
   const c = norm(company);
   const rules: Array<[NicheKey, RegExp]> = [
+    ["recem_aberta", /\b(recem\s?aberta|recem\s?criada|nova\s?empresa|startup|inaugura(cao|ndo)?)\b/],
     ["pizzaria", /\bpizza(ria)?\b/],
     ["hamburgueria", /\b(hamburgu?er|burger|burguer|smash)\b/],
     ["cafeteria", /\b(cafe|cafeteria|coffee|espresso)\b/],
@@ -191,6 +192,9 @@ export function pickNicheKey(company: string, segment?: string | null): NicheKey
 
   const s = norm(segment ?? "");
   const bySegment: Record<string, NicheKey> = {
+    recem_aberta: "recem_aberta",
+    nova: "recem_aberta",
+    startup: "recem_aberta",
     alimentacao: "restaurante",
     beleza: "salao",
     saude: "farmacia",
