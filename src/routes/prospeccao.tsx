@@ -265,7 +265,7 @@ function StatCard({
   icon: Icon, label, value, hint,
 }: { icon: typeof Users; label: string; value: number; hint: string }) {
   return (
-    <div className="surface-card min-w-0 p-2.5 sm:p-3">
+    <div className="surface-card flex h-full min-w-0 flex-col p-2.5 sm:p-3">
       <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-accent">
         <Icon className="h-3.5 w-3.5 text-primary-glow" />
       </span>
