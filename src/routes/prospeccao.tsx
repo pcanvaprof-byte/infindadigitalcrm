@@ -119,6 +119,7 @@ import {
   type TouchpointTipo,
 } from "@/lib/cadence/api";
 import { wasDispatchedToday, dispatchBlockedMessage } from "@/lib/dispatch-lock";
+import { renderTemplate } from "@/lib/cadencia/types";
 
 
 export const Route = createFileRoute("/prospeccao")({
@@ -736,7 +737,8 @@ function ProspeccaoPage() {
       }
     // 1) Usa a mensagem já cadastrada no pack ativo, resolvida pelo passo
     // atual da cadência do prospect (followup_1..7). Placeholders
-    // {{responsavel}} e {{empresa}} são substituídos aqui.
+    // {{primeiro_nome}}, {{responsavel}}, {{empresa}}, {{empresa_curta}} etc.
+    // são substituídos aqui pelo renderTemplate único da cadência.
     let msg: string | null = null;
     try {
       const step = Math.min(Math.max((p.cadenceStep ?? 0) + 1, 1), 7);
@@ -745,9 +747,10 @@ function ProspeccaoPage() {
       const row = Array.isArray(tpl) ? tpl[0] : null;
       const corpo = (row as { corpo?: string } | null)?.corpo;
       if (corpo && corpo.trim()) {
-        msg = corpo
-          .replace(/\{\{\s*responsavel\s*\}\}/gi, p.owner || "tudo bem")
-          .replace(/\{\{\s*empresa\s*\}\}/gi, p.company || "sua empresa");
+        msg = renderTemplate(corpo, {
+          empresa: p.company || "",
+          responsavel: p.owner || "",
+        });
         console.log("[prosp] openWhats:usando-template-pack", { stage });
       }
     } catch (e) {
@@ -773,7 +776,9 @@ function ProspeccaoPage() {
     // esteja commitado caso o navegador móvel saia da aba para o app.
     console.log("[prosp] openWhats:setConfirm", { id: p.id, company: p.company });
     setWhatsConfirm({ id: p.id, company: p.company });
-    void logAttempt(p, "whatsapp");
+    // NÃO registra touchpoint aqui: este botão apenas prepara a mensagem e
+    // abre o WhatsApp. O registro (que avança a cadência via trigger) só
+    // acontece quando o operador confirmar o contato no diálogo pós-envio.
     // Honra a conta de WhatsApp escolhida (Normal/Business). No Android
     // forçamos o app correto via intent://; no iPhone/desktop o link abre
     // o app definido como padrão do sistema.
@@ -1581,7 +1586,15 @@ function ProspeccaoPage() {
               className="btn-gradient"
               onClick={() => {
                 console.log("[prosp] whatsConfirm:confirm", { target: whatsConfirm });
-                if (whatsConfirm) updateStatus(whatsConfirm.id, "primeiro_contato");
+                if (whatsConfirm) {
+                  const target = prospects.find((x) => x.id === whatsConfirm.id);
+                  if (target) {
+                    // Registra o touchpoint AGORA (o trigger no banco avança
+                    // o passo da cadência e atualiza next_contact_at).
+                    void logAttempt(target, "whatsapp");
+                  }
+                  updateStatus(whatsConfirm.id, "primeiro_contato");
+                }
                 setWhatsConfirm(null);
               }}
             >
