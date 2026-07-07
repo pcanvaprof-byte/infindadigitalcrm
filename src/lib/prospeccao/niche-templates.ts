@@ -6,6 +6,7 @@
 // palavras-chave do nicho) e cai no `segment` cadastrado.
 // Todas as mensagens usam `{{primeiro_nome}}` — a variável é
 // resolvida por `renderTemplate` e limpa por `sanitizeTemplateForSend`.
+import { splitVariants, pickVariantIndex } from "@/lib/cadencia/types";
 
 export type NicheKey =
   | "restaurante"
