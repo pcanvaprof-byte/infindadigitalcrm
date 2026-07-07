@@ -2220,9 +2220,16 @@ function NewProspectDialog({
 }: {
   form: Omit<Prospect, "id" | "createdAt">;
   setForm: (f: Omit<Prospect, "id" | "createdAt">) => void;
-  onCreate: () => void;
+  onCreate: () => void | Promise<void>;
 }) {
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm({ ...form, [k]: v });
+  // A-1: bloqueia duplo clique → cria empresa duplicada no banco.
+  const [creating, setCreating] = useState(false);
+  const handleClick = async () => {
+    if (creating) return;
+    setCreating(true);
+    try { await onCreate(); } finally { setCreating(false); }
+  };
   return (
     <DialogContent className="max-w-2xl">
       <DialogHeader>
@@ -2278,8 +2285,10 @@ function NewProspectDialog({
         </div>
       </div>
       <DialogFooter className="sticky bottom-0 -mx-4 -mb-4 border-t border-border/60 bg-background px-4 py-3 sm:static sm:mx-0 sm:mb-0 sm:border-0 sm:bg-transparent sm:p-0">
-        <Button onClick={onCreate} className="btn-gradient w-full sm:w-auto">
-          <Plus className="mr-1.5 h-4 w-4" /> Cadastrar empresa
+        <Button onClick={handleClick} disabled={creating} className="btn-gradient w-full sm:w-auto">
+          {creating
+            ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Cadastrando…</>
+            : <><Plus className="mr-1.5 h-4 w-4" /> Cadastrar empresa</>}
         </Button>
       </DialogFooter>
     </DialogContent>
@@ -2362,7 +2371,11 @@ function ImportPreviewDialog({
         <Button
           className="btn-gradient w-full sm:w-auto"
           disabled={submitting || validRows.length === 0}
-          onClick={async () => { setSubmitting(true); await onConfirm(); setSubmitting(false); }}
+          onClick={async () => {
+            // C-7: setSubmitting(false) DEVE rodar mesmo se onConfirm lançar.
+            setSubmitting(true);
+            try { await onConfirm(); } finally { setSubmitting(false); }
+          }}
         >
           {submitting ? "Salvando…" : `Confirmar (${validRows.length})`}
         </Button>
