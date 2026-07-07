@@ -14,6 +14,7 @@ import {
   leadElegivelParaDisparo,
   type CadLead,
 } from "@/lib/cadencia/types";
+import { chooseVariant } from "@/lib/prospeccao/variant-telemetry";
 import { wasDispatchedToday, dispatchBlockedMessage } from "@/lib/dispatch-lock";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -65,17 +66,27 @@ export function SendMessageDialog({
   useEffect(() => {
     if (!lead || !open) return;
     const tpl = (tpls.data ?? []).find((t) => t.stage === lead.stage);
-    const parts = expandVariants(tpl?.corpo ?? "");
+    const corpo = tpl?.corpo ?? "";
+    const parts = expandVariants(corpo);
     setVariants(parts);
     if (parts.length === 0) {
       setVariantIdx(0);
       setMsg("");
       return;
     }
-    // Round-robin persistido por stage para revezar entre disparos.
-    const idx = pickVariantIndex(parts.length, `cad:${lead.stage}`);
-    setVariantIdx(idx);
-    setMsg(renderTemplate(parts[idx], lead));
+    // Round-robin + telemetria (source/index/hash) via chooseVariant.
+    const pick = chooseVariant(corpo, {
+      scope: "cadencia",
+      bucketKey: `cad:${lead.stage}`,
+      stage: lead.stage,
+      leadId: lead.id,
+      company: lead.empresa ?? null,
+    });
+    // parts vem de expandVariants (mesma fonte usada pelo chooseVariant),
+    // então o índice bate 1:1 exceto quando o template tem `---` (explicit).
+    const idxInParts = parts.indexOf(pick.text);
+    setVariantIdx(idxInParts >= 0 ? idxInParts : 0);
+    setMsg(renderTemplate(pick.text, lead));
   }, [lead, open, tpls.data]);
 
   function cycleVariant() {
