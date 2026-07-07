@@ -24,6 +24,7 @@ export type NicheKey =
   | "moveis"
   | "roupas"
   | "autopecas"
+  | "recem_aberta"
   | "generico";
 
 export const NICHE_TEMPLATES: Record<NicheKey, string> = {
@@ -139,6 +140,13 @@ Gostaria de apresentar uma solução que permite divulgar peças, serviços e pr
 Isso facilita o atendimento pelo WhatsApp e agiliza a consulta dos clientes.
 
 Posso te mostrar como funciona?`,
+  recem_aberta: `Olá, {{primeiro_nome}}! Tudo bem?
+
+Percebi que a empresa de vocês é recente e imaginei que talvez estejam buscando formas de divulgar melhor os produtos e facilitar o atendimento.
+
+Nós oferecemos serviços digitais integrado ao WhatsApp, que deixa a apresentação da empresa mais profissional e torna o processo de atendimento muito mais prático.
+
+Posso te mostrar rapidamente como funciona? A apresentação leva menos de 5 minutos.`,
   generico: `Olá, {{primeiro_nome}}! Tudo bem?
 
 Ajudamos negócios como o de vocês a organizar produtos, serviços e promoções em um catálogo digital integrado ao WhatsApp.
@@ -162,6 +170,7 @@ function norm(s: string): string {
 export function pickNicheKey(company: string, segment?: string | null): NicheKey {
   const c = norm(company);
   const rules: Array<[NicheKey, RegExp]> = [
+    ["recem_aberta", /\b(recem\s?aberta|recem\s?criada|nova\s?empresa|startup|inaugura(cao|ndo)?)\b/],
     ["pizzaria", /\bpizza(ria)?\b/],
     ["hamburgueria", /\b(hamburgu?er|burger|burguer|smash)\b/],
     ["cafeteria", /\b(cafe|cafeteria|coffee|espresso)\b/],
@@ -183,6 +192,9 @@ export function pickNicheKey(company: string, segment?: string | null): NicheKey
 
   const s = norm(segment ?? "");
   const bySegment: Record<string, NicheKey> = {
+    recem_aberta: "recem_aberta",
+    nova: "recem_aberta",
+    startup: "recem_aberta",
     alimentacao: "restaurante",
     beleza: "salao",
     saude: "farmacia",
