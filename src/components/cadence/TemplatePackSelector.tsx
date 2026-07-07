@@ -136,12 +136,12 @@ export function TemplatePackSelector() {
   async function changeSeed(pack_key: string) {
     setSeedPack(pack_key);
     try {
-      const orgId = await getActiveOrgId();
-      const patch = pack_key
-        ? { default_seed_pack: pack_key, active_template_pack: pack_key }
-        : { default_seed_pack: null };
-      const { error } = await supabase.from("organizations").update(patch).eq("id", orgId);
-      if (error) throw error;
+      const { error: seedError } = await supabase.rpc("cad_set_default_seed_pack", { _pack_key: pack_key });
+      if (seedError) throw seedError;
+      if (pack_key) {
+        const { error: applyError } = await supabase.rpc("cad_apply_pack", { _pack_key: pack_key });
+        if (applyError) throw applyError;
+      }
       if (pack_key) {
         toast.success(`Pack "${pack_key}" ativado e definido como modelo`);
       } else {
@@ -156,11 +156,7 @@ export function TemplatePackSelector() {
 
   async function applyPack(pack_key: string) {
     try {
-      const orgId = await getActiveOrgId();
-      const { error } = await supabase
-        .from("organizations")
-        .update({ active_template_pack: pack_key })
-        .eq("id", orgId);
+      const { error } = await supabase.rpc("cad_apply_pack", { _pack_key: pack_key });
       if (error) throw error;
       toast.success(`Pack "${pack_key}" ativado`);
       void load();

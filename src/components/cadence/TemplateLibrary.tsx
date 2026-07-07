@@ -185,9 +185,7 @@ export function TemplateLibrary() {
 
   async function applyPack(p: Pack) {
     try {
-      const orgId = await getActiveOrgId();
-      const { error } = await supabase.from("organizations")
-        .update({ active_template_pack: p.pack_key }).eq("id", orgId);
+      const { error } = await supabase.rpc("cad_apply_pack", { _pack_key: p.pack_key });
       if (error) throw error;
       toast.success(`Pack "${p.nome}" ativado`);
       void load();
