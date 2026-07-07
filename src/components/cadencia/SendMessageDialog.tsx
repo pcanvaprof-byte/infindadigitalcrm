@@ -10,7 +10,6 @@ import {
   renderTemplate,
   sanitizeTemplateForSend,
   expandVariants,
-  pickVariantIndex,
   leadElegivelParaDisparo,
   type CadLead,
 } from "@/lib/cadencia/types";
