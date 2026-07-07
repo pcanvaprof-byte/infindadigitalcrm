@@ -274,3 +274,24 @@ export function pickNicheTemplateWithOverrides(
   const custom = overrides?.get(key);
   return custom && custom.trim() ? custom : NICHE_TEMPLATES[key];
 }
+
+/**
+ * Igual ao anterior, mas quando o corpo tiver múltiplas variantes
+ * separadas por linhas com `---`, rotaciona entre elas via
+ * `pickVariantIndex` (round-robin persistido em localStorage por
+ * `bucketKey`, ex.: "prospeccao:niche"). Sem separador, devolve o
+ * corpo inteiro.
+ */
+export function pickNicheMessage(
+  company: string,
+  segment: string | null | undefined,
+  overrides: ReadonlyMap<string, string> | null | undefined,
+  bucketKey: string,
+): string {
+  const key = pickNicheKey(company, segment);
+  const corpo = pickNicheTemplateWithOverrides(company, segment, overrides);
+  const variants = splitVariants(corpo);
+  if (variants.length <= 1) return corpo;
+  const idx = pickVariantIndex(variants.length, `${bucketKey}:${key}`);
+  return variants[idx];
+}
