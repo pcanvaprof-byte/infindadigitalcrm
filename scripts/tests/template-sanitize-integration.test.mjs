@@ -45,7 +45,7 @@ test("openWhats sanitiza mensagem antes de abrir o WhatsApp", () => {
 
   assert.match(
     src,
-    /from\s+["']@\/lib\/cadencia\/types["'][^;]*sanitizeTemplateForSend/s,
+    /import\s*\{[^}]*\bsanitizeTemplateForSend\b[^}]*\}\s*from\s*["']@\/lib\/cadencia\/types["']/s,
     "prospeccao.tsx deve importar sanitizeTemplateForSend",
   );
 
@@ -78,7 +78,7 @@ test("SendMessageDialog sanitiza antes de buildSendUrl e registerSend", () => {
 
   assert.match(
     src,
-    /from\s+["']@\/lib\/cadencia\/types["'][^;]*sanitizeTemplateForSend/s,
+    /import\s*\{[^}]*\bsanitizeTemplateForSend\b[^}]*\}\s*from\s*["']@\/lib\/cadencia\/types["']/s,
     "SendMessageDialog deve importar sanitizeTemplateForSend",
   );
 
@@ -123,7 +123,7 @@ test("TouchpointModal sanitiza no mutationFn antes de addTouchpoint", () => {
 
   assert.match(
     src,
-    /from\s+["']@\/lib\/cadencia\/types["'][^;]*sanitizeTemplateForSend/s,
+    /import\s*\{[^}]*\bsanitizeTemplateForSend\b[^}]*\}\s*from\s*["']@\/lib\/cadencia\/types["']/s,
     "TouchpointModal deve importar sanitizeTemplateForSend",
   );
 
