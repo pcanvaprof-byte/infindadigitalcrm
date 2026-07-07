@@ -1,4 +1,3 @@
-import { supabase as sb } from "@/integrations/supabase/client";
 import { localTimestamp } from "./tz";
 import { fetchClientsAsContracts } from "./clients-source";
 
@@ -31,27 +30,11 @@ type ContractRow = {
   status?: string | null;
 };
 
-async function safeSelect(table: string, columns: string): Promise<ContractRow[] | null> {
-  try {
-    const { data, error } = await sb.from(table as never).select(columns).limit(5000);
-    if (error) return null;
-    return (data ?? []) as unknown as ContractRow[];
-  } catch {
-    return null;
-  }
-}
-
 export async function fetchDiretoriaKpis(): Promise<DiretoriaKpis> {
-  // Tenta primeiro a tabela canônica `contracts`, depois `op_contracts`.
-  let rows = await safeSelect("contracts", "monthly_value, contract_value, value, signed_at, status");
-  if (!rows) rows = await safeSelect("op_contracts", "monthly_value, contract_value, signed_at, status");
-  if (!rows) rows = [];
-
-  // Fonte adicional: clientes do lifecycle (Ficha 360°) — garante que edições
-  // em Operações/Clientes reflitam imediatamente no BI mesmo sem registro em
-  // `contracts`/`op_contracts`.
-  const clientRows = (await fetchClientsAsContracts()) as unknown as ContractRow[];
-  rows = [...rows, ...clientRows];
+  // Fonte canônica: lifecycle de `clients` (Ficha 360°). As antigas tabelas
+  // `contracts`/`op_contracts` nunca existiram neste projeto — removidas
+  // para não gerar 2 requisições vazias a cada leitura.
+  const rows = (await fetchClientsAsContracts()) as unknown as ContractRow[];
 
   const ini = startOfMonthIso();
   const isActive = (s?: string | null) => {
