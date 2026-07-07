@@ -1346,7 +1346,7 @@ function ProspeccaoPage() {
             </Tabs>
             <Button variant="outline" className="h-10 text-xs" onClick={() => setShowFilters((s) => !s)}>
               <Filter className="mr-1.5 h-4 w-4" /> Filtros
-              {(statusFilter !== "all" || segmentFilter !== "all" || stateFilter !== "all" || potentialFilter !== "all" || onlyWithContact) && (
+              {hasActiveFilters && (
                 <span className="ml-2 rounded-full bg-primary/20 px-1.5 text-[10px] text-primary-glow">ativos</span>
               )}
             </Button>
@@ -1519,7 +1519,13 @@ function ProspeccaoPage() {
             </Button>
             <Button variant="outline" size="sm"
               className="h-8 text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
-              onClick={() => removeProspect(Array.from(selected))}>
+              onClick={() => {
+                // C-1: nunca deletar em lote sem confirmação explícita.
+                const ids = Array.from(selected);
+                if (!ids.length) return;
+                setBulkDeleteInput("");
+                setBulkDeleteConfirm({ ids });
+              }}>
               <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Excluir
             </Button>
           </div>
@@ -1639,17 +1645,59 @@ function ProspeccaoPage() {
                 console.log("[prosp] whatsConfirm:confirm", { target: whatsConfirm });
                 if (whatsConfirm) {
                   const target = prospects.find((x) => x.id === whatsConfirm.id);
+                  // C-6: só avança status/touchpoint se o prospect ainda existe
+                  // no cache atual (pode ter sido excluído em outra aba).
                   if (target) {
-                    // Registra o touchpoint AGORA (o trigger no banco avança
-                    // o passo da cadência e atualiza next_contact_at).
                     void logAttempt(target, "whatsapp");
+                    updateStatus(whatsConfirm.id, "primeiro_contato");
+                  } else {
+                    toast.error("Prospect não encontrado. Recarregue a página.");
                   }
-                  updateStatus(whatsConfirm.id, "primeiro_contato");
                 }
                 setWhatsConfirm(null);
               }}
             >
               Sim, avançar status
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* C-1: Confirmação forte de exclusão em lote */}
+      <Dialog open={!!bulkDeleteConfirm} onOpenChange={(o) => { if (!o) { setBulkDeleteConfirm(null); setBulkDeleteInput(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-destructive">Excluir {bulkDeleteConfirm?.ids.length ?? 0} empresa(s)?</DialogTitle>
+            <DialogDescription>
+              Esta ação é irreversível e apagará as empresas selecionadas e todo o histórico associado.
+              {(bulkDeleteConfirm?.ids.length ?? 0) >= 10 && (
+                <> Digite <span className="font-mono font-bold text-destructive">EXCLUIR</span> para confirmar.</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {(bulkDeleteConfirm?.ids.length ?? 0) >= 10 && (
+            <Input
+              autoFocus
+              value={bulkDeleteInput}
+              onChange={(e) => setBulkDeleteInput(e.target.value)}
+              placeholder="EXCLUIR"
+              className="font-mono"
+            />
+          )}
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="ghost" onClick={() => { setBulkDeleteConfirm(null); setBulkDeleteInput(""); }}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={(bulkDeleteConfirm?.ids.length ?? 0) >= 10 && bulkDeleteInput.trim().toUpperCase() !== "EXCLUIR"}
+              onClick={() => {
+                if (bulkDeleteConfirm) removeProspect(bulkDeleteConfirm.ids);
+                setBulkDeleteConfirm(null);
+                setBulkDeleteInput("");
+              }}
+            >
+              <Trash2 className="mr-1.5 h-4 w-4" /> Excluir definitivamente
             </Button>
           </DialogFooter>
         </DialogContent>
