@@ -7,6 +7,7 @@
 // Todas as mensagens usam `{{primeiro_nome}}` — a variável é
 // resolvida por `renderTemplate` e limpa por `sanitizeTemplateForSend`.
 import { expandVariants, pickVariantIndex } from "@/lib/cadencia/types";
+import { chooseVariant } from "@/lib/prospeccao/variant-telemetry";
 
 export type NicheKey =
   | "restaurante"
@@ -292,11 +293,16 @@ export function pickNicheMessage(
   segment: string | null | undefined,
   overrides: ReadonlyMap<string, string> | null | undefined,
   bucketKey: string,
+  extra?: { prospectId?: string | null },
 ): string {
   const key = pickNicheKey(company, segment);
   const corpo = pickNicheTemplateWithOverrides(company, segment, overrides);
-  const variants = expandVariants(corpo);
-  if (variants.length <= 1) return corpo;
-  const idx = pickVariantIndex(variants.length, `${bucketKey}:${key}`);
-  return variants[idx];
+  const pick = chooseVariant(corpo, {
+    scope: "niche",
+    bucketKey: `${bucketKey}:${key}`,
+    niche: key,
+    company: company || null,
+    prospectId: extra?.prospectId ?? null,
+  });
+  return pick.text;
 }
