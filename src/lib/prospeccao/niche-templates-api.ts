@@ -28,16 +28,12 @@ const TABLE = "cad_niche_templates" as never;
  * (editado em /cadencia > Templates).
  */
 export async function listCurrentNicheTemplates(): Promise<NicheTemplateRow[]> {
-  const { data, error } = await (supabase as unknown as {
-    from: (t: string) => {
-      select: (cols: string) => {
-        like: (col: string, pat: string) => {
-          eq: (col: string, val: string) => Promise<{ data: unknown; error: { message: string } | null }>;
-        };
-      };
-    };
-  }).from("cad_templates").select("id, pack_key, corpo, updated_at")
-    .like("pack_key", "niche\\_%")
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const client = supabase as any;
+  const { data, error } = await client
+    .from("cad_templates")
+    .select("id, pack_key, corpo, updated_at")
+    .like("pack_key", "niche_%")
     .eq("stage", "followup_1");
   if (error) throw new Error(error.message);
   const rows = (data ?? []) as Array<{ id: string; pack_key: string; corpo: string; updated_at: string }>;
