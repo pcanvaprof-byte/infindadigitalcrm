@@ -1586,7 +1586,15 @@ function ProspeccaoPage() {
               className="btn-gradient"
               onClick={() => {
                 console.log("[prosp] whatsConfirm:confirm", { target: whatsConfirm });
-                if (whatsConfirm) updateStatus(whatsConfirm.id, "primeiro_contato");
+                if (whatsConfirm) {
+                  const target = prospects.find((x) => x.id === whatsConfirm.id);
+                  if (target) {
+                    // Registra o touchpoint AGORA (o trigger no banco avança
+                    // o passo da cadência e atualiza next_contact_at).
+                    void logAttempt(target, "whatsapp");
+                  }
+                  updateStatus(whatsConfirm.id, "primeiro_contato");
+                }
                 setWhatsConfirm(null);
               }}
             >
