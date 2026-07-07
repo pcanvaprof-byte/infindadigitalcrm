@@ -221,6 +221,55 @@ export function splitVariants(corpo: string | null | undefined): string[] {
 }
 
 /**
+ * Gera variações naturais automáticas de um corpo único trocando a
+ * saudação inicial ("Oi" / "Olá" / "E aí") e, quando presente, o
+ * softener imediatamente após ("tudo bem?" / "beleza?" / "como vai?").
+ *
+ * Objetivo: reduzir a repetição literal do mesmo texto entre disparos
+ * consecutivos — o WhatsApp usa padrão idêntico como sinal de spam.
+ *
+ * - Se o corpo já tiver variantes explícitas (`---`), devolve elas
+ *   sem alterar (o operador cadastrou manualmente, respeitamos).
+ * - Se não houver saudação reconhecível no começo, devolve `[corpo]`
+ *   (nada seguro pra reescrever automaticamente).
+ * - Deduplica ao final.
+ */
+const GREETING_RE = /^(Oi|Ol[áa]|E a[íi]|Bom dia|Boa tarde|Boa noite)\b/i;
+const SOFTENER_RE = /^(\s*[,!]?\s*(?:tudo bem|tudo bom|beleza|como vai|como voc[êe] est[áa])\s*\??)/i;
+
+export function expandVariants(corpo: string | null | undefined): string[] {
+  const explicit = splitVariants(corpo);
+  if (explicit.length > 1) return explicit;
+  const base = explicit[0] ?? "";
+  if (!base) return [];
+  const greetMatch = base.match(GREETING_RE);
+  if (!greetMatch) return [base];
+
+  const greetings = ["Oi", "Olá", "E aí"];
+  const softeners = ["tudo bem?", "beleza?", "como vai?"];
+
+  // Detecta softener logo após a saudação (ou após vírgula/nome).
+  // Ex.: "Olá {{responsavel}}, tudo bem?" — trocamos a saudação sempre,
+  // e o softener quando aparecer nas primeiras ~80 chars.
+  const head = base.slice(0, 80);
+  const softHit = head.match(/\b(tudo bem|tudo bom|beleza|como vai|como voc[êe] est[áa])\s*\??/i);
+
+  const results: string[] = [];
+  for (let i = 0; i < 3; i++) {
+    let out = base.replace(GREETING_RE, greetings[i]);
+    if (softHit) {
+      const target = softeners[i];
+      // Remove `?` do target se o texto original não tinha `?`.
+      const hadQ = /\?/.test(softHit[0]);
+      const finalSoft = hadQ ? target : target.replace(/\?$/, "");
+      out = out.replace(/\b(tudo bem|tudo bom|beleza|como vai|como voc[êe] est[áa])\s*\??/i, finalSoft);
+    }
+    results.push(out);
+  }
+  return Array.from(new Set(results));
+}
+
+/**
  * Escolhe uma variante por round-robin persistido em localStorage.
  * `key` identifica o "balde" de rotação (ex.: stage da cadência, canal
  * da prospecção). Se houver só uma variante, devolve o índice 0.
