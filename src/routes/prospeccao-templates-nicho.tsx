@@ -40,7 +40,7 @@ import {
 } from "@/lib/prospeccao/niche-templates-api";
 import { renderTemplate, sanitizeTemplateForSend } from "@/lib/cadencia/types";
 
-export const Route = createFileRoute("/prospeccao/templates-nicho")({
+export const Route = createFileRoute("/prospeccao-templates-nicho")({
   head: () => ({
     meta: [
       { title: "Templates por Nicho — INFINDA" },
