@@ -149,7 +149,11 @@ function scanFile(file) {
     const name = m[1];
     const line = lineOf(m.index);
     // Grab a window after the .from(...) to sniff column-referencing methods.
-    const tail = src.slice(m.index, m.index + 1200);
+    // Bound the chain: stop at the next `.from(` / `.rpc(` in the file,
+    // to avoid pulling in operations that belong to a different query.
+    const after = src.slice(m.index + m[0].length);
+    const nextBoundary = after.search(/\.(from|rpc)\s*\(/);
+    const tail = nextBoundary >= 0 ? after.slice(0, nextBoundary) : after.slice(0, 1500);
     const chained = [];
     const chainRe = /\.(select|eq|neq|gt|gte|lt|lte|like|ilike|is|in|contains|containedBy|order|update|insert|upsert|match)\(\s*(["'`])([^`'"]*?)\2/g;
     let c;
