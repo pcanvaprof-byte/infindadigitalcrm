@@ -1862,6 +1862,7 @@ export type Database = {
           interaction_type: string
           next_followup_at: string | null
           notes: string | null
+          organization_id: string
           owner_id: string
           title: string
         }
@@ -1874,6 +1875,7 @@ export type Database = {
           interaction_type: string
           next_followup_at?: string | null
           notes?: string | null
+          organization_id?: string
           owner_id?: string
           title: string
         }
@@ -1886,6 +1888,7 @@ export type Database = {
           interaction_type?: string
           next_followup_at?: string | null
           notes?: string | null
+          organization_id?: string
           owner_id?: string
           title?: string
         }
@@ -1895,6 +1898,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "op_clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "op_client_interactions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -1907,6 +1917,7 @@ export type Database = {
           id: string
           nome: string
           observacoes: string | null
+          organization_id: string
           responsavel_id: string | null
           status: Database["public"]["Enums"]["op_cliente_status"]
           telefone: string | null
@@ -1920,6 +1931,7 @@ export type Database = {
           id?: string
           nome: string
           observacoes?: string | null
+          organization_id?: string
           responsavel_id?: string | null
           status?: Database["public"]["Enums"]["op_cliente_status"]
           telefone?: string | null
@@ -1933,13 +1945,22 @@ export type Database = {
           id?: string
           nome?: string
           observacoes?: string | null
+          organization_id?: string
           responsavel_id?: string | null
           status?: Database["public"]["Enums"]["op_cliente_status"]
           telefone?: string | null
           updated_at?: string
           whatsapp?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "op_clientes_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       op_contract_renewals: {
         Row: {
@@ -2065,6 +2086,7 @@ export type Database = {
           descricao: string | null
           id: string
           ordem: number
+          organization_id: string
           prazo: string | null
           responsavel_id: string | null
           status: Database["public"]["Enums"]["op_entrega_status"]
@@ -2078,6 +2100,7 @@ export type Database = {
           descricao?: string | null
           id?: string
           ordem?: number
+          organization_id?: string
           prazo?: string | null
           responsavel_id?: string | null
           status?: Database["public"]["Enums"]["op_entrega_status"]
@@ -2091,6 +2114,7 @@ export type Database = {
           descricao?: string | null
           id?: string
           ordem?: number
+          organization_id?: string
           prazo?: string | null
           responsavel_id?: string | null
           status?: Database["public"]["Enums"]["op_entrega_status"]
@@ -2104,6 +2128,13 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "op_clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "op_entregas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -2198,6 +2229,7 @@ export type Database = {
           id: string
           impressoes: number | null
           nome: string
+          organization_id: string
           periodo_fim: string | null
           periodo_inicio: string | null
           plataforma: Database["public"]["Enums"]["op_plataforma"]
@@ -2218,6 +2250,7 @@ export type Database = {
           id?: string
           impressoes?: number | null
           nome: string
+          organization_id?: string
           periodo_fim?: string | null
           periodo_inicio?: string | null
           plataforma: Database["public"]["Enums"]["op_plataforma"]
@@ -2238,6 +2271,7 @@ export type Database = {
           id?: string
           impressoes?: number | null
           nome?: string
+          organization_id?: string
           periodo_fim?: string | null
           periodo_inicio?: string | null
           plataforma?: Database["public"]["Enums"]["op_plataforma"]
@@ -2262,6 +2296,13 @@ export type Database = {
             referencedRelation: "op_trafego_contas"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "op_trafego_campanhas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
         ]
       }
       op_trafego_contas: {
@@ -2272,6 +2313,7 @@ export type Database = {
           id: string
           nome_conta: string
           objetivo: string | null
+          organization_id: string
           plataforma: Database["public"]["Enums"]["op_plataforma"]
           status: string
           updated_at: string
@@ -2284,6 +2326,7 @@ export type Database = {
           id?: string
           nome_conta: string
           objetivo?: string | null
+          organization_id?: string
           plataforma: Database["public"]["Enums"]["op_plataforma"]
           status?: string
           updated_at?: string
@@ -2296,6 +2339,7 @@ export type Database = {
           id?: string
           nome_conta?: string
           objetivo?: string | null
+          organization_id?: string
           plataforma?: Database["public"]["Enums"]["op_plataforma"]
           status?: string
           updated_at?: string
@@ -2307,6 +2351,13 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "op_clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "op_trafego_contas_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
