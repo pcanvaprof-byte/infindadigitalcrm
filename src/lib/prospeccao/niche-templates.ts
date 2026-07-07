@@ -233,3 +233,18 @@ export function pickNicheKey(company: string, segment?: string | null): NicheKey
 export function pickNicheTemplate(company: string, segment?: string | null): string {
   return NICHE_TEMPLATES[pickNicheKey(company, segment)];
 }
+
+/**
+ * Igual ao `pickNicheTemplate`, mas prioriza um override vindo do banco
+ * (edição da tela "Templates por nicho"). Se a chave detectada não tem
+ * override cadastrado para a organização, cai no texto padrão do código.
+ */
+export function pickNicheTemplateWithOverrides(
+  company: string,
+  segment: string | null | undefined,
+  overrides?: ReadonlyMap<string, string> | null,
+): string {
+  const key = pickNicheKey(company, segment);
+  const custom = overrides?.get(key);
+  return custom && custom.trim() ? custom : NICHE_TEMPLATES[key];
+}
