@@ -367,6 +367,9 @@ function ProspeccaoPage() {
   const [waAccount, setWaAccount] = useState<WaAccount>("default");
   const [quickEnrichingIds, setQuickEnrichingIds] = useState<Set<string>>(new Set());
   const [dispatchingIds, setDispatchingIds] = useState<Set<string>>(new Set());
+  // Confirmação de exclusão em lote (C-1): evita perda irreversível por clique acidental.
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState<{ ids: string[] } | null>(null);
+  const [bulkDeleteInput, setBulkDeleteInput] = useState("");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -590,32 +593,61 @@ function ProspeccaoPage() {
     setCache((prev) =>
       prev.map((p) => (p.id === id ? { ...p, interactions: [tempIx, ...(p.interactions ?? [])] } : p)),
     );
-    addInteractionRemote(id, kind, text, user.name).then((saved) => {
-      if (!saved) return;
-      setCache((prev) =>
-        prev.map((p) =>
-          p.id === id
-            ? { ...p, interactions: [saved, ...(p.interactions ?? []).filter((i) => i.id !== tempIx.id)] }
-            : p,
-        ),
-      );
-    });
+    addInteractionRemote(id, kind, text, user.name)
+      .then((saved) => {
+        if (!saved) {
+          // C-2: reverter optimistic update quando o backend rejeita silenciosamente.
+          setCache((prev) =>
+            prev.map((p) =>
+              p.id === id
+                ? { ...p, interactions: (p.interactions ?? []).filter((i) => i.id !== tempIx.id) }
+                : p,
+            ),
+          );
+          toast.error("Não foi possível registrar a interação. Tente novamente.");
+          return;
+        }
+        setCache((prev) =>
+          prev.map((p) =>
+            p.id === id
+              ? { ...p, interactions: [saved, ...(p.interactions ?? []).filter((i) => i.id !== tempIx.id)] }
+              : p,
+          ),
+        );
+      })
+      .catch((e) => {
+        setCache((prev) =>
+          prev.map((p) =>
+            p.id === id
+              ? { ...p, interactions: (p.interactions ?? []).filter((i) => i.id !== tempIx.id) }
+              : p,
+          ),
+        );
+        toast.error(`Falha ao registrar interação: ${e instanceof Error ? e.message : String(e)}`);
+      });
   };
 
   const updateStatus = (id: string, status: ProspectStatus) => {
     console.log("[prosp] updateStatus:start", { id, status });
+    // C-3: snapshot para rollback se a persistência falhar.
+    const snapshot = prospects.find((p) => p.id === id);
     setCache((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)));
     updateProspect(id, { status })
       .then(() => {
         console.log("[prosp] updateStatus:ok", { id, status });
+        // C-3: sucesso só é comunicado após confirmação do banco.
+        toast.success(`Status: ${STATUS_LABEL[status]}`);
+        addInteraction(id, "status", `Status alterado para "${STATUS_LABEL[status]}"`);
         return invalidateCrmCore(qc);
       })
       .catch((e) => {
         console.error("[prosp] updateStatus:error", { id, status, error: e });
+        // Rollback: restaura status anterior no cache.
+        if (snapshot) {
+          setCache((prev) => prev.map((p) => (p.id === id ? { ...p, status: snapshot.status } : p)));
+        }
         toast.error(`Erro: ${e.message ?? e}`);
       });
-    addInteraction(id, "status", `Status alterado para "${STATUS_LABEL[status]}"`);
-    toast.success(`Status: ${STATUS_LABEL[status]}`);
   };
 
   const removeProspect = (ids: string[]) => {
@@ -711,7 +743,13 @@ function ProspeccaoPage() {
       qc.invalidateQueries({ queryKey: cadenceKeys.timeline(prospect.id) });
     } catch (e) {
       console.error("[prosp] logAttempt:error", { prospectId: prospect.id, tipo, error: e });
-      /* não bloqueia o deep link */
+      // C-4: falha silenciosa antes ocultava que a cadência NÃO avançou.
+      // Agora avisamos e mantemos o deep link já aberto.
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.warning(
+        `Contato aberto, mas o registro na cadência falhou: ${msg}. O passo pode não ter avançado — registre manualmente.`,
+        { duration: 8000 },
+      );
     }
   };
 
@@ -847,7 +885,8 @@ function ProspeccaoPage() {
     const lock = await wasDispatchedToday({ prospectId: p.id });
     if (lock.blocked) return toast.error(dispatchBlockedMessage(lock.source!));
     window.open(`tel:+55${d}`);
-    void logAttempt(p, "ligacao");
+    // A-5: NÃO grava touchpoint aqui — o TouchpointModal abaixo é a fonte única
+    // do registro (evita gravar 2x e avançar cadence_step em dobro).
     setTouchpointTarget({ prospect: p, tipo: "ligacao" });
   };
   const openEmail = async (p: Prospect) => {
@@ -855,7 +894,7 @@ function ProspeccaoPage() {
     const lock = await wasDispatchedToday({ prospectId: p.id });
     if (lock.blocked) return toast.error(dispatchBlockedMessage(lock.source!));
     window.open(`mailto:${p.email}`);
-    void logAttempt(p, "email");
+    // A-5: mesmo racional do callPhone acima.
     setTouchpointTarget({ prospect: p, tipo: "email" });
   };
 
@@ -881,7 +920,7 @@ function ProspeccaoPage() {
   };
 
   const handleCreate = async () => {
-    if (!form.company.trim()) return toast.error("Informe o nome da empresa");
+    if (!form.company.trim()) { toast.error("Informe o nome da empresa"); return; }
     try {
       const saved = await insertProspect({
         ...form,
@@ -1036,32 +1075,44 @@ function ProspeccaoPage() {
   };
 
   const confirmImport = async () => {
+    // A-9: apply e log são try/catch separados. Uma falha no log
+    // NÃO pode aparecer para o usuário como "importação falhou",
+    // pois os dados já entraram no banco (e um retry cria duplicatas).
+    let result: Awaited<ReturnType<typeof applyImport>>;
     try {
-      const result = await applyImport(previewRows, prospects);
+      result = await applyImport(previewRows, prospects);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`Erro: ${msg}`);
+      return;
+    }
+    setPreviewOpen(false);
+    setPreviewRows([]);
+    await invalidateCrmCore(qc);
+    toast.success(
+      `Importação salva no banco: ${result.inserted} novas, ${result.updated} atualizadas, ${result.skipped} ignoradas`,
+      { duration: 8000 },
+    );
+    if (result.errors.length) toast.error(`${result.errors.length} erro(s) registrados`);
+    try {
       await logImport({
         fileName: previewFileName,
         performedBy: user.name,
         totalRows: previewRows.length,
         result,
       });
-      setPreviewOpen(false);
-      setPreviewRows([]);
-      // invalidação dispara o refetch — não precisa de loadAllProspects manual
-      await invalidateCrmCore(qc);
-      toast.success(
-        `Importação salva no banco: ${result.inserted} novas, ${result.updated} atualizadas, ${result.skipped} ignoradas`,
-        { duration: 8000 },
-      );
-      if (result.errors.length) toast.error(`${result.errors.length} erro(s) registrados`);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      toast.error(`Erro: ${msg}`);
+    } catch (e) {
+      // Não bloqueante: importação foi bem-sucedida.
+      console.warn("[prosp] logImport:fail", e);
     }
   };
 
 
   const clearFilters = () => {
-    setStatusFilter("all"); setSegmentFilter("all"); setStateFilter("all"); setPotentialFilter("all"); setSearch(""); setOnlyWithContact(false); setNoWhatsapp(false);
+    // A-4: limpar TODOS os filtros ativos, incluindo cadência e onlyWhatsapp.
+    setStatusFilter("all"); setSegmentFilter("all"); setStateFilter("all"); setPotentialFilter("all");
+    setSearch(""); setOnlyWithContact(false); setNoWhatsapp(false); setOnlyWhatsapp(false);
+    setCadenceFilter("all");
   };
 
   const bulkEnrich = async () => {
@@ -1295,7 +1346,7 @@ function ProspeccaoPage() {
             </Tabs>
             <Button variant="outline" className="h-10 text-xs" onClick={() => setShowFilters((s) => !s)}>
               <Filter className="mr-1.5 h-4 w-4" /> Filtros
-              {(statusFilter !== "all" || segmentFilter !== "all" || stateFilter !== "all" || potentialFilter !== "all" || onlyWithContact) && (
+              {hasActiveFilters && (
                 <span className="ml-2 rounded-full bg-primary/20 px-1.5 text-[10px] text-primary-glow">ativos</span>
               )}
             </Button>
@@ -1468,7 +1519,13 @@ function ProspeccaoPage() {
             </Button>
             <Button variant="outline" size="sm"
               className="h-8 text-xs border-destructive/30 text-destructive hover:bg-destructive/10"
-              onClick={() => removeProspect(Array.from(selected))}>
+              onClick={() => {
+                // C-1: nunca deletar em lote sem confirmação explícita.
+                const ids = Array.from(selected);
+                if (!ids.length) return;
+                setBulkDeleteInput("");
+                setBulkDeleteConfirm({ ids });
+              }}>
               <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Excluir
             </Button>
           </div>
@@ -1588,17 +1645,59 @@ function ProspeccaoPage() {
                 console.log("[prosp] whatsConfirm:confirm", { target: whatsConfirm });
                 if (whatsConfirm) {
                   const target = prospects.find((x) => x.id === whatsConfirm.id);
+                  // C-6: só avança status/touchpoint se o prospect ainda existe
+                  // no cache atual (pode ter sido excluído em outra aba).
                   if (target) {
-                    // Registra o touchpoint AGORA (o trigger no banco avança
-                    // o passo da cadência e atualiza next_contact_at).
                     void logAttempt(target, "whatsapp");
+                    updateStatus(whatsConfirm.id, "primeiro_contato");
+                  } else {
+                    toast.error("Prospect não encontrado. Recarregue a página.");
                   }
-                  updateStatus(whatsConfirm.id, "primeiro_contato");
                 }
                 setWhatsConfirm(null);
               }}
             >
               Sim, avançar status
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* C-1: Confirmação forte de exclusão em lote */}
+      <Dialog open={!!bulkDeleteConfirm} onOpenChange={(o) => { if (!o) { setBulkDeleteConfirm(null); setBulkDeleteInput(""); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-destructive">Excluir {bulkDeleteConfirm?.ids.length ?? 0} empresa(s)?</DialogTitle>
+            <DialogDescription>
+              Esta ação é irreversível e apagará as empresas selecionadas e todo o histórico associado.
+              {(bulkDeleteConfirm?.ids.length ?? 0) >= 10 && (
+                <> Digite <span className="font-mono font-bold text-destructive">EXCLUIR</span> para confirmar.</>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {(bulkDeleteConfirm?.ids.length ?? 0) >= 10 && (
+            <Input
+              autoFocus
+              value={bulkDeleteInput}
+              onChange={(e) => setBulkDeleteInput(e.target.value)}
+              placeholder="EXCLUIR"
+              className="font-mono"
+            />
+          )}
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button variant="ghost" onClick={() => { setBulkDeleteConfirm(null); setBulkDeleteInput(""); }}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={(bulkDeleteConfirm?.ids.length ?? 0) >= 10 && bulkDeleteInput.trim().toUpperCase() !== "EXCLUIR"}
+              onClick={() => {
+                if (bulkDeleteConfirm) removeProspect(bulkDeleteConfirm.ids);
+                setBulkDeleteConfirm(null);
+                setBulkDeleteInput("");
+              }}
+            >
+              <Trash2 className="mr-1.5 h-4 w-4" /> Excluir definitivamente
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2121,9 +2220,16 @@ function NewProspectDialog({
 }: {
   form: Omit<Prospect, "id" | "createdAt">;
   setForm: (f: Omit<Prospect, "id" | "createdAt">) => void;
-  onCreate: () => void;
+  onCreate: () => void | Promise<void>;
 }) {
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm({ ...form, [k]: v });
+  // A-1: bloqueia duplo clique → cria empresa duplicada no banco.
+  const [creating, setCreating] = useState(false);
+  const handleClick = async () => {
+    if (creating) return;
+    setCreating(true);
+    try { await onCreate(); } finally { setCreating(false); }
+  };
   return (
     <DialogContent className="max-w-2xl">
       <DialogHeader>
@@ -2179,8 +2285,10 @@ function NewProspectDialog({
         </div>
       </div>
       <DialogFooter className="sticky bottom-0 -mx-4 -mb-4 border-t border-border/60 bg-background px-4 py-3 sm:static sm:mx-0 sm:mb-0 sm:border-0 sm:bg-transparent sm:p-0">
-        <Button onClick={onCreate} className="btn-gradient w-full sm:w-auto">
-          <Plus className="mr-1.5 h-4 w-4" /> Cadastrar empresa
+        <Button onClick={handleClick} disabled={creating} className="btn-gradient w-full sm:w-auto">
+          {creating
+            ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Cadastrando…</>
+            : <><Plus className="mr-1.5 h-4 w-4" /> Cadastrar empresa</>}
         </Button>
       </DialogFooter>
     </DialogContent>
@@ -2263,7 +2371,11 @@ function ImportPreviewDialog({
         <Button
           className="btn-gradient w-full sm:w-auto"
           disabled={submitting || validRows.length === 0}
-          onClick={async () => { setSubmitting(true); await onConfirm(); setSubmitting(false); }}
+          onClick={async () => {
+            // C-7: setSubmitting(false) DEVE rodar mesmo se onConfirm lançar.
+            setSubmitting(true);
+            try { await onConfirm(); } finally { setSubmitting(false); }
+          }}
         >
           {submitting ? "Salvando…" : `Confirmar (${validRows.length})`}
         </Button>
