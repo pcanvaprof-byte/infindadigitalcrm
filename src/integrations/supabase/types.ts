@@ -186,6 +186,7 @@ export type Database = {
           empresa: string | null
           id: string
           lead_id: string | null
+          organization_id: string | null
           respostas_json: Json
           resumo_ia: string | null
           servico: string | null
@@ -204,6 +205,7 @@ export type Database = {
           empresa?: string | null
           id?: string
           lead_id?: string | null
+          organization_id?: string | null
           respostas_json?: Json
           resumo_ia?: string | null
           servico?: string | null
@@ -222,6 +224,7 @@ export type Database = {
           empresa?: string | null
           id?: string
           lead_id?: string | null
+          organization_id?: string | null
           respostas_json?: Json
           resumo_ia?: string | null
           servico?: string | null
@@ -245,6 +248,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "briefings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -3843,6 +3853,7 @@ export type Database = {
           empresa: string | null
           id: string
           lead_id: string | null
+          organization_id: string | null
           respostas_json: Json
           resumo_ia: string | null
           servico: string | null
