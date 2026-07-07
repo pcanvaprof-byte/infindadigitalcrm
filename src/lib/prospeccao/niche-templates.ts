@@ -52,158 +52,162 @@ export const NICHE_LABELS: Record<NicheKey, string> = {
 export const NICHE_KEYS = Object.keys(NICHE_LABELS) as NicheKey[];
 
 export const NICHE_TEMPLATES: Record<NicheKey, string> = {
-  restaurante: `Olá, {{primeiro_nome}}! Tudo bem?
+  restaurante: `Oi, {{primeiro_nome}}, tudo bem?
 
-Percebi que o restaurante de vocês pode se beneficiar de um catálogo digital que facilita os pedidos pelo WhatsApp, sem depender de aplicativos que cobram altas taxas.
+Passei pra falar rapidinho sobre uma ideia que tem ajudado bastante restaurantes por aqui: um cardápio digital ligado ao WhatsApp, que agiliza os pedidos e evita a taxa alta dos aplicativos.
 
-A solução permite atualizar o cardápio em tempo real, destacar promoções e oferecer uma experiência mais prática para os clientes.
+Dá pra atualizar pratos e promoções em tempo real, e o cliente pede direto pelo chat.
 
 Posso te mostrar rapidamente como funciona?`,
-  cafeteria: `Olá, {{primeiro_nome}}! Tudo bem?
+  cafeteria: `Oi, {{primeiro_nome}}, tudo bem?
 
-Estou entrando em contato porque ajudamos cafeterias a oferecer um cardápio digital moderno, facilitando pedidos, divulgação de produtos e promoções sazonais.
+Estou falando com cafeterias da região sobre uma forma simples de organizar o cardápio no WhatsApp — com os cafés, doces e novidades sempre à mão do cliente.
 
-É uma solução simples de implementar e que melhora a experiência dos clientes.
+Ajuda a divulgar sazonais (café gelado no verão, panetone no fim do ano) sem depender de post ou stories.
 
-Posso te apresentar em poucos minutos?`,
-  pizzaria: `Olá, {{primeiro_nome}}! Tudo bem?
+Faz sentido eu te mostrar em poucos minutos?`,
+  pizzaria: `Oi, {{primeiro_nome}}, tudo bem?
 
-Vi a pizzaria de vocês e acredito que um catálogo digital pode facilitar bastante os pedidos pelo WhatsApp, além de deixar o cardápio mais organizado e atrativo.
+Vi a pizzaria e queria te mostrar rapidinho uma ideia que tem funcionado bem por aqui: um cardápio digital no WhatsApp com os sabores, borda, adicionais e combos organizados.
 
-Os clientes conseguem visualizar sabores, adicionais e promoções de forma rápida.
+O cliente monta o pedido sozinho e chega prontinho pra vocês, sem ficar tirando dúvida por mensagem.
 
-Posso te mostrar como funciona?`,
-  hamburgueria: `Olá, {{primeiro_nome}}! Tudo bem?
+Posso te enviar um exemplo?`,
+  hamburgueria: `E aí, {{primeiro_nome}}, tudo certo?
 
-Estamos ajudando hamburguerias a modernizar os pedidos com um catálogo digital integrado ao WhatsApp.
+Passei pra te mostrar uma forma prática de deixar o cardápio da hamburgueria no WhatsApp — com os burgers, combos, adicionais e ponto da carne já organizados.
 
-Assim os clientes visualizam hambúrgueres, combos, adicionais e promoções de maneira muito mais prática.
+Diminui bastante aquela ida e volta pra fechar pedido e ajuda em dias cheios.
 
-Posso te apresentar a solução?`,
-  confeitaria: `Olá, {{primeiro_nome}}! Tudo bem?
+Faz sentido eu te mandar um exemplo rápido?`,
+  confeitaria: `Oi, {{primeiro_nome}}, tudo bem?
 
-Vi o trabalho de vocês e acredito que um catálogo digital pode facilitar muito a apresentação dos bolos, doces e encomendas.
+Vi os doces de vocês e imaginei que um catálogo digital ajudaria bastante — bolos, doces finos e encomendas com foto, sabor e valor, tudo direto no WhatsApp.
 
-Além de organizar os produtos, ele ajuda os clientes a encontrarem tudo com mais facilidade.
+Cliente escolhe com calma e vocês recebem o pedido já pronto pra confirmar.
 
-Posso te mostrar como funciona?`,
-  acougue: `Olá, {{primeiro_nome}}! Tudo bem?
+Posso te mostrar como fica?`,
+  acougue: `Oi, {{primeiro_nome}}, tudo bem?
 
-Hoje muitos açougues estão utilizando catálogos digitais para divulgar cortes, kits para churrasco e promoções diretamente pelo WhatsApp.
+Passei pra falar de uma ideia que tem ajudado bastante açougues aqui da região: um catálogo digital no WhatsApp com os cortes, kits de churrasco e ofertas da semana.
 
-É uma forma prática de aumentar os pedidos e manter os clientes sempre atualizados.
+O cliente vê tudo antes e já fecha o pedido, sem precisar ligar pra perguntar preço.
 
-Posso te mostrar?`,
-  mercado: `Olá, {{primeiro_nome}}! Tudo bem?
+Posso te mostrar rapidamente?`,
+  mercado: `Oi, {{primeiro_nome}}, tudo bem?
 
-Gostaria de apresentar um catálogo digital que facilita a divulgação de ofertas, produtos e pedidos pelo WhatsApp.
+Estou falando com mercados aqui da região sobre uma forma simples de organizar produtos e ofertas da semana num catálogo digital no WhatsApp.
 
-A atualização é rápida e os clientes conseguem consultar tudo de forma organizada.
+Ajuda no tele-entrega e o cliente consegue montar a lista sem precisar ir até a loja.
 
-Posso te mostrar a plataforma?`,
-  farmacia: `Olá, {{primeiro_nome}}! Tudo bem?
+Faz sentido eu te mostrar em poucos minutos?`,
+  farmacia: `Oi, {{primeiro_nome}}, tudo bem?
 
-Estamos ajudando farmácias a organizar seus produtos em um catálogo digital, facilitando a consulta e o atendimento pelo WhatsApp.
+Passei pra te mostrar uma ideia que tem ajudado bastante farmácias: um catálogo digital no WhatsApp com medicamentos, perfumaria e conveniência organizados por categoria.
 
-A plataforma é simples de atualizar e melhora bastante a experiência dos clientes.
-
-Posso te apresentar?`,
-  petshop: `Olá, {{primeiro_nome}}! Tudo bem?
-
-Vi o pet shop de vocês e acredito que um catálogo digital pode facilitar muito a divulgação de rações, acessórios, medicamentos e serviços.
-
-Tudo pode ser consultado rapidamente pelo WhatsApp.
+Facilita a consulta de preço e o pedido de entrega, sem sobrecarregar o balconista com dúvida por telefone.
 
 Posso te mostrar como funciona?`,
-  salao: `Olá, {{primeiro_nome}}! Tudo bem?
+  petshop: `Oi, {{primeiro_nome}}, tudo bem?
 
-Estamos ajudando salões de beleza a apresentar seus serviços, produtos e promoções em um catálogo digital moderno.
+Vi o pet shop e queria te mostrar uma ideia que tem funcionado bem: um catálogo digital com rações, acessórios, medicamentos e serviços (banho, tosa, consulta) direto no WhatsApp.
 
-É uma forma simples de valorizar o atendimento e facilitar o contato dos clientes.
+O tutor consulta sozinho, agenda ou pede a entrega sem tomar tempo do atendimento.
 
-Posso te mostrar?`,
-  barbearia: `Olá, {{primeiro_nome}}! Tudo bem?
+Posso te mandar um exemplo?`,
+  salao: `Oi, {{primeiro_nome}}, tudo bem?
 
-Gostaria de apresentar uma ferramenta que ajuda barbearias a divulgar serviços, produtos e promoções através de um catálogo digital integrado ao WhatsApp.
+Passei pra falar de uma forma simples de mostrar todos os serviços do salão pelo WhatsApp — com valores, tempo de cada procedimento e produtos que vocês vendem, tudo organizado.
 
-É rápido de configurar e muito fácil para os clientes utilizarem.
+A cliente escolhe com calma e o agendamento fica bem mais tranquilo.
 
-Posso te mostrar?`,
-  academia: `Olá, {{primeiro_nome}}! Tudo bem?
+Faz sentido eu te mostrar rapidinho?`,
+  barbearia: `E aí, {{primeiro_nome}}, tudo certo?
 
-Estamos ajudando academias a divulgar planos, modalidades, horários e serviços através de um catálogo digital.
+Passei pra te mostrar uma ideia que tem funcionado bem em barbearia: um catálogo no WhatsApp com os serviços, combos (corte + barba), produtos e horários, tudo direto pro cliente consultar.
 
-Isso facilita o atendimento e permite que os interessados encontrem todas as informações rapidamente.
+Reduz aquela troca de mensagens antes de agendar.
 
-Posso te apresentar?`,
-  materiais_construcao: `Olá, {{primeiro_nome}}! Tudo bem?
+Posso te mandar um exemplo?`,
+  academia: `Oi, {{primeiro_nome}}, tudo bem?
 
-Vi a empresa de vocês e acredito que um catálogo digital pode facilitar bastante a divulgação de produtos, promoções e lançamentos pelo WhatsApp.
+Estou falando com academias sobre uma forma prática de apresentar planos, modalidades e horários pelo WhatsApp, num catálogo digital que o interessado consulta sozinho.
 
-Os clientes conseguem consultar tudo de forma organizada antes mesmo de entrar em contato.
+Ajuda a converter mais visitas em matrículas, porque a pessoa já chega sabendo o que quer.
 
-Posso te mostrar a plataforma?`,
-  moveis: `Olá, {{primeiro_nome}}! Tudo bem?
+Faz sentido eu te mostrar em poucos minutos?`,
+  materiais_construcao: `Oi, {{primeiro_nome}}, tudo bem?
 
-Gostaria de apresentar um catálogo digital que ajuda lojas de móveis a expor seus produtos de forma profissional e facilitar o atendimento pelo WhatsApp.
+Passei pra te mostrar uma forma prática de organizar os produtos da loja num catálogo digital no WhatsApp — cimento, tinta, hidráulica, elétrica, tudo por categoria.
 
-É uma solução prática para destacar lançamentos e promoções.
+Agiliza bastante o orçamento e o cliente já consulta o preço antes de ir até a loja.
+
+Posso te mostrar como fica?`,
+  moveis: `Oi, {{primeiro_nome}}, tudo bem?
+
+Vi a loja de vocês e imaginei que um catálogo digital ajudaria bastante — os móveis expostos com foto, medida e valor, direto no WhatsApp.
+
+O cliente pesquisa em casa com calma e chega mais decidido, o que costuma encurtar bem a venda.
+
+Faz sentido eu te mostrar rapidamente?`,
+  roupas: `Oi, {{primeiro_nome}}, tudo bem?
+
+Passei pra falar de uma forma simples de mostrar as coleções pelo WhatsApp — novidades, tamanhos disponíveis e promoções organizadas, sem depender só do Instagram.
+
+A cliente escolhe as peças e já reserva ou fecha a compra pelo chat.
+
+Posso te mandar um exemplo rápido?`,
+  autopecas: `E aí, {{primeiro_nome}}, tudo certo?
+
+Passei pra te mostrar uma ideia que tem ajudado bastante autopeças e oficinas: um catálogo digital no WhatsApp com peças, serviços e valores, organizado pra consulta rápida.
+
+Ajuda a fechar orçamento mais rápido e reduz a fila de dúvidas por telefone.
 
 Posso te mostrar como funciona?`,
-  roupas: `Olá, {{primeiro_nome}}! Tudo bem?
+  recem_aberta: `Oi, {{primeiro_nome}}, tudo bem?
 
-Estamos ajudando lojas de roupas a organizar coleções, novidades e promoções em um catálogo digital integrado ao WhatsApp.
+Vi que a empresa foi aberta há pouco tempo — parabéns pela nova fase!
 
-Assim os clientes conseguem visualizar os produtos de maneira rápida e prática.
+Nessa fase inicial, ter os produtos e serviços organizados num catálogo digital no WhatsApp ajuda bastante a passar mais profissionalismo e facilitar o atendimento desde o começo.
 
-Posso te apresentar?`,
-  autopecas: `Olá, {{primeiro_nome}}! Tudo bem?
-
-Gostaria de apresentar uma solução que permite divulgar peças, serviços e promoções através de um catálogo digital.
-
-Isso facilita o atendimento pelo WhatsApp e agiliza a consulta dos clientes.
-
-Posso te mostrar como funciona?`,
-  recem_aberta: `Olá, {{primeiro_nome}}! Tudo bem?
-
-Percebi que a empresa de vocês é recente e imaginei que talvez estejam buscando formas de divulgar melhor os produtos e facilitar o atendimento.
-
-Nós oferecemos serviços digitais integrado ao WhatsApp, que deixa a apresentação da empresa mais profissional e torna o processo de atendimento muito mais prático.
-
-Posso te mostrar rapidamente como funciona? A apresentação leva menos de 5 minutos.
+Posso te mostrar rapidamente como funciona?
 ---
-Oi, {{primeiro_nome}}! Vi que a empresa de vocês está começando agora — parabéns pela nova fase!
+Oi, {{primeiro_nome}}, tudo certo?
 
-Trabalhamos com soluções digitais integradas ao WhatsApp que ajudam negócios recém-abertos a ganhar visibilidade e organizar o atendimento desde o início.
+Passando pra desejar boa sorte na abertura da empresa!
 
-Faz sentido eu te mostrar em poucos minutos como funciona?
+Ajudamos negócios que estão começando a ter uma presença digital organizada no WhatsApp — catálogo com produtos, valores e serviços à mão do cliente desde o primeiro atendimento.
+
+Faz sentido eu te mostrar em poucos minutos?
 ---
 Olá, {{primeiro_nome}}, tudo bem?
 
-Notei que a empresa é nova e sei o quanto essa fase inicial exige atenção com divulgação e atendimento.
+Vi que a empresa é recente — momento gostoso e cheio de coisa pra organizar.
 
-Ajudamos negócios recém-abertos a ter presença profissional no WhatsApp com um catálogo digital simples de manter.
+Uma das coisas que costuma facilitar bastante nessa fase é ter um catálogo digital no WhatsApp, com produtos e serviços prontos pra apresentar sempre que um cliente novo chegar.
 
-Quer que eu te mostre rapidamente?
+Quer que eu te mostre como fica?
 ---
-Oi, {{primeiro_nome}}! Passando aqui pra falar rapidinho.
+Oi, {{primeiro_nome}}, tudo bem?
 
-Como a empresa de vocês foi aberta há pouco tempo, achei que faria sentido apresentar uma ferramenta que facilita bastante o atendimento e a divulgação pelo WhatsApp desde o início.
+Parabéns pela abertura da empresa! Passei pra falar rapidamente de uma ideia que ajuda bastante nesse começo: um catálogo digital simples, ligado ao WhatsApp, pra apresentar os produtos e responder cliente sem ficar mandando foto solta.
 
-Posso te mandar um resumo curto de como funciona?
+Posso te mandar um exemplo curto?
 ---
-Olá, {{primeiro_nome}}! Espero que esteja tudo indo bem com o início da empresa.
+Oi, {{primeiro_nome}}, tudo certo?
 
-Trabalhamos com um serviço digital que ajuda negócios novos a se apresentarem de forma profissional pelo WhatsApp — catálogo organizado, respostas mais rápidas e mais chance de conversão.
+Vi que vocês abriram há pouco — imagino o corre.
 
-Consegue 3 minutos pra eu te mostrar?`,
-  generico: `Olá, {{primeiro_nome}}! Tudo bem?
+Ajudamos negócios nessa fase inicial a organizar catálogo, serviços e atendimento pelo WhatsApp de um jeito profissional, sem complicar.
 
-Ajudamos negócios como o de vocês a organizar produtos, serviços e promoções em um catálogo digital integrado ao WhatsApp.
+Consegue 3 minutinhos pra eu te mostrar?`,
+  generico: `Oi, {{primeiro_nome}}, tudo bem?
 
-É uma forma prática de facilitar o atendimento e destacar novidades para os clientes.
+Passei pra te mostrar uma ideia que tem ajudado bastante negócios como o de vocês: um catálogo digital ligado ao WhatsApp, com produtos, serviços e promoções organizados pra consulta rápida.
 
-Posso te mostrar como funciona?`,
+Facilita o atendimento e ajuda o cliente a decidir sem depender de ficar tirando dúvida.
+
+Faz sentido eu te mostrar em poucos minutos?`,
 };
 
 function norm(s: string): string {
