@@ -120,7 +120,7 @@ import {
 } from "@/lib/cadence/api";
 import { wasDispatchedToday, dispatchBlockedMessage } from "@/lib/dispatch-lock";
 import { renderTemplate, sanitizeTemplateForSend } from "@/lib/cadencia/types";
-import { pickNicheTemplateWithOverrides } from "@/lib/prospeccao/niche-templates";
+import { pickNicheMessage } from "@/lib/prospeccao/niche-templates";
 import {
   listCurrentNicheTemplates,
   nicheTemplateKeys,
@@ -833,10 +833,11 @@ function ProspeccaoPage() {
     // tem mensagem configurada. Detectado pelo nome fantasia ou pelo
     // segmento cadastrado; também passa pelo `renderTemplate`.
     if (!msg) {
-      const nicheTpl = pickNicheTemplateWithOverrides(
+      const nicheTpl = pickNicheMessage(
         p.company || "",
         p.segment,
         nicheOverrides,
+        "prospeccao:niche",
       );
       msg = renderTemplate(nicheTpl, {
         empresa: p.company || "",

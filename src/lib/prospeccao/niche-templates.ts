@@ -6,6 +6,7 @@
 // palavras-chave do nicho) e cai no `segment` cadastrado.
 // Todas as mensagens usam `{{primeiro_nome}}` — a variável é
 // resolvida por `renderTemplate` e limpa por `sanitizeTemplateForSend`.
+import { splitVariants, pickVariantIndex } from "@/lib/cadencia/types";
 
 export type NicheKey =
   | "restaurante"
@@ -169,7 +170,33 @@ Percebi que a empresa de vocês é recente e imaginei que talvez estejam buscand
 
 Nós oferecemos serviços digitais integrado ao WhatsApp, que deixa a apresentação da empresa mais profissional e torna o processo de atendimento muito mais prático.
 
-Posso te mostrar rapidamente como funciona? A apresentação leva menos de 5 minutos.`,
+Posso te mostrar rapidamente como funciona? A apresentação leva menos de 5 minutos.
+---
+Oi, {{primeiro_nome}}! Vi que a empresa de vocês está começando agora — parabéns pela nova fase!
+
+Trabalhamos com soluções digitais integradas ao WhatsApp que ajudam negócios recém-abertos a ganhar visibilidade e organizar o atendimento desde o início.
+
+Faz sentido eu te mostrar em poucos minutos como funciona?
+---
+Olá, {{primeiro_nome}}, tudo bem?
+
+Notei que a empresa é nova e sei o quanto essa fase inicial exige atenção com divulgação e atendimento.
+
+Ajudamos negócios recém-abertos a ter presença profissional no WhatsApp com um catálogo digital simples de manter.
+
+Quer que eu te mostre rapidamente?
+---
+Oi, {{primeiro_nome}}! Passando aqui pra falar rapidinho.
+
+Como a empresa de vocês foi aberta há pouco tempo, achei que faria sentido apresentar uma ferramenta que facilita bastante o atendimento e a divulgação pelo WhatsApp desde o início.
+
+Posso te mandar um resumo curto de como funciona?
+---
+Olá, {{primeiro_nome}}! Espero que esteja tudo indo bem com o início da empresa.
+
+Trabalhamos com um serviço digital que ajuda negócios novos a se apresentarem de forma profissional pelo WhatsApp — catálogo organizado, respostas mais rápidas e mais chance de conversão.
+
+Consegue 3 minutos pra eu te mostrar?`,
   generico: `Olá, {{primeiro_nome}}! Tudo bem?
 
 Ajudamos negócios como o de vocês a organizar produtos, serviços e promoções em um catálogo digital integrado ao WhatsApp.
@@ -247,4 +274,25 @@ export function pickNicheTemplateWithOverrides(
   const key = pickNicheKey(company, segment);
   const custom = overrides?.get(key);
   return custom && custom.trim() ? custom : NICHE_TEMPLATES[key];
+}
+
+/**
+ * Igual ao anterior, mas quando o corpo tiver múltiplas variantes
+ * separadas por linhas com `---`, rotaciona entre elas via
+ * `pickVariantIndex` (round-robin persistido em localStorage por
+ * `bucketKey`, ex.: "prospeccao:niche"). Sem separador, devolve o
+ * corpo inteiro.
+ */
+export function pickNicheMessage(
+  company: string,
+  segment: string | null | undefined,
+  overrides: ReadonlyMap<string, string> | null | undefined,
+  bucketKey: string,
+): string {
+  const key = pickNicheKey(company, segment);
+  const corpo = pickNicheTemplateWithOverrides(company, segment, overrides);
+  const variants = splitVariants(corpo);
+  if (variants.length <= 1) return corpo;
+  const idx = pickVariantIndex(variants.length, `${bucketKey}:${key}`);
+  return variants[idx];
 }
