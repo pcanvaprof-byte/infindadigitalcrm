@@ -521,6 +521,7 @@ export type Database = {
           icon: string | null
           id: string
           is_system: boolean
+          niche_key: string | null
           nome: string
           objetivo: string | null
           organization_id: string | null
@@ -537,6 +538,7 @@ export type Database = {
           icon?: string | null
           id?: string
           is_system?: boolean
+          niche_key?: string | null
           nome: string
           objetivo?: string | null
           organization_id?: string | null
@@ -553,6 +555,7 @@ export type Database = {
           icon?: string | null
           id?: string
           is_system?: boolean
+          niche_key?: string | null
           nome?: string
           objetivo?: string | null
           organization_id?: string | null
@@ -3644,6 +3647,39 @@ export type Database = {
       cad_next_stage: {
         Args: { p_stage: Database["public"]["Enums"]["cad_stage"] }
         Returns: Database["public"]["Enums"]["cad_stage"]
+      }
+      cad_niche_pack_edited_keys: {
+        Args: never
+        Returns: {
+          niche_key: string
+          stages_edited: number
+        }[]
+      }
+      cad_niche_pack_reset: {
+        Args: {
+          _niche_key: string
+          _stage?: Database["public"]["Enums"]["cad_stage"]
+        }
+        Returns: number
+      }
+      cad_niche_pack_stages: {
+        Args: { _niche_key: string }
+        Returns: {
+          corpo: string
+          is_override: boolean
+          stage: Database["public"]["Enums"]["cad_stage"]
+          titulo: string
+          version: number
+        }[]
+      }
+      cad_niche_pack_upsert: {
+        Args: {
+          _corpo: string
+          _niche_key: string
+          _stage: Database["public"]["Enums"]["cad_stage"]
+          _titulo: string
+        }
+        Returns: string
       }
       cad_niche_template_reset: {
         Args: { _niche_key: string }
