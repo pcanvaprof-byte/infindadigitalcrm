@@ -16,7 +16,7 @@ import { DashboardCadencia } from "@/components/cadencia/DashboardCadencia";
 import { CadenciaKanban } from "@/components/cadencia/CadenciaKanban";
 import { LeadDrawer } from "@/components/cadencia/LeadDrawer";
 import { SendMessageDialog } from "@/components/cadencia/SendMessageDialog";
-import { TemplatesPanel } from "@/components/cadencia/TemplatesPanel";
+import { NichePackEditor } from "@/components/cadencia/NichePackEditor";
 import { listLeads, createLead, importFromProspects, syncLeadStagesFromProspects, listLeadsSemWhatsapp } from "@/lib/cadencia/api";
 import type { CadLead, CadStage } from "@/lib/cadencia/types";
 import { CAD_STAGE_LABEL } from "@/lib/cadencia/types";
@@ -336,7 +336,12 @@ function CadenciaPage() {
             )}
           </TabsContent>
           <TabsContent value="templates" className="mt-4">
-            <TemplatesPanel />
+            <div className="mb-3 rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+              Cada <strong>nicho</strong> tem seu próprio pack completo de cadência (Abertura até
+              Follow-up 7). Edite qualquer etapa aqui — o motor de disparo automático já usa esses
+              textos, e a Prospecção puxa a Abertura (Follow-up 1) como mensagem de primeiro contato.
+            </div>
+            <NichePackEditor />
           </TabsContent>
         </Tabs>
 
