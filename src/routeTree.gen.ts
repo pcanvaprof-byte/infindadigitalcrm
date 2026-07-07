@@ -26,6 +26,7 @@ import { Route as BiRouteImport } from './routes/bi'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OperacoesIndexRouteImport } from './routes/operacoes.index'
+import { Route as ProspeccaoTemplatesNichoRouteImport } from './routes/prospeccao.templates-nicho'
 import { Route as PropostasIdRouteImport } from './routes/propostas.$id'
 import { Route as PropostaTokenRouteImport } from './routes/proposta.$token'
 import { Route as OperacoesClientesRouteImport } from './routes/operacoes.clientes'
@@ -134,6 +135,12 @@ const OperacoesIndexRoute = OperacoesIndexRouteImport.update({
   path: '/operacoes/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProspeccaoTemplatesNichoRoute =
+  ProspeccaoTemplatesNichoRouteImport.update({
+    id: '/templates-nicho',
+    path: '/templates-nicho',
+    getParentRoute: () => ProspeccaoRoute,
+  } as any)
 const PropostasIdRoute = PropostasIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -270,7 +277,7 @@ export interface FileRoutesByFullPath {
   '/metas': typeof MetasRoute
   '/metas-objetivos': typeof MetasObjetivosRoute
   '/propostas': typeof PropostasRouteWithChildren
-  '/prospeccao': typeof ProspeccaoRoute
+  '/prospeccao': typeof ProspeccaoRouteWithChildren
   '/tarefas': typeof TarefasRoute
   '/bi/configuracoes': typeof BiConfiguracoesRoute
   '/bi/disparos': typeof BiDisparosRoute
@@ -283,6 +290,7 @@ export interface FileRoutesByFullPath {
   '/operacoes/clientes': typeof OperacoesClientesRouteWithChildren
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
+  '/prospeccao/templates-nicho': typeof ProspeccaoTemplatesNichoRoute
   '/operacoes/': typeof OperacoesIndexRoute
   '/operacoes/clientes/$id': typeof OperacoesClientesIdRouteWithChildren
   '/operacoes/clientes/': typeof OperacoesClientesIndexRoute
@@ -311,7 +319,7 @@ export interface FileRoutesByTo {
   '/metas': typeof MetasRoute
   '/metas-objetivos': typeof MetasObjetivosRoute
   '/propostas': typeof PropostasRouteWithChildren
-  '/prospeccao': typeof ProspeccaoRoute
+  '/prospeccao': typeof ProspeccaoRouteWithChildren
   '/tarefas': typeof TarefasRoute
   '/bi/configuracoes': typeof BiConfiguracoesRoute
   '/bi/disparos': typeof BiDisparosRoute
@@ -323,6 +331,7 @@ export interface FileRoutesByTo {
   '/operacoes/auditoria-lifecycle': typeof OperacoesAuditoriaLifecycleRoute
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
+  '/prospeccao/templates-nicho': typeof ProspeccaoTemplatesNichoRoute
   '/operacoes': typeof OperacoesIndexRoute
   '/operacoes/clientes': typeof OperacoesClientesIndexRoute
   '/operacoes/clientes/$id/campanhas': typeof OperacoesClientesIdCampanhasRoute
@@ -351,7 +360,7 @@ export interface FileRoutesById {
   '/metas': typeof MetasRoute
   '/metas-objetivos': typeof MetasObjetivosRoute
   '/propostas': typeof PropostasRouteWithChildren
-  '/prospeccao': typeof ProspeccaoRoute
+  '/prospeccao': typeof ProspeccaoRouteWithChildren
   '/tarefas': typeof TarefasRoute
   '/bi/configuracoes': typeof BiConfiguracoesRoute
   '/bi/disparos': typeof BiDisparosRoute
@@ -364,6 +373,7 @@ export interface FileRoutesById {
   '/operacoes/clientes': typeof OperacoesClientesRouteWithChildren
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
+  '/prospeccao/templates-nicho': typeof ProspeccaoTemplatesNichoRoute
   '/operacoes/': typeof OperacoesIndexRoute
   '/operacoes/clientes/$id': typeof OperacoesClientesIdRouteWithChildren
   '/operacoes/clientes/': typeof OperacoesClientesIndexRoute
@@ -407,6 +417,7 @@ export interface FileRouteTypes {
     | '/operacoes/clientes'
     | '/proposta/$token'
     | '/propostas/$id'
+    | '/prospeccao/templates-nicho'
     | '/operacoes/'
     | '/operacoes/clientes/$id'
     | '/operacoes/clientes/'
@@ -447,6 +458,7 @@ export interface FileRouteTypes {
     | '/operacoes/auditoria-lifecycle'
     | '/proposta/$token'
     | '/propostas/$id'
+    | '/prospeccao/templates-nicho'
     | '/operacoes'
     | '/operacoes/clientes'
     | '/operacoes/clientes/$id/campanhas'
@@ -487,6 +499,7 @@ export interface FileRouteTypes {
     | '/operacoes/clientes'
     | '/proposta/$token'
     | '/propostas/$id'
+    | '/prospeccao/templates-nicho'
     | '/operacoes/'
     | '/operacoes/clientes/$id'
     | '/operacoes/clientes/'
@@ -516,7 +529,7 @@ export interface RootRouteChildren {
   MetasRoute: typeof MetasRoute
   MetasObjetivosRoute: typeof MetasObjetivosRoute
   PropostasRoute: typeof PropostasRouteWithChildren
-  ProspeccaoRoute: typeof ProspeccaoRoute
+  ProspeccaoRoute: typeof ProspeccaoRouteWithChildren
   TarefasRoute: typeof TarefasRoute
   BriefingTokenRoute: typeof BriefingTokenRoute
   OperacoesAuditoriaLifecycleRoute: typeof OperacoesAuditoriaLifecycleRoute
@@ -645,6 +658,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/operacoes/'
       preLoaderRoute: typeof OperacoesIndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/prospeccao/templates-nicho': {
+      id: '/prospeccao/templates-nicho'
+      path: '/templates-nicho'
+      fullPath: '/prospeccao/templates-nicho'
+      preLoaderRoute: typeof ProspeccaoTemplatesNichoRouteImport
+      parentRoute: typeof ProspeccaoRoute
     }
     '/propostas/$id': {
       id: '/propostas/$id'
@@ -865,6 +885,18 @@ const PropostasRouteWithChildren = PropostasRoute._addFileChildren(
   PropostasRouteChildren,
 )
 
+interface ProspeccaoRouteChildren {
+  ProspeccaoTemplatesNichoRoute: typeof ProspeccaoTemplatesNichoRoute
+}
+
+const ProspeccaoRouteChildren: ProspeccaoRouteChildren = {
+  ProspeccaoTemplatesNichoRoute: ProspeccaoTemplatesNichoRoute,
+}
+
+const ProspeccaoRouteWithChildren = ProspeccaoRoute._addFileChildren(
+  ProspeccaoRouteChildren,
+)
+
 interface OperacoesClientesIdRouteChildren {
   OperacoesClientesIdCampanhasRoute: typeof OperacoesClientesIdCampanhasRoute
   OperacoesClientesIdDocumentosRoute: typeof OperacoesClientesIdDocumentosRoute
@@ -921,7 +953,7 @@ const rootRouteChildren: RootRouteChildren = {
   MetasRoute: MetasRoute,
   MetasObjetivosRoute: MetasObjetivosRoute,
   PropostasRoute: PropostasRouteWithChildren,
-  ProspeccaoRoute: ProspeccaoRoute,
+  ProspeccaoRoute: ProspeccaoRouteWithChildren,
   TarefasRoute: TarefasRoute,
   BriefingTokenRoute: BriefingTokenRoute,
   OperacoesAuditoriaLifecycleRoute: OperacoesAuditoriaLifecycleRoute,
