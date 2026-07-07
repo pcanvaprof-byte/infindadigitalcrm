@@ -780,14 +780,20 @@ function ProspeccaoPage() {
     // são substituídos aqui pelo renderTemplate único da cadência.
     let msg: string | null = null;
     let responsavelLead = "";
+    // Passo atual da cadência (1..7). Na primeira abordagem (step === 1)
+    // usamos SEMPRE o template do nicho detectado — o pack genérico só
+    // entra a partir do followup_2.
+    const step = Math.min(Math.max((p.cadenceStep ?? 0) + 1, 1), 7);
+    const isFirstOutreach = step === 1;
     try {
-      const step = Math.min(Math.max((p.cadenceStep ?? 0) + 1, 1), 7);
       const stage = `followup_${step}` as const;
       // Busca em paralelo o template resolvido E o nome do contato no cad_leads
       // (fonte oficial do `responsavel`). `p.owner` é o VENDEDOR interno,
       // NÃO deve ser usado como {{primeiro_nome}} no texto enviado ao cliente.
       const [tplRes, leadRes] = await Promise.all([
-        supabase.rpc("cad_resolve_template" as never, { _stage: stage } as never),
+        isFirstOutreach
+          ? Promise.resolve({ data: null })
+          : supabase.rpc("cad_resolve_template" as never, { _stage: stage } as never),
         supabase.from("cad_leads").select("responsavel").eq("prospect_id", p.id).maybeSingle(),
       ]);
       const tpl = tplRes.data;
@@ -805,17 +811,21 @@ function ProspeccaoPage() {
       console.warn("[prosp] openWhats:resolve-template-fail", e);
     }
 
-    // 2) Fallback: template por nicho (detectado pelo nome fantasia ou
-    // pelo segmento cadastrado) quando o pack não tem mensagem para o
-    // passo atual. Também passa pelo `renderTemplate` para resolver
-    // `{{primeiro_nome}}` a partir de `cad_leads.responsavel`.
+    // 2) Template por nicho — SEMPRE usado na primeira abordagem
+    // (step === 1) e como fallback nos demais passos quando o pack não
+    // tem mensagem configurada. Detectado pelo nome fantasia ou pelo
+    // segmento cadastrado; também passa pelo `renderTemplate`.
     if (!msg) {
       const nicheTpl = pickNicheTemplate(p.company || "", p.segment);
       msg = renderTemplate(nicheTpl, {
         empresa: p.company || "",
         responsavel: responsavelLead,
       });
-      console.log("[prosp] openWhats:usando-template-nicho", { company: p.company, segment: p.segment });
+      console.log("[prosp] openWhats:usando-template-nicho", {
+        company: p.company,
+        segment: p.segment,
+        firstOutreach: isFirstOutreach,
+      });
     }
     // Sanitização final antes do envio — remove qualquer placeholder
     // remanescente e colapsa espaços/linhas em branco.
