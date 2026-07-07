@@ -9,7 +9,7 @@ import { listTemplates, registerSend, markProspectContactedFromLead } from "@/li
 import {
   renderTemplate,
   sanitizeTemplateForSend,
-  splitVariants,
+  expandVariants,
   pickVariantIndex,
   leadElegivelParaDisparo,
   type CadLead,
@@ -65,7 +65,7 @@ export function SendMessageDialog({
   useEffect(() => {
     if (!lead || !open) return;
     const tpl = (tpls.data ?? []).find((t) => t.stage === lead.stage);
-    const parts = splitVariants(tpl?.corpo ?? "");
+    const parts = expandVariants(tpl?.corpo ?? "");
     setVariants(parts);
     if (parts.length === 0) {
       setVariantIdx(0);
