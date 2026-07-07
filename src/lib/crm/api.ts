@@ -80,6 +80,9 @@ export async function invalidateCrmCore(
     qc.invalidateQueries({ queryKey: crmKeys.tasks }),
     qc.invalidateQueries({ queryKey: crmKeys.briefings }),
     qc.invalidateQueries({ queryKey: crmKeys.goals }),
+    // Dashboard depende de prospects/clients — invalida por prefixo
+    // (cobre ["dashboard","v6"], ["dashboard","trends-14d"], etc.).
+    qc.invalidateQueries({ queryKey: ["dashboard"] }),
   ]);
 }
 

@@ -691,7 +691,10 @@ function mergeDashboardMetrics(rpcMetrics: DashboardMetrics, fallbackMetrics: Da
 }
 
 export const cadenceKeys = {
-  dashboard: ["cadence", "dashboard"] as const,
+  // Alinhado com a chave real do Dashboard (["dashboard", "v6"] e
+  // ["dashboard", "trends-14d"]). React Query invalida por prefixo, então
+  // usar ["dashboard"] cobre ambas as queries.
+  dashboard: ["dashboard"] as const,
   acoesHoje: ["cadence", "acoes-hoje"] as const,
   timeline: (prospectId: string) => ["cadence", "timeline", prospectId] as const,
 };
