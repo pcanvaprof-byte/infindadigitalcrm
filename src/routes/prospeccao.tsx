@@ -861,6 +861,7 @@ function ProspeccaoPage() {
         p.segment,
         nicheOverrides,
         "prospeccao:niche",
+        { prospectId: p.id },
       );
       msg = renderTemplate(nicheTpl, {
         empresa: p.company || "",
