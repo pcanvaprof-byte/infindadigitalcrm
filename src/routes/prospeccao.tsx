@@ -367,6 +367,9 @@ function ProspeccaoPage() {
   const [waAccount, setWaAccount] = useState<WaAccount>("default");
   const [quickEnrichingIds, setQuickEnrichingIds] = useState<Set<string>>(new Set());
   const [dispatchingIds, setDispatchingIds] = useState<Set<string>>(new Set());
+  // Confirmação de exclusão em lote (C-1): evita perda irreversível por clique acidental.
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState<{ ids: string[] } | null>(null);
+  const [bulkDeleteInput, setBulkDeleteInput] = useState("");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -590,32 +593,61 @@ function ProspeccaoPage() {
     setCache((prev) =>
       prev.map((p) => (p.id === id ? { ...p, interactions: [tempIx, ...(p.interactions ?? [])] } : p)),
     );
-    addInteractionRemote(id, kind, text, user.name).then((saved) => {
-      if (!saved) return;
-      setCache((prev) =>
-        prev.map((p) =>
-          p.id === id
-            ? { ...p, interactions: [saved, ...(p.interactions ?? []).filter((i) => i.id !== tempIx.id)] }
-            : p,
-        ),
-      );
-    });
+    addInteractionRemote(id, kind, text, user.name)
+      .then((saved) => {
+        if (!saved) {
+          // C-2: reverter optimistic update quando o backend rejeita silenciosamente.
+          setCache((prev) =>
+            prev.map((p) =>
+              p.id === id
+                ? { ...p, interactions: (p.interactions ?? []).filter((i) => i.id !== tempIx.id) }
+                : p,
+            ),
+          );
+          toast.error("Não foi possível registrar a interação. Tente novamente.");
+          return;
+        }
+        setCache((prev) =>
+          prev.map((p) =>
+            p.id === id
+              ? { ...p, interactions: [saved, ...(p.interactions ?? []).filter((i) => i.id !== tempIx.id)] }
+              : p,
+          ),
+        );
+      })
+      .catch((e) => {
+        setCache((prev) =>
+          prev.map((p) =>
+            p.id === id
+              ? { ...p, interactions: (p.interactions ?? []).filter((i) => i.id !== tempIx.id) }
+              : p,
+          ),
+        );
+        toast.error(`Falha ao registrar interação: ${e instanceof Error ? e.message : String(e)}`);
+      });
   };
 
   const updateStatus = (id: string, status: ProspectStatus) => {
     console.log("[prosp] updateStatus:start", { id, status });
+    // C-3: snapshot para rollback se a persistência falhar.
+    const snapshot = prospects.find((p) => p.id === id);
     setCache((prev) => prev.map((p) => (p.id === id ? { ...p, status } : p)));
     updateProspect(id, { status })
       .then(() => {
         console.log("[prosp] updateStatus:ok", { id, status });
+        // C-3: sucesso só é comunicado após confirmação do banco.
+        toast.success(`Status: ${STATUS_LABEL[status]}`);
+        addInteraction(id, "status", `Status alterado para "${STATUS_LABEL[status]}"`);
         return invalidateCrmCore(qc);
       })
       .catch((e) => {
         console.error("[prosp] updateStatus:error", { id, status, error: e });
+        // Rollback: restaura status anterior no cache.
+        if (snapshot) {
+          setCache((prev) => prev.map((p) => (p.id === id ? { ...p, status: snapshot.status } : p)));
+        }
         toast.error(`Erro: ${e.message ?? e}`);
       });
-    addInteraction(id, "status", `Status alterado para "${STATUS_LABEL[status]}"`);
-    toast.success(`Status: ${STATUS_LABEL[status]}`);
   };
 
   const removeProspect = (ids: string[]) => {
@@ -711,7 +743,13 @@ function ProspeccaoPage() {
       qc.invalidateQueries({ queryKey: cadenceKeys.timeline(prospect.id) });
     } catch (e) {
       console.error("[prosp] logAttempt:error", { prospectId: prospect.id, tipo, error: e });
-      /* não bloqueia o deep link */
+      // C-4: falha silenciosa antes ocultava que a cadência NÃO avançou.
+      // Agora avisamos e mantemos o deep link já aberto.
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.warning(
+        `Contato aberto, mas o registro na cadência falhou: ${msg}. O passo pode não ter avançado — registre manualmente.`,
+        { duration: 8000 },
+      );
     }
   };
 
@@ -847,7 +885,8 @@ function ProspeccaoPage() {
     const lock = await wasDispatchedToday({ prospectId: p.id });
     if (lock.blocked) return toast.error(dispatchBlockedMessage(lock.source!));
     window.open(`tel:+55${d}`);
-    void logAttempt(p, "ligacao");
+    // A-5: NÃO grava touchpoint aqui — o TouchpointModal abaixo é a fonte única
+    // do registro (evita gravar 2x e avançar cadence_step em dobro).
     setTouchpointTarget({ prospect: p, tipo: "ligacao" });
   };
   const openEmail = async (p: Prospect) => {
@@ -855,7 +894,7 @@ function ProspeccaoPage() {
     const lock = await wasDispatchedToday({ prospectId: p.id });
     if (lock.blocked) return toast.error(dispatchBlockedMessage(lock.source!));
     window.open(`mailto:${p.email}`);
-    void logAttempt(p, "email");
+    // A-5: mesmo racional do callPhone acima.
     setTouchpointTarget({ prospect: p, tipo: "email" });
   };
 
@@ -1036,32 +1075,44 @@ function ProspeccaoPage() {
   };
 
   const confirmImport = async () => {
+    // A-9: apply e log são try/catch separados. Uma falha no log
+    // NÃO pode aparecer para o usuário como "importação falhou",
+    // pois os dados já entraram no banco (e um retry cria duplicatas).
+    let result: Awaited<ReturnType<typeof applyImport>>;
     try {
-      const result = await applyImport(previewRows, prospects);
+      result = await applyImport(previewRows, prospects);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      toast.error(`Erro: ${msg}`);
+      return;
+    }
+    setPreviewOpen(false);
+    setPreviewRows([]);
+    await invalidateCrmCore(qc);
+    toast.success(
+      `Importação salva no banco: ${result.inserted} novas, ${result.updated} atualizadas, ${result.skipped} ignoradas`,
+      { duration: 8000 },
+    );
+    if (result.errors.length) toast.error(`${result.errors.length} erro(s) registrados`);
+    try {
       await logImport({
         fileName: previewFileName,
         performedBy: user.name,
         totalRows: previewRows.length,
         result,
       });
-      setPreviewOpen(false);
-      setPreviewRows([]);
-      // invalidação dispara o refetch — não precisa de loadAllProspects manual
-      await invalidateCrmCore(qc);
-      toast.success(
-        `Importação salva no banco: ${result.inserted} novas, ${result.updated} atualizadas, ${result.skipped} ignoradas`,
-        { duration: 8000 },
-      );
-      if (result.errors.length) toast.error(`${result.errors.length} erro(s) registrados`);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : String(e);
-      toast.error(`Erro: ${msg}`);
+    } catch (e) {
+      // Não bloqueante: importação foi bem-sucedida.
+      console.warn("[prosp] logImport:fail", e);
     }
   };
 
 
   const clearFilters = () => {
-    setStatusFilter("all"); setSegmentFilter("all"); setStateFilter("all"); setPotentialFilter("all"); setSearch(""); setOnlyWithContact(false); setNoWhatsapp(false);
+    // A-4: limpar TODOS os filtros ativos, incluindo cadência e onlyWhatsapp.
+    setStatusFilter("all"); setSegmentFilter("all"); setStateFilter("all"); setPotentialFilter("all");
+    setSearch(""); setOnlyWithContact(false); setNoWhatsapp(false); setOnlyWhatsapp(false);
+    setCadenceFilter("all");
   };
 
   const bulkEnrich = async () => {
