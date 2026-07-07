@@ -118,15 +118,21 @@ export function empresaCurta(nome: string | null | undefined): string {
   return partes.slice(0, 2).join(" ") || limpo;
 }
 
-export function renderTemplate(corpo: string, lead: Pick<CadLead, "empresa" | "responsavel">): string {
+/**
+ * Chaves conhecidas em variantes `{var}` (chave simples) que também são
+ * removidas em `sanitizeTemplateForSend`. Mantido em um único lugar
+ * para evitar duplicação entre módulos.
+ */
+const KNOWN_SINGLE_BRACE_KEYS_RE =
+  /\{(?:primeiro_nome|nome|contato|responsavel|cliente|empresa|empresa_curta|empresa_nome|company|owner)\}/gi;
+
+/** Constrói o mapa de variáveis conhecidas a partir do lead. */
+function buildTemplateVars(lead: Pick<CadLead, "empresa" | "responsavel">): Record<string, string> {
   const emp = lead.empresa || "";
   const resp = lead.responsavel || "";
   const primeiro = primeiroNome(resp);
   const empCurta = empresaCurta(emp);
-  // Mapa de variáveis conhecidas. Apelidos comuns cadastrados nos templates
-  // antigos ({{contato}}, {{nome}}, {{cliente}}) caem no responsável para
-  // evitar que o placeholder cru chegue ao WhatsApp do destinatário.
-  const vars: Record<string, string> = {
+  return {
     primeiro_nome: primeiro,
     nome: primeiro,
     contato: resp || primeiro,
@@ -136,25 +142,64 @@ export function renderTemplate(corpo: string, lead: Pick<CadLead, "empresa" | "r
     empresa_curta: empCurta,
     empresa_nome: emp,
   };
-  let out = (corpo || "").replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, key: string) => {
+}
+
+/**
+ * Substitui APENAS variáveis conhecidas. Placeholders desconhecidos
+ * (`{{plano}}`, `{{cidade}}`, etc.) permanecem intactos para que o
+ * operador identifique templates incompletos durante o preview.
+ *
+ * Não use `renderTemplate` sozinho para envio — sempre encadeie com
+ * `sanitizeTemplateForSend` antes de mandar ao cliente.
+ */
+export function renderTemplate(corpo: string, lead: Pick<CadLead, "empresa" | "responsavel">): string {
+  const vars = buildTemplateVars(lead);
+  return (corpo || "").replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, key: string) => {
     const v = vars[key.toLowerCase()];
-    if (v === undefined) return ""; // placeholder desconhecido → remove
-    return v;
+    return v === undefined ? match : v; // desconhecido → mantém cru
   });
-  // Safety net: qualquer sintaxe alternativa ({var} chave simples) ou
-  // placeholder que tenha escapado do regex acima é removido antes de sair.
-  // Garante que o destinatário JAMAIS receba `{{...}}` cru.
-  out = out
+}
+
+/** Lista placeholders `{{...}}` que sobraram após `renderTemplate`. */
+export function findUnresolvedPlaceholders(text: string): string[] {
+  const out = new Set<string>();
+  const re = /\{\{[^}]*\}\}/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text || "")) !== null) out.add(m[0]);
+  return Array.from(out);
+}
+
+/**
+ * Sanitiza o texto ANTES do envio: remove placeholders remanescentes
+ * (`{{...}}` e variantes `{var}` conhecidas), colapsa espaços duplos,
+ * remove espaços antes de pontuação, vírgulas coladas e linhas vazias
+ * criadas pela remoção.
+ *
+ * O destinatário nunca deve receber `{{primeiro_nome}}`, `{empresa}`
+ * ou similares — este é o último ponto de defesa.
+ */
+export function sanitizeTemplateForSend(text: string): string {
+  if (!text) return "";
+  let out = text
     .replace(/\{\{[^}]*\}\}/g, "")
-    .replace(/\{(?:primeiro_nome|nome|contato|responsavel|cliente|empresa|empresa_curta|empresa_nome|company|owner)\}/gi, "");
-  // Limpeza pós-substituição: espaços duplos, "Olá ," "Olá !", vírgulas soltas.
+    .replace(KNOWN_SINGLE_BRACE_KEYS_RE, "");
+  // Limpeza tipográfica pós-remoção.
   out = out
     .replace(/[ \t]+/g, " ")
     .replace(/ ([,.!?;:])/g, "$1")
     .replace(/([,;:])\s*([,.!?;:])/g, "$2")
+    .replace(/,\s*,+/g, ",")
     .replace(/^[ \t]+|[ \t]+$/gm, "")
-    .replace(/\n{3,}/g, "\n\n");
-  return out;
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/^\s*\n/gm, (m, off) => (off === 0 ? "" : m));
+  // Aviso em desenvolvimento — nunca bloqueia o fluxo.
+  if (typeof process !== "undefined" && process.env?.NODE_ENV !== "production") {
+    const leftover = findUnresolvedPlaceholders(text);
+    if (leftover.length) {
+      console.warn("[template] placeholders não resolvidos removidos no envio:", leftover);
+    }
+  }
+  return out.trim();
 }
 
 /**
