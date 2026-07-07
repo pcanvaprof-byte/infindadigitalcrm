@@ -121,11 +121,34 @@ export function empresaCurta(nome: string | null | undefined): string {
 export function renderTemplate(corpo: string, lead: Pick<CadLead, "empresa" | "responsavel">): string {
   const emp = lead.empresa || "";
   const resp = lead.responsavel || "";
-  return (corpo || "")
-    .replaceAll("{{primeiro_nome}}", primeiroNome(resp))
-    .replaceAll("{{empresa_curta}}", empresaCurta(emp))
-    .replaceAll("{{empresa}}", emp)
-    .replaceAll("{{responsavel}}", resp);
+  const primeiro = primeiroNome(resp);
+  const empCurta = empresaCurta(emp);
+  // Mapa de variáveis conhecidas. Apelidos comuns cadastrados nos templates
+  // antigos ({{contato}}, {{nome}}, {{cliente}}) caem no responsável para
+  // evitar que o placeholder cru chegue ao WhatsApp do destinatário.
+  const vars: Record<string, string> = {
+    primeiro_nome: primeiro,
+    nome: primeiro,
+    contato: resp || primeiro,
+    responsavel: resp,
+    cliente: resp || primeiro,
+    empresa: emp,
+    empresa_curta: empCurta,
+    empresa_nome: emp,
+  };
+  let out = (corpo || "").replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, key: string) => {
+    const v = vars[key.toLowerCase()];
+    if (v === undefined) return ""; // placeholder desconhecido → remove
+    return v;
+  });
+  // Limpeza pós-substituição: espaços duplos, "Olá ," "Olá !", vírgulas soltas.
+  out = out
+    .replace(/[ \t]+/g, " ")
+    .replace(/ ([,.!?;:])/g, "$1")
+    .replace(/([,;:])\s*([,.!?;:])/g, "$2")
+    .replace(/^[ \t]+|[ \t]+$/gm, "")
+    .replace(/\n{3,}/g, "\n\n");
+  return out;
 }
 
 /**
