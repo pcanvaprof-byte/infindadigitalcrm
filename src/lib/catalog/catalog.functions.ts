@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/lib/app-auth-middleware";
 import { z } from "zod";
 import type { CatalogItem } from "./types";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 type ItemMutationInput = Record<string, unknown>;
 
@@ -71,16 +72,18 @@ function normalizeDbError(error: unknown): Error {
   return new Error(msg);
 }
 
-async function getCatalogDb() {
-  const ownUrl = process.env.OWN_SB_URL;
-  const ownKey = process.env.OWN_SB_SERVICE_ROLE_KEY;
-  const defaultUrl = process.env.SUPABASE_URL;
-  const defaultKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const url = ownUrl && ownKey ? ownUrl : defaultUrl;
-  const key = ownUrl && ownKey ? ownKey : defaultKey;
-  if (!url || !key) throw new Error("Configuração do banco externo ausente no servidor.");
-  const { createClient } = await import("@supabase/supabase-js");
-  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+// Uses the request-scoped supabase client from requireSupabaseAuth so RLS +
+// tenant isolation policies apply automatically. organization_id is populated
+// server-side via the column default (current_org_id()) set by the tenant
+// isolation migration.
+async function getOrgId(
+  supabase: SupabaseClient,
+): Promise<string> {
+  const { data, error } = await supabase.rpc("current_org_id");
+  if (error) throw normalizeDbError(error);
+  const orgId = data as string | null;
+  if (!orgId) throw new Error("Organização ativa não encontrada.");
+  return orgId;
 }
 
 function buildItemPayload(input: ItemMutationInput, createdBy?: string | null) {
@@ -116,9 +119,9 @@ function buildItemPayload(input: ItemMutationInput, createdBy?: string | null) {
 
 export const listCatalogCategoriasQuery = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async () => {
-    const admin = await getCatalogDb();
-    const { data, error } = await admin
+  .handler(async ({ context }) => {
+    const sb = context.supabase as unknown as SupabaseClient;
+    const { data, error } = await sb
       .from("catalog_categorias")
       .select("*")
       .order("ordem", { ascending: true });
@@ -129,10 +132,10 @@ export const listCatalogCategoriasQuery = createServerFn({ method: "GET" })
 export const listCatalogItemsQuery = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => ListItemsInput.parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
     const filters = data ?? {};
-    const admin = await getCatalogDb();
-    let query = admin.from("catalog_items").select("*");
+    const sb = context.supabase as unknown as SupabaseClient;
+    let query = sb.from("catalog_items").select("*");
     if (filters.categoriaId) query = query.eq("categoria_id", filters.categoriaId);
     if (filters.tipo) query = query.eq("tipo", filters.tipo);
     if (filters.area) query = query.eq("area_responsavel", filters.area);
@@ -153,9 +156,9 @@ export const listCatalogItemsQuery = createServerFn({ method: "GET" })
 export const getCatalogItemQuery = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => GetInput.parse(data))
-  .handler(async ({ data }) => {
-    const admin = await getCatalogDb();
-    const { data: row, error } = await admin
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase as unknown as SupabaseClient;
+    const { data: row, error } = await sb
       .from("catalog_items")
       .select("*")
       .eq("id", data.id)
@@ -167,11 +170,12 @@ export const getCatalogItemQuery = createServerFn({ method: "GET" })
 export const createCatalogItemMutation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => RawItemInput.parse(data))
-  .handler(async ({ data }) => {
-    const payload = buildItemPayload(data, null);
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase as unknown as SupabaseClient;
+    const orgId = await getOrgId(sb);
+    const payload = { ...buildItemPayload(data, context.userId ?? null), organization_id: orgId };
     if (!payload.nome_comercial) throw new Error("Informe o nome comercial");
-    const admin = await getCatalogDb();
-    const { data: row, error } = await admin
+    const { data: row, error } = await sb
       .from("catalog_items")
       .insert(payload)
       .select()
@@ -183,11 +187,11 @@ export const createCatalogItemMutation = createServerFn({ method: "POST" })
 export const updateCatalogItemMutation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => UpdateInput.parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase as unknown as SupabaseClient;
     const payload = buildItemPayload(data.patch);
     if (!payload.nome_comercial) throw new Error("Informe o nome comercial");
-    const admin = await getCatalogDb();
-    const { data: row, error } = await admin
+    const { data: row, error } = await sb
       .from("catalog_items")
       .update(payload)
       .eq("id", data.id)
@@ -201,9 +205,9 @@ export const updateCatalogItemMutation = createServerFn({ method: "POST" })
 export const toggleCatalogItemMutation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => ToggleInput.parse(data))
-  .handler(async ({ data }) => {
-    const admin = await getCatalogDb();
-    const { error } = await admin
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase as unknown as SupabaseClient;
+    const { error } = await sb
       .from("catalog_items")
       .update({ ativo: data.ativo })
       .eq("id", data.id);
@@ -214,9 +218,9 @@ export const toggleCatalogItemMutation = createServerFn({ method: "POST" })
 export const deleteCatalogItemMutation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => GetInput.parse(data))
-  .handler(async ({ data }) => {
-    const admin = await getCatalogDb();
-    const { error } = await admin.from("catalog_items").delete().eq("id", data.id);
+  .handler(async ({ data, context }) => {
+    const sb = context.supabase as unknown as SupabaseClient;
+    const { error } = await sb.from("catalog_items").delete().eq("id", data.id);
     if (error) throw normalizeDbError(error);
     return { ok: true };
   });
