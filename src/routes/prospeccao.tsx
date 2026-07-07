@@ -920,7 +920,7 @@ function ProspeccaoPage() {
   };
 
   const handleCreate = async () => {
-    if (!form.company.trim()) return toast.error("Informe o nome da empresa");
+    if (!form.company.trim()) { toast.error("Informe o nome da empresa"); return; }
     try {
       const saved = await insertProspect({
         ...form,
