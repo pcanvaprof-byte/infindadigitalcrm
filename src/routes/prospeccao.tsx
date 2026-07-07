@@ -119,6 +119,7 @@ import {
   type TouchpointTipo,
 } from "@/lib/cadence/api";
 import { wasDispatchedToday, dispatchBlockedMessage } from "@/lib/dispatch-lock";
+import { renderTemplate } from "@/lib/cadencia/types";
 
 
 export const Route = createFileRoute("/prospeccao")({
