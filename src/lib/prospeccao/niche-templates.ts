@@ -24,6 +24,7 @@ export type NicheKey =
   | "moveis"
   | "roupas"
   | "autopecas"
+  | "recem_aberta"
   | "generico";
 
 export const NICHE_TEMPLATES: Record<NicheKey, string> = {
@@ -139,6 +140,13 @@ Gostaria de apresentar uma solução que permite divulgar peças, serviços e pr
 Isso facilita o atendimento pelo WhatsApp e agiliza a consulta dos clientes.
 
 Posso te mostrar como funciona?`,
+  recem_aberta: `Olá, {{primeiro_nome}}! Tudo bem?
+
+Percebi que a empresa de vocês é recente e imaginei que talvez estejam buscando formas de divulgar melhor os produtos e facilitar o atendimento.
+
+Nós oferecemos serviços digitais integrado ao WhatsApp, que deixa a apresentação da empresa mais profissional e torna o processo de atendimento muito mais prático.
+
+Posso te mostrar rapidamente como funciona? A apresentação leva menos de 5 minutos.`,
   generico: `Olá, {{primeiro_nome}}! Tudo bem?
 
 Ajudamos negócios como o de vocês a organizar produtos, serviços e promoções em um catálogo digital integrado ao WhatsApp.
