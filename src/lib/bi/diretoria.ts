@@ -1,4 +1,3 @@
-import { supabase as sb } from "@/integrations/supabase/client";
 import { localTimestamp } from "./tz";
 import { fetchClientsAsContracts } from "./clients-source";
 
