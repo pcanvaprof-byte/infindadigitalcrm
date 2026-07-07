@@ -1294,7 +1294,7 @@ function ProspeccaoPage() {
       }
     >
       {/* Stats */}
-      <section className="grid grid-cols-5 gap-2 sm:gap-3">
+      <section className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-5">
         <StatCard icon={Building2} label={hasActiveFilters ? "Empresas (filtro)" : "Empresas cadastradas"} value={stats.t} hint={hasActiveFilters ? `de ${stats.total} · filtro ativo` : "Base total"} />
         <StatCard icon={MessageSquare} label="Contatadas" value={stats.contatadas} hint={hasActiveFilters ? "no filtro atual" : "Pelo menos 1 contato"} />
         <StatCard icon={MessageSquare} label="Conversas iniciadas" value={stats.disparos} hint={hasActiveFilters ? "no filtro atual" : "WhatsApp · ligação · e-mail"} />
