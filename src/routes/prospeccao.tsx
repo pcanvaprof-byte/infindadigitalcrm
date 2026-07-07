@@ -779,6 +779,7 @@ function ProspeccaoPage() {
     // {{primeiro_nome}}, {{responsavel}}, {{empresa}}, {{empresa_curta}} etc.
     // são substituídos aqui pelo renderTemplate único da cadência.
     let msg: string | null = null;
+    let responsavelLead = "";
     try {
       const step = Math.min(Math.max((p.cadenceStep ?? 0) + 1, 1), 7);
       const stage = `followup_${step}` as const;
@@ -790,7 +791,7 @@ function ProspeccaoPage() {
         supabase.from("cad_leads").select("responsavel").eq("prospect_id", p.id).maybeSingle(),
       ]);
       const tpl = tplRes.data;
-      const responsavelLead = (leadRes.data as { responsavel?: string | null } | null)?.responsavel ?? "";
+      responsavelLead = (leadRes.data as { responsavel?: string | null } | null)?.responsavel ?? "";
       const row = Array.isArray(tpl) ? tpl[0] : null;
       const corpo = (row as { corpo?: string } | null)?.corpo;
       if (corpo && corpo.trim()) {
@@ -804,21 +805,18 @@ function ProspeccaoPage() {
       console.warn("[prosp] openWhats:resolve-template-fail", e);
     }
 
-    // 2) Fallback: rotação anti-bloqueio com 3 variantes fixas caso o pack
-    // não tenha template configurado para o passo atual.
-    const variants: string[] = [
-      `Olá, vi que sua empresa foi aberta recentemente. Parabéns pela nova fase! 🎉\nPercebi que muitas empresas novas acabam perdendo oportunidades por ainda não terem uma presença profissional na internet.\n\nEu ajudo negócios a terem um site moderno que transmite confiança e gera contatos desde os primeiros meses de operação.\n\nPosso te mostrar alguns exemplos e fazer uma análise gratuita da sua presença digital?`,
-      `Oi! Tudo bem? Aqui é da INFINDA Digital 👋\nDei uma olhada no seu negócio e percebi que dá pra aumentar bastante a visibilidade online com algumas mudanças simples — site profissional, Google Meu Negócio e captação de contatos.\n\nMontei um diagnóstico rápido e gratuito da presença digital da sua empresa. Posso te mandar por aqui mesmo?`,
-      `Olá! 🙌 Estou ajudando empresas da sua região a aparecerem mais no Google e a converter mais clientes pela internet.\n\nNotei alguns pontos no seu negócio que podem render bons resultados em pouco tempo (site, redes e tráfego). Te interessa receber uma análise gratuita com sugestões práticas, sem compromisso?`,
-    ];
-    const rotKey = "msg_rot:prospeccao:whatsapp";
-    let rotIdx = 0;
-    try {
-      const cur = Number(window.localStorage.getItem(rotKey) || "0") || 0;
-      rotIdx = cur % variants.length;
-      window.localStorage.setItem(rotKey, String((cur + 1) % variants.length));
-    } catch { /* ignore */ }
-    if (!msg) msg = variants[rotIdx];
+    // 2) Fallback: template por nicho (detectado pelo nome fantasia ou
+    // pelo segmento cadastrado) quando o pack não tem mensagem para o
+    // passo atual. Também passa pelo `renderTemplate` para resolver
+    // `{{primeiro_nome}}` a partir de `cad_leads.responsavel`.
+    if (!msg) {
+      const nicheTpl = pickNicheTemplate(p.company || "", p.segment);
+      msg = renderTemplate(nicheTpl, {
+        empresa: p.company || "",
+        responsavel: responsavelLead,
+      });
+      console.log("[prosp] openWhats:usando-template-nicho", { company: p.company, segment: p.segment });
+    }
     // Sanitização final antes do envio — remove qualquer placeholder
     // remanescente e colapsa espaços/linhas em branco.
     msg = sanitizeTemplateForSend(msg);
