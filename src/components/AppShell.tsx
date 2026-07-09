@@ -13,6 +13,7 @@ import {
   Rocket,
   Settings,
   LogOut,
+  ShieldAlert,
   Menu,
   Package,
   FileSignature,
@@ -38,6 +39,8 @@ import {
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
 import { MobileNav } from "./MobileNav";
 import { OrgSwitcher } from "./org/OrgSwitcher";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { NotificationsBell } from "./cadencia/NotificationsBell";
 import { ROUTE_FEATURE, planAllows, useActiveOrg, PLAN_LABEL } from "@/lib/org/plans";
 import { FEATURES } from "@/config/features";
@@ -169,6 +172,26 @@ export function AppShell({
     await navigate({ to: "/login", replace: true });
   };
 
+  const handleLogoutAllDevices = async () => {
+    const ok = typeof window !== "undefined"
+      ? window.confirm(
+          "Isto vai encerrar a sessão em TODOS os dispositivos onde você está logado (incluindo este). Deseja continuar?",
+        )
+      : true;
+    if (!ok) return;
+
+    try {
+      await queryClient.cancelQueries();
+      queryClient.clear();
+      const { error } = await supabase.auth.signOut({ scope: "global" });
+      if (error) throw error;
+      toast.success("Sessão encerrada em todos os dispositivos.");
+      await navigate({ to: "/login", replace: true });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao encerrar sessões.");
+    }
+  };
+
   const initials = (user?.name ?? "U")
     .split(" ")
     .slice(0, 2)
@@ -247,6 +270,13 @@ export function AppShell({
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleLogoutAllDevices}
+                  className="cursor-pointer"
+                >
+                  <ShieldAlert className="h-4 w-4" />
+                  Sair de todos os dispositivos
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={handleLogout}
                   className="cursor-pointer text-destructive"
