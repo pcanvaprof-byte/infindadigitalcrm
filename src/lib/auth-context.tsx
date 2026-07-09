@@ -128,9 +128,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     void initializeSession();
 
+    // Revalidação ativa: após um "logout global" em outro dispositivo, os
+    // refresh tokens deste navegador são invalidados no servidor. Sem tráfego,
+    // nada dispararia SIGNED_OUT — então revalidamos a sessão ao focar a aba
+    // e a cada 60s. Se o servidor não reconhece mais o usuário, limpamos
+    // storage local e o RequireAuth redireciona para /login.
+    const revalidateSession = async () => {
+      if (cancelled) return;
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+
+      const { data, error } = await supabase.auth.getUser();
+      if (cancelled) return;
+
+      const stillValid = !error && !!data.user;
+      if (!stillValid && currentUserId) {
+        clearStoredAuthSession();
+        queryClient.clear();
+        await applyUser(null);
+      }
+    };
+
+    const onVisibility = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        void revalidateSession();
+      }
+    };
+
+    const intervalId =
+      typeof window !== "undefined"
+        ? window.setInterval(() => void revalidateSession(), 60_000)
+        : null;
+
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", onVisibility);
+    }
+
     return () => {
       cancelled = true;
       listener.subscription.unsubscribe();
+      if (intervalId !== null) window.clearInterval(intervalId);
+      if (typeof document !== "undefined") {
+        document.removeEventListener("visibilitychange", onVisibility);
+      }
     };
   }, [queryClient]);
 
