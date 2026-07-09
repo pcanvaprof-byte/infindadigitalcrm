@@ -13,7 +13,6 @@ import {
   Rocket,
   Settings,
   LogOut,
-  LogOut as LogOutAll,
   ShieldAlert,
   Menu,
   Package,
