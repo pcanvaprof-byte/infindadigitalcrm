@@ -33,7 +33,13 @@ export const Route = createFileRoute("/api/public/v1/clients")({
       GET: async ({ request }) =>
         (await import("@/lib/api-public/auth.server")).withApiAuth(request, async (ctx) => {
           const url = new URL(request.url);
-          const q = url.searchParams.get("q");
+          const rawQ = url.searchParams.get("q");
+          // Strip PostgREST filter-grammar control characters (comma, parens,
+          // dot, quote, backslash) and cap length to prevent filter injection
+          // into the .or() clause below.
+          const q = rawQ
+            ? rawQ.replace(/[,()"\\.]/g, " ").trim().slice(0, 100)
+            : null;
           const status = url.searchParams.get("status");
           const limit = Math.min(Number(url.searchParams.get("limit") ?? 50), 200);
           const offset = Math.max(Number(url.searchParams.get("offset") ?? 0), 0);
@@ -46,7 +52,11 @@ export const Route = createFileRoute("/api/public/v1/clients")({
             .order("updated_at", { ascending: false })
             .range(offset, offset + limit - 1);
 
-          if (q) query = query.or(`company.ilike.%${q}%,contact_name.ilike.%${q}%,email.ilike.%${q}%`);
+          if (q) {
+            query = query.or(
+              `company.ilike.%${q}%,contact_name.ilike.%${q}%,email.ilike.%${q}%`,
+            );
+          }
           if (status) query = query.eq("pipeline_stage", status);
 
           const { data, error } = await query;
