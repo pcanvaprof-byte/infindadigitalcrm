@@ -41,7 +41,6 @@ import { Route as BiDisparosRouteImport } from './routes/bi.disparos'
 import { Route as BiConfiguracoesRouteImport } from './routes/bi.configuracoes'
 import { Route as OperacoesClientesIndexRouteImport } from './routes/operacoes.clientes.index'
 import { Route as OperacoesClientesIdRouteImport } from './routes/operacoes.clientes.$id'
-import { Route as ApiPublicDebugListRouteImport } from './routes/api/public/debug-list'
 import { Route as OperacoesClientesIdIndexRouteImport } from './routes/operacoes.clientes.$id.index'
 import { Route as OperacoesClientesIdRenovacoesRouteImport } from './routes/operacoes.clientes.$id.renovacoes'
 import { Route as OperacoesClientesIdRelacionamentoRouteImport } from './routes/operacoes.clientes.$id.relacionamento'
@@ -221,11 +220,6 @@ const OperacoesClientesIdRoute = OperacoesClientesIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => OperacoesClientesRoute,
 } as any)
-const ApiPublicDebugListRoute = ApiPublicDebugListRouteImport.update({
-  id: '/api/public/debug-list',
-  path: '/api/public/debug-list',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const OperacoesClientesIdIndexRoute =
   OperacoesClientesIdIndexRouteImport.update({
     id: '/',
@@ -348,7 +342,6 @@ export interface FileRoutesByFullPath {
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
   '/operacoes/': typeof OperacoesIndexRoute
-  '/api/public/debug-list': typeof ApiPublicDebugListRoute
   '/operacoes/clientes/$id': typeof OperacoesClientesIdRouteWithChildren
   '/operacoes/clientes/': typeof OperacoesClientesIndexRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRouteWithChildren
@@ -398,7 +391,6 @@ export interface FileRoutesByTo {
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
   '/operacoes': typeof OperacoesIndexRoute
-  '/api/public/debug-list': typeof ApiPublicDebugListRoute
   '/operacoes/clientes': typeof OperacoesClientesIndexRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRouteWithChildren
   '/api/public/v1/me': typeof ApiPublicV1MeRoute
@@ -449,7 +441,6 @@ export interface FileRoutesById {
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
   '/operacoes/': typeof OperacoesIndexRoute
-  '/api/public/debug-list': typeof ApiPublicDebugListRoute
   '/operacoes/clientes/$id': typeof OperacoesClientesIdRouteWithChildren
   '/operacoes/clientes/': typeof OperacoesClientesIndexRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRouteWithChildren
@@ -502,7 +493,6 @@ export interface FileRouteTypes {
     | '/proposta/$token'
     | '/propostas/$id'
     | '/operacoes/'
-    | '/api/public/debug-list'
     | '/operacoes/clientes/$id'
     | '/operacoes/clientes/'
     | '/api/public/v1/clients'
@@ -552,7 +542,6 @@ export interface FileRouteTypes {
     | '/proposta/$token'
     | '/propostas/$id'
     | '/operacoes'
-    | '/api/public/debug-list'
     | '/operacoes/clientes'
     | '/api/public/v1/clients'
     | '/api/public/v1/me'
@@ -602,7 +591,6 @@ export interface FileRouteTypes {
     | '/proposta/$token'
     | '/propostas/$id'
     | '/operacoes/'
-    | '/api/public/debug-list'
     | '/operacoes/clientes/$id'
     | '/operacoes/clientes/'
     | '/api/public/v1/clients'
@@ -647,7 +635,6 @@ export interface RootRouteChildren {
   OperacoesClientesRoute: typeof OperacoesClientesRouteWithChildren
   PropostaTokenRoute: typeof PropostaTokenRoute
   OperacoesIndexRoute: typeof OperacoesIndexRoute
-  ApiPublicDebugListRoute: typeof ApiPublicDebugListRoute
   ApiPublicV1ClientsRoute: typeof ApiPublicV1ClientsRouteWithChildren
   ApiPublicV1MeRoute: typeof ApiPublicV1MeRoute
   ApiPublicV1OpenapiRoute: typeof ApiPublicV1OpenapiRoute
@@ -880,13 +867,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/operacoes/clientes/$id'
       preLoaderRoute: typeof OperacoesClientesIdRouteImport
       parentRoute: typeof OperacoesClientesRoute
-    }
-    '/api/public/debug-list': {
-      id: '/api/public/debug-list'
-      path: '/api/public/debug-list'
-      fullPath: '/api/public/debug-list'
-      preLoaderRoute: typeof ApiPublicDebugListRouteImport
-      parentRoute: typeof rootRouteImport
     }
     '/operacoes/clientes/$id/': {
       id: '/operacoes/clientes/$id/'
@@ -1152,7 +1132,6 @@ const rootRouteChildren: RootRouteChildren = {
   OperacoesClientesRoute: OperacoesClientesRouteWithChildren,
   PropostaTokenRoute: PropostaTokenRoute,
   OperacoesIndexRoute: OperacoesIndexRoute,
-  ApiPublicDebugListRoute: ApiPublicDebugListRoute,
   ApiPublicV1ClientsRoute: ApiPublicV1ClientsRouteWithChildren,
   ApiPublicV1MeRoute: ApiPublicV1MeRoute,
   ApiPublicV1OpenapiRoute: ApiPublicV1OpenapiRoute,
