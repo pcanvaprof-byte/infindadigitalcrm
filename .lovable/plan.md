@@ -1,105 +1,66 @@
-# Unificação: Nicho → Pack de Cadência
+# API para agente de IA (Claude)
 
-## Objetivo
+Vou criar uma **API REST autenticada por chave**, escopada por organização, que o Claude (ou qualquer agente/n8n/Zapier) pode chamar para ler e alterar dados do CRM.
 
-Eliminar a duplicidade entre **Biblioteca de Cadência** (packs genéricos multi-estágio) e **Templates por Nicho** (mensagem única por nicho). Cada **nicho** passa a ser um **pack de cadência completo** com todas as etapas.
+## Como você vai usar
 
-**Modelo mental final para o usuário:**
-> "Escolhi o nicho → esse nicho já tem toda a sequência comercial pronta (abertura + 7 follow-ups + breakup)."
+1. Entrar no seu perfil no app → aba nova **"Chaves de API"**
+2. Clicar em **"Gerar nova chave"** → aparece uma vez `infd_live_xxxxxxxx...` (copiar e guardar)
+3. Colar no Claude/n8n como header `Authorization: Bearer infd_live_...`
+4. Todas as chamadas ficam escopadas à sua organização ativa no momento da criação da chave (RLS por org preservado)
 
-O motor de disparo automático **continua igual** — só muda a origem dos textos.
+## Endpoints (todos em `/api/public/v1/*`)
 
----
+**Clientes / Prospects**
+- `GET  /clients` — lista (filtros: `?q=`, `?status=`, `?limit=`)
+- `GET  /clients/:id` — detalhes
+- `POST /clients` — cria
+- `PATCH /clients/:id` — atualiza (inclui mudança de status/etapa do pipeline)
 
-## Arquitetura (banco)
+**Tarefas**
+- `GET  /tasks?due=today` — tarefas do dia
+- `POST /tasks` — cria tarefa
 
-Reaproveitar a infra existente de `cad_template_packs` + `cad_templates` (que já suporta pack → múltiplos estágios), e usar `niche_key` como `pack_key`.
+**Interações / histórico**
+- `GET  /clients/:id/interactions` — histórico
+- `POST /clients/:id/interactions` — registra nota/ligação/mensagem
 
-**Novo:**
+**Propostas**
+- `POST /proposals` — cria proposta comercial para um cliente
 
-- Coluna `cad_template_packs.niche_key text` (nullable — packs antigos ficam sem nicho).
-- Coluna `cad_leads.pack_key text` já existe implicitamente via `active_template_pack` da org? Precisamos garantir que cada lead memorize o pack usado no momento do disparo (não perder histórico). Se não existir, adicionar `cad_leads.pack_key text` — preenchido na criação do lead a partir do nicho do prospect.
-- Migrar as ~N linhas de `cad_niche_templates` (mensagem única atual) para virar o `stage=abertura` de um novo pack `niche_<key>` em `cad_templates`. Os outros 8 estágios (followup_1..7, breakup) são copiados do pack default do sistema como ponto de partida — o usuário edita depois.
+**Meta**
+- `GET /me` — devolve org, permissões e limites da chave (útil pro Claude se apresentar)
 
-**Migração de dados:**
+Todos retornam JSON, com CORS habilitado, validação Zod nos payloads, códigos HTTP corretos (400/401/404/422/429), e rate limit básico por chave.
 
-```
-para cada niche_key existente em cad_niche_templates (is_current=true):
-  1. cria/atualiza cad_template_packs (pack_key='niche_<key>', niche_key='<key>', is_system=false, nome=NICHE_LABELS[key])
-  2. insere cad_templates (pack_key='niche_<key>', stage='abertura', corpo=<versão corrente>)
-  3. copia os outros 8 estágios do pack default do sistema para esse pack
-```
+## Segurança
 
-**Histórico preservado:** `cad_niche_templates` **não é dropada** — vira tabela de arquivo. Cadências já disparadas continuam com o texto registrado em `cad_messages.mensagem`.
+- Chave gerada com `crypto.randomBytes` — mostrada **uma única vez**; salvamos só o **hash SHA-256** no banco
+- Prefixo `infd_live_` para facilitar detecção em vazamento
+- Cada chave tem: `nome`, `org_id`, `created_by`, `last_used_at`, `revoked_at`
+- Você pode **revogar** a chave a qualquer momento no perfil
+- Toda escrita é auditada em uma tabela `api_key_audit_log` (endpoint, status, ip, user-agent)
+- Rate limit: 60 req/min por chave (defesa básica contra loop de agente)
+- RLS continua ativo: a API monta um cliente Supabase que aplica filtro `org_id = <org da chave>` em toda query — sem service role para leitura de dados de outras orgs
 
-**Nova RPC / função:**
+## Documentação
 
-- `cad_niche_pack_upsert_stage(_niche_key, _stage, _titulo, _corpo)` — salva um estágio de um pack de nicho (equivalente ao `cad_niche_template_save` atual, mas por estágio).
-- `cad_get_pack_for_lead(p_lead)` — retorna o `pack_key` a usar para um lead (prioriza `cad_leads.pack_key`, cai para pack do nicho, cai para default da org).
-
----
-
-## UI
-
-**Rota `/cadencia`:** aba atual "Templates" (packs genéricos) é **removida** e substituída pela nova aba **"Templates por Nicho"**.
-
-**Nova tela dentro de /cadencia (aba Templates):**
-
-```text
-┌─────────────────────────┬──────────────────────────────────────┐
-│ Nichos (sidebar)        │ Pack: Pizzaria                        │
-│ ─────────────           │ ──────────────                        │
-│ • Pizzaria     [editado]│ Etapa: [Abertura ▼]                   │
-│ • Restaurante           │                                        │
-│ • Padaria      [editado]│ Título: [___________________]         │
-│ • Clínica               │ Corpo:  ┌──────────────────────────┐  │
-│ • Advocacia             │         │                          │  │
-│ • …                     │         │ (editor + variantes ---) │  │
-│                         │         └──────────────────────────┘  │
-│                         │                                        │
-│                         │ [Restaurar padrão] [Salvar versão]    │
-│                         │                                        │
-│                         │ Histórico da etapa • Pré-visualização │
-└─────────────────────────┴──────────────────────────────────────┘
-```
-
-- Sidebar: lista de nichos (mesma da tela atual `/prospeccao-templates-nicho`).
-- Painel direito: **seletor de etapa** (abertura / followup_1..7 / breakup) + editor + preview + histórico.
-- Badge "editado" quando qualquer etapa do pack tem override na org.
-
-**Rota `/prospeccao-templates-nicho`:** vira redirect para `/cadencia?tab=templates&nicho=<key>` (não quebrar bookmarks).
-
----
-
-## Regra de funcionamento (integrações)
-
-- **Prospecção** (`/prospeccao`): ao clicar "gerar mensagem" para um lead, busca `cad_templates` do pack do nicho, estágio `abertura`. Ao disparar, cria o `cad_lead` já com `pack_key='niche_<key>'` gravado.
-- **Motor de cadência** (`cad_get_pack_templates`): passa a receber o `pack_key` do próprio lead em vez do `active_template_pack` da org. Sem esse pack (leads antigos), cai para o default.
-- **Packs genéricos legados** (`cad_template_packs.is_system=true` sem `niche_key`) continuam existindo no banco para não quebrar leads em cadência, mas ficam **ocultos da UI**.
-
----
+- Página `/api-docs` no app com exemplos `curl`, schema de cada endpoint, e um botão "Testar com sua chave"
+- Um `openapi.json` público em `/api/public/v1/openapi.json` (útil pro Claude ler e entender as tools automaticamente)
 
 ## Detalhes técnicos
 
-**Arquivos a criar/editar:**
+- **Backend**: server routes TanStack em `src/routes/api/public/v1/*.ts` (bypassa auth do site publicado, faz auth própria via header)
+- **Migração**: nova tabela `api_keys` (id, org_id, name, key_hash, prefix, last_used_at, revoked_at, created_by, created_at) + `api_key_audit_log` (id, api_key_id, endpoint, method, status, ip, ua, created_at). Ambas com RLS: dono da org lê/gerencia; API valida via `key_hash` usando `supabaseAdmin` só para o lookup da chave — depois usa cliente scoped por org
+- **Handler compartilhado**: `src/lib/api-public/auth.server.ts` faz `verifyApiKey(request)` → retorna `{ orgId, keyId }` ou 401. Reusado em todos os endpoints
+- **UI**: nova rota `/perfil/api-keys` (ou aba dentro do perfil existente) com listar/criar/revogar
 
-- `scripts/migrations/20260806_niche_as_pack.sql` — adiciona colunas, migra dados, cria RPCs.
-- `src/lib/cadencia/niche-pack-api.ts` — novo wrapper (listar packs por nicho, get/set estágio, histórico).
-- `src/components/cadencia/NichePackEditor.tsx` — novo componente (sidebar + editor por etapa).
-- `src/routes/cadencia.tsx` — trocar aba "Templates" pelo novo componente.
-- `src/routes/prospeccao-templates-nicho.tsx` — vira redirect.
-- `src/components/cadencia/TemplatesPanel.tsx` — deletar (ou manter escondido atrás de flag admin).
-- `src/lib/prospeccao/*` — pontos que chamam `listCurrentNicheTemplates` passam a chamar a nova API (mesma forma: `Map<niche_key, corpo_abertura>`).
+## O que vou entregar em ordem
 
-**Não-objetivos desta entrega:**
+1. Migração das tabelas `api_keys` + `api_key_audit_log` (com RLS + GRANTs)
+2. Helpers server-side: geração de chave, hash, verificação, audit log, rate limit
+3. Endpoints REST em `/api/public/v1/*` (clientes, tarefas, interações, propostas, me)
+4. Página no perfil para gerenciar chaves
+5. Página `/api-docs` com exemplos curl e um `openapi.json`
 
-- Não mexer no `cad_messages` já disparado (histórico intacto).
-- Não migrar leads em cadência para o novo `pack_key` retroativamente — só novos.
-
----
-
-## Confirmações antes de codar
-
-1. Nomes dos estágios exibidos na UI: mantenho `Abertura`, `Follow-up 1..7`, `Breakup`? (mesmos labels de hoje)
-2. Ao criar um pack de nicho novo, copio os textos dos followups do **pack default do sistema** como ponto de partida? (senão o nicho novo nasce com abertura preenchida e followups em branco)
-3. Ok esconder totalmente os packs genéricos antigos da UI (a aba "Biblioteca de Cadência" some), ou você prefere manter um item "Padrão do Sistema" na sidebar de nichos como fallback editável?
+Posso tocar? Se quiser, corto o escopo do MVP para só **clientes + tarefas + interações** (deixa propostas para uma segunda leva) — me diga.
