@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { generateApiKey } from "./api-public/keys.server";
 
 export type ApiKeyRow = {
   id: string;
@@ -40,6 +39,7 @@ export const createApiKey = createServerFn({ method: "POST" })
       .from("user_active_org").select("organization_id").eq("user_id", context.userId).maybeSingle();
     if (!activeOrg?.organization_id) throw new Error("Sem organização ativa.");
 
+    const { generateApiKey } = await import("./api-public/keys.server");
     const { fullKey, prefix, keyHash } = generateApiKey();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: row, error } = await (context.supabase as any)
