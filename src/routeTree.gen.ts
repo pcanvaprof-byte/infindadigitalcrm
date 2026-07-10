@@ -50,6 +50,7 @@ import { Route as OperacoesClientesIdFinanceiroRouteImport } from './routes/oper
 import { Route as OperacoesClientesIdDocumentosRouteImport } from './routes/operacoes.clientes.$id.documentos'
 import { Route as OperacoesClientesIdCampanhasRouteImport } from './routes/operacoes.clientes.$id.campanhas'
 import { Route as ApiPublicV1MeRouteImport } from './routes/api/public/v1/me'
+import { Route as ApiPublicV1ClientsRouteImport } from './routes/api/public/v1/clients'
 
 const TarefasRoute = TarefasRouteImport.update({
   id: '/tarefas',
@@ -267,6 +268,11 @@ const ApiPublicV1MeRoute = ApiPublicV1MeRouteImport.update({
   path: '/api/public/v1/me',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicV1ClientsRoute = ApiPublicV1ClientsRouteImport.update({
+  id: '/api/public/v1/clients',
+  path: '/api/public/v1/clients',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -300,6 +306,7 @@ export interface FileRoutesByFullPath {
   '/operacoes/': typeof OperacoesIndexRoute
   '/operacoes/clientes/$id': typeof OperacoesClientesIdRouteWithChildren
   '/operacoes/clientes/': typeof OperacoesClientesIndexRoute
+  '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
   '/api/public/v1/me': typeof ApiPublicV1MeRoute
   '/operacoes/clientes/$id/campanhas': typeof OperacoesClientesIdCampanhasRoute
   '/operacoes/clientes/$id/documentos': typeof OperacoesClientesIdDocumentosRoute
@@ -341,6 +348,7 @@ export interface FileRoutesByTo {
   '/propostas/$id': typeof PropostasIdRoute
   '/operacoes': typeof OperacoesIndexRoute
   '/operacoes/clientes': typeof OperacoesClientesIndexRoute
+  '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
   '/api/public/v1/me': typeof ApiPublicV1MeRoute
   '/operacoes/clientes/$id/campanhas': typeof OperacoesClientesIdCampanhasRoute
   '/operacoes/clientes/$id/documentos': typeof OperacoesClientesIdDocumentosRoute
@@ -385,6 +393,7 @@ export interface FileRoutesById {
   '/operacoes/': typeof OperacoesIndexRoute
   '/operacoes/clientes/$id': typeof OperacoesClientesIdRouteWithChildren
   '/operacoes/clientes/': typeof OperacoesClientesIndexRoute
+  '/api/public/v1/clients': typeof ApiPublicV1ClientsRoute
   '/api/public/v1/me': typeof ApiPublicV1MeRoute
   '/operacoes/clientes/$id/campanhas': typeof OperacoesClientesIdCampanhasRoute
   '/operacoes/clientes/$id/documentos': typeof OperacoesClientesIdDocumentosRoute
@@ -430,6 +439,7 @@ export interface FileRouteTypes {
     | '/operacoes/'
     | '/operacoes/clientes/$id'
     | '/operacoes/clientes/'
+    | '/api/public/v1/clients'
     | '/api/public/v1/me'
     | '/operacoes/clientes/$id/campanhas'
     | '/operacoes/clientes/$id/documentos'
@@ -471,6 +481,7 @@ export interface FileRouteTypes {
     | '/propostas/$id'
     | '/operacoes'
     | '/operacoes/clientes'
+    | '/api/public/v1/clients'
     | '/api/public/v1/me'
     | '/operacoes/clientes/$id/campanhas'
     | '/operacoes/clientes/$id/documentos'
@@ -514,6 +525,7 @@ export interface FileRouteTypes {
     | '/operacoes/'
     | '/operacoes/clientes/$id'
     | '/operacoes/clientes/'
+    | '/api/public/v1/clients'
     | '/api/public/v1/me'
     | '/operacoes/clientes/$id/campanhas'
     | '/operacoes/clientes/$id/documentos'
@@ -549,6 +561,7 @@ export interface RootRouteChildren {
   OperacoesClientesRoute: typeof OperacoesClientesRouteWithChildren
   PropostaTokenRoute: typeof PropostaTokenRoute
   OperacoesIndexRoute: typeof OperacoesIndexRoute
+  ApiPublicV1ClientsRoute: typeof ApiPublicV1ClientsRoute
   ApiPublicV1MeRoute: typeof ApiPublicV1MeRoute
 }
 
@@ -841,6 +854,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicV1MeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/v1/clients': {
+      id: '/api/public/v1/clients'
+      path: '/api/public/v1/clients'
+      fullPath: '/api/public/v1/clients'
+      preLoaderRoute: typeof ApiPublicV1ClientsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -970,6 +990,7 @@ const rootRouteChildren: RootRouteChildren = {
   OperacoesClientesRoute: OperacoesClientesRouteWithChildren,
   PropostaTokenRoute: PropostaTokenRoute,
   OperacoesIndexRoute: OperacoesIndexRoute,
+  ApiPublicV1ClientsRoute: ApiPublicV1ClientsRoute,
   ApiPublicV1MeRoute: ApiPublicV1MeRoute,
 }
 export const routeTree = rootRouteImport
