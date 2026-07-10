@@ -15,18 +15,19 @@ export const Route = createFileRoute("/api/public/debug-own-sb")({
           service_len: svc?.length ?? 0,
           has_publishable: !!anon,
         };
-        if (url && svc) {
+        if (url && anon) {
           try {
-            const c = createClient(url, svc, {
+            const c = createClient(url, anon, {
               auth: { storage: undefined, persistSession: false, autoRefreshToken: false },
             });
             const { data, error } = await c.from("api_keys").select("id").limit(1);
-            out.query_ok = !error;
-            out.query_error = error?.message ?? null;
-            out.rows = data?.length ?? 0;
+            out.pub_query_ok = !error;
+            out.pub_query_error = error?.message ?? null;
+            out.pub_prefix = anon.slice(0, 30);
+            out.pub_len = anon.length;
           } catch (e) {
-            out.query_ok = false;
-            out.query_error = (e as Error).message;
+            out.pub_query_ok = false;
+            out.pub_query_error = (e as Error).message;
           }
         }
         return Response.json(out);
