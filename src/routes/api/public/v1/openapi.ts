@@ -9,7 +9,17 @@ const spec = {
     description:
       "API para agentes de IA (Claude, n8n) consultarem e atualizarem clientes, tarefas, interações e propostas da sua organização. Autenticação: Bearer token com chave gerada no perfil.",
   },
-  servers: [{ url: "/api/public/v1" }],
+  servers: [
+    { url: "https://infindadigitalcrm.lovable.app/api/public/v1", description: "Produção" },
+    {
+      url: "https://project--dc3bbb9c-5db1-4dde-a96c-c89d290be067.lovable.app/api/public/v1",
+      description: "Produção estável",
+    },
+    {
+      url: "https://project--dc3bbb9c-5db1-4dde-a96c-c89d290be067-dev.lovable.app/api/public/v1",
+      description: "Preview estável",
+    },
+  ],
   components: {
     securitySchemes: {
       bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "infd_live_..." },
