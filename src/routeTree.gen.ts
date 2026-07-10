@@ -25,6 +25,7 @@ import { Route as CadenciaRouteImport } from './routes/cadencia'
 import { Route as BriefingsRouteImport } from './routes/briefings'
 import { Route as BiRouteImport } from './routes/bi'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as ApiKeysRouteImport } from './routes/api-keys'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OperacoesIndexRouteImport } from './routes/operacoes.index'
 import { Route as PropostasIdRouteImport } from './routes/propostas.$id'
@@ -136,6 +137,11 @@ const BiRoute = BiRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiKeysRoute = ApiKeysRouteImport.update({
+  id: '/api-keys',
+  path: '/api-keys',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -307,6 +313,7 @@ const ApiPublicV1ClientsIdInteractionsRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/api-keys': typeof ApiKeysRoute
   '/auth': typeof AuthRoute
   '/bi': typeof BiRouteWithChildren
   '/briefings': typeof BriefingsRouteWithChildren
@@ -356,6 +363,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/api-keys': typeof ApiKeysRoute
   '/auth': typeof AuthRoute
   '/bi': typeof BiRouteWithChildren
   '/briefings': typeof BriefingsRouteWithChildren
@@ -404,6 +412,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/api-keys': typeof ApiKeysRoute
   '/auth': typeof AuthRoute
   '/bi': typeof BiRouteWithChildren
   '/briefings': typeof BriefingsRouteWithChildren
@@ -455,6 +464,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/api-keys'
     | '/auth'
     | '/bi'
     | '/briefings'
@@ -504,6 +514,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/api-keys'
     | '/auth'
     | '/bi'
     | '/briefings'
@@ -551,6 +562,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/api-keys'
     | '/auth'
     | '/bi'
     | '/briefings'
@@ -601,6 +613,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApiKeysRoute: typeof ApiKeysRoute
   AuthRoute: typeof AuthRoute
   BiRoute: typeof BiRouteWithChildren
   BriefingsRoute: typeof BriefingsRouteWithChildren
@@ -741,6 +754,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api-keys': {
+      id: '/api-keys'
+      path: '/api-keys'
+      fullPath: '/api-keys'
+      preLoaderRoute: typeof ApiKeysRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -1090,6 +1110,7 @@ const ApiPublicV1ClientsRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApiKeysRoute: ApiKeysRoute,
   AuthRoute: AuthRoute,
   BiRoute: BiRouteWithChildren,
   BriefingsRoute: BriefingsRouteWithChildren,
