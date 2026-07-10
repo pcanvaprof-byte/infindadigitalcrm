@@ -14,10 +14,12 @@ export type ApiKeyRow = {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function resolveActiveOrg(supabase: any, userId: string): Promise<string | null> {
+  // 1. Explicit active-org selection
   const { data: active } = await supabase
     .from("user_active_org").select("organization_id").eq("user_id", userId).maybeSingle();
   if (active?.organization_id) return active.organization_id as string;
 
+  // 2. Any existing membership
   const { data: membership } = await supabase
     .from("organization_members")
     .select("organization_id, joined_at")
@@ -25,12 +27,43 @@ async function resolveActiveOrg(supabase: any, userId: string): Promise<string |
     .order("joined_at", { ascending: true })
     .limit(1)
     .maybeSingle();
-  const orgId = (membership?.organization_id as string | undefined) ?? null;
-  if (orgId) {
-    await supabase
-      .from("user_active_org")
-      .upsert({ user_id: userId, organization_id: orgId }, { onConflict: "user_id" });
+  let orgId = (membership?.organization_id as string | undefined) ?? null;
+
+  // 3. Bootstrap: no membership yet → use service role to join the user
+  //    to the sole existing organization, or create a personal one.
+  if (!orgId) {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: orgs } = await supabaseAdmin
+      .from("organizations")
+      .select("id")
+      .order("created_at", { ascending: true })
+      .limit(2);
+    if (orgs && orgs.length === 1) {
+      orgId = orgs[0].id as string;
+    } else if (!orgs || orgs.length === 0) {
+      const { data: newOrg, error: orgErr } = await supabaseAdmin
+        .from("organizations")
+        .insert({ name: "Minha organização", slug: `org-${userId.slice(0, 8)}`, created_by: userId })
+        .select("id")
+        .single();
+      if (orgErr) throw new Error(orgErr.message);
+      orgId = newOrg!.id as string;
+    } else {
+      // Multiple orgs exist but user is in none — cannot pick automatically.
+      return null;
+    }
+    const { error: memErr } = await supabaseAdmin
+      .from("organization_members")
+      .upsert(
+        { organization_id: orgId, user_id: userId, role: "admin" },
+        { onConflict: "organization_id,user_id" },
+      );
+    if (memErr) throw new Error(memErr.message);
   }
+
+  await supabase
+    .from("user_active_org")
+    .upsert({ user_id: userId, organization_id: orgId }, { onConflict: "user_id" });
   return orgId;
 }
 
