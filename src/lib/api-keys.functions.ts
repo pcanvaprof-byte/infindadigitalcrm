@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/lib/app-auth-middleware";
-import { createOwnSupabaseAdminClient, resolveActiveOrg } from "./api-keys.server";
 
 export type ApiKeyRow = {
   id: string;
@@ -16,6 +15,7 @@ export type ApiKeyRow = {
 export const listApiKeys = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const { createOwnSupabaseAdminClient, resolveActiveOrg } = await import("./api-keys.server");
     const orgId = await resolveActiveOrg(context.supabase);
     if (!orgId) return { keys: [] as ApiKeyRow[] };
 
@@ -34,6 +34,7 @@ export const createApiKey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ name: z.string().trim().min(2).max(80) }).parse(d))
   .handler(async ({ data, context }) => {
+    const { createOwnSupabaseAdminClient, resolveActiveOrg } = await import("./api-keys.server");
     const orgId = await resolveActiveOrg(context.supabase);
     if (!orgId) {
       throw new Error(
@@ -65,6 +66,7 @@ export const revokeApiKey = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
+    const { createOwnSupabaseAdminClient, resolveActiveOrg } = await import("./api-keys.server");
     const orgId = await resolveActiveOrg(context.supabase);
     if (!orgId) throw new Error("Organização ativa não encontrada.");
 
