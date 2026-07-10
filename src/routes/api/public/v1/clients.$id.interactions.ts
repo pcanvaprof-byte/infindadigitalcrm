@@ -15,7 +15,7 @@ export const Route = createFileRoute("/api/public/v1/clients/$id/interactions")(
       OPTIONS: async () => optionsResponse(),
 
       GET: async ({ request, params }) =>
-        withApiAuth(request, async (ctx) => {
+        (await import("@/lib/api-public/auth.server")).withApiAuth(request, async (ctx) => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const { data: client } = await (ctx.admin as any)
             .from("clients")
@@ -38,7 +38,7 @@ export const Route = createFileRoute("/api/public/v1/clients/$id/interactions")(
         }),
 
       POST: async ({ request, params }) =>
-        withApiAuth(request, async (ctx) => {
+        (await import("@/lib/api-public/auth.server")).withApiAuth(request, async (ctx) => {
           let body: unknown;
           try { body = await request.json(); }
           catch { return errorJson(400, "invalid_json", "Body must be valid JSON."); }

@@ -31,7 +31,7 @@ export const Route = createFileRoute("/api/public/v1/clients")({
       OPTIONS: async () => optionsResponse(),
 
       GET: async ({ request }) =>
-        withApiAuth(request, async (ctx) => {
+        (await import("@/lib/api-public/auth.server")).withApiAuth(request, async (ctx) => {
           const url = new URL(request.url);
           const q = url.searchParams.get("q");
           const status = url.searchParams.get("status");
@@ -55,7 +55,7 @@ export const Route = createFileRoute("/api/public/v1/clients")({
         }),
 
       POST: async ({ request }) =>
-        withApiAuth(request, async (ctx) => {
+        (await import("@/lib/api-public/auth.server")).withApiAuth(request, async (ctx) => {
           let body: unknown;
           try { body = await request.json(); }
           catch { return errorJson(400, "invalid_json", "Body must be valid JSON."); }

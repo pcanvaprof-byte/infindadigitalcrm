@@ -7,7 +7,7 @@ export const Route = createFileRoute("/api/public/v1/me")({
     handlers: {
       OPTIONS: async () => optionsResponse(),
       GET: async ({ request }) =>
-        withApiAuth(request, async (ctx) => {
+        (await import("@/lib/api-public/auth.server")).withApiAuth(request, async (ctx) => {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const { data: org } = await (ctx.admin as any)
             .from("organizations")

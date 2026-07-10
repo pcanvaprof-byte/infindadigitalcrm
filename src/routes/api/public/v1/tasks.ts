@@ -20,7 +20,7 @@ export const Route = createFileRoute("/api/public/v1/tasks")({
       OPTIONS: async () => optionsResponse(),
 
       GET: async ({ request }) =>
-        withApiAuth(request, async (ctx) => {
+        (await import("@/lib/api-public/auth.server")).withApiAuth(request, async (ctx) => {
           const url = new URL(request.url);
           const due = url.searchParams.get("due"); // "today" | "overdue" | ISO date
           const limit = Math.min(Number(url.searchParams.get("limit") ?? 50), 200);
@@ -51,7 +51,7 @@ export const Route = createFileRoute("/api/public/v1/tasks")({
         }),
 
       POST: async ({ request }) =>
-        withApiAuth(request, async (ctx) => {
+        (await import("@/lib/api-public/auth.server")).withApiAuth(request, async (ctx) => {
           let body: unknown;
           try { body = await request.json(); }
           catch { return errorJson(400, "invalid_json", "Body must be valid JSON."); }
