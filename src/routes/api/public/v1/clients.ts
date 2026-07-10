@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { withApiAuth } from "@/lib/api-public/auth.server";
+// withApiAuth is loaded lazily inside handlers to keep server-only code out of the client bundle
 import { errorJson, json, optionsResponse } from "@/lib/api-public/cors";
 
 const PIPELINE_STAGES = [

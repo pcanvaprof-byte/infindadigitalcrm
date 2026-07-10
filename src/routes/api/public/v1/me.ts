@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { withApiAuth } from "@/lib/api-public/auth.server";
+// withApiAuth is loaded lazily inside handlers to keep server-only code out of the client bundle
 import { json, optionsResponse } from "@/lib/api-public/cors";
 
 export const Route = createFileRoute("/api/public/v1/me")({
