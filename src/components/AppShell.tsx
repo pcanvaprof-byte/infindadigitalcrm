@@ -171,6 +171,8 @@ export function AppShell({
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem("infinda:sidebar-collapsed") === "1";
   });
+  const { role } = useOrgRole();
+  const isAdminOrOwner = isOwnerOrAdmin(role);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -214,7 +216,7 @@ export function AppShell({
     <div className="flex min-h-screen bg-background">
       {!sidebarCollapsed && (
         <div className="hidden lg:block">
-          <Sidebar />
+          <Sidebar role={role} />
         </div>
       )}
 
@@ -243,7 +245,7 @@ export function AppShell({
                 <SheetHeader className="sr-only">
                   <SheetTitle>Menu</SheetTitle>
                 </SheetHeader>
-                <Sidebar onNavigate={() => setMobileMenuOpen(false)} />
+                <Sidebar onNavigate={() => setMobileMenuOpen(false)} role={role} />
               </SheetContent>
             </Sheet>
             <div className="min-w-0">
