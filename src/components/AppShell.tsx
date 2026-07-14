@@ -283,19 +283,23 @@ export function AppShell({
                     </span>
                   </div>
                 </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link to="/api-keys" className="flex items-center gap-2">
-                    <KeyRound className="h-4 w-4" />
-                    Chaves de API
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link to="/assinatura" className="flex items-center gap-2">
-                    <Package className="h-4 w-4" />
-                    Assinatura
-                  </Link>
-                </DropdownMenuItem>
+                {isAdminOrOwner && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild className="cursor-pointer">
+                      <Link to="/api-keys" className="flex items-center gap-2">
+                        <KeyRound className="h-4 w-4" />
+                        Chaves de API
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="cursor-pointer">
+                      <Link to="/assinatura" className="flex items-center gap-2">
+                        <Package className="h-4 w-4" />
+                        Assinatura
+                      </Link>
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleLogoutAllDevices}
