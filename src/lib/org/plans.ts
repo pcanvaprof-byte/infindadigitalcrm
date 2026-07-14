@@ -13,52 +13,38 @@ export type Feature =
   | "propostas"
   | "contratos";
 
+/**
+ * Plano único INFINDA — R$ 200/mês, todos os módulos liberados.
+ * Estas estruturas ficam mantidas por compatibilidade com código legado,
+ * mas não restringem mais nada: todas as features são permitidas.
+ */
+export const ALL_FEATURES: Feature[] = [
+  "dashboard",
+  "crm",
+  "prospeccao",
+  "cadencia",
+  "operacoes",
+  "briefings",
+  "catalogo",
+  "kickoff",
+  "propostas",
+  "contratos",
+];
+
 export const PLAN_FEATURES: Record<OrgPlan, Feature[]> = {
-  start: ["dashboard", "crm", "prospeccao"],
-  growth: [
-    "dashboard",
-    "crm",
-    "prospeccao",
-    "cadencia",
-    "operacoes",
-    "briefings",
-    "catalogo",
-    "kickoff",
-    "propostas",
-  ],
-  scale: [
-    "dashboard",
-    "crm",
-    "prospeccao",
-    "cadencia",
-    "operacoes",
-    "briefings",
-    "catalogo",
-    "kickoff",
-    "propostas",
-    "contratos",
-  ],
+  start: ALL_FEATURES,
+  growth: ALL_FEATURES,
+  scale: ALL_FEATURES,
 };
 
 export const PLAN_LABEL: Record<OrgPlan, string> = {
-  start: "INFINDA Start",
-  growth: "INFINDA Growth",
-  scale: "INFINDA Scale",
+  start: "INFINDA",
+  growth: "INFINDA",
+  scale: "INFINDA",
 };
 
-/** Mapa de rotas → feature. Rotas ausentes não são restringidas. */
-export const ROUTE_FEATURE: Record<string, Feature> = {
-  "/dashboard": "dashboard",
-  "/crm": "crm",
-  "/prospeccao": "prospeccao",
-  "/cadencia": "cadencia",
-  "/operacoes": "operacoes",
-  "/briefings": "briefings",
-  "/catalogo": "catalogo",
-  "/kickoff": "kickoff",
-  "/propostas": "propostas",
-  "/contratos": "contratos",
-};
+/** Mapa de rotas → feature. Mantido vazio: nenhuma rota é gated por plano. */
+export const ROUTE_FEATURE: Record<string, Feature> = {};
 
 export function useActiveOrg() {
   const q = useQuery<Organization[]>({
@@ -68,12 +54,12 @@ export function useActiveOrg() {
   });
   const orgs = q.data ?? [];
   const active = orgs.find((o) => o.is_active) ?? orgs[0];
-  // fallback: assume scale (acesso total) quando não há plano definido
-  const rawPlan = active?.plan;
-  const plan: OrgPlan = rawPlan && rawPlan in PLAN_FEATURES ? rawPlan : "scale";
+  // Plano único: acesso total.
+  const plan: OrgPlan = "scale";
   return { org: active, plan, isLoading: q.isLoading };
 }
 
-export function planAllows(plan: OrgPlan, feature: Feature): boolean {
-  return (PLAN_FEATURES[plan] ?? PLAN_FEATURES.scale).includes(feature);
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function planAllows(_plan: OrgPlan, _feature: Feature): boolean {
+  return true;
 }
