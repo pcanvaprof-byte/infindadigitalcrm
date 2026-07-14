@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/lib/auth-context";
+import { RequireOwnerOrAdmin } from "@/lib/auth/require-role";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -42,7 +43,9 @@ export const Route = createFileRoute("/propostas/$id")({
   head: () => ({ meta: [{ title: "Editor de Proposta — INFINDA" }] }),
   component: () => (
     <RequireAuth>
+      <RequireOwnerOrAdmin>
       <EditorPage />
+      </RequireOwnerOrAdmin>
     </RequireAuth>
   ),
 });

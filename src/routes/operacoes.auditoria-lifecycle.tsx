@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/lib/auth-context";
+import { RequireOwnerOrAdmin } from "@/lib/auth/require-role";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,9 +25,11 @@ export const Route = createFileRoute("/operacoes/auditoria-lifecycle")({
   head: () => ({ meta: [{ title: "Auditoria · Lifecycle Link — INFINDA" }] }),
   component: () => (
     <RequireAuth>
+      <RequireOwnerOrAdmin>
       <AppShell title="Auditoria" subtitle="Lifecycle Link">
         <AuditPage />
       </AppShell>
+      </RequireOwnerOrAdmin>
     </RequireAuth>
   ),
 });
