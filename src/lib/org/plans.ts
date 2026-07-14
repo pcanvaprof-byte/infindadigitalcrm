@@ -59,6 +59,24 @@ export function useActiveOrg() {
   return { org: active, plan, isLoading: q.isLoading };
 }
 
+/**
+ * Papel do usuário na organização ativa.
+ * Fonte: organization_members.role (owner | admin | member).
+ */
+export type OrgRole = "owner" | "admin" | "member";
+
+export function useOrgRole(): { role: OrgRole | null; isLoading: boolean } {
+  const { org, isLoading } = useActiveOrg();
+  const raw = (org?.role ?? null) as string | null;
+  const role =
+    raw === "owner" || raw === "admin" || raw === "member" ? (raw as OrgRole) : null;
+  return { role, isLoading };
+}
+
+export function isOwnerOrAdmin(role: OrgRole | null | undefined): boolean {
+  return role === "owner" || role === "admin";
+}
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function planAllows(_plan: OrgPlan, _feature: Feature): boolean {
   return true;
