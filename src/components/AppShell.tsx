@@ -43,7 +43,6 @@ import { OrgSwitcher } from "./org/OrgSwitcher";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { NotificationsBell } from "./cadencia/NotificationsBell";
-import { useActiveOrg } from "@/lib/org/plans";
 import { useOrgRole, isOwnerOrAdmin, type OrgRole } from "@/lib/org/plans";
 import { FEATURES } from "@/config/features";
 
