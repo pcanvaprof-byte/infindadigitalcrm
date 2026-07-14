@@ -3881,6 +3881,7 @@ export type Database = {
         Returns: string
       }
       current_org_id: { Args: never; Returns: string }
+      current_org_role: { Args: never; Returns: string }
       dashboard_current_org_id: { Args: never; Returns: string }
       dashboard_metrics: { Args: never; Returns: Json }
       finalizar_contrato: {
