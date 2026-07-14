@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/lib/auth-context";
+import { RequireOwnerOrAdmin } from "@/lib/auth/require-role";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { CatalogItemForm } from "@/components/catalog/CatalogItemForm";
@@ -13,7 +14,9 @@ export const Route = createFileRoute("/catalogo/$id")({
   head: () => ({ meta: [{ title: "Editar item — Catálogo Comercial — INFINDA" }] }),
   component: () => (
     <RequireAuth>
+      <RequireOwnerOrAdmin>
       <EditarItemPage />
+      </RequireOwnerOrAdmin>
     </RequireAuth>
   ),
 });

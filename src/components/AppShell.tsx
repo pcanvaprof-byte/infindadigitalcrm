@@ -43,31 +43,46 @@ import { OrgSwitcher } from "./org/OrgSwitcher";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { NotificationsBell } from "./cadencia/NotificationsBell";
-import { useActiveOrg } from "@/lib/org/plans";
+import { useOrgRole, isOwnerOrAdmin, type OrgRole } from "@/lib/org/plans";
 import { FEATURES } from "@/config/features";
 
-const NAV = [
+type NavItem = {
+  to: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  enabled: boolean;
+  /** Papéis que podem ver o item. `undefined` = todos. */
+  roles?: readonly OrgRole[];
+};
+
+const MEMBER_ROLES = ["member"] as const;
+const ADMIN_ROLES = ["owner", "admin"] as const;
+
+const NAV: readonly NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, enabled: true },
   { to: "/bi", label: "Business Intelligence", icon: Bot, enabled: FEATURES.businessIntelligence },
   { to: "/crm", label: "CRM Comercial", icon: Users, enabled: true },
   { to: "/prospeccao", label: "Prospecção", icon: Search, enabled: true },
   { to: "/cadencia", label: "Cadência", icon: Repeat2, enabled: true },
-  { to: "/operacoes", label: "Operações", icon: Briefcase, enabled: true },
-  { to: "/briefings", label: "Briefings Comerciais", icon: FileText, enabled: true },
-  { to: "/catalogo", label: "Catálogo Comercial", icon: Package, enabled: true },
-  { to: "/kickoff", label: "Kickoff Produção", icon: Rocket, enabled: true },
-  { to: "/propostas", label: "Propostas", icon: FileText, enabled: true },
-  { to: "/contratos", label: "Contratos", icon: FileSignature, enabled: true },
-  { to: "/indicacoes", label: "Indicações", icon: Share2, enabled: false },
-  { to: "/ia", label: "IA Comercial", icon: Bot, enabled: false },
-  { to: "/configuracoes", label: "Configurações", icon: Settings, enabled: false },
-] as const;
+  { to: "/operacoes", label: "Operações", icon: Briefcase, enabled: true, roles: ADMIN_ROLES },
+  { to: "/briefings", label: "Briefings Comerciais", icon: FileText, enabled: true, roles: ADMIN_ROLES },
+  { to: "/catalogo", label: "Catálogo Comercial", icon: Package, enabled: true, roles: ADMIN_ROLES },
+  { to: "/kickoff", label: "Kickoff Produção", icon: Rocket, enabled: true, roles: ADMIN_ROLES },
+  { to: "/propostas", label: "Propostas", icon: FileText, enabled: true, roles: ADMIN_ROLES },
+  { to: "/contratos", label: "Contratos", icon: FileSignature, enabled: true, roles: ADMIN_ROLES },
+  { to: "/indicacoes", label: "Indicações", icon: Share2, enabled: false, roles: ADMIN_ROLES },
+  { to: "/ia", label: "IA Comercial", icon: Bot, enabled: false, roles: ADMIN_ROLES },
+  { to: "/configuracoes", label: "Configurações", icon: Settings, enabled: false, roles: ADMIN_ROLES },
+];
+// Silence unused warning: MEMBER_ROLES kept for documentation of the sales-only set.
+void MEMBER_ROLES;
 
-function NavList({ onNavigate }: { onNavigate?: () => void }) {
+function NavList({ onNavigate, role }: { onNavigate?: () => void; role: OrgRole | null }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const items = NAV.filter((n) => !n.roles || (role && n.roles.includes(role)));
   return (
     <nav className="flex flex-1 flex-col gap-1 px-3">
-      {NAV.map((item) => {
+      {items.map((item) => {
         const Icon = item.icon;
         const active = pathname === item.to;
         const base = "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all";
@@ -107,7 +122,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
+function Sidebar({ onNavigate, role }: { onNavigate?: () => void; role: OrgRole | null }) {
   return (
     <aside className="flex h-full w-[260px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
       <div className="flex h-16 items-center border-b border-sidebar-border px-5">
@@ -117,7 +132,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         <p className="px-6 pb-2 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
           Operação
         </p>
-        <NavList onNavigate={onNavigate} />
+        <NavList onNavigate={onNavigate} role={role} />
       </div>
       <div className="border-t border-sidebar-border p-4">
         <div className="surface-card p-3">
@@ -155,6 +170,8 @@ export function AppShell({
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem("infinda:sidebar-collapsed") === "1";
   });
+  const { role } = useOrgRole();
+  const isAdminOrOwner = isOwnerOrAdmin(role);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -198,7 +215,7 @@ export function AppShell({
     <div className="flex min-h-screen bg-background">
       {!sidebarCollapsed && (
         <div className="hidden lg:block">
-          <Sidebar />
+          <Sidebar role={role} />
         </div>
       )}
 
@@ -227,7 +244,7 @@ export function AppShell({
                 <SheetHeader className="sr-only">
                   <SheetTitle>Menu</SheetTitle>
                 </SheetHeader>
-                <Sidebar onNavigate={() => setMobileMenuOpen(false)} />
+                <Sidebar onNavigate={() => setMobileMenuOpen(false)} role={role} />
               </SheetContent>
             </Sheet>
             <div className="min-w-0">
@@ -265,19 +282,23 @@ export function AppShell({
                     </span>
                   </div>
                 </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link to="/api-keys" className="flex items-center gap-2">
-                    <KeyRound className="h-4 w-4" />
-                    Chaves de API
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className="cursor-pointer">
-                  <Link to="/assinatura" className="flex items-center gap-2">
-                    <Package className="h-4 w-4" />
-                    Assinatura
-                  </Link>
-                </DropdownMenuItem>
+                {isAdminOrOwner && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild className="cursor-pointer">
+                      <Link to="/api-keys" className="flex items-center gap-2">
+                        <KeyRound className="h-4 w-4" />
+                        Chaves de API
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild className="cursor-pointer">
+                      <Link to="/assinatura" className="flex items-center gap-2">
+                        <Package className="h-4 w-4" />
+                        Assinatura
+                      </Link>
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleLogoutAllDevices}

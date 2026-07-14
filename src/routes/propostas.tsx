@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/lib/auth-context";
+import { RequireOwnerOrAdmin } from "@/lib/auth/require-role";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -36,7 +37,9 @@ export const Route = createFileRoute("/propostas")({
   head: () => ({ meta: [{ title: "Propostas — INFINDA" }] }),
   component: () => (
     <RequireAuth>
+      <RequireOwnerOrAdmin>
       <PropostasPage />
+      </RequireOwnerOrAdmin>
     </RequireAuth>
   ),
 });

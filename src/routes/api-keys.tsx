@@ -7,6 +7,7 @@ import { Copy, KeyRound, Loader2, Plus, ShieldAlert, Trash2 } from "lucide-react
 
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/lib/auth-context";
+import { RequireOwnerOrAdmin } from "@/lib/auth/require-role";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,7 +25,9 @@ export const Route = createFileRoute("/api-keys")({
   head: () => ({ meta: [{ title: "Chaves de API — INFINDA" }] }),
   component: () => (
     <RequireAuth>
+      <RequireOwnerOrAdmin>
       <ApiKeysPage />
+      </RequireOwnerOrAdmin>
     </RequireAuth>
   ),
 });

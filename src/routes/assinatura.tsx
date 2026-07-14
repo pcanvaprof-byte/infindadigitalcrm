@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, Copy, QrCode } from "lucide-react";
 import { toast } from "sonner";
 import { useActiveOrg } from "@/lib/org/plans";
+import { RequireAuth } from "@/lib/auth-context";
+import { RequireOwnerOrAdmin } from "@/lib/auth/require-role";
 
 export const Route = createFileRoute("/assinatura")({
   head: () => ({
@@ -12,7 +14,13 @@ export const Route = createFileRoute("/assinatura")({
       { name: "description", content: "Gerencie a assinatura da sua organização INFINDA." },
     ],
   }),
-  component: AssinaturaPage,
+  component: () => (
+    <RequireAuth>
+      <RequireOwnerOrAdmin>
+        <AssinaturaPage />
+      </RequireOwnerOrAdmin>
+    </RequireAuth>
+  ),
 });
 
 const MODULOS = [
