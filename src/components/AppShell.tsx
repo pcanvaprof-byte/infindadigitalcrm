@@ -272,6 +272,12 @@ export function AppShell({
                     Chaves de API
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <Link to="/assinatura" className="flex items-center gap-2">
+                    <Package className="h-4 w-4" />
+                    Assinatura
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleLogoutAllDevices}
