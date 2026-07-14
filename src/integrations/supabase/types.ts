@@ -3638,6 +3638,8 @@ export type Database = {
         }
         Returns: undefined
       }
+      _can_see_cad_lead: { Args: { _lead: string }; Returns: boolean }
+      _can_see_client: { Args: { _client: string }; Returns: boolean }
       _infinda_log_activity: {
         Args: { p_kind: string; p_lead: string; p_text: string; p_user: string }
         Returns: undefined
