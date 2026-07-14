@@ -43,7 +43,7 @@ import { OrgSwitcher } from "./org/OrgSwitcher";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { NotificationsBell } from "./cadencia/NotificationsBell";
-import { ROUTE_FEATURE, planAllows, useActiveOrg, PLAN_LABEL } from "@/lib/org/plans";
+import { useActiveOrg } from "@/lib/org/plans";
 import { FEATURES } from "@/config/features";
 
 const NAV = [
@@ -65,27 +65,23 @@ const NAV = [
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { plan } = useActiveOrg();
   return (
     <nav className="flex flex-1 flex-col gap-1 px-3">
       {NAV.map((item) => {
         const Icon = item.icon;
         const active = pathname === item.to;
         const base = "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all";
-        const feature = ROUTE_FEATURE[item.to];
-        const blockedByPlan = feature ? !planAllows(plan, feature) : false;
-        if (!item.enabled || blockedByPlan) {
-          const label = blockedByPlan ? "Upgrade" : "Em breve";
+        if (!item.enabled) {
           return (
             <button
               key={item.to}
               disabled
               className={`${base} cursor-not-allowed text-muted-foreground/50`}
-              title={blockedByPlan ? `Disponível em planos superiores` : "Em breve"}
+              title="Em breve"
             >
               <Icon className="h-4 w-4" />
               <span className="flex-1 text-left">{item.label}</span>
-              <span className="text-[10px] uppercase tracking-wider opacity-70">{label}</span>
+              <span className="text-[10px] uppercase tracking-wider opacity-70">Em breve</span>
             </button>
           );
         }
@@ -112,7 +108,6 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
-  const { plan } = useActiveOrg();
   return (
     <aside className="flex h-full w-[260px] shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
       <div className="flex h-16 items-center border-b border-sidebar-border px-5">
@@ -127,7 +122,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <div className="border-t border-sidebar-border p-4">
         <div className="surface-card p-3">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold">{PLAN_LABEL[plan]}</p>
+            <p className="text-xs font-semibold">INFINDA</p>
             <span className="rounded-full border border-border bg-background/40 px-2 py-0.5 text-[10px] font-mono text-muted-foreground">
               {APP_VERSION_LABEL}
             </span>
