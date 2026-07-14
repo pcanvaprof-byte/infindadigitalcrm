@@ -10,8 +10,8 @@ import { useAuth } from "@/lib/auth-context";
 import { APP_VERSION } from "@/lib/version";
 
 export const Route = createFileRoute("/login")({
-  validateSearch: (search) => ({
-    redirect: typeof search.redirect === "string" ? search.redirect : "/dashboard",
+  validateSearch: (search): { redirect?: string; reason?: string } => ({
+    redirect: typeof search.redirect === "string" ? search.redirect : undefined,
     reason: typeof search.reason === "string" ? search.reason : undefined,
   }),
   head: () => ({
@@ -29,7 +29,7 @@ function LoginPage() {
   return <AuthPageContent redirect={redirect} reason={reason} />;
 }
 
-export function AuthPageContent({ redirect, reason }: { redirect: string; reason?: string }) {
+export function AuthPageContent({ redirect, reason }: { redirect?: string; reason?: string }) {
   const navigate = useNavigate();
   const { user, isReady, login } = useAuth();
   const [email, setEmail] = useState("");

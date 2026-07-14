@@ -3,8 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AuthPageContent } from "./login";
 
 export const Route = createFileRoute("/auth")({
-  validateSearch: (search) => ({
-    redirect: typeof search.redirect === "string" ? search.redirect : "/dashboard",
+  validateSearch: (search): { redirect?: string; reason?: string } => ({
+    redirect: typeof search.redirect === "string" ? search.redirect : undefined,
     reason: typeof search.reason === "string" ? search.reason : undefined,
   }),
   head: () => ({

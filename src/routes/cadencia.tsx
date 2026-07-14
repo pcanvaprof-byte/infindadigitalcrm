@@ -27,7 +27,7 @@ import { X } from "lucide-react";
 
 export const Route = createFileRoute("/cadencia")({
   ssr: false,
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (s: Record<string, unknown>): { lead?: string } => ({
     lead: typeof s.lead === "string" ? s.lead : undefined,
   }),
   head: () => ({ meta: [{ title: "Cadência — INFINDA" }] }),

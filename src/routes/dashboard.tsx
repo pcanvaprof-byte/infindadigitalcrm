@@ -64,7 +64,7 @@ function pickBucket(
 }
 
 export const Route = createFileRoute("/dashboard")({
-  validateSearch: (s: Record<string, unknown>) => {
+  validateSearch: (s: Record<string, unknown>): { p?: Period } => {
     const p = String(s.p ?? "mes");
     const period: Period = (["hoje","semana","mes","previsao"] as const).includes(p as Period)
       ? (p as Period) : "mes";
