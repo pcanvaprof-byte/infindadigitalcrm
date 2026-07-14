@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/lib/auth-context";
+import { RequireOwnerOrAdmin } from "@/lib/auth/require-role";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -91,7 +92,9 @@ function CatalogoRoute() {
 
   return (
     <RequireAuth>
-      {pathname === "/catalogo" ? <CatalogoPage /> : <Outlet />}
+      <RequireOwnerOrAdmin>
+        {pathname === "/catalogo" ? <CatalogoPage /> : <Outlet />}
+      </RequireOwnerOrAdmin>
     </RequireAuth>
   );
 }
