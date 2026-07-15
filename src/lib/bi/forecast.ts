@@ -99,7 +99,9 @@ export async function fetchForecastForPeriod(period: ResolvedPeriod): Promise<Fo
   // Pipeline (snapshot — propostas em aberto neste momento)
   let proposals = await safeSelect(
     "proposals",
-    "status, valor_mensal, valor_implantacao, valor_avulso, contract_value, value, valor_total, created_at",
+    // proposals não tem contract_value/value/valor_total — mantemos só as
+    // colunas reais. `proposalValue()` deriva o valor via valor_mensal/implantação/avulso.
+    "status, valor_mensal, valor_implantacao, valor_avulso, created_at",
   );
   if (proposals.length === 0) {
     proposals = await safeSelect("op_proposals", "status, contract_value, value, valor_total, created_at");
