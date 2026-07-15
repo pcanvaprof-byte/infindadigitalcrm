@@ -1,4 +1,5 @@
 import { supabase as sb } from "@/integrations/supabase/client";
+import { isGhostTable } from "./ghost-tables";
 import { localTimestamp, localDateKey } from "./tz";
 
 /**
