@@ -4,6 +4,7 @@ import type { ResolvedPeriod } from "./period";
 import { getForecastSettings } from "./forecast-settings";
 import { localTimestamp } from "./tz";
 import { fetchClientsAsContracts } from "./clients-source";
+import { isGhostTable } from "./ghost-tables";
 
 export interface ForecastBreakdown {
   recorrencia: number;       // MRR escalonado pela duração do período (em meses)
@@ -31,6 +32,7 @@ const num = (v: unknown) => {
 };
 
 async function safeSelect(table: string, cols: string): Promise<AnyRow[]> {
+  if (isGhostTable(table)) return [];
   try {
     const { data, error } = await (sb as unknown as {
       from: (t: string) => { select: (c: string) => { limit: (n: number) => Promise<{ data: unknown; error: unknown }> } };
