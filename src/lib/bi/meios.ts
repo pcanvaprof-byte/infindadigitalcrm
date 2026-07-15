@@ -1,5 +1,6 @@
 import { supabase as sb } from "@/integrations/supabase/client";
 import { localTimestamp, getCurrentOrgId } from "./tz";
+import { isGhostTable } from "./ghost-tables";
 import type { ResolvedPeriod } from "./period";
 
 /**
@@ -77,6 +78,7 @@ export function classifySource(...candidates: Array<string | null | undefined>):
 type Row = Record<string, unknown>;
 
 async function safeSelect(table: string, columns: string, period?: ResolvedPeriod, dateCol?: string): Promise<Row[]> {
+  if (isGhostTable(table)) return [];
   try {
     let q: any = sb.from(table as never).select(columns).limit(5000);
     const orgId = await getCurrentOrgId();
