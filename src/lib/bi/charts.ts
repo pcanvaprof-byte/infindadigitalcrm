@@ -49,6 +49,7 @@ async function safeSelect<T = Record<string, unknown>>(
   columns: string,
   filter?: (q: ReturnType<typeof sb.from>) => unknown,
 ): Promise<T[]> {
+  if (isGhostTable(table)) return [];
   try {
     let q = sb.from(table as never).select(columns);
     if (filter) q = filter(q as unknown as ReturnType<typeof sb.from>) as typeof q;
