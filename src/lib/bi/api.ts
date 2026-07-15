@@ -1,6 +1,7 @@
 import { supabase as sb } from "@/integrations/supabase/client";
 import { localTimestamp } from "./tz";
 import type { ResolvedPeriod } from "./period";
+import { isGhostTable } from "./ghost-tables";
 
 const rpc = (sb as unknown as {
   rpc: (fn: string, args?: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
@@ -74,6 +75,7 @@ export async function fetchComercialFunnel(
     extra?: (q: unknown) => unknown,
     extraLabel?: string,
   ): Promise<number> => {
+    if (isGhostTable(table)) return 0;
     const label = `${table}.${col}${extraLabel ? ` [${extraLabel}]` : ""}`;
     try {
       let q = (sb as unknown as {

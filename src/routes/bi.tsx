@@ -174,6 +174,12 @@ function FunilCard(props: React.ComponentProps<typeof FunilExecutivo>) {
 export const Route = createFileRoute("/bi")({
   component: BIPageGate,
   validateSearch: periodSearchSchema,
+  head: () => ({
+    meta: [
+      { title: "Business Intelligence — INFINDA" },
+      { name: "description", content: "Painel executivo INFINDA com KPIs, funil, forecast e insights de IA." },
+    ],
+  }),
   errorComponent: ({ error }) => (
     <div className="p-6 text-sm text-destructive">Erro BI: {String(error)}</div>
   ),

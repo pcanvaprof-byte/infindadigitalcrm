@@ -109,17 +109,11 @@ export const BI_GOALS_EVENT = "bi-goals-changed";
 
 export async function fetchBIGoals(): Promise<BIGoals> {
   const local = readLocalOverrides();
-  try {
-    const now = new Date();
-    const { data, error } = await rpc("bi_get_goals", {
-      p_year: now.getFullYear(),
-      p_month: now.getMonth() + 1,
-    });
-    if (error || !data) return { ...DEFAULT_GOALS, ...local };
-    return { ...DEFAULT_GOALS, ...(data as Partial<BIGoals>), ...local };
-  } catch {
-    return { ...DEFAULT_GOALS, ...local };
-  }
+  // A RPC `bi_get_goals` não existe neste projeto (auditoria 2026-07-15).
+  // Metas mensais vivem apenas em localStorage por enquanto — se e quando a
+  // função for criada, reativar a chamada aqui.
+  void rpc;
+  return { ...DEFAULT_GOALS, ...local };
 }
 
 export async function saveMonthlyGoals(input: {

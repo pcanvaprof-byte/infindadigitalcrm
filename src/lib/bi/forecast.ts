@@ -4,6 +4,7 @@ import type { ResolvedPeriod } from "./period";
 import { getForecastSettings } from "./forecast-settings";
 import { localTimestamp } from "./tz";
 import { fetchClientsAsContracts } from "./clients-source";
+import { isGhostTable } from "./ghost-tables";
 
 export interface ForecastBreakdown {
   recorrencia: number;       // MRR escalonado pela duração do período (em meses)
@@ -31,6 +32,7 @@ const num = (v: unknown) => {
 };
 
 async function safeSelect(table: string, cols: string): Promise<AnyRow[]> {
+  if (isGhostTable(table)) return [];
   try {
     const { data, error } = await (sb as unknown as {
       from: (t: string) => { select: (c: string) => { limit: (n: number) => Promise<{ data: unknown; error: unknown }> } };
@@ -97,7 +99,9 @@ export async function fetchForecastForPeriod(period: ResolvedPeriod): Promise<Fo
   // Pipeline (snapshot — propostas em aberto neste momento)
   let proposals = await safeSelect(
     "proposals",
-    "status, valor_mensal, valor_implantacao, valor_avulso, contract_value, value, valor_total, created_at",
+    // proposals não tem contract_value/value/valor_total — mantemos só as
+    // colunas reais. `proposalValue()` deriva o valor via valor_mensal/implantação/avulso.
+    "status, valor_mensal, valor_implantacao, valor_avulso, created_at",
   );
   if (proposals.length === 0) {
     proposals = await safeSelect("op_proposals", "status, contract_value, value, valor_total, created_at");

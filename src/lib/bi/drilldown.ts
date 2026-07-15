@@ -1,6 +1,7 @@
 import { supabase as sb } from "@/integrations/supabase/client";
 import type { ResolvedPeriod } from "./period";
 import { localTimestamp, getCurrentOrgId } from "./tz";
+import { isGhostTable } from "./ghost-tables";
 
 export type DrillKind =
   | "contracts"
@@ -44,6 +45,7 @@ async function safeSelect<T = Record<string, unknown>>(
   filter?: (q: unknown) => unknown,
   opts: { scopeOrg?: boolean } = { scopeOrg: true },
 ): Promise<T[]> {
+  if (isGhostTable(table)) return [];
   try {
     let q = sb.from(table as never).select(columns);
     if (filter) q = filter(q) as typeof q;

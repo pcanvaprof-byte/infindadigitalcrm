@@ -91,7 +91,10 @@ async function fetchRangeMetricsRaw(ini: string, fim: string | undefined): Promi
       "tipo",
       OUTBOUND_TYPES,
     ),
-    between(sb.from("op_contracts" as never).select("monthly_value, contract_value, signed_at"), "signed_at"),
+    // op_contracts NÃO existe neste projeto — a única fonte real de contratos é
+    // fetchClientsAsContracts() (usada abaixo). Devolvemos payload vazio para
+    // preservar a tupla e evitar 400 no console.
+    Promise.resolve({ data: [] as Array<{ monthly_value?: number | null; contract_value?: number | null; signed_at?: string | null }>, count: null, error: null }),
     between(sb.from("prospect_touchpoints" as never).select("prospect_id"), "enviado_em").in("tipo", OUTBOUND_TYPES),
     between(sb.from("prospects" as never).select("id", { count: "exact", head: true }), "created_at"),
     // Leads que entraram direto pela cadência/disparo e ainda não viraram prospect.
