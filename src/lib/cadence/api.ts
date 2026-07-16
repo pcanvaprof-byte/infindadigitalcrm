@@ -396,7 +396,7 @@ function hasAnyActivity(bucket: { hoje: number; semana: number; mes: number; ult
 async function fetchDashboardMetricsFallback(): Promise<DashboardMetrics> {
   const [prospects, touchpoints, clients, cadLeads, cadMessages, opClients] = await Promise.all([
     selectAllForMetrics<ProspectMetricRow>(
-      "prospects",
+      "v_prospects_with_state",
       "id,status,owner_name,cadence_status,last_contact_at,next_contact_at",
     ),
     selectAllForMetrics<TouchpointMetricRow>(

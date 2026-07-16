@@ -66,8 +66,9 @@ async function propagateStageToProspect(leadId: string, stage: CadStage): Promis
   const prospectId = (leadRow as { prospect_id: string | null } | null)?.prospect_id;
   if (!prospectId) return;
 
+  // Lê o status PRIVADO do usuário logado (view mescla user_lead_state).
   const { data: pRow, error: pErr } = await db
-    .from("prospects").select("status").eq("id", prospectId).maybeSingle();
+    .from("v_prospects_with_state").select("status").eq("id", prospectId).maybeSingle();
   if (pErr) return;
   const current = (pRow as { status: string | null } | null)?.status ?? null;
 
@@ -80,7 +81,12 @@ async function propagateStageToProspect(leadId: string, stage: CadStage): Promis
 
   const targetStatus = CAD_STAGE_TO_PROSPECT_STATUS[stage];
   if (!targetStatus) return;
-  await db.from("prospects").update({ status: targetStatus }).eq("id", prospectId);
+  // Escreve no estado PRIVADO do usuário logado (upsert em user_lead_state).
+  const { data: sess } = await supabase.auth.getSession();
+  const uid = sess.session?.user?.id;
+  if (!uid) return;
+  await db.from("user_lead_state")
+    .upsert({ prospect_id: prospectId, user_id: uid, status: targetStatus }, { onConflict: "prospect_id,user_id" });
 }
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -265,7 +271,7 @@ export async function markProspectContactedFromLead(leadId: string): Promise<boo
   if (!prospectId) return false;
 
   const { data: prospectRow, error: pErr } = await db
-    .from("prospects")
+    .from("v_prospects_with_state")
     .select("status")
     .eq("id", prospectId)
     .maybeSingle();
@@ -273,10 +279,12 @@ export async function markProspectContactedFromLead(leadId: string): Promise<boo
   const status = (prospectRow as { status: string | null } | null)?.status ?? null;
   if (status && status !== "nao_contatado") return false;
 
+  const { data: sess } = await supabase.auth.getSession();
+  const uid = sess.session?.user?.id;
+  if (!uid) throw new Error("Sessão expirada — entre novamente.");
   const { error: updErr } = await db
-    .from("prospects")
-    .update({ status: "primeiro_contato" })
-    .eq("id", prospectId);
+    .from("user_lead_state")
+    .upsert({ prospect_id: prospectId, user_id: uid, status: "primeiro_contato" }, { onConflict: "prospect_id,user_id" });
   if (updErr) throw new Error(updErr.message);
   return true;
 }
@@ -378,7 +386,7 @@ export async function syncLeadStagesFromProspects(): Promise<number> {
   const prospects: ProspectStatusRow[] = [];
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await db
-      .from("prospects")
+      .from("v_prospects_with_state")
       .select("id,status")
       .order("created_at", { ascending: false })
       .range(from, from + pageSize - 1);
@@ -442,7 +450,7 @@ export async function importFromProspects(): Promise<{ imported: number; updated
   const naoContatadoIds: string[] = [];
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await db
-      .from("prospects")
+      .from("v_prospects_with_state")
       .select("id,status,whatsapp,phone")
       .order("created_at", { ascending: false })
       .range(from, from + pageSize - 1);
