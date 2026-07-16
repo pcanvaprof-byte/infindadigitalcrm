@@ -86,7 +86,7 @@ const STATUS_FECHADOS = [
 export async function importClientesFromContratos(): Promise<ImportContratoResult> {
   // Fonte: prospects (CRM) com status fechado. Inclui contratos como reforço.
   const { data: prospects, error: errP } = await db
-    .from("v_prospects_with_state")
+    .from("prospects")
     .select("id, company, owner_name, email, phone, whatsapp, status")
     .in("status", STATUS_FECHADOS);
   if (errP) throw new Error(errP.message);

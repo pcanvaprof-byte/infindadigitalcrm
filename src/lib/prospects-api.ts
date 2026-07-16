@@ -32,18 +32,6 @@ type Row = {
   next_contact_at?: string | null;
 };
 
-// Colunas dos leads que pertencem à organização (todos veem/editam).
-// Qualquer campo aqui NÃO deve ir para user_lead_state.
-const SHARED_FIELDS = new Set([
-  "company", "cnpj", "segment", "owner", "whatsapp", "phone", "email",
-  "instagram", "city", "state", "source", "potential",
-]);
-// Campos privados por usuário — vão para user_lead_state.
-const PRIVATE_FIELDS = new Set([
-  "status", "cadenceStep", "cadenceStatus", "responseStatus",
-  "lastContactAt", "nextContactAt",
-]);
-
 type IxRow = {
   id: string;
   prospect_id: string;
@@ -115,35 +103,14 @@ function fromRow(r: Row, ixs: IxRow[] = []): Prospect {
 export async function loadAllProspects(): Promise<Prospect[]> {
   const uid = await currentUserId();
   if (!uid) return [];
-  return loadProspectsInternal({ ownerUserId: null });
-}
-
-/**
- * Retorna todos os leads da organização (compartilhados) com o estado privado
- * do usuário logado (status, cadência, follow-ups) já mesclado.
- * Cada usuário só vê o próprio histórico/touchpoints e o próprio funil,
- * mesmo que o cadastro do lead seja o mesmo para todos.
- */
-export async function loadMyProspects(): Promise<Prospect[]> {
-  const uid = await currentUserId();
-  if (!uid) return [];
-  return loadProspectsInternal({ ownerUserId: null });
-}
-
-async function loadProspectsInternal(opts: { ownerUserId: string | null }): Promise<Prospect[]> {
-  // Lê da view v_prospects_with_state: 1 linha por lead (compartilhado na org)
-  // + estado privado do usuário logado já em COALESCE. PostgREST limita 1000
-  // linhas/consulta — paginar via range() até esgotar.
-  const uid = await currentUserId();
+  // PostgREST limita 1000 linhas/consulta — paginar via range() até esgotar.
   const PAGE = 1000;
   const rows: Row[] = [];
   for (let from = 0; ; from += PAGE) {
-    let q = dbExt.from("v_prospects_with_state")
+    const { data, error } = await dbExt.from("prospects")
       .select("*")
       .order("created_at", { ascending: false })
       .range(from, from + PAGE - 1);
-    if (opts.ownerUserId) q = q.eq("user_id", opts.ownerUserId);
-    const { data, error } = await q;
     if (error) {
       console.error("loadAllProspects prospects error", error);
       throw new Error(`Falha ao carregar prospects: ${error.message}`);
@@ -152,9 +119,11 @@ async function loadProspectsInternal(opts: { ownerUserId: string | null }): Prom
     rows.push(...batch);
     if (batch.length < PAGE) break;
   }
-  // Interações: privadas por usuário — só carrega as do próprio user_id.
+  // Interações: também pagina e busca em lotes de ids (evita URL gigante no .in()).
   const ids = rows.map((r) => r.id);
   const ID_BATCH = 200;
+  // Lotes de ids buscados em PARALELO (Promise.all) — antes era sequencial,
+  // causando N round-trips quando a base passava de 1k prospects.
   type TpRow = {
     id: string; prospect_id: string; tipo: string;
     mensagem: string | null; by_name: string | null; enviado_em: string;
@@ -165,14 +134,12 @@ async function loadProspectsInternal(opts: { ownerUserId: string | null }): Prom
     slices.map(async (slice) => {
       const out: TpRow[] = [];
       for (let from = 0; ; from += PAGE) {
-        let tpQ = dbExt
+        const { data, error } = await dbExt
           .from("prospect_touchpoints")
           .select("id, prospect_id, tipo, mensagem, by_name, enviado_em")
           .in("prospect_id", slice)
           .order("enviado_em", { ascending: false })
           .range(from, from + PAGE - 1);
-        if (uid) tpQ = tpQ.eq("user_id", uid);
-        const { data, error } = await tpQ;
         if (error) { console.warn("loadAllProspects touchpoints error", error); break; }
         const batch = (data ?? []) as TpRow[];
         out.push(...batch);
@@ -254,27 +221,17 @@ export async function insertProspect(p: Omit<Prospect, "id" | "createdAt" | "int
       state: p.state,
       source: p.source,
       potential: p.potential,
-      // status é PRIVADO por usuário — vai para user_lead_state abaixo.
-      // Não escrever aqui evita vazamento entre membros da mesma org.
+      status: p.status,
     })
     .select()
     .single();
   if (error) throw error;
-  // Se veio status inicial no payload, materializa no estado privado do criador.
-  if (p.status && p.status !== "nao_contatado") {
-    const { error: pErr } = await dbExt.from("user_lead_state")
-      .upsert(
-        { prospect_id: (data as { id: string }).id, user_id: uid, status: p.status } as never,
-        { onConflict: "prospect_id,user_id" },
-      );
-    if (pErr) throw pErr;
-  }
   return fromRow(data as Row);
 }
 
 export async function updateProspect(id: string, patch: Partial<Prospect>) {
   console.log("[prospects-api] updateProspect:start", { id, patch });
-  const uid = await requireUserId();
+  await requireUserId();
   const map: Record<string, unknown> = {};
   if (patch.company !== undefined) map.company = patch.company;
   if (patch.cnpj !== undefined) map.cnpj = patch.cnpj || null;
@@ -288,32 +245,11 @@ export async function updateProspect(id: string, patch: Partial<Prospect>) {
   if (patch.state !== undefined) map.state = patch.state;
   if (patch.source !== undefined) map.source = patch.source;
   if (patch.potential !== undefined) map.potential = patch.potential;
-  if (Object.keys(map).length) {
-    const { error } = await dbExt.from("prospects").update(map as never).eq("id", id);
-    if (error) {
-      console.error("[prospects-api] updateProspect:error", { id, patch, error });
-      throw error;
-    }
-  }
-
-  // Campos privados por usuário → user_lead_state (upsert por prospect_id+user_id).
-  const priv: Record<string, unknown> = {};
-  if (patch.status !== undefined) priv.status = patch.status;
-  if (patch.cadenceStep !== undefined) priv.cadence_step = patch.cadenceStep;
-  if (patch.cadenceStatus !== undefined) priv.cadence_status = patch.cadenceStatus;
-  if (patch.responseStatus !== undefined) priv.response_status = patch.responseStatus;
-  if (patch.lastContactAt !== undefined) priv.last_contact_at = patch.lastContactAt;
-  if (patch.nextContactAt !== undefined) priv.next_contact_at = patch.nextContactAt;
-  if (Object.keys(priv).length) {
-    const { error: pErr } = await dbExt.from("user_lead_state")
-      .upsert(
-        { prospect_id: id, user_id: uid, ...priv } as never,
-        { onConflict: "prospect_id,user_id" },
-      );
-    if (pErr) {
-      console.error("[prospects-api] updateProspect:private error", { id, priv, pErr });
-      throw pErr;
-    }
+  if (patch.status !== undefined) map.status = patch.status;
+  const { error } = await dbExt.from("prospects").update(map as never).eq("id", id);
+  if (error) {
+    console.error("[prospects-api] updateProspect:error", { id, patch, error });
+    throw error;
   }
   console.log("[prospects-api] updateProspect:ok", { id, fields: Object.keys(map) });
 }
@@ -407,22 +343,14 @@ export async function bulkUpdateProspects(
   patch: Partial<Pick<Prospect, "status" | "owner" | "potential">>,
 ): Promise<void> {
   if (!ids.length) return;
-  const uid = await requireUserId();
+  await requireUserId();
   const map: Record<string, unknown> = {};
+  if (patch.status !== undefined) map.status = patch.status;
   if (patch.owner !== undefined) map.owner_name = patch.owner;
   if (patch.potential !== undefined) map.potential = patch.potential;
-  if (Object.keys(map).length) {
-    const { error } = await dbExt.from("prospects").update(map as never).in("id", ids);
-    if (error) throw error;
-  }
-  if (patch.status !== undefined) {
-    const rows = ids.map((id) => ({
-      prospect_id: id, user_id: uid, status: patch.status,
-    }));
-    const { error } = await dbExt.from("user_lead_state")
-      .upsert(rows as never, { onConflict: "prospect_id,user_id" });
-    if (error) throw error;
-  }
+  if (!Object.keys(map).length) return;
+  const { error } = await dbExt.from("prospects").update(map as never).in("id", ids);
+  if (error) throw error;
 }
 
 // ============ IMPORT ============
@@ -448,10 +376,8 @@ export interface ImportResult {
 export async function applyImport(
   rows: PreviewRow[],
   existing: Prospect[],
-  opts?: { importId?: string | null },
 ): Promise<ImportResult> {
   const uid = await requireUserId();
-  const importId = opts?.importId ?? null;
   const result: ImportResult = {
     inserted: 0, updated: 0, skipped: 0, errors: [], storage: "cloud",
   };
@@ -514,12 +440,7 @@ export async function applyImport(
         state: r.data.state,
         source: r.data.source,
         potential: r.data.potential,
-        // status é PRIVADO por usuário. Não gravar em prospects
-        // (compartilhada) na importação — cada vendedor começa
-        // com "nao_contatado" via default do user_lead_state.
-        // Auditoria: vincula o lead à importação de origem (trigger
-        // `prospects_stamp_import` completa imported_by/imported_at).
-        import_id: importId,
+        status: r.data.status,
       });
     }
   }
@@ -603,106 +524,6 @@ export async function logImport(meta: {
     error_count: meta.result.errors.length,
     errors: meta.result.errors,
   });
-}
-
-/**
- * Cria o registro de auditoria da importação ANTES de inserir os leads
- * e devolve o `id`. Esse id é injetado em cada prospect via
- * `applyImport(rows, existing, { importId })`, permitindo rastrear
- * quais leads vieram de qual arquivo/admin — sem tocar nos dados
- * privados de cadência/acionamentos de cada vendedor.
- */
-export async function startImport(meta: {
-  fileName: string;
-  performedBy: string;
-  totalRows: number;
-}): Promise<string> {
-  const uid = await requireUserId();
-  const { data, error } = await dbExt.from("prospect_imports")
-    .insert({
-      user_id: uid,
-      performed_by: meta.performedBy,
-      file_name: meta.fileName,
-      total_rows: meta.totalRows,
-    })
-    .select("id")
-    .single();
-  if (error) throw error;
-  return (data as { id: string }).id;
-}
-
-/** Atualiza o registro de auditoria com o resultado final da importação. */
-export async function finalizeImport(
-  importId: string,
-  result: ImportResult,
-): Promise<void> {
-  await dbExt.from("prospect_imports")
-    .update({
-      inserted_count: result.inserted,
-      updated_count: result.updated,
-      skipped_count: result.skipped,
-      error_count: result.errors.length,
-      errors: result.errors,
-    })
-    .eq("id", importId);
-}
-
-// ============ IMPORT AUDIT (org-wide, admin-visible) ============
-
-export interface ImportAuditRow {
-  prospectId: string;
-  organizationId: string | null;
-  importId: string | null;
-  importedBy: string | null;
-  importedAt: string | null;
-  createdAt: string;
-  company: string;
-  cnpj: string | null;
-  segment: string | null;
-  city: string | null;
-  state: string | null;
-  source: string | null;
-  importFileName: string | null;
-  importPerformedBy: string | null;
-  importTotalRows: number | null;
-  importInsertedCount: number | null;
-}
-
-/**
- * Trilha de auditoria dos leads criados via importação. Retorna somente
- * dados cadastrais + rastreio da origem; cadência/status/follow-up
- * permanecem privados por vendedor em `user_lead_state`.
- * Visível apenas para owner/admin da organização (via RLS + view).
- */
-export async function listImportAudit(opts?: {
-  importId?: string;
-  limit?: number;
-}): Promise<ImportAuditRow[]> {
-  let q = dbExt.from("v_prospect_import_audit")
-    .select("*")
-    .order("imported_at", { ascending: false, nullsFirst: false })
-    .limit(opts?.limit ?? 200);
-  if (opts?.importId) q = q.eq("import_id", opts.importId);
-  const { data, error } = await q;
-  if (error) throw error;
-  return (data ?? []).map((r) => ({
-    prospectId: r.prospect_id,
-    organizationId: r.organization_id,
-    importId: r.import_id,
-    importedBy: r.imported_by,
-    importedAt: r.imported_at,
-    createdAt: r.created_at,
-    company: r.company,
-    cnpj: r.cnpj,
-    segment: r.segment,
-    city: r.city,
-    state: r.state,
-    source: r.source,
-    importFileName: r.import_file_name,
-    importPerformedBy: r.import_performed_by,
-    importTotalRows: r.import_total_rows,
-    importInsertedCount: r.import_inserted_count,
-  }));
 }
 
 export async function listImports(): Promise<ImportLog[]> {

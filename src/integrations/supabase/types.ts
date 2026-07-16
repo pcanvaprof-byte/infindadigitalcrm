@@ -349,27 +349,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "briefings_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospect_import_audit"
-            referencedColumns: ["prospect_id"]
-          },
-          {
-            foreignKeyName: "briefings_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospects_private_leaks"
-            referencedColumns: ["prospect_id"]
-          },
-          {
-            foreignKeyName: "briefings_lead_id_fkey"
-            columns: ["lead_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospects_with_state"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "briefings_organization_id_fkey"
             columns: ["organization_id"]
             isOneToOne: false
@@ -461,27 +440,6 @@ export type Database = {
             columns: ["prospect_id"]
             isOneToOne: false
             referencedRelation: "prospects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "cad_leads_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospect_import_audit"
-            referencedColumns: ["prospect_id"]
-          },
-          {
-            foreignKeyName: "cad_leads_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospects_private_leaks"
-            referencedColumns: ["prospect_id"]
-          },
-          {
-            foreignKeyName: "cad_leads_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospects_with_state"
             referencedColumns: ["id"]
           },
         ]
@@ -1222,27 +1180,6 @@ export type Database = {
             referencedRelation: "prospects"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "clients_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: true
-            referencedRelation: "v_prospect_import_audit"
-            referencedColumns: ["prospect_id"]
-          },
-          {
-            foreignKeyName: "clients_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: true
-            referencedRelation: "v_prospects_private_leaks"
-            referencedColumns: ["prospect_id"]
-          },
-          {
-            foreignKeyName: "clients_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: true
-            referencedRelation: "v_prospects_with_state"
-            referencedColumns: ["id"]
-          },
         ]
       }
       commercial_plans: {
@@ -1563,27 +1500,6 @@ export type Database = {
             referencedRelation: "prospects"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "company_profiles_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospect_import_audit"
-            referencedColumns: ["prospect_id"]
-          },
-          {
-            foreignKeyName: "company_profiles_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospects_private_leaks"
-            referencedColumns: ["prospect_id"]
-          },
-          {
-            foreignKeyName: "company_profiles_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospects_with_state"
-            referencedColumns: ["id"]
-          },
         ]
       }
       company_scores: {
@@ -1689,27 +1605,6 @@ export type Database = {
             columns: ["prospect_id"]
             isOneToOne: false
             referencedRelation: "prospects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "company_visits_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospect_import_audit"
-            referencedColumns: ["prospect_id"]
-          },
-          {
-            foreignKeyName: "company_visits_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospects_private_leaks"
-            referencedColumns: ["prospect_id"]
-          },
-          {
-            foreignKeyName: "company_visits_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospects_with_state"
             referencedColumns: ["id"]
           },
         ]
@@ -2056,27 +1951,6 @@ export type Database = {
             columns: ["prospect_id"]
             isOneToOne: false
             referencedRelation: "prospects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "deals_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospect_import_audit"
-            referencedColumns: ["prospect_id"]
-          },
-          {
-            foreignKeyName: "deals_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospects_private_leaks"
-            referencedColumns: ["prospect_id"]
-          },
-          {
-            foreignKeyName: "deals_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospects_with_state"
             referencedColumns: ["id"]
           },
           {
@@ -3140,7 +3014,6 @@ export type Database = {
           file_name: string
           id: string
           inserted_count: number
-          organization_id: string | null
           performed_by: string
           skipped_count: number
           total_rows: number
@@ -3154,7 +3027,6 @@ export type Database = {
           file_name: string
           id?: string
           inserted_count?: number
-          organization_id?: string | null
           performed_by?: string
           skipped_count?: number
           total_rows?: number
@@ -3168,22 +3040,13 @@ export type Database = {
           file_name?: string
           id?: string
           inserted_count?: number
-          organization_id?: string | null
           performed_by?: string
           skipped_count?: number
           total_rows?: number
           updated_count?: number
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "prospect_imports_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       prospect_interactions: {
         Row: {
@@ -3219,27 +3082,6 @@ export type Database = {
             columns: ["prospect_id"]
             isOneToOne: false
             referencedRelation: "prospects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "prospect_interactions_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospect_import_audit"
-            referencedColumns: ["prospect_id"]
-          },
-          {
-            foreignKeyName: "prospect_interactions_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospects_private_leaks"
-            referencedColumns: ["prospect_id"]
-          },
-          {
-            foreignKeyName: "prospect_interactions_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospects_with_state"
             referencedColumns: ["id"]
           },
         ]
@@ -3296,27 +3138,6 @@ export type Database = {
             referencedRelation: "prospects"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "prospect_touchpoints_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospect_import_audit"
-            referencedColumns: ["prospect_id"]
-          },
-          {
-            foreignKeyName: "prospect_touchpoints_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospects_private_leaks"
-            referencedColumns: ["prospect_id"]
-          },
-          {
-            foreignKeyName: "prospect_touchpoints_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospects_with_state"
-            referencedColumns: ["id"]
-          },
         ]
       }
       prospects: {
@@ -3331,13 +3152,9 @@ export type Database = {
           created_at: string
           email: string
           id: string
-          import_id: string | null
-          imported_at: string | null
-          imported_by: string | null
           instagram: string
           last_contact_at: string | null
           next_contact_at: string | null
-          organization_id: string
           owner_name: string
           phone: string
           potential: string
@@ -3361,13 +3178,9 @@ export type Database = {
           created_at?: string
           email?: string
           id?: string
-          import_id?: string | null
-          imported_at?: string | null
-          imported_by?: string | null
           instagram?: string
           last_contact_at?: string | null
           next_contact_at?: string | null
-          organization_id?: string
           owner_name?: string
           phone?: string
           potential?: string
@@ -3391,13 +3204,9 @@ export type Database = {
           created_at?: string
           email?: string
           id?: string
-          import_id?: string | null
-          imported_at?: string | null
-          imported_by?: string | null
           instagram?: string
           last_contact_at?: string | null
           next_contact_at?: string | null
-          organization_id?: string
           owner_name?: string
           phone?: string
           potential?: string
@@ -3410,59 +3219,7 @@ export type Database = {
           user_id?: string
           whatsapp?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "prospects_import_id_fkey"
-            columns: ["import_id"]
-            isOneToOne: false
-            referencedRelation: "prospect_imports"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      prospects_private_leak_alerts: {
-        Row: {
-          checked_at: string
-          id: string
-          leak_count: number
-          notes: string | null
-          organization_id: string
-          resolved_at: string | null
-          resolved_by: string | null
-          sample_ids: string[]
-          status: string
-        }
-        Insert: {
-          checked_at?: string
-          id?: string
-          leak_count?: number
-          notes?: string | null
-          organization_id: string
-          resolved_at?: string | null
-          resolved_by?: string | null
-          sample_ids?: string[]
-          status?: string
-        }
-        Update: {
-          checked_at?: string
-          id?: string
-          leak_count?: number
-          notes?: string | null
-          organization_id?: string
-          resolved_at?: string | null
-          resolved_by?: string | null
-          sample_ids?: string[]
-          status?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prospects_private_leak_alerts_organization_id_fkey"
-            columns: ["organization_id"]
-            isOneToOne: false
-            referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       team_members: {
         Row: {
@@ -3550,89 +3307,6 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_lead_state: {
-        Row: {
-          cadence_status: string
-          cadence_step: number
-          closed_at: string | null
-          closed_reason: string | null
-          created_at: string
-          id: string
-          last_contact_at: string | null
-          next_contact_at: string | null
-          notes: string | null
-          organization_id: string
-          prospect_id: string
-          response_status: string
-          status: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          cadence_status?: string
-          cadence_step?: number
-          closed_at?: string | null
-          closed_reason?: string | null
-          created_at?: string
-          id?: string
-          last_contact_at?: string | null
-          next_contact_at?: string | null
-          notes?: string | null
-          organization_id?: string
-          prospect_id: string
-          response_status?: string
-          status?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          cadence_status?: string
-          cadence_step?: number
-          closed_at?: string | null
-          closed_reason?: string | null
-          created_at?: string
-          id?: string
-          last_contact_at?: string | null
-          next_contact_at?: string | null
-          notes?: string | null
-          organization_id?: string
-          prospect_id?: string
-          response_status?: string
-          status?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_lead_state_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "prospects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_lead_state_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospect_import_audit"
-            referencedColumns: ["prospect_id"]
-          },
-          {
-            foreignKeyName: "user_lead_state_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospects_private_leaks"
-            referencedColumns: ["prospect_id"]
-          },
-          {
-            foreignKeyName: "user_lead_state_prospect_id_fkey"
-            columns: ["prospect_id"]
-            isOneToOne: false
-            referencedRelation: "v_prospects_with_state"
             referencedColumns: ["id"]
           },
         ]
@@ -3869,132 +3543,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      v_prospect_import_audit: {
-        Row: {
-          city: string | null
-          cnpj: string | null
-          company: string | null
-          created_at: string | null
-          import_file_name: string | null
-          import_id: string | null
-          import_inserted_count: number | null
-          import_performed_by: string | null
-          import_total_rows: number | null
-          imported_at: string | null
-          imported_by: string | null
-          organization_id: string | null
-          prospect_id: string | null
-          segment: string | null
-          source: string | null
-          state: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prospects_import_id_fkey"
-            columns: ["import_id"]
-            isOneToOne: false
-            referencedRelation: "prospect_imports"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      v_prospects_private_leaks: {
-        Row: {
-          cadence_status: string | null
-          cadence_step: number | null
-          closed_at: string | null
-          closed_reason: string | null
-          cnpj: string | null
-          company: string | null
-          created_at: string | null
-          import_id: string | null
-          imported_by: string | null
-          last_contact_at: string | null
-          next_contact_at: string | null
-          organization_id: string | null
-          prospect_id: string | null
-          response_status: string | null
-          status: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          cadence_status?: string | null
-          cadence_step?: number | null
-          closed_at?: string | null
-          closed_reason?: string | null
-          cnpj?: string | null
-          company?: string | null
-          created_at?: string | null
-          import_id?: string | null
-          imported_by?: string | null
-          last_contact_at?: string | null
-          next_contact_at?: string | null
-          organization_id?: string | null
-          prospect_id?: string | null
-          response_status?: string | null
-          status?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          cadence_status?: string | null
-          cadence_step?: number | null
-          closed_at?: string | null
-          closed_reason?: string | null
-          cnpj?: string | null
-          company?: string | null
-          created_at?: string | null
-          import_id?: string | null
-          imported_by?: string | null
-          last_contact_at?: string | null
-          next_contact_at?: string | null
-          organization_id?: string | null
-          prospect_id?: string | null
-          response_status?: string | null
-          status?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prospects_import_id_fkey"
-            columns: ["import_id"]
-            isOneToOne: false
-            referencedRelation: "prospect_imports"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      v_prospects_with_state: {
-        Row: {
-          cadence_status: string | null
-          cadence_step: number | null
-          city: string | null
-          closed_at: string | null
-          closed_reason: string | null
-          cnpj: string | null
-          company: string | null
-          created_at: string | null
-          created_by: string | null
-          email: string | null
-          id: string | null
-          instagram: string | null
-          last_contact_at: string | null
-          next_contact_at: string | null
-          organization_id: string | null
-          owner_name: string | null
-          phone: string | null
-          potential: string | null
-          private_notes: string | null
-          response_status: string | null
-          segment: string | null
-          source: string | null
-          state: string | null
-          state_id: string | null
-          status: string | null
-          updated_at: string | null
-          whatsapp: string | null
-        }
-        Relationships: []
       }
       vw_contratos_kpis: {
         Row: {
@@ -4306,14 +3854,6 @@ export type Database = {
           realizados: number
         }[]
       }
-      check_prospects_private_leaks: {
-        Args: { _org?: string }
-        Returns: {
-          out_alert_id: string
-          out_leak_count: number
-          out_org: string
-        }[]
-      }
       close_cadence: {
         Args: { _note?: string; _prospect_id: string; _reason: string }
         Returns: undefined
@@ -4357,10 +3897,6 @@ export type Database = {
         }
         Returns: undefined
       }
-      fix_prospects_private_leaks: {
-        Args: { _alert_id: string }
-        Returns: number
-      }
       gen_briefing_token: { Args: never; Returns: string }
       gen_proposal_token: { Args: never; Returns: string }
       get_briefing_by_token: {
@@ -4380,32 +3916,6 @@ export type Database = {
           token_publico: string
           updated_at: string
         }[]
-      }
-      get_or_create_lead_state: {
-        Args: { _prospect: string }
-        Returns: {
-          cadence_status: string
-          cadence_step: number
-          closed_at: string | null
-          closed_reason: string | null
-          created_at: string
-          id: string
-          last_contact_at: string | null
-          next_contact_at: string | null
-          notes: string | null
-          organization_id: string
-          prospect_id: string
-          response_status: string
-          status: string
-          updated_at: string
-          user_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "user_lead_state"
-          isOneToOne: true
-          isSetofReturn: false
-        }
       }
       get_proposal_by_token: { Args: { p_token: string }; Returns: Json }
       has_role: {
