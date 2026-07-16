@@ -3191,6 +3191,7 @@ export type Database = {
           created_at: string
           id: string
           kind: string
+          organization_id: string
           prospect_id: string
           text: string
           user_id: string
@@ -3200,6 +3201,7 @@ export type Database = {
           created_at?: string
           id?: string
           kind: string
+          organization_id?: string
           prospect_id: string
           text?: string
           user_id: string
@@ -3209,11 +3211,19 @@ export type Database = {
           created_at?: string
           id?: string
           kind?: string
+          organization_id?: string
           prospect_id?: string
           text?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "prospect_interactions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "prospect_interactions_prospect_id_fkey"
             columns: ["prospect_id"]
