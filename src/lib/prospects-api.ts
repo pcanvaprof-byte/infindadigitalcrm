@@ -254,11 +254,21 @@ export async function insertProspect(p: Omit<Prospect, "id" | "createdAt" | "int
       state: p.state,
       source: p.source,
       potential: p.potential,
-      status: p.status,
+      // status é PRIVADO por usuário — vai para user_lead_state abaixo.
+      // Não escrever aqui evita vazamento entre membros da mesma org.
     })
     .select()
     .single();
   if (error) throw error;
+  // Se veio status inicial no payload, materializa no estado privado do criador.
+  if (p.status && p.status !== "nao_contatado") {
+    const { error: pErr } = await dbExt.from("user_lead_state")
+      .upsert(
+        { prospect_id: (data as { id: string }).id, user_id: uid, status: p.status } as never,
+        { onConflict: "prospect_id,user_id" },
+      );
+    if (pErr) throw pErr;
+  }
   return fromRow(data as Row);
 }
 
