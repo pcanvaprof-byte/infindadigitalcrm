@@ -88,7 +88,8 @@ export async function loadMapPoints(): Promise<MapPoint[]> {
         .range(from, to),
     ),
     fetchAll<ProspectRow>((from, to) =>
-      db.from("prospects")
+      // v_prospects_user: 'status' privado por usuário (Fase 2 isolamento).
+      db.from("v_prospects_user" as never)
         .select("cnpj,company,whatsapp,phone,email,status,potential,city,state")
         .range(from, to),
     ),
