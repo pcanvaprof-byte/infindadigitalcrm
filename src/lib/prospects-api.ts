@@ -264,7 +264,7 @@ export async function insertProspect(p: Omit<Prospect, "id" | "createdAt" | "int
 
 export async function updateProspect(id: string, patch: Partial<Prospect>) {
   console.log("[prospects-api] updateProspect:start", { id, patch });
-  await requireUserId();
+  const uid = await requireUserId();
   const map: Record<string, unknown> = {};
   if (patch.company !== undefined) map.company = patch.company;
   if (patch.cnpj !== undefined) map.cnpj = patch.cnpj || null;
@@ -278,11 +278,32 @@ export async function updateProspect(id: string, patch: Partial<Prospect>) {
   if (patch.state !== undefined) map.state = patch.state;
   if (patch.source !== undefined) map.source = patch.source;
   if (patch.potential !== undefined) map.potential = patch.potential;
-  if (patch.status !== undefined) map.status = patch.status;
-  const { error } = await dbExt.from("prospects").update(map as never).eq("id", id);
-  if (error) {
-    console.error("[prospects-api] updateProspect:error", { id, patch, error });
-    throw error;
+  if (Object.keys(map).length) {
+    const { error } = await dbExt.from("prospects").update(map as never).eq("id", id);
+    if (error) {
+      console.error("[prospects-api] updateProspect:error", { id, patch, error });
+      throw error;
+    }
+  }
+
+  // Campos privados por usuário → user_lead_state (upsert por prospect_id+user_id).
+  const priv: Record<string, unknown> = {};
+  if (patch.status !== undefined) priv.status = patch.status;
+  if (patch.cadenceStep !== undefined) priv.cadence_step = patch.cadenceStep;
+  if (patch.cadenceStatus !== undefined) priv.cadence_status = patch.cadenceStatus;
+  if (patch.responseStatus !== undefined) priv.response_status = patch.responseStatus;
+  if (patch.lastContactAt !== undefined) priv.last_contact_at = patch.lastContactAt;
+  if (patch.nextContactAt !== undefined) priv.next_contact_at = patch.nextContactAt;
+  if (Object.keys(priv).length) {
+    const { error: pErr } = await dbExt.from("user_lead_state")
+      .upsert(
+        { prospect_id: id, user_id: uid, ...priv } as never,
+        { onConflict: "prospect_id,user_id" },
+      );
+    if (pErr) {
+      console.error("[prospects-api] updateProspect:private error", { id, priv, pErr });
+      throw pErr;
+    }
   }
   console.log("[prospects-api] updateProspect:ok", { id, fields: Object.keys(map) });
 }
@@ -376,14 +397,22 @@ export async function bulkUpdateProspects(
   patch: Partial<Pick<Prospect, "status" | "owner" | "potential">>,
 ): Promise<void> {
   if (!ids.length) return;
-  await requireUserId();
+  const uid = await requireUserId();
   const map: Record<string, unknown> = {};
-  if (patch.status !== undefined) map.status = patch.status;
   if (patch.owner !== undefined) map.owner_name = patch.owner;
   if (patch.potential !== undefined) map.potential = patch.potential;
-  if (!Object.keys(map).length) return;
-  const { error } = await dbExt.from("prospects").update(map as never).in("id", ids);
-  if (error) throw error;
+  if (Object.keys(map).length) {
+    const { error } = await dbExt.from("prospects").update(map as never).in("id", ids);
+    if (error) throw error;
+  }
+  if (patch.status !== undefined) {
+    const rows = ids.map((id) => ({
+      prospect_id: id, user_id: uid, status: patch.status,
+    }));
+    const { error } = await dbExt.from("user_lead_state")
+      .upsert(rows as never, { onConflict: "prospect_id,user_id" });
+    if (error) throw error;
+  }
 }
 
 // ============ IMPORT ============
