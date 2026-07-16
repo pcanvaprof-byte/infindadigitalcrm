@@ -39,9 +39,4 @@ create policy prospects_org_all
   to authenticated
   using (organization_id = public.current_org_id())
   with check (organization_id = public.current_org_id());
-
--- 5) Default de user_id em novos INSERTs (compatibilidade com código legado
---    que ainda seta user_id = auth.uid()).
-alter table public.prospects alter column user_id drop not null;
-
 notify pgrst, 'reload schema';
