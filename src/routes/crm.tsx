@@ -6,7 +6,7 @@ import { RequireAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { crmKeys } from "@/lib/crm/api";
-import { loadAllProspects, updateProspect } from "@/lib/prospects-api";
+import { loadMyProspects, updateProspect } from "@/lib/prospects-api";
 import {
   STATUS_LABEL,
   type Prospect,
@@ -156,8 +156,8 @@ function CrmPage() {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const prospectsQ = useQuery({
-    queryKey: crmKeys.prospects,
-    queryFn: loadAllProspects,
+    queryKey: [...crmKeys.prospects, "mine"] as const,
+    queryFn: loadMyProspects,
     staleTime: 5_000,
   });
   const prospects: Prospect[] = prospectsQ.data ?? [];
@@ -166,15 +166,16 @@ function CrmPage() {
     mutationFn: ({ id, status }: { id: string; status: ProspectStatus }) =>
       updateProspect(id, { status }),
     onMutate: async ({ id, status }) => {
-      await qc.cancelQueries({ queryKey: crmKeys.prospects });
-      const prev = qc.getQueryData<Prospect[]>(crmKeys.prospects);
-      qc.setQueryData<Prospect[]>(crmKeys.prospects, (old) =>
+      const key = [...crmKeys.prospects, "mine"] as const;
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<Prospect[]>(key);
+      qc.setQueryData<Prospect[]>(key, (old) =>
         (old ?? []).map((p) => (p.id === id ? { ...p, status } : p)),
       );
-      return { prev };
+      return { prev, key };
     },
     onError: (err, _v, ctx) => {
-      if (ctx?.prev) qc.setQueryData(crmKeys.prospects, ctx.prev);
+      if (ctx?.prev && ctx.key) qc.setQueryData(ctx.key, ctx.prev);
       toast.error(`Falha ao mover card: ${(err as Error).message}`);
     },
     onSuccess: () => {
