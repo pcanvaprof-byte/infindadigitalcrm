@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState, memo } from "react";
+import { useEffect, useMemo, useRef, useState, memo, lazy, Suspense } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 
 import { AppShell } from "@/components/AppShell";
@@ -106,7 +106,7 @@ import { EnrichmentDrawer } from "@/components/EnrichmentDrawer";
 import { runEnrichment } from "@/lib/enrichment/api";
 import { Loader2 } from "lucide-react";
 import { Smartphone } from "lucide-react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { convertProspectToClient, crmKeys, invalidateCrmCore } from "@/lib/crm/api";
 import { TouchpointModal } from "@/components/cadence/TouchpointModal";
 import { ProspectTimeline } from "@/components/cadence/ProspectTimeline";
@@ -118,6 +118,9 @@ import {
   proximaAcaoLabel,
   type TouchpointTipo,
 } from "@/lib/cadence/api";
+import { loadMapPoints } from "@/lib/tasks-map-api";
+
+const TasksMap = lazy(() => import("@/components/TasksMap").then((m) => ({ default: m.TasksMap })));
 import { wasDispatchedToday, dispatchBlockedMessage } from "@/lib/dispatch-lock";
 import {
   renderTemplate,
@@ -372,7 +375,7 @@ function ProspeccaoPage() {
   const [closeCadenceTarget, setCloseCadenceTarget] = useState<Prospect | null>(null);
   const [bulkEnriching, setBulkEnriching] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [view, setView] = useState<"table" | "kanban">("table");
+  const [view, setView] = useState<"table" | "kanban" | "map">("table");
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -522,6 +525,62 @@ function ProspeccaoPage() {
     blocked.sort((a, b) => a.last - b.last);
     return [...active, ...blocked.map((b) => b.p)];
   }, [filtered]);
+
+  const mapPointsQ = useQuery({
+    queryKey: crmKeys.tasks,
+    queryFn: loadMapPoints,
+    enabled: !!user,
+    staleTime: 15_000,
+  });
+  const mapPoints = mapPointsQ.data ?? [];
+
+  const filteredMapPoints = useMemo(() => {
+    const filteredCnpjs = new Set(
+      filteredOrdered.map((p) => p.cnpj?.replace(/\D/g, "")).filter(Boolean)
+    );
+    return mapPoints.filter((pt) => filteredCnpjs.has(pt.cnpj));
+  }, [filteredOrdered, mapPoints]);
+
+  const withCoords = useMemo(() => filteredMapPoints.filter((pt) => pt.lat && pt.lon).length, [filteredMapPoints]);
+  const withoutCoords = useMemo(() => filteredOrdered.length - withCoords, [filteredOrdered, withCoords]);
+
+  const missingCoordsCnpjs = useMemo(() => {
+    const cnpjsWithCoords = new Set(
+      filteredMapPoints.filter((pt) => pt.lat && pt.lon).map((pt) => pt.cnpj)
+    );
+    return filteredOrdered
+      .filter((p) => p.cnpj && !cnpjsWithCoords.has(p.cnpj.replace(/\D/g, "")))
+      .map((p) => p.cnpj!.replace(/\D/g, ""))
+      .filter(Boolean);
+  }, [filteredOrdered, filteredMapPoints]);
+
+  const geoMut = useMutation({
+    mutationFn: async () => {
+      const missing = missingCoordsCnpjs.slice(0, 50);
+      if (!missing.length) {
+        toast.info("Todas as empresas filtradas já têm coordenadas.");
+        return 0;
+      }
+      const tid = toast.loading(`Geocodificando 0/${missing.length}…`);
+      let ok = 0;
+      for (let i = 0; i < missing.length; i++) {
+        try {
+          await runEnrichment(missing[i]);
+          ok++;
+        } catch (err) {
+          console.error("Enrichment error for", missing[i], err);
+        }
+        toast.loading(`Geocodificando ${i + 1}/${missing.length}…`, { id: tid });
+        await new Promise((r) => setTimeout(r, 1100));
+      }
+      toast.success(`Concluído: ${ok}/${missing.length} empresas geocodificadas`, { id: tid });
+      return ok;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: crmKeys.tasks });
+      qc.invalidateQueries({ queryKey: crmKeys.prospects });
+    },
+  });
 
   const availableSegments = useMemo(() => {
     const counts = new Map<string, number>();
@@ -1412,10 +1471,11 @@ function ProspeccaoPage() {
               className="h-10 pl-9" />
           </div>
           <div className="flex items-center gap-2">
-            <Tabs value={view} onValueChange={(v) => setView(v as "table" | "kanban")}>
+            <Tabs value={view} onValueChange={(v) => setView(v as "table" | "kanban" | "map")}>
               <TabsList className="h-10">
                 <TabsTrigger value="table" className="text-xs"><TableIcon className="mr-1.5 h-3.5 w-3.5" />Tabela</TabsTrigger>
                 <TabsTrigger value="kanban" className="text-xs"><KanbanSquare className="mr-1.5 h-3.5 w-3.5" />Kanban</TabsTrigger>
+                <TabsTrigger value="map" className="text-xs"><MapPin className="mr-1.5 h-3.5 w-3.5" />Mapa</TabsTrigger>
               </TabsList>
             </Tabs>
             <Button variant="outline" className="h-10 text-xs" onClick={() => setShowFilters((s) => !s)}>
@@ -1647,12 +1707,59 @@ function ProspeccaoPage() {
             <span className="hidden sm:inline">INFINDA digital — Prospecção</span>
           </div>
         </section>
-      ) : (
+      ) : view === "kanban" ? (
         <KanbanView
           prospects={filteredOrdered}
           onOpen={(id) => setDetailId(id)}
           onMove={(id, status) => updateStatus(id, status)}
         />
+      ) : (
+        <section className="mt-4 surface-card overflow-hidden p-0 h-[60vh] min-h-[360px] lg:h-[calc(100vh-200px)] lg:min-h-[480px]">
+          {mapPointsQ.isLoading ? (
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando mapa…
+            </div>
+          ) : withCoords === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+              <MapPin className="h-8 w-8 text-muted-foreground" />
+              <p className="max-w-md text-sm text-muted-foreground">
+                Nenhuma das empresas filtradas possui coordenadas geográficas registradas. 
+                Use a geocodificação para tentar localizá-las automaticamente.
+              </p>
+              <Button onClick={() => geoMut.mutate()} disabled={geoMut.isPending} className="btn-gradient h-9">
+                {geoMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                Geocodificar agora
+              </Button>
+            </div>
+          ) : (
+            <div className="relative h-full w-full">
+              {withoutCoords > 0 && (
+                <div className="absolute left-4 top-4 z-[1000] rounded-md bg-background/95 p-3 shadow-md backdrop-blur border border-border flex items-center gap-3 text-xs">
+                  <div className="text-muted-foreground">
+                    <span className="font-semibold text-foreground">{withCoords}</span> empresas no mapa · <span className="font-semibold text-foreground">{withoutCoords}</span> sem geolocalização
+                  </div>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="h-7 text-[11px]" 
+                    disabled={geoMut.isPending} 
+                    onClick={() => geoMut.mutate()}
+                  >
+                    {geoMut.isPending ? (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-1 h-3 w-3" />
+                    )}
+                    Geocodificar
+                  </Button>
+                </div>
+              )}
+              <Suspense fallback={<div className="flex h-full items-center justify-center text-xs text-muted-foreground">Carregando mapa…</div>}>
+                <TasksMap points={filteredMapPoints} selectedBairro={null} onSelectBairro={() => {}} />
+              </Suspense>
+            </div>
+          )}
+        </section>
       )}
 
       {/* Detail modal */}
