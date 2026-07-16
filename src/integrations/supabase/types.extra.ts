@@ -55,6 +55,18 @@ type ExtraTables = {
     Update: Record<string, any>;
     Relationships: [];
   };
+  user_lead_state: {
+    Row: Record<string, any>;
+    Insert: Record<string, any>;
+    Update: Record<string, any>;
+    Relationships: [];
+  };
+  v_prospects_with_state: {
+    Row: Record<string, any>;
+    Insert: Record<string, any>;
+    Update: Record<string, any>;
+    Relationships: [];
+  };
 };
 
 export type DatabaseExt = Omit<Base, "public"> & {
