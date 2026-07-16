@@ -6,7 +6,7 @@ import { RequireAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { crmKeys } from "@/lib/crm/api";
-import { loadAllProspects, updateProspect } from "@/lib/prospects-api";
+import { loadMyProspects, updateProspect } from "@/lib/prospects-api";
 import {
   STATUS_LABEL,
   type Prospect,
@@ -157,7 +157,7 @@ function CrmPage() {
 
   const prospectsQ = useQuery({
     queryKey: crmKeys.prospects,
-    queryFn: loadAllProspects,
+    queryFn: loadMyProspects,
     staleTime: 5_000,
   });
   const prospects: Prospect[] = prospectsQ.data ?? [];
