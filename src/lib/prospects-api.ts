@@ -514,7 +514,9 @@ export async function applyImport(
         state: r.data.state,
         source: r.data.source,
         potential: r.data.potential,
-        status: r.data.status,
+        // status é PRIVADO por usuário. Não gravar em prospects
+        // (compartilhada) na importação — cada vendedor começa
+        // com "nao_contatado" via default do user_lead_state.
         // Auditoria: vincula o lead à importação de origem (trigger
         // `prospects_stamp_import` completa imported_by/imported_at).
         import_id: importId,
