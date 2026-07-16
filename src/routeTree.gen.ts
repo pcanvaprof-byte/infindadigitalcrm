@@ -40,6 +40,7 @@ import { Route as BriefingsIdRouteImport } from './routes/briefings.$id'
 import { Route as BriefingTokenRouteImport } from './routes/briefing.$token'
 import { Route as BiDisparosRouteImport } from './routes/bi.disparos'
 import { Route as BiConfiguracoesRouteImport } from './routes/bi.configuracoes'
+import { Route as AdminLeaksRouteImport } from './routes/admin.leaks'
 import { Route as OperacoesClientesIndexRouteImport } from './routes/operacoes.clientes.index'
 import { Route as OperacoesClientesIdRouteImport } from './routes/operacoes.clientes.$id'
 import { Route as OperacoesClientesIdIndexRouteImport } from './routes/operacoes.clientes.$id.index'
@@ -216,6 +217,11 @@ const BiConfiguracoesRoute = BiConfiguracoesRouteImport.update({
   path: '/configuracoes',
   getParentRoute: () => BiRoute,
 } as any)
+const AdminLeaksRoute = AdminLeaksRouteImport.update({
+  id: '/admin/leaks',
+  path: '/admin/leaks',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OperacoesClientesIndexRoute = OperacoesClientesIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -337,6 +343,7 @@ export interface FileRoutesByFullPath {
   '/prospeccao': typeof ProspeccaoRoute
   '/prospeccao-templates-nicho': typeof ProspeccaoTemplatesNichoRoute
   '/tarefas': typeof TarefasRoute
+  '/admin/leaks': typeof AdminLeaksRoute
   '/bi/configuracoes': typeof BiConfiguracoesRoute
   '/bi/disparos': typeof BiDisparosRoute
   '/briefing/$token': typeof BriefingTokenRoute
@@ -388,6 +395,7 @@ export interface FileRoutesByTo {
   '/prospeccao': typeof ProspeccaoRoute
   '/prospeccao-templates-nicho': typeof ProspeccaoTemplatesNichoRoute
   '/tarefas': typeof TarefasRoute
+  '/admin/leaks': typeof AdminLeaksRoute
   '/bi/configuracoes': typeof BiConfiguracoesRoute
   '/bi/disparos': typeof BiDisparosRoute
   '/briefing/$token': typeof BriefingTokenRoute
@@ -438,6 +446,7 @@ export interface FileRoutesById {
   '/prospeccao': typeof ProspeccaoRoute
   '/prospeccao-templates-nicho': typeof ProspeccaoTemplatesNichoRoute
   '/tarefas': typeof TarefasRoute
+  '/admin/leaks': typeof AdminLeaksRoute
   '/bi/configuracoes': typeof BiConfiguracoesRoute
   '/bi/disparos': typeof BiDisparosRoute
   '/briefing/$token': typeof BriefingTokenRoute
@@ -491,6 +500,7 @@ export interface FileRouteTypes {
     | '/prospeccao'
     | '/prospeccao-templates-nicho'
     | '/tarefas'
+    | '/admin/leaks'
     | '/bi/configuracoes'
     | '/bi/disparos'
     | '/briefing/$token'
@@ -542,6 +552,7 @@ export interface FileRouteTypes {
     | '/prospeccao'
     | '/prospeccao-templates-nicho'
     | '/tarefas'
+    | '/admin/leaks'
     | '/bi/configuracoes'
     | '/bi/disparos'
     | '/briefing/$token'
@@ -591,6 +602,7 @@ export interface FileRouteTypes {
     | '/prospeccao'
     | '/prospeccao-templates-nicho'
     | '/tarefas'
+    | '/admin/leaks'
     | '/bi/configuracoes'
     | '/bi/disparos'
     | '/briefing/$token'
@@ -643,6 +655,7 @@ export interface RootRouteChildren {
   ProspeccaoRoute: typeof ProspeccaoRoute
   ProspeccaoTemplatesNichoRoute: typeof ProspeccaoTemplatesNichoRoute
   TarefasRoute: typeof TarefasRoute
+  AdminLeaksRoute: typeof AdminLeaksRoute
   BriefingTokenRoute: typeof BriefingTokenRoute
   OperacoesAuditoriaLifecycleRoute: typeof OperacoesAuditoriaLifecycleRoute
   OperacoesClientesRoute: typeof OperacoesClientesRouteWithChildren
@@ -873,6 +886,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/bi/configuracoes'
       preLoaderRoute: typeof BiConfiguracoesRouteImport
       parentRoute: typeof BiRoute
+    }
+    '/admin/leaks': {
+      id: '/admin/leaks'
+      path: '/admin/leaks'
+      fullPath: '/admin/leaks'
+      preLoaderRoute: typeof AdminLeaksRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/operacoes/clientes/': {
       id: '/operacoes/clientes/'
@@ -1148,6 +1168,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProspeccaoRoute: ProspeccaoRoute,
   ProspeccaoTemplatesNichoRoute: ProspeccaoTemplatesNichoRoute,
   TarefasRoute: TarefasRoute,
+  AdminLeaksRoute: AdminLeaksRoute,
   BriefingTokenRoute: BriefingTokenRoute,
   OperacoesAuditoriaLifecycleRoute: OperacoesAuditoriaLifecycleRoute,
   OperacoesClientesRoute: OperacoesClientesRouteWithChildren,
