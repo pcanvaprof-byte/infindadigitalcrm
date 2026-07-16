@@ -438,8 +438,10 @@ export interface ImportResult {
 export async function applyImport(
   rows: PreviewRow[],
   existing: Prospect[],
+  opts?: { importId?: string | null },
 ): Promise<ImportResult> {
   const uid = await requireUserId();
+  const importId = opts?.importId ?? null;
   const result: ImportResult = {
     inserted: 0, updated: 0, skipped: 0, errors: [], storage: "cloud",
   };
@@ -503,6 +505,9 @@ export async function applyImport(
         source: r.data.source,
         potential: r.data.potential,
         status: r.data.status,
+        // Auditoria: vincula o lead à importação de origem (trigger
+        // `prospects_stamp_import` completa imported_by/imported_at).
+        import_id: importId,
       });
     }
   }
@@ -586,6 +591,106 @@ export async function logImport(meta: {
     error_count: meta.result.errors.length,
     errors: meta.result.errors,
   });
+}
+
+/**
+ * Cria o registro de auditoria da importação ANTES de inserir os leads
+ * e devolve o `id`. Esse id é injetado em cada prospect via
+ * `applyImport(rows, existing, { importId })`, permitindo rastrear
+ * quais leads vieram de qual arquivo/admin — sem tocar nos dados
+ * privados de cadência/acionamentos de cada vendedor.
+ */
+export async function startImport(meta: {
+  fileName: string;
+  performedBy: string;
+  totalRows: number;
+}): Promise<string> {
+  const uid = await requireUserId();
+  const { data, error } = await dbExt.from("prospect_imports")
+    .insert({
+      user_id: uid,
+      performed_by: meta.performedBy,
+      file_name: meta.fileName,
+      total_rows: meta.totalRows,
+    })
+    .select("id")
+    .single();
+  if (error) throw error;
+  return (data as { id: string }).id;
+}
+
+/** Atualiza o registro de auditoria com o resultado final da importação. */
+export async function finalizeImport(
+  importId: string,
+  result: ImportResult,
+): Promise<void> {
+  await dbExt.from("prospect_imports")
+    .update({
+      inserted_count: result.inserted,
+      updated_count: result.updated,
+      skipped_count: result.skipped,
+      error_count: result.errors.length,
+      errors: result.errors,
+    })
+    .eq("id", importId);
+}
+
+// ============ IMPORT AUDIT (org-wide, admin-visible) ============
+
+export interface ImportAuditRow {
+  prospectId: string;
+  organizationId: string | null;
+  importId: string | null;
+  importedBy: string | null;
+  importedAt: string | null;
+  createdAt: string;
+  company: string;
+  cnpj: string | null;
+  segment: string | null;
+  city: string | null;
+  state: string | null;
+  source: string | null;
+  importFileName: string | null;
+  importPerformedBy: string | null;
+  importTotalRows: number | null;
+  importInsertedCount: number | null;
+}
+
+/**
+ * Trilha de auditoria dos leads criados via importação. Retorna somente
+ * dados cadastrais + rastreio da origem; cadência/status/follow-up
+ * permanecem privados por vendedor em `user_lead_state`.
+ * Visível apenas para owner/admin da organização (via RLS + view).
+ */
+export async function listImportAudit(opts?: {
+  importId?: string;
+  limit?: number;
+}): Promise<ImportAuditRow[]> {
+  let q = dbExt.from("v_prospect_import_audit")
+    .select("*")
+    .order("imported_at", { ascending: false, nullsFirst: false })
+    .limit(opts?.limit ?? 200);
+  if (opts?.importId) q = q.eq("import_id", opts.importId);
+  const { data, error } = await q;
+  if (error) throw error;
+  return (data ?? []).map((r) => ({
+    prospectId: r.prospect_id,
+    organizationId: r.organization_id,
+    importId: r.import_id,
+    importedBy: r.imported_by,
+    importedAt: r.imported_at,
+    createdAt: r.created_at,
+    company: r.company,
+    cnpj: r.cnpj,
+    segment: r.segment,
+    city: r.city,
+    state: r.state,
+    source: r.source,
+    importFileName: r.import_file_name,
+    importPerformedBy: r.import_performed_by,
+    importTotalRows: r.import_total_rows,
+    importInsertedCount: r.import_inserted_count,
+  }));
 }
 
 export async function listImports(): Promise<ImportLog[]> {

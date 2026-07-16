@@ -67,6 +67,12 @@ type ExtraTables = {
     Update: Record<string, any>;
     Relationships: [];
   };
+  v_prospect_import_audit: {
+    Row: Record<string, any>;
+    Insert: Record<string, any>;
+    Update: Record<string, any>;
+    Relationships: [];
+  };
 };
 
 export type DatabaseExt = Omit<Base, "public"> & {
