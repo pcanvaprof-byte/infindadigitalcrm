@@ -103,14 +103,31 @@ function fromRow(r: Row, ixs: IxRow[] = []): Prospect {
 export async function loadAllProspects(): Promise<Prospect[]> {
   const uid = await currentUserId();
   if (!uid) return [];
+  return loadProspectsInternal({ ownerUserId: null });
+}
+
+/**
+ * Retorna apenas os prospects cadastrados pelo usuário logado (user_id = auth.uid()).
+ * Usado no CRM comercial, onde cada vendedor gerencia apenas seu próprio funil,
+ * mesmo com RLS permitindo leitura de toda a organização.
+ */
+export async function loadMyProspects(): Promise<Prospect[]> {
+  const uid = await currentUserId();
+  if (!uid) return [];
+  return loadProspectsInternal({ ownerUserId: uid });
+}
+
+async function loadProspectsInternal(opts: { ownerUserId: string | null }): Promise<Prospect[]> {
   // PostgREST limita 1000 linhas/consulta — paginar via range() até esgotar.
   const PAGE = 1000;
   const rows: Row[] = [];
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await dbExt.from("prospects")
+    let q = dbExt.from("prospects")
       .select("*")
       .order("created_at", { ascending: false })
       .range(from, from + PAGE - 1);
+    if (opts.ownerUserId) q = q.eq("user_id", opts.ownerUserId);
+    const { data, error } = await q;
     if (error) {
       console.error("loadAllProspects prospects error", error);
       throw new Error(`Falha ao carregar prospects: ${error.message}`);
