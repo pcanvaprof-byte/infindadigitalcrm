@@ -1142,12 +1142,28 @@ function ProspeccaoPage() {
   };
 
   const confirmImport = async () => {
-    // A-9: apply e log são try/catch separados. Uma falha no log
-    // NÃO pode aparecer para o usuário como "importação falhou",
-    // pois os dados já entraram no banco (e um retry cria duplicatas).
+    // A-9: apply e log/finalize são try/catch separados. Falha ao
+    // registrar/atualizar auditoria NÃO pode aparecer como "importação
+    // falhou", pois os dados já entraram no banco (e retry duplica).
+    //
+    // Fluxo de auditoria (para rastrear quais leads vieram de qual admin):
+    //   1) startImport  -> cria o registro e devolve importId
+    //   2) applyImport  -> insere prospects já com import_id preenchido
+    //   3) finalizeImport -> grava contagens finais no registro
+    let importId: string | null = null;
+    try {
+      importId = await startImport({
+        fileName: previewFileName,
+        performedBy: user.name,
+        totalRows: previewRows.length,
+      });
+    } catch (e) {
+      // Auditoria é não-bloqueante: seguimos sem importId.
+      console.warn("[prosp] startImport:fail", e);
+    }
     let result: Awaited<ReturnType<typeof applyImport>>;
     try {
-      result = await applyImport(previewRows, prospects);
+      result = await applyImport(previewRows, prospects, { importId });
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : String(e);
       toast.error(`Erro: ${msg}`);
@@ -1161,16 +1177,13 @@ function ProspeccaoPage() {
       { duration: 8000 },
     );
     if (result.errors.length) toast.error(`${result.errors.length} erro(s) registrados`);
-    try {
-      await logImport({
-        fileName: previewFileName,
-        performedBy: user.name,
-        totalRows: previewRows.length,
-        result,
-      });
-    } catch (e) {
-      // Não bloqueante: importação foi bem-sucedida.
-      console.warn("[prosp] logImport:fail", e);
+    if (importId) {
+      try {
+        await finalizeImport(importId, result);
+      } catch (e) {
+        // Não bloqueante: importação foi bem-sucedida.
+        console.warn("[prosp] finalizeImport:fail", e);
+      }
     }
   };
 
