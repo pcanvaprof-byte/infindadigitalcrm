@@ -107,7 +107,9 @@ export async function loadAllProspects(): Promise<Prospect[]> {
   const PAGE = 1000;
   const rows: Row[] = [];
   for (let from = 0; ; from += PAGE) {
-    const { data, error } = await dbExt.from("prospects")
+    // v_prospects_user: overlay que substitui operacional compartilhado
+    // pelo estado privado do usuário logado (Fase 2 isolamento).
+    const { data, error } = await dbExt.from("v_prospects_user" as never)
       .select("*")
       .order("created_at", { ascending: false })
       .range(from, from + PAGE - 1);
