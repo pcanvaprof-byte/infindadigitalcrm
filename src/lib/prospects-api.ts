@@ -438,8 +438,10 @@ export interface ImportResult {
 export async function applyImport(
   rows: PreviewRow[],
   existing: Prospect[],
+  opts?: { importId?: string | null },
 ): Promise<ImportResult> {
   const uid = await requireUserId();
+  const importId = opts?.importId ?? null;
   const result: ImportResult = {
     inserted: 0, updated: 0, skipped: 0, errors: [], storage: "cloud",
   };
@@ -503,6 +505,9 @@ export async function applyImport(
         source: r.data.source,
         potential: r.data.potential,
         status: r.data.status,
+        // Auditoria: vincula o lead à importação de origem (trigger
+        // `prospects_stamp_import` completa imported_by/imported_at).
+        import_id: importId,
       });
     }
   }
