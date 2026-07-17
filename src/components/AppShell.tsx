@@ -186,17 +186,18 @@ export function AppShell({
     }
   }, [access, pathname, navigate]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("infinda:sidebar-collapsed", sidebarCollapsed ? "1" : "0");
+  }, [sidebarCollapsed]);
+
+  // Early returns AFTER all hooks (ordem estável obrigatória do React).
   if (access && access.status !== "active" && !access.is_privileged) {
     return <AccessExpiredScreen />;
   }
   if (!accessLoading && access?.must_change_password && pathname !== "/alterar-senha") {
     return null;
   }
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    window.localStorage.setItem("infinda:sidebar-collapsed", sidebarCollapsed ? "1" : "0");
-  }, [sidebarCollapsed]);
 
   const handleLogout = async () => {
     await queryClient.cancelQueries();
