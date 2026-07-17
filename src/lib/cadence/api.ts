@@ -532,28 +532,28 @@ async function fetchDashboardMetricsFallback(): Promise<DashboardMetrics> {
 
   const novos = maxBucket(
     clientStage(["PROSPECCAO", "CADENCIA", "FECHADO"]),
-    prospectStatus(["", "novo", "nao_contatado", "primeiro_contato"]),
     cadStage(["followup_1", "followup_2", "followup_3", "followup_4", "followup_5", "followup_6", "followup_7"]),
   );
   const interessados = maxBucket(
     clientStage(["REUNIAO_INICIAL"]),
-    prospectStatus(["qualificado", "briefing_enviado", "diagnostico_pendente", "agendado"]),
     cadStage(["interessado", "reuniao_agendada"]),
   );
   const emNegociacao = maxBucket(
     clientStage(["PROPOSTA", "CONTRATO", "ASSINATURA", "PAGAMENTO_CONFIRMADO", "IMPLANTACAO"]),
-    prospectStatus(["em_negociacao", "proposta_pendente", "proposta_enviada"]),
     cadStage(["proposta_enviada", "negociacao"]),
   );
+  // ISOLAMENTO POR USUÁRIO (Fase 2):
+  // `prospects` e `op_clientes` são compartilhados na organização (RLS por org),
+  // portanto NÃO podem alimentar KPIs privados como "Clientes Ativos". Só usamos
+  // fontes já escopadas por usuário via RLS: `clients` (user_id=auth.uid()) e
+  // `cad_leads` (owner_id=auth.uid()). Isso evita que um usuário recém-criado
+  // veja ativos gerados por outros membros da organização.
   const ativos = maxBucket(
     clientStage(["ATIVO"]),
-    countWhere(opClients, (client) => String(client.status ?? "") === "ativo"),
-    prospectStatus(["fechado_ganho", "cliente", "aguardando_kickoff", "aguardando_producao", "em_producao", "entregue"]),
     cadStage(["fechado"]),
   );
   const perdidos = maxBucket(
     clientStage(["PERDIDO", "CHURNED"]),
-    prospectStatus(["perdido"]),
     cadStage(["perdido"]),
   );
 
