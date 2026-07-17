@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/lib/app-auth-middleware";
+import { authWithAccess } from "@/lib/access/auth-with-access";
 import { z } from "zod";
 
 /** Briefing rico opcional — quando não vier, cai no modo simples (só segmento). */
@@ -63,7 +63,7 @@ function buildBriefingBlock(b?: z.infer<typeof Briefing>) {
  * - `preview=false` → cria novo pack. Se `items_override` vier preenchido, usa-os direto (usuário editou); caso contrário roda IA.
  */
 export const adaptarPackComIA = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([authWithAccess])
   .inputValidator((v: unknown) => Input.parse(v))
   .handler(async ({ data, context }) => {
     const key = process.env.LOVABLE_API_KEY;

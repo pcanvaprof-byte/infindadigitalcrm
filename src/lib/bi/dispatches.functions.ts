@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/lib/app-auth-middleware";
+import { authWithAccess } from "@/lib/access/auth-with-access";
 
 /**
  * Auditoria consistente de disparos calculada 100% no backend, lendo o banco
@@ -178,7 +178,7 @@ function spDateKey(iso: string): string {
 }
 
 export const auditDispatches = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([authWithAccess])
   .inputValidator((input: { from?: string; to?: string } | undefined) => input ?? {})
   .handler(async ({ data }) => {
     // ----- Cache + rate-limit (in-memory, por instância do worker) -----
@@ -283,7 +283,7 @@ export interface DispatchRow {
 }
 
 export const listDispatchRows = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([authWithAccess])
   .inputValidator((input: { from: string; to: string }) => {
     if (!input?.from || !input?.to) throw new Error("from/to obrigatórios");
     return input;

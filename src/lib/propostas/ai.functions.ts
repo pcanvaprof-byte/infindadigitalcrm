@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/lib/app-auth-middleware";
+import { authWithAccess } from "@/lib/access/auth-with-access";
 import { z } from "zod";
 import { AIContentSchema, detectGenericContent, type AIContent } from "./ai/schema";
 import { buildDeterministicContent, type FallbackInput } from "./ai/fallback";
@@ -31,7 +31,7 @@ export interface GeneratedResult {
  *    fallback determinístico — a proposta nunca fica em branco.
  */
 export const gerarConteudoProposta = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([authWithAccess])
   .inputValidator((d: unknown) => Input.parse(d))
   .handler(async ({ data, context }): Promise<GeneratedResult> => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
