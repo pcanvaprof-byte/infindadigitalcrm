@@ -6,6 +6,7 @@ import {
   analyzeBusinessWithAI,
   regenerateInitialMessage,
   confirmBusinessProfile,
+  regenerateOrgCadTemplates,
 } from "@/lib/business/business.functions";
 
 export const BUSINESS_QK = ["business_profile"] as const;
@@ -53,5 +54,12 @@ export function useConfirmBusiness() {
   return useMutation({
     mutationFn: (initial_message: string) => fn({ data: { initial_message } } as never),
     onSuccess: () => qc.invalidateQueries({ queryKey: BUSINESS_QK }),
+  });
+}
+
+export function useRegenerateOrgCadTemplates() {
+  const fn = useServerFn(regenerateOrgCadTemplates);
+  return useMutation({
+    mutationFn: () => fn(),
   });
 }

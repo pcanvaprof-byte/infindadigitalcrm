@@ -316,3 +316,79 @@ export const confirmBusinessProfile = createServerFn({ method: "POST" })
     });
     return saved;
   });
+
+/**
+ * Regenera os `cad_templates` da organização (uma linha por stage) usando o
+ * `business_profile` como contexto. Preserva `cad_messages` já enviadas —
+ * cadências em andamento continuam com o conteúdo antigo já renderizado;
+ * apenas mensagens futuras (novas renderizações) usam o texto novo.
+ */
+const STAGES = [
+  "followup_1","followup_2","followup_3","followup_4","followup_5","followup_6","followup_7",
+  "interessado","reuniao_agendada","proposta_enviada","negociacao","fechado","perdido",
+] as const;
+type Stage = typeof STAGES[number];
+
+export const regenerateOrgCadTemplates = createServerFn({ method: "POST" })
+  .middleware([authWithAccess])
+  .handler(async ({ context }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = (context as any).supabase;
+    const orgId = await getOrgId(supabase);
+    const profile = await loadProfile(supabase, orgId);
+    if (!profile) throw new Error("Configure seu Negócio antes de regenerar os templates.");
+
+    const prompt = [
+      "Gere 13 mensagens de cadência comercial (WhatsApp/e-mail curto) em PT-BR para o negócio abaixo.",
+      "Retorne SOMENTE JSON no formato:",
+      '{ "items": [ { "stage": "<stage>", "titulo": string, "corpo": string } ] }',
+      "",
+      "Stages obrigatórios (uma mensagem por stage):",
+      STAGES.map((s) => `- ${s}`).join("\n"),
+      "",
+      "REGRAS:",
+      "- Preserve EXATAMENTE as variáveis {{responsavel}}, {{empresa}}, {{cidade}}, {{segmento}}, {{telefone}}, {{cargo}}, {{remetente}}, {{data_reuniao}}.",
+      "- Sem clichês (ex.: 'espero que este e-mail te encontre bem'), sem emojis exagerados.",
+      "- Cada 'corpo' entre 2 e 6 linhas, direto e humano.",
+      "- followup_1..7 variam abordagem (valor, prova social, quebra de objeção, última tentativa).",
+      "- 'interessado' engaja, 'reuniao_agendada' confirma, 'proposta_enviada' referencia proposta, 'negociacao' abre para ajuste, 'fechado' faz onboarding, 'perdido' encerra com respeito.",
+      "",
+      "CONTEXTO DO NEGÓCIO:",
+      `Nicho: ${profile.niche || "-"}`,
+      `Público-alvo: ${profile.audience || "-"}`,
+      `Produto/serviço: ${profile.product || "-"}`,
+      `Cliente ideal: ${profile.ideal_customer || "-"}`,
+      `Tom: ${profile.tone || "-"}`,
+      `Linguagem: ${profile.language || "-"}`,
+      `Foco comercial: ${profile.focus || "-"}`,
+      `Abordagem sugerida: ${profile.approach || "-"}`,
+      `Diferenciais: ${profile.differentials || "-"}`,
+      `Dores: ${(profile.pains || []).join("; ") || "-"}`,
+      `Benefícios: ${(profile.benefits || []).join("; ") || "-"}`,
+      `Gatilhos: ${(profile.triggers || []).join("; ") || "-"}`,
+    ].join("\n");
+
+    const raw = await callGroq(prompt, SYSTEM_ANALYST);
+    const parsed = safeJsonParse<{ items?: Array<{ stage?: string; titulo?: string; corpo?: string }> }>(raw);
+    const items = (parsed?.items ?? []).filter(
+      (i) => i && typeof i.stage === "string" && STAGES.includes(i.stage as Stage) && typeof i.corpo === "string" && i.corpo.trim().length > 0,
+    );
+    if (items.length === 0) throw new Error("A IA não retornou mensagens válidas. Tente novamente.");
+
+    // Upsert por (organization_id, stage). Preserva cad_messages já renderizadas.
+    let updated = 0;
+    for (const it of items) {
+      const stage = it.stage as Stage;
+      const titulo = (it.titulo ?? `Mensagem — ${stage}`).slice(0, 200);
+      const corpo = String(it.corpo).slice(0, 4000);
+      const { error } = await supabase
+        .from("cad_templates")
+        .upsert(
+          { organization_id: orgId, stage, titulo, corpo, updated_at: new Date().toISOString() },
+          { onConflict: "organization_id,stage" },
+        );
+      if (!error) updated += 1;
+    }
+
+    return { updated, total_stages: STAGES.length };
+  });

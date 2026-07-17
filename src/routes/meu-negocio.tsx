@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Loader2, Sparkles, RefreshCw, CheckCircle2, ArrowLeft } from "lucide-react";
+import { Loader2, Sparkles, RefreshCw, CheckCircle2, ArrowLeft, Wand2 } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 import { AppShell } from "@/components/AppShell";
@@ -17,6 +17,7 @@ import {
   useAnalyzeBusiness,
   useRegenerateMessage,
   useConfirmBusiness,
+  useRegenerateOrgCadTemplates,
 } from "@/hooks/useBusinessProfile";
 
 export const Route = createFileRoute("/meu-negocio")({
@@ -33,6 +34,7 @@ function MeuNegocioPage() {
   const analyze = useAnalyzeBusiness();
   const regenerate = useRegenerateMessage();
   const confirm = useConfirmBusiness();
+  const regenTemplates = useRegenerateOrgCadTemplates();
 
   const [form, setForm] = useState({
     description: "",
@@ -93,6 +95,21 @@ function MeuNegocioPage() {
       toast.success("Perfil confirmado com sucesso!");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao confirmar");
+    }
+  };
+
+  const onRegenTemplates = async () => {
+    const ok = window.confirm(
+      "Regenerar os templates de cadência com base no seu Perfil de Negócio?\n\n" +
+      "• Afeta apenas novas mensagens (próximas renderizações).\n" +
+      "• Mensagens já enviadas em cadências ativas NÃO serão alteradas.",
+    );
+    if (!ok) return;
+    try {
+      const res = await regenTemplates.mutateAsync();
+      toast.success(`Templates atualizados (${res.updated}/${res.total_stages} stages)`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao regenerar templates");
     }
   };
 
@@ -208,7 +225,8 @@ function MeuNegocioPage() {
               <div>
                 <h2 className="text-lg font-semibold">3. Primeira mensagem de prospecção</h2>
                 <p className="text-sm text-muted-foreground">
-                  Edite livremente. Essa mensagem servirá de base para suas cadências.
+                  Prévia da qualidade da IA sobre o seu negócio. Ela <b>não é enviada automaticamente</b> —
+                  os disparos reais usam os <code>templates de cadência</code> da sua organização.
                 </p>
               </div>
               <Button
@@ -231,6 +249,25 @@ function MeuNegocioPage() {
                 {confirm.isPending
                   ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando…</>
                   : <><CheckCircle2 className="mr-2 h-4 w-4" /> Confirmar configuração</>}
+              </Button>
+            </div>
+          </Card>
+        )}
+
+        {hasAnalysis && (
+          <Card className="space-y-3 p-6">
+            <div>
+              <h2 className="text-lg font-semibold">4. Aplicar contexto do Negócio nos disparos</h2>
+              <p className="text-sm text-muted-foreground">
+                Regenera os <b>templates da cadência</b> da sua organização (uma mensagem por estágio) com base no perfil acima.
+                Afeta apenas <b>novas mensagens</b>. Cadências já em andamento continuam com o texto original — nada é reescrito em <code>cad_messages</code>.
+              </p>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={onRegenTemplates} disabled={regenTemplates.isPending} variant="secondary">
+                {regenTemplates.isPending
+                  ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Regenerando…</>
+                  : <><Wand2 className="mr-2 h-4 w-4" /> Regenerar templates da cadência</>}
               </Button>
             </div>
           </Card>

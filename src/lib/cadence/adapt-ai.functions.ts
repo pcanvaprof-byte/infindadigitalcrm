@@ -57,6 +57,48 @@ function buildBriefingBlock(b?: z.infer<typeof Briefing>) {
   return lines.length ? `\nBRIEFING DO CLIENTE:\n${lines.join("\n")}\n` : "";
 }
 
+/** Mescla o perfil do negócio (memória global da org) com o briefing informado no fluxo.
+ *  Regra: o briefing manual do usuário SEMPRE prevalece; o perfil só preenche lacunas. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function mergeWithBusinessProfile(supabase: any, b?: z.infer<typeof Briefing>) {
+  let profile: Record<string, unknown> | null = null;
+  try {
+    const { data } = await supabase
+      .from("business_profiles")
+      .select("niche, audience, tone, focus, approach, pains, benefits, differentials, product")
+      .eq("org_id", (await supabase.rpc("current_org_id")).data ?? null)
+      .maybeSingle();
+    profile = data ?? null;
+  } catch {
+    profile = null;
+  }
+  if (!profile) return b ?? {};
+  const merged: z.infer<typeof Briefing> = { ...(b ?? {}) };
+  const tone = String(profile.tone ?? "").toLowerCase();
+  if (!merged.tom) {
+    if (tone.includes("consult")) merged.tom = "consultivo";
+    else if (tone.includes("form")) merged.tom = "formal";
+    else if (tone.includes("prov")) merged.tom = "provocativo";
+    else if (tone.includes("amig") || tone.includes("próx") || tone.includes("prox")) merged.tom = "amigavel";
+    else if (tone.includes("descontr") || tone.includes("casual")) merged.tom = "casual";
+  }
+  if (!merged.publico_alvo && profile.audience) merged.publico_alvo = String(profile.audience);
+  if (!merged.dor_principal && Array.isArray(profile.pains) && profile.pains.length)
+    merged.dor_principal = (profile.pains as string[]).slice(0, 3).join("; ");
+  if (!merged.proposta_valor && profile.focus) merged.proposta_valor = String(profile.focus);
+  if (!merged.diferenciais && profile.differentials) merged.diferenciais = String(profile.differentials);
+  if (!merged.observacoes) {
+    const bits: string[] = [];
+    if (profile.niche) bits.push(`Nicho: ${profile.niche}`);
+    if (profile.product) bits.push(`Produto/serviço: ${profile.product}`);
+    if (profile.approach) bits.push(`Abordagem sugerida: ${profile.approach}`);
+    if (Array.isArray(profile.benefits) && profile.benefits.length)
+      bits.push(`Benefícios: ${(profile.benefits as string[]).slice(0, 5).join("; ")}`);
+    if (bits.length) merged.observacoes = bits.join(" | ").slice(0, 600);
+  }
+  return merged;
+}
+
 /**
  * Adapta um pack existente com base em segmento + briefing opcional (tom, objetivo, dor, etc.).
  * - `preview=true`  → retorna { items } sem persistir (para o usuário revisar/editar).
@@ -85,8 +127,9 @@ export const adaptarPackComIA = createServerFn({ method: "POST" })
       const items = (rows ?? []) as TplItem[];
       if (items.length === 0) throw new Error("Pack origem vazio");
 
-      const briefingBlock = buildBriefingBlock(data.briefing);
-      const tom = data.briefing?.tom ?? "consultivo";
+      const mergedBriefing = await mergeWithBusinessProfile(supabase, data.briefing);
+      const briefingBlock = buildBriefingBlock(mergedBriefing);
+      const tom = mergedBriefing.tom ?? "consultivo";
 
       const prompt = `Você é um copywriter sênior de vendas B2B especializado em cadências no WhatsApp.
 Adapte as 13 mensagens abaixo para o segmento "${data.segmento}", respeitando o briefing do cliente.
