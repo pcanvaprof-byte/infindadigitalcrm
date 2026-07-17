@@ -55,32 +55,58 @@ function prospectStatusToCadStage(status: string | null | undefined): CadStage {
 /**
  * Propaga uma mudança de stage da cadência para o status do prospect (CRM),
  * mantendo Prospecção, CRM e Cadência sempre coerentes.
- * - Só atualiza se o status atual NÃO mapeia para o stage destino.
- * - Preserva "cliente" e variantes "aguardando_*"/"em_producao"/"entregue" quando
- *   o destino é `fechado` (não regride status pós-venda).
+ * Arquitetura híbrida: NUNCA grava em `prospects` (compartilhado).
+ * A projeção do stage vira `status` privado no `user_lead_state` do
+ * dono da cadência (`cad_leads.owner_id`).
  */
 async function propagateStageToProspect(leadId: string, stage: CadStage): Promise<void> {
   const { data: leadRow, error: leadErr } = await db
-    .from("cad_leads").select("prospect_id").eq("id", leadId).maybeSingle();
+    .from("cad_leads")
+    .select("prospect_id, owner_id, organization_id")
+    .eq("id", leadId)
+    .maybeSingle();
   if (leadErr) return;
-  const prospectId = (leadRow as { prospect_id: string | null } | null)?.prospect_id;
-  if (!prospectId) return;
+  const row = leadRow as {
+    prospect_id: string | null;
+    owner_id: string | null;
+    organization_id: string | null;
+  } | null;
+  const prospectId = row?.prospect_id;
+  const ownerId = row?.owner_id;
+  const orgId = row?.organization_id;
+  if (!prospectId || !ownerId) return;
 
-  const { data: pRow, error: pErr } = await db
-    .from("prospects").select("status").eq("id", prospectId).maybeSingle();
-  if (pErr) return;
-  const current = (pRow as { status: string | null } | null)?.status ?? null;
+  // Lê o estado privado ATUAL do dono da cadência (não o compartilhado).
+  const { data: sRow, error: sErr } = await db
+    .from("user_lead_state")
+    .select("status")
+    .eq("prospect_id", prospectId)
+    .eq("user_id", ownerId)
+    .maybeSingle();
+  if (sErr) return;
+  const current = (sRow as { status: string | null } | null)?.status ?? null;
 
-  // Se o status atual já mapeia para o stage destino, não faz nada.
   if (current && prospectStatusToCadStage(current) === stage) return;
 
-  // Preserva status pós-venda quando o destino é `fechado`.
+  // Preserva status pós-venda quando o destino é `fechado` (privado).
   const postSale = new Set(["cliente", "aguardando_kickoff", "aguardando_producao", "em_producao", "entregue"]);
   if (stage === "fechado" && current && postSale.has(current)) return;
 
   const targetStatus = CAD_STAGE_TO_PROSPECT_STATUS[stage];
   if (!targetStatus) return;
-  await db.from("prospects").update({ status: targetStatus }).eq("id", prospectId);
+
+  await db
+    .from("user_lead_state")
+    .upsert(
+      {
+        prospect_id: prospectId,
+        user_id: ownerId,
+        organization_id: orgId,
+        status: targetStatus,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "prospect_id,user_id" },
+    );
 }
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -257,26 +283,43 @@ export async function registerSend(params: {
 export async function markProspectContactedFromLead(leadId: string): Promise<boolean> {
   const { data: leadRow, error: leadErr } = await db
     .from("cad_leads")
-    .select("prospect_id")
+    .select("prospect_id, owner_id, organization_id")
     .eq("id", leadId)
     .maybeSingle();
   if (leadErr) throw new Error(leadErr.message);
-  const prospectId = (leadRow as { prospect_id: string | null } | null)?.prospect_id;
-  if (!prospectId) return false;
+  const row = leadRow as {
+    prospect_id: string | null;
+    owner_id: string | null;
+    organization_id: string | null;
+  } | null;
+  const prospectId = row?.prospect_id;
+  const ownerId = row?.owner_id;
+  const orgId = row?.organization_id;
+  if (!prospectId || !ownerId) return false;
 
-  const { data: prospectRow, error: pErr } = await db
-    .from("prospects")
+  // Só olha o estado privado do dono; NUNCA mexe em prospects.
+  const { data: sRow, error: sErr } = await db
+    .from("user_lead_state")
     .select("status")
-    .eq("id", prospectId)
+    .eq("prospect_id", prospectId)
+    .eq("user_id", ownerId)
     .maybeSingle();
-  if (pErr) throw new Error(pErr.message);
-  const status = (prospectRow as { status: string | null } | null)?.status ?? null;
+  if (sErr) throw new Error(sErr.message);
+  const status = (sRow as { status: string | null } | null)?.status ?? null;
   if (status && status !== "nao_contatado") return false;
 
   const { error: updErr } = await db
-    .from("prospects")
-    .update({ status: "primeiro_contato" })
-    .eq("id", prospectId);
+    .from("user_lead_state")
+    .upsert(
+      {
+        prospect_id: prospectId,
+        user_id: ownerId,
+        organization_id: orgId,
+        status: "primeiro_contato",
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "prospect_id,user_id" },
+    );
   if (updErr) throw new Error(updErr.message);
   return true;
 }
