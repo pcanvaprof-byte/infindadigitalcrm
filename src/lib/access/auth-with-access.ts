@@ -1,4 +1,5 @@
 import { createMiddleware } from "@tanstack/react-start";
+import { redirect } from "@tanstack/react-router";
 
 import { requireSupabaseAuth } from "@/lib/app-auth-middleware";
 
@@ -43,10 +44,10 @@ export const authWithAccess = createMiddleware({ type: "function" })
     }
     const access = data as AccessStatus;
     if (access.status !== "active") {
-      throw new Error("access_expired");
+      throw redirect({ to: "/assinatura" });
     }
     if (access.must_change_password) {
-      throw new Error("password_change_required");
+      throw redirect({ to: "/alterar-senha" });
     }
     return next({ context: { access } });
   });
