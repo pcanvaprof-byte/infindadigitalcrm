@@ -276,3 +276,85 @@ export const renewUserAccess = createServerFn({ method: "POST" })
 
     return { ok: true, expiresAt: newExpires };
   });
+
+export const resetMemberTempPassword = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        email: z.string().email(),
+        requireChange: z.boolean().optional().default(true),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { createOwnSupabaseAdminClient, resolveActiveOrg } = await import(
+      "@/lib/api-keys.server"
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const callerSupabase = (context as any).supabase;
+    const orgId = await resolveActiveOrg(callerSupabase);
+    if (!orgId) throw new Error("Organização ativa não encontrada.");
+    await requireAdminOfSameOrg(callerSupabase, orgId);
+
+    const admin = createOwnSupabaseAdminClient();
+    const email = data.email.trim().toLowerCase();
+
+    // Localiza usuário por e-mail (mesma estratégia de provisionMemberUser).
+    let userId: string | null = null;
+    for (let page = 1; page <= 10; page++) {
+      const { data: list, error: listErr } = await (admin as AnyClient).auth.admin.listUsers({
+        page,
+        perPage: 200,
+      });
+      if (listErr) throw new Error(listErr.message);
+      const users = list?.users ?? [];
+      const found = users.find(
+        (u: { email?: string | null }) => (u.email ?? "").toLowerCase() === email,
+      );
+      if (found) {
+        userId = found.id;
+        break;
+      }
+      if (users.length < 200) break;
+    }
+    if (!userId) throw new Error("Usuário não encontrado com esse e-mail.");
+
+    // Garante que o usuário pertence à mesma organização do admin chamador.
+    const { data: membership, error: memErr } = await (admin as AnyClient)
+      .from("organization_members")
+      .select("organization_id")
+      .eq("user_id", userId)
+      .eq("organization_id", orgId)
+      .maybeSingle();
+    if (memErr) throw new Error(memErr.message);
+    if (!membership) {
+      throw new Error("forbidden: usuário não pertence à sua organização.");
+    }
+
+    const tempPassword = generateTempPassword(12);
+    const { error: updErr } = await (admin as AnyClient).auth.admin.updateUserById(userId, {
+      password: tempPassword,
+    });
+    if (updErr) throw new Error(updErr.message);
+
+    if (data.requireChange) {
+      await (admin as AnyClient)
+        .from("user_access")
+        .update({ must_change_password: true })
+        .eq("user_id", userId);
+    }
+
+    await (admin as AnyClient).from("user_access_events").insert({
+      user_id: userId,
+      organization_id: orgId,
+      event: "PASSWORD_CHANGED",
+      meta: {
+        at: new Date().toISOString(),
+        reason: "admin_reset_temp_password",
+        requireChange: data.requireChange,
+      },
+    });
+
+    return { ok: true, email, tempPassword };
+  });
