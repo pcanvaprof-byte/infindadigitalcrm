@@ -3594,6 +3594,78 @@ export type Database = {
           },
         ]
       }
+      user_access: {
+        Row: {
+          access_type: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          must_change_password: boolean
+          organization_id: string
+          plan_name: string | null
+          renewed_at: string | null
+          starts_at: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_type?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          must_change_password?: boolean
+          organization_id: string
+          plan_name?: string | null
+          renewed_at?: string | null
+          starts_at?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_type?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          must_change_password?: boolean
+          organization_id?: string
+          plan_name?: string | null
+          renewed_at?: string | null
+          starts_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_access_events: {
+        Row: {
+          created_at: string
+          event: string
+          id: string
+          meta: Json
+          organization_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event: string
+          id?: string
+          meta?: Json
+          organization_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event?: string
+          id?: string
+          meta?: Json
+          organization_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_active_org: {
         Row: {
           organization_id: string
@@ -4421,6 +4493,7 @@ export type Database = {
           realizados: number
         }[]
       }
+      check_access_status: { Args: never; Returns: Json }
       check_prospects_private_leaks: {
         Args: { _org?: string }
         Returns: {

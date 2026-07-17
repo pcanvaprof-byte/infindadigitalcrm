@@ -121,6 +121,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (identityChanged) {
         void import("@/lib/bi/tz").then((m) => m.resetOrgIdCache());
         queryClient.clear();
+        // Limpa chaves conhecidas de storage do usuário anterior para evitar
+        // qualquer vazamento cross-user (config de conta, flags, pré-visualizações).
+        try {
+          if (typeof window !== "undefined") {
+            const prefixes = ["wa_account", "bonus_mode", "bi.", "bi:", "pv:", "lifecycle-audit-log", "lifecycle:audit-log"];
+            const drop = (store: Storage) => {
+              const toRemove: string[] = [];
+              for (let i = 0; i < store.length; i++) {
+                const k = store.key(i);
+                if (!k) continue;
+                if (prefixes.some((p) => k === p || k.startsWith(p))) toRemove.push(k);
+              }
+              toRemove.forEach((k) => store.removeItem(k));
+            };
+            drop(window.localStorage);
+            drop(window.sessionStorage);
+          }
+        } catch {
+          /* noop */
+        }
       }
 
       void applyUser(session?.user ?? null);

@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/lib/app-auth-middleware";
+import { authWithAccess } from "@/lib/access/auth-with-access";
 import { z } from "zod";
 import type { CatalogItem } from "./types";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -72,7 +72,7 @@ function normalizeDbError(error: unknown): Error {
   return new Error(msg);
 }
 
-// Uses the request-scoped supabase client from requireSupabaseAuth so RLS +
+// Uses the request-scoped supabase client from authWithAccess so RLS +
 // tenant isolation policies apply automatically. organization_id is populated
 // server-side via the column default (current_org_id()) set by the tenant
 // isolation migration.
@@ -118,7 +118,7 @@ function buildItemPayload(input: ItemMutationInput, createdBy?: string | null) {
 }
 
 export const listCatalogCategoriasQuery = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([authWithAccess])
   .handler(async ({ context }) => {
     const sb = context.supabase as unknown as SupabaseClient;
     const { data, error } = await sb
@@ -130,7 +130,7 @@ export const listCatalogCategoriasQuery = createServerFn({ method: "GET" })
   });
 
 export const listCatalogItemsQuery = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([authWithAccess])
   .inputValidator((data: unknown) => ListItemsInput.parse(data))
   .handler(async ({ data, context }) => {
     const filters = data ?? {};
@@ -154,7 +154,7 @@ export const listCatalogItemsQuery = createServerFn({ method: "GET" })
   });
 
 export const getCatalogItemQuery = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
+  .middleware([authWithAccess])
   .inputValidator((data: unknown) => GetInput.parse(data))
   .handler(async ({ data, context }) => {
     const sb = context.supabase as unknown as SupabaseClient;
@@ -168,7 +168,7 @@ export const getCatalogItemQuery = createServerFn({ method: "GET" })
   });
 
 export const createCatalogItemMutation = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([authWithAccess])
   .inputValidator((data: unknown) => RawItemInput.parse(data))
   .handler(async ({ data, context }) => {
     const sb = context.supabase as unknown as SupabaseClient;
@@ -185,7 +185,7 @@ export const createCatalogItemMutation = createServerFn({ method: "POST" })
   });
 
 export const updateCatalogItemMutation = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([authWithAccess])
   .inputValidator((data: unknown) => UpdateInput.parse(data))
   .handler(async ({ data, context }) => {
     const sb = context.supabase as unknown as SupabaseClient;
@@ -203,7 +203,7 @@ export const updateCatalogItemMutation = createServerFn({ method: "POST" })
   });
 
 export const toggleCatalogItemMutation = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([authWithAccess])
   .inputValidator((data: unknown) => ToggleInput.parse(data))
   .handler(async ({ data, context }) => {
     const sb = context.supabase as unknown as SupabaseClient;
@@ -216,7 +216,7 @@ export const toggleCatalogItemMutation = createServerFn({ method: "POST" })
   });
 
 export const deleteCatalogItemMutation = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([authWithAccess])
   .inputValidator((data: unknown) => GetInput.parse(data))
   .handler(async ({ data, context }) => {
     const sb = context.supabase as unknown as SupabaseClient;

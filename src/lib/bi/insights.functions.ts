@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/lib/app-auth-middleware";
+import { authWithAccess } from "@/lib/access/auth-with-access";
 import { z } from "zod";
 
 const Input = z.object({
@@ -11,7 +11,7 @@ const Input = z.object({
  * Persiste em ai_insights (RLS por org). Falha graciosamente se a chave faltar.
  */
 export const gerarInsightBI = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([authWithAccess])
   .inputValidator((d: unknown) => Input.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
