@@ -341,7 +341,9 @@ export async function insertProspect(p: Omit<Prospect, "id" | "createdAt" | "int
 
 export async function updateProspect(id: string, patch: Partial<Prospect>) {
   console.log("[prospects-api] updateProspect:start", { id, patch });
-  await requireUserId();
+  const uid = await requireUserId();
+  // Arquitetura híbrida: campos operacionais privados vão para user_lead_state.
+  // Somente cadastro compartilhado é gravado em prospects.
   const map: Record<string, unknown> = {};
   if (patch.company !== undefined) map.company = patch.company;
   if (patch.cnpj !== undefined) map.cnpj = patch.cnpj || null;
@@ -355,13 +357,22 @@ export async function updateProspect(id: string, patch: Partial<Prospect>) {
   if (patch.state !== undefined) map.state = patch.state;
   if (patch.source !== undefined) map.source = patch.source;
   if (patch.potential !== undefined) map.potential = patch.potential;
-  if (patch.status !== undefined) map.status = patch.status;
-  const { error } = await dbExt.from("prospects").update(map as never).eq("id", id);
-  if (error) {
-    console.error("[prospects-api] updateProspect:error", { id, patch, error });
-    throw error;
+  if (Object.keys(map).length > 0) {
+    const { error } = await dbExt.from("prospects").update(map as never).eq("id", id);
+    if (error) {
+      console.error("[prospects-api] updateProspect:error", { id, patch, error });
+      throw error;
+    }
   }
-  console.log("[prospects-api] updateProspect:ok", { id, fields: Object.keys(map) });
+  // Estado operacional privado (por usuário)
+  if (patch.status !== undefined) {
+    const err = await upsertUserLeadStateStatus(id, uid, String(patch.status));
+    if (err) {
+      console.error("[prospects-api] updateProspect:state_error", { id, err });
+      throw new Error(err.message ?? "Falha ao salvar status privado");
+    }
+  }
+  console.log("[prospects-api] updateProspect:ok", { id, fields: Object.keys(map), status: patch.status });
 }
 
 export async function deleteProspects(ids: string[]) {
@@ -453,14 +464,45 @@ export async function bulkUpdateProspects(
   patch: Partial<Pick<Prospect, "status" | "owner" | "potential">>,
 ): Promise<void> {
   if (!ids.length) return;
-  await requireUserId();
+  const uid = await requireUserId();
   const map: Record<string, unknown> = {};
-  if (patch.status !== undefined) map.status = patch.status;
   if (patch.owner !== undefined) map.owner_name = patch.owner;
   if (patch.potential !== undefined) map.potential = patch.potential;
-  if (!Object.keys(map).length) return;
-  const { error } = await dbExt.from("prospects").update(map as never).in("id", ids);
-  if (error) throw error;
+  if (Object.keys(map).length) {
+    const { error } = await dbExt.from("prospects").update(map as never).in("id", ids);
+    if (error) throw error;
+  }
+  // Status é privado por usuário — grava em lote em user_lead_state.
+  if (patch.status !== undefined) {
+    const rows = ids.map((prospect_id) => ({
+      prospect_id,
+      user_id: uid,
+      status: String(patch.status),
+      updated_at: new Date().toISOString(),
+    }));
+    const { error } = await dbExt
+      .from("user_lead_state" as never)
+      .upsert(rows as never, { onConflict: "prospect_id,user_id" });
+    if (error) throw error;
+  }
+}
+
+/**
+ * Upsert do estado privado do usuário para um lead compartilhado.
+ * organization_id é preenchido pelo default/trigger no banco.
+ */
+async function upsertUserLeadStateStatus(
+  prospectId: string,
+  userId: string,
+  status: string,
+): Promise<{ message?: string } | null> {
+  const { error } = await dbExt
+    .from("user_lead_state" as never)
+    .upsert(
+      { prospect_id: prospectId, user_id: userId, status, updated_at: new Date().toISOString() } as never,
+      { onConflict: "prospect_id,user_id" },
+    );
+  return error ? { message: error.message } : null;
 }
 
 // ============ IMPORT ============
