@@ -5,7 +5,7 @@
 
 BEGIN;
 
--- 0) Garante que current_org_id() e current_org_role() existam neste banco.
+-- 0) Garante helpers básicos neste banco.
 CREATE OR REPLACE FUNCTION public.current_org_id()
 RETURNS uuid
 LANGUAGE sql
@@ -15,6 +15,7 @@ AS $$
   SELECT organization_id FROM public.user_active_org WHERE user_id = auth.uid()
 $$;
 
+-- Mantida por compatibilidade com outras partes do sistema.
 CREATE OR REPLACE FUNCTION public.current_org_role()
 RETURNS text
 LANGUAGE sql
@@ -30,8 +31,8 @@ AS $$
   LIMIT 1
 $$;
 
-REVOKE ALL ON FUNCTION public.current_org_id() FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.current_org_role() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.current_org_id() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.current_org_role() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.current_org_id() TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION public.current_org_role() TO authenticated, service_role;
 
@@ -72,11 +73,23 @@ CREATE POLICY "prospects_update_owner_admin_only"
   TO authenticated
   USING (
     organization_id = public.current_org_id()
-    AND public.current_org_role() IN ('owner','admin')
+    AND EXISTS (
+      SELECT 1
+      FROM public.organization_members om
+      WHERE om.organization_id = public.prospects.organization_id
+        AND om.user_id = auth.uid()
+        AND om.role IN ('owner','admin')
+    )
   )
   WITH CHECK (
     organization_id = public.current_org_id()
-    AND public.current_org_role() IN ('owner','admin')
+    AND EXISTS (
+      SELECT 1
+      FROM public.organization_members om
+      WHERE om.organization_id = public.prospects.organization_id
+        AND om.user_id = auth.uid()
+        AND om.role IN ('owner','admin')
+    )
   );
 
 CREATE POLICY "prospects_delete_owner_admin_only"
@@ -85,7 +98,13 @@ CREATE POLICY "prospects_delete_owner_admin_only"
   TO authenticated
   USING (
     organization_id = public.current_org_id()
-    AND public.current_org_role() IN ('owner','admin')
+    AND EXISTS (
+      SELECT 1
+      FROM public.organization_members om
+      WHERE om.organization_id = public.prospects.organization_id
+        AND om.user_id = auth.uid()
+        AND om.role IN ('owner','admin')
+    )
   );
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.prospects TO authenticated;
