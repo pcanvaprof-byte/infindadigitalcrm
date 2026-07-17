@@ -679,11 +679,14 @@ function mergeDashboardMetrics(rpcMetrics: DashboardMetrics, fallbackMetrics: Da
       proposta_ativo: preferRealValue(fallbackMetrics.conversao.proposta_ativo, rpcMetrics.conversao.proposta_ativo),
     },
     gargalos: {
-      cadencia_atrasada: preferRealValue(rpcMetrics.gargalos.cadencia_atrasada, fallbackMetrics.gargalos.cadencia_atrasada),
-      parados_30d: preferRealValue(rpcMetrics.gargalos.parados_30d, fallbackMetrics.gargalos.parados_30d),
-      sem_responsavel: preferRealValue(rpcMetrics.gargalos.sem_responsavel, fallbackMetrics.gargalos.sem_responsavel),
-      clients_parados_15d: preferRealValue(rpcMetrics.gargalos.clients_parados_15d, fallbackMetrics.gargalos.clients_parados_15d),
-      sem_proxima_acao: preferRealValue(rpcMetrics.gargalos.sem_proxima_acao, fallbackMetrics.gargalos.sem_proxima_acao),
+      // Isolamento por usuário: usar SOMENTE a RPC (já filtra por auth.uid()).
+      // O fallback lia prospects/cad_leads compartilhados da org e vazava trabalho
+      // de outros usuários no Centro de Ações.
+      cadencia_atrasada: rpcMetrics.gargalos.cadencia_atrasada,
+      parados_30d: rpcMetrics.gargalos.parados_30d,
+      sem_responsavel: rpcMetrics.gargalos.sem_responsavel,
+      clients_parados_15d: rpcMetrics.gargalos.clients_parados_15d,
+      sem_proxima_acao: rpcMetrics.gargalos.sem_proxima_acao,
     },
   };
 }
