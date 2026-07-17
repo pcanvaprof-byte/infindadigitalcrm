@@ -28,21 +28,18 @@ export const authWithAccess = createMiddleware({ type: "function" })
     const supabase = (context as any).supabase;
     const { data, error } = await supabase.rpc("check_access_status");
     if (error) {
+      const fallback: AccessStatus = {
+        status: "active",
+        access_type: "internal",
+        plan_name: null,
+        expires_at: null,
+        days_remaining: null,
+        must_change_password: false,
+        is_privileged: true,
+      };
       // Fail-open enquanto a migração de user_access não foi aplicada:
       // não podemos derrubar toda a plataforma se a RPC ainda não existe.
-      return next({
-        context: {
-          access: {
-            status: "active",
-            access_type: "internal",
-            plan_name: null,
-            expires_at: null,
-            days_remaining: null,
-            must_change_password: false,
-            is_privileged: true,
-          } satisfies AccessStatus,
-        },
-      });
+      return next({ context: { access: fallback } });
     }
     const access = data as AccessStatus;
     if (access.status !== "active") {
