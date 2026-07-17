@@ -25,6 +25,7 @@ import { fetchDashboardMetrics, type DashboardMetrics } from "@/lib/cadence/api"
 import { fetchKpiTrends, wowDelta, EMPTY_TRENDS } from "@/lib/cadence/trends";
 import { FEATURES } from "@/config/features";
 import { DispatchesPanel } from "@/components/dashboard/DispatchesPanel";
+import { BusinessSetupCard } from "@/components/dashboard/BusinessSetupCard";
 
 type Period = "hoje" | "semana" | "mes" | "previsao";
 const PERIOD_LABEL: Record<Period, string> = {
@@ -435,6 +436,10 @@ function DashboardPage() {
           <strong>Sem organização ativa:</strong> selecione uma organização no seletor do header para ver os KPIs. O Dashboard agora exige escopo de organização (sem fallback por usuário).
         </div>
       )}
+
+      <div className="mb-6">
+        <BusinessSetupCard />
+      </div>
 
       {/* 1 — Strategic Header */}
       <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
