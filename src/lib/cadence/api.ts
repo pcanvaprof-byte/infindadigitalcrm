@@ -523,8 +523,6 @@ async function fetchDashboardMetricsFallback(): Promise<DashboardMetrics> {
     }
   }
 
-  const prospectStatus = (statuses: string[]) =>
-    countWhere(prospects, (p) => statuses.includes(String(p.status ?? "")));
   const cadStage = (stages: string[]) =>
     countWhere(cadLeads, (lead) => stages.includes(String(lead.stage ?? "")));
   const clientStage = (stages: string[]) =>
