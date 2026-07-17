@@ -28,7 +28,7 @@ function UsuariosPage() {
 
   if (role && !isOwnerOrAdmin(role)) {
     return (
-      <AppShell>
+      <AppShell title="Usuários">
         <div className="mx-auto max-w-xl p-8 text-center text-muted-foreground">
           Acesso restrito a administradores.
         </div>
@@ -62,7 +62,7 @@ function UsuariosPage() {
   };
 
   return (
-    <AppShell>
+    <AppShell title="Usuários" subtitle="Gestão de acesso da organização">
       <div className="mx-auto max-w-2xl space-y-6 p-6">
         <header className="space-y-1">
           <h1 className="text-2xl font-semibold">Usuários</h1>
