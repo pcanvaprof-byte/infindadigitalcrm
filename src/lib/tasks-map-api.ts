@@ -40,6 +40,10 @@ type ProspectRow = {
   potential: string | null; city: string | null; state: string | null;
 };
 
+type UserLeadStateRow = { prospect_id: string; status: string | null };
+
+type DbErrorLike = { code?: string; message?: string };
+
 const PAGE = 1000;
 
 async function fetchAll<T>(
@@ -87,12 +91,7 @@ export async function loadMapPoints(): Promise<MapPoint[]> {
         .eq("user_id", uid)
         .range(from, to),
     ),
-    fetchAll<ProspectRow>((from, to) =>
-      // v_prospects_user: 'status' privado por usuário (Fase 2 isolamento).
-      db.from("v_prospects_user" as never)
-        .select("cnpj,company,whatsapp,phone,email,status,potential,city,state")
-        .range(from, to),
-    ),
+    loadMapProspects(uid),
   ]);
   const profileIds = profiles.map((p) => p.id);
 
@@ -146,6 +145,62 @@ export async function loadMapPoints(): Promise<MapPoint[]> {
         potential: p.potential,
       };
     });
+}
+
+async function loadMapProspects(uid: string): Promise<ProspectRow[]> {
+  try {
+    return await fetchAll<ProspectRow>((from, to) =>
+      // v_prospects_user: 'status' privado por usuário (Fase 2 isolamento).
+      db.from("v_prospects_user" as never)
+        .select("cnpj,company,whatsapp,phone,email,status,potential,city,state")
+        .range(from, to),
+    );
+  } catch (error) {
+    if (!isMissingRelation(error)) throw error;
+    console.warn("v_prospects_user indisponível no mapa; usando fallback seguro", error);
+  }
+
+  const rows = await fetchAll<ProspectRow & { id: string }>((from, to) =>
+    db.from("prospects")
+      .select("id,cnpj,company,whatsapp,phone,email,potential,city,state")
+      .range(from, to),
+  );
+
+  const states = await fetchUserLeadStatuses(uid, rows.map((r) => r.id));
+  return rows.map((row) => ({
+    cnpj: row.cnpj,
+    company: row.company,
+    whatsapp: row.whatsapp,
+    phone: row.phone,
+    email: row.email,
+    status: states.get(row.id) ?? "nao_contatado",
+    potential: row.potential,
+    city: row.city,
+    state: row.state,
+  }));
+}
+
+async function fetchUserLeadStatuses(uid: string, ids: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (!ids.length) return out;
+  try {
+    const states = await fetchByIds<UserLeadStateRow>(ids, (slice, from, to) =>
+      db.from("user_lead_state")
+        .select("prospect_id,status")
+        .eq("user_id", uid)
+        .in("prospect_id", slice)
+        .range(from, to),
+    );
+    for (const state of states) out.set(state.prospect_id, state.status ?? "nao_contatado");
+  } catch (error) {
+    if (!isMissingRelation(error)) console.warn("loadMapPoints user_lead_state fallback error", error);
+  }
+  return out;
+}
+
+function isMissingRelation(error: unknown): boolean {
+  const err = error as DbErrorLike;
+  return err?.code === "PGRST205" || /schema cache|Could not find the table|does not exist/i.test(err?.message ?? "");
 }
 
 export function bairroColor(bairro?: string | null): string {

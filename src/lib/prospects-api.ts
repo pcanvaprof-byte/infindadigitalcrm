@@ -42,6 +42,18 @@ type IxRow = {
   created_at: string;  // mapeado de touchpoints.enviado_em
 };
 
+type UserLeadStateRow = {
+  prospect_id: string;
+  status: string | null;
+  cadence_step: number | null;
+  cadence_status: string | null;
+  response_status: string | null;
+  last_contact_at: string | null;
+  next_contact_at: string | null;
+};
+
+type DbErrorLike = { code?: string; message?: string };
+
 const VALID_POTENTIALS = ["alto", "medio", "baixo"];
 const VALID_STATUSES = [
   "nao_contatado",
@@ -105,22 +117,7 @@ export async function loadAllProspects(): Promise<Prospect[]> {
   if (!uid) return [];
   // PostgREST limita 1000 linhas/consulta — paginar via range() até esgotar.
   const PAGE = 1000;
-  const rows: Row[] = [];
-  for (let from = 0; ; from += PAGE) {
-    // v_prospects_user: overlay que substitui operacional compartilhado
-    // pelo estado privado do usuário logado (Fase 2 isolamento).
-    const { data, error } = await dbExt.from("v_prospects_user" as never)
-      .select("*")
-      .order("created_at", { ascending: false })
-      .range(from, from + PAGE - 1);
-    if (error) {
-      console.error("loadAllProspects prospects error", error);
-      throw new Error(`Falha ao carregar prospects: ${error.message}`);
-    }
-    const batch = (data ?? []) as Row[];
-    rows.push(...batch);
-    if (batch.length < PAGE) break;
-  }
+  const rows = await loadProspectRowsWithPrivateState(uid, PAGE);
   // Interações: também pagina e busca em lotes de ids (evita URL gigante no .in()).
   const ids = rows.map((r) => r.id);
   const ID_BATCH = 200;
@@ -159,6 +156,117 @@ export async function loadAllProspects(): Promise<Prospect[]> {
     created_at: row.enviado_em,
   }));
   return rows.map((r) => fromRow(r, ixs));
+}
+
+async function loadProspectRowsWithPrivateState(uid: string, pageSize: number): Promise<Row[]> {
+  const rows: Row[] = [];
+  for (let from = 0; ; from += pageSize) {
+    // Preferência: view no banco com overlay privado por usuário.
+    const { data, error } = await dbExt.from("v_prospects_user" as never)
+      .select("*")
+      .order("created_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      if (isMissingRelation(error)) {
+        console.warn("v_prospects_user indisponível; usando fallback seguro em prospects + user_lead_state", error);
+        return loadProspectRowsFallback(uid, pageSize);
+      }
+      console.error("loadAllProspects prospects error", error);
+      throw new Error(`Falha ao carregar prospects: ${error.message}`);
+    }
+
+    const batch = (data ?? []) as Row[];
+    rows.push(...batch);
+    if (batch.length < pageSize) break;
+  }
+  return rows;
+}
+
+async function loadProspectRowsFallback(uid: string, pageSize: number): Promise<Row[]> {
+  const rows: Row[] = [];
+  for (let from = 0; ; from += pageSize) {
+    // Fallback para bancos que ainda não possuem a view. Lê somente cadastro
+    // compartilhado e zera operacional para não herdar trabalho de outro usuário.
+    const { data, error } = await dbExt.from("prospects")
+      .select("id,company,cnpj,segment,owner_name,whatsapp,phone,email,instagram,city,state,source,potential,created_at,updated_at")
+      .order("created_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+    if (error) {
+      console.error("loadAllProspects fallback prospects error", error);
+      throw new Error(`Falha ao carregar prospects: ${error.message}`);
+    }
+    const batch = ((data ?? []) as Partial<Row>[]).map(withDefaultPrivateState);
+    rows.push(...batch);
+    if (batch.length < pageSize) break;
+  }
+
+  const states = await loadUserLeadStates(uid, rows.map((r) => r.id), pageSize);
+  return rows.map((row) => ({ ...row, ...(states.get(row.id) ?? {}) }));
+}
+
+async function loadUserLeadStates(uid: string, ids: string[], pageSize: number): Promise<Map<string, Partial<Row>>> {
+  const out = new Map<string, Partial<Row>>();
+  if (!ids.length) return out;
+  const ID_BATCH = 200;
+  for (let i = 0; i < ids.length; i += ID_BATCH) {
+    const slice = ids.slice(i, i + ID_BATCH);
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await dbExt.from("user_lead_state" as never)
+        .select("prospect_id,status,cadence_step,cadence_status,response_status,last_contact_at,next_contact_at")
+        .eq("user_id", uid)
+        .in("prospect_id", slice)
+        .range(from, from + pageSize - 1);
+      if (error) {
+        if (isMissingRelation(error)) return out;
+        console.warn("loadAllProspects user_lead_state fallback error", error);
+        return out;
+      }
+      const batch = (data ?? []) as UserLeadStateRow[];
+      for (const state of batch) {
+        out.set(state.prospect_id, {
+          status: state.status ?? "nao_contatado",
+          cadence_step: state.cadence_step ?? 0,
+          cadence_status: state.cadence_status ?? "ativo",
+          response_status: state.response_status ?? "sem_resposta",
+          last_contact_at: state.last_contact_at,
+          next_contact_at: state.next_contact_at,
+        });
+      }
+      if (batch.length < pageSize) break;
+    }
+  }
+  return out;
+}
+
+function withDefaultPrivateState(row: Partial<Row>): Row {
+  return {
+    id: row.id || crypto.randomUUID(),
+    company: row.company || "Empresa sem nome",
+    cnpj: row.cnpj ?? null,
+    segment: row.segment || "Outros",
+    owner_name: row.owner_name || "",
+    whatsapp: row.whatsapp || "",
+    phone: row.phone || "",
+    email: row.email || "",
+    instagram: row.instagram || "",
+    city: row.city || "",
+    state: row.state || "",
+    source: row.source || "Importação",
+    potential: row.potential || "medio",
+    status: "nao_contatado",
+    created_at: row.created_at || new Date(0).toISOString(),
+    updated_at: row.updated_at || new Date(0).toISOString(),
+    cadence_step: 0,
+    cadence_status: "ativo",
+    response_status: "sem_resposta",
+    last_contact_at: null,
+    next_contact_at: null,
+  };
+}
+
+function isMissingRelation(error: DbErrorLike): boolean {
+  return error.code === "PGRST205" || /schema cache|Could not find the table|does not exist/i.test(error.message ?? "");
 }
 
 async function currentUserId(): Promise<string | null> {
