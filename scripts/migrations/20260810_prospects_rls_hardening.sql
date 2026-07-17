@@ -1,22 +1,41 @@
 -- =====================================================================
 -- Onda 3 — Item 8: Endurecer RLS de public.prospects
--- Arquitetura híbrida:
---   * Lead compartilhado (cadastro em `prospects`)
---   * Operação privada (em `user_lead_state`)
---
--- Objetivo:
---   SELECT → todos os membros da organização ativa
---   INSERT → qualquer membro da organização ativa
---   UPDATE → somente Owner/Admin da organização ativa
---   DELETE → somente Owner/Admin da organização ativa
---
--- Observação: o trigger `prospects_freeze_shared_ops` já congela
--- colunas operacionais legadas — este bloco endurece o portão principal.
+-- Arquitetura híbrida (lead compartilhado + operação privada)
 -- =====================================================================
 
 BEGIN;
 
--- Remove policies antigas (nomes conhecidos + varredura defensiva).
+-- 0) Garante que current_org_id() e current_org_role() existam neste banco.
+CREATE OR REPLACE FUNCTION public.current_org_id()
+RETURNS uuid
+LANGUAGE sql
+STABLE SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+  SELECT organization_id FROM public.user_active_org WHERE user_id = auth.uid()
+$$;
+
+CREATE OR REPLACE FUNCTION public.current_org_role()
+RETURNS text
+LANGUAGE sql
+STABLE SECURITY DEFINER
+SET search_path TO 'public'
+AS $$
+  SELECT m.role
+  FROM public.organization_members m
+  JOIN public.user_active_org uao
+    ON uao.user_id = m.user_id
+   AND uao.organization_id = m.organization_id
+  WHERE m.user_id = auth.uid()
+  LIMIT 1
+$$;
+
+REVOKE ALL ON FUNCTION public.current_org_id() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.current_org_role() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.current_org_id() TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.current_org_role() TO authenticated, service_role;
+
+-- 1) Remove policies antigas de prospects (varredura defensiva).
 DO $$
 DECLARE r record;
 BEGIN
@@ -30,25 +49,23 @@ END $$;
 
 ALTER TABLE public.prospects ENABLE ROW LEVEL SECURITY;
 
--- Default de organization_id no INSERT (redundante com trigger _apply_tenant_isolation).
+-- 2) Default do organization_id via função.
 ALTER TABLE public.prospects
   ALTER COLUMN organization_id SET DEFAULT public.current_org_id();
 
--- SELECT: qualquer usuário autenticado da organização ativa.
+-- 3) Policies alinhadas à arquitetura híbrida.
 CREATE POLICY "prospects_select_org_members"
   ON public.prospects
   FOR SELECT
   TO authenticated
   USING (organization_id = public.current_org_id());
 
--- INSERT: qualquer membro; org_id é forçado pela cláusula CHECK.
 CREATE POLICY "prospects_insert_org_members"
   ON public.prospects
   FOR INSERT
   TO authenticated
   WITH CHECK (organization_id = public.current_org_id());
 
--- UPDATE: somente Owner/Admin da organização.
 CREATE POLICY "prospects_update_owner_admin_only"
   ON public.prospects
   FOR UPDATE
@@ -62,7 +79,6 @@ CREATE POLICY "prospects_update_owner_admin_only"
     AND public.current_org_role() IN ('owner','admin')
   );
 
--- DELETE: somente Owner/Admin da organização.
 CREATE POLICY "prospects_delete_owner_admin_only"
   ON public.prospects
   FOR DELETE
@@ -72,11 +88,10 @@ CREATE POLICY "prospects_delete_owner_admin_only"
     AND public.current_org_role() IN ('owner','admin')
   );
 
--- Garante grants (Data API).
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.prospects TO authenticated;
 GRANT ALL ON public.prospects TO service_role;
 
 COMMIT;
 
--- Sanity: veja as policies resultantes
+-- Sanity check:
 -- SELECT policyname, cmd FROM pg_policies WHERE tablename='prospects';
