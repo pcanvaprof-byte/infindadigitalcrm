@@ -13,6 +13,7 @@ import { Route as TarefasRouteImport } from './routes/tarefas'
 import { Route as ProspeccaoTemplatesNichoRouteImport } from './routes/prospeccao-templates-nicho'
 import { Route as ProspeccaoRouteImport } from './routes/prospeccao'
 import { Route as PropostasRouteImport } from './routes/propostas'
+import { Route as MeuNegocioRouteImport } from './routes/meu-negocio'
 import { Route as MetasObjetivosRouteImport } from './routes/metas-objetivos'
 import { Route as MetasRouteImport } from './routes/metas'
 import { Route as LoginRouteImport } from './routes/login'
@@ -79,6 +80,11 @@ const ProspeccaoRoute = ProspeccaoRouteImport.update({
 const PropostasRoute = PropostasRouteImport.update({
   id: '/propostas',
   path: '/propostas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MeuNegocioRoute = MeuNegocioRouteImport.update({
+  id: '/meu-negocio',
+  path: '/meu-negocio',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MetasObjetivosRoute = MetasObjetivosRouteImport.update({
@@ -340,6 +346,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
   '/metas-objetivos': typeof MetasObjetivosRoute
+  '/meu-negocio': typeof MeuNegocioRoute
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/prospeccao-templates-nicho': typeof ProspeccaoTemplatesNichoRoute
@@ -392,6 +399,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
   '/metas-objetivos': typeof MetasObjetivosRoute
+  '/meu-negocio': typeof MeuNegocioRoute
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/prospeccao-templates-nicho': typeof ProspeccaoTemplatesNichoRoute
@@ -443,6 +451,7 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
   '/metas-objetivos': typeof MetasObjetivosRoute
+  '/meu-negocio': typeof MeuNegocioRoute
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/prospeccao-templates-nicho': typeof ProspeccaoTemplatesNichoRoute
@@ -497,6 +506,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/metas'
     | '/metas-objetivos'
+    | '/meu-negocio'
     | '/propostas'
     | '/prospeccao'
     | '/prospeccao-templates-nicho'
@@ -549,6 +559,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/metas'
     | '/metas-objetivos'
+    | '/meu-negocio'
     | '/propostas'
     | '/prospeccao'
     | '/prospeccao-templates-nicho'
@@ -599,6 +610,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/metas'
     | '/metas-objetivos'
+    | '/meu-negocio'
     | '/propostas'
     | '/prospeccao'
     | '/prospeccao-templates-nicho'
@@ -652,6 +664,7 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   MetasRoute: typeof MetasRoute
   MetasObjetivosRoute: typeof MetasObjetivosRoute
+  MeuNegocioRoute: typeof MeuNegocioRoute
   PropostasRoute: typeof PropostasRouteWithChildren
   ProspeccaoRoute: typeof ProspeccaoRoute
   ProspeccaoTemplatesNichoRoute: typeof ProspeccaoTemplatesNichoRoute
@@ -696,6 +709,13 @@ declare module '@tanstack/react-router' {
       path: '/propostas'
       fullPath: '/propostas'
       preLoaderRoute: typeof PropostasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/meu-negocio': {
+      id: '/meu-negocio'
+      path: '/meu-negocio'
+      fullPath: '/meu-negocio'
+      preLoaderRoute: typeof MeuNegocioRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/metas-objetivos': {
@@ -1165,6 +1185,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   MetasRoute: MetasRoute,
   MetasObjetivosRoute: MetasObjetivosRoute,
+  MeuNegocioRoute: MeuNegocioRoute,
   PropostasRoute: PropostasRouteWithChildren,
   ProspeccaoRoute: ProspeccaoRoute,
   ProspeccaoTemplatesNichoRoute: ProspeccaoTemplatesNichoRoute,
