@@ -45,6 +45,9 @@ import { toast } from "sonner";
 import { NotificationsBell } from "./cadencia/NotificationsBell";
 import { useOrgRole, isOwnerOrAdmin, type OrgRole } from "@/lib/org/plans";
 import { FEATURES } from "@/config/features";
+import { useAccessStatus } from "@/hooks/useAccessStatus";
+import { AccessExpiredScreen } from "@/components/access/AccessExpiredScreen";
+import { TrialBanner } from "@/components/access/TrialBanner";
 
 type NavItem = {
   to: string;
@@ -172,6 +175,23 @@ export function AppShell({
   });
   const { role } = useOrgRole();
   const isAdminOrOwner = isOwnerOrAdmin(role);
+  const routerState = useRouterState();
+  const pathname = routerState.location.pathname;
+  const { data: access, isLoading: accessLoading } = useAccessStatus();
+
+  useEffect(() => {
+    if (!access) return;
+    if (access.must_change_password && pathname !== "/alterar-senha") {
+      void navigate({ to: "/alterar-senha", replace: true });
+    }
+  }, [access, pathname, navigate]);
+
+  if (access && access.status !== "active" && !access.is_privileged) {
+    return <AccessExpiredScreen />;
+  }
+  if (!accessLoading && access?.must_change_password && pathname !== "/alterar-senha") {
+    return null;
+  }
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -220,6 +240,12 @@ export function AppShell({
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
+        {access &&
+          access.status === "active" &&
+          !access.is_privileged &&
+          typeof access.days_remaining === "number" && (
+            <TrialBanner daysRemaining={access.days_remaining} />
+          )}
         <header
           className="sticky top-0 z-30 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/80 px-3 py-2.5 backdrop-blur-xl sm:gap-4 sm:px-6 sm:py-3"
           style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 0.625rem)" }}
