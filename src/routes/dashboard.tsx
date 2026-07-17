@@ -416,7 +416,6 @@ function DashboardPage() {
   if (g?.sem_proxima_acao)       actions.push({ severity: "high",   title: `${g.sem_proxima_acao} prospects sem próxima ação`, hint: "Precisam de agendamento de follow-up", cta: "Ver prospecção", route: "/prospeccao" });
   if (g?.clients_parados_15d)    actions.push({ severity: "medium", title: `${g.clients_parados_15d} clientes parados há 15+ dias`, hint: "Reativar relacionamento em Operações", cta: "Ver operações", route: "/operacoes" });
   if (g?.parados_30d)            actions.push({ severity: "medium", title: `${g.parados_30d} leads sem contato há 30+ dias`, hint: "Risco de esfriar a oportunidade", cta: "Ver lista", route: "/cadencia" });
-  if (g?.sem_responsavel)        actions.push({ severity: "info",   title: `${g.sem_responsavel} prospects sem responsável`, hint: "Atribuir owner para destravar fluxo", cta: "Atribuir", route: "/prospeccao" });
 
   return (
     <AppShell
