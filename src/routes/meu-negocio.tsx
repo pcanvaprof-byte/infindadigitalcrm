@@ -97,19 +97,23 @@ function MeuNegocioPage() {
   };
 
   return (
-    <AppShell>
-      <div className="mx-auto max-w-4xl space-y-6 p-4 md:p-6">
-        <div className="flex items-center gap-3">
-          <Button asChild variant="ghost" size="sm">
-            <Link to="/dashboard"><ArrowLeft className="mr-1 h-4 w-4" /> Voltar</Link>
-          </Button>
-          <h1 className="text-2xl font-semibold">Meu Negócio</h1>
+    <AppShell
+      title="Meu Negócio"
+      subtitle="Configure sua empresa para personalizar toda a prospecção com IA"
+      actions={
+        <div className="flex items-center gap-2">
           {isCompleted && (
-            <Badge className="ml-auto gap-1 bg-emerald-500/15 text-emerald-600">
+            <Badge className="gap-1 bg-emerald-500/15 text-emerald-600">
               <CheckCircle2 className="h-3 w-3" /> Configurado
             </Badge>
           )}
+          <Button asChild variant="ghost" size="sm">
+            <Link to="/dashboard"><ArrowLeft className="mr-1 h-4 w-4" /> Voltar</Link>
+          </Button>
         </div>
+      }
+    >
+      <div className="mx-auto max-w-4xl space-y-6">
 
         <Card className="space-y-5 p-6">
           <div>
