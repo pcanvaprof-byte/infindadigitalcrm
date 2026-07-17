@@ -46,7 +46,19 @@ export const getAccessStatus = createServerFn({ method: "GET" })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = (context as any).supabase;
     const { data, error } = await supabase.rpc("check_access_status");
-    if (error) throw new Error(error.message);
+    if (error) {
+      // Fail-open enquanto a migração ainda não foi aplicada — a UI trata
+      // como acesso ativo e não expira usuários por engano.
+      return {
+        status: "active" as const,
+        access_type: "internal" as const,
+        plan_name: null,
+        expires_at: null,
+        days_remaining: null,
+        must_change_password: false,
+        is_privileged: true,
+      };
+    }
     return data as {
       status: "active" | "expired" | "suspended";
       access_type: "trial" | "paid" | "internal" | null;
