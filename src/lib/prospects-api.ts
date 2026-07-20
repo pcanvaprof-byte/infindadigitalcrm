@@ -197,7 +197,7 @@ async function loadPrivateStatesFromTouchpoints(uid: string, ids: string[], page
   for (let i = 0; i < ids.length; i += ID_BATCH) {
     const slice = ids.slice(i, i + ID_BATCH);
     for (let from = 0; ; from += pageSize) {
-      const { data, error } = dbExt.from("prospect_touchpoints")
+      const { data, error } = await dbExt.from("prospect_touchpoints")
         .select("prospect_id,tipo,resultado,mensagem,enviado_em")
         .eq("user_id", uid)
         .in("prospect_id", slice)
