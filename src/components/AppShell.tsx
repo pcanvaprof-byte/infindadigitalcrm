@@ -25,6 +25,7 @@ import {
   PanelLeftOpen,
   Sparkles,
 } from "lucide-react";
+import { BookOpen } from "lucide-react";
 import { Briefcase } from "lucide-react";
 import { Logo } from "./Logo";
 import { useAuth, ROLE_LABEL } from "@/lib/auth-context";
@@ -65,6 +66,7 @@ const ADMIN_ROLES = ["owner", "admin"] as const;
 const NAV: readonly NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, enabled: true },
   { to: "/meu-negocio", label: "Meu Negócio", icon: Sparkles, enabled: true },
+  { to: "/documentacao", label: "Documentação", icon: BookOpen, enabled: true },
   { to: "/usuarios", label: "Usuários", icon: UserCog, enabled: true, roles: ADMIN_ROLES },
   { to: "/bi", label: "Business Intelligence", icon: Bot, enabled: FEATURES.businessIntelligence },
   { to: "/crm", label: "CRM Comercial", icon: Users, enabled: true },
