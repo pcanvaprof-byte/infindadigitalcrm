@@ -968,9 +968,13 @@ function ProspeccaoPage() {
     // esteja commitado caso o navegador móvel saia da aba para o app.
     console.log("[prosp] openWhats:setConfirm", { id: p.id, company: p.company });
     setWhatsConfirm({ id: p.id, company: p.company });
-    // NÃO registra touchpoint aqui: este botão apenas prepara a mensagem e
-    // abre o WhatsApp. O registro (que avança a cadência via trigger) só
-    // acontece quando o operador confirmar o contato no diálogo pós-envio.
+    // Registra o touchpoint IMEDIATAMENTE — no mobile o operador sai pro
+    // app do WhatsApp e raramente volta pra confirmar no diálogo, o que
+    // deixava o lead como "não disparado" mesmo depois do envio.
+    // O diálogo pós-envio segue existindo, mas só avança o STATUS para
+    // `primeiro_contato` (indicando resposta), não é mais o gatilho do
+    // registro do disparo em si.
+    void logAttempt(p, "whatsapp");
     // Honra a conta de WhatsApp escolhida (Normal/Business). No Android
     // forçamos o app correto via intent://; no iPhone/desktop o link abre
     // o app definido como padrão do sistema.
