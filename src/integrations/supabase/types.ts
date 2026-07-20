@@ -4456,6 +4456,20 @@ export type Database = {
           template_count: number
         }[]
       }
+      cad_list_resolved_templates: {
+        Args: {
+          p_organization_id: string
+          p_owner_id: string
+          p_pack_key: string
+        }
+        Returns: {
+          corpo: string
+          override_id: string
+          source: string
+          stage: Database["public"]["Enums"]["cad_stage"]
+          titulo: string
+        }[]
+      }
       cad_mark_all_notifications_handled: { Args: never; Returns: number }
       cad_mark_notification_handled: {
         Args: { p_id: string }
