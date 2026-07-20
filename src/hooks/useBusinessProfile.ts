@@ -58,8 +58,15 @@ export function useConfirmBusiness() {
 }
 
 export function useRegenerateOrgCadTemplates() {
+  const qc = useQueryClient();
   const fn = useServerFn(regenerateOrgCadTemplates);
   return useMutation({
     mutationFn: () => fn(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["my-templates"] });
+      qc.invalidateQueries({ queryKey: ["cad-resolved-templates"] });
+      qc.invalidateQueries({ queryKey: ["cad-resolved-template"] });
+      qc.invalidateQueries({ queryKey: ["cad-templates"] });
+    },
   });
 }
