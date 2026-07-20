@@ -600,6 +600,10 @@ const SECTIONS: Section[] = [
 ];
 
 function DocsPage() {
+  const { role } = useOrgRole();
+  const sections = isOwnerOrAdmin(role)
+    ? SECTIONS
+    : SECTIONS.filter((s) => s.role !== "Owner/Admin");
   return (
     <AppShell
       title="Documentação"
@@ -613,7 +617,7 @@ function DocsPage() {
               Sumário
             </div>
             <nav className="flex flex-col gap-1">
-              {SECTIONS.map((s) => (
+              {sections.map((s) => (
                 <a
                   key={s.id}
                   href={`#${s.id}`}
@@ -642,7 +646,7 @@ function DocsPage() {
             </div>
           </Card>
 
-          {SECTIONS.map((s) => {
+          {sections.map((s) => {
             const Icon = s.icon;
             return (
               <Card key={s.id} id={s.id} className="scroll-mt-24 p-6">
