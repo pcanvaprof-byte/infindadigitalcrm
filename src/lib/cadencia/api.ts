@@ -107,10 +107,15 @@ function chunk<T>(items: T[], size: number): T[][] {
 }
 
 async function getCadContext(): Promise<CadContext> {
+  const safeRpc = <T = unknown>(fn: string) =>
+    Promise.resolve(db.rpc(fn)).then(
+      (r) => r as { data: T | null; error: unknown },
+      () => ({ data: null as T | null, error: null }),
+    );
   const [{ data: userRes }, roleRes, orgRes] = await Promise.all([
     supabase.auth.getUser(),
-    db.rpc("current_org_role").catch(() => ({ data: null, error: null })),
-    db.rpc("current_org_id").catch(() => ({ data: null, error: null })),
+    safeRpc<string>("current_org_role"),
+    safeRpc<string>("current_org_id"),
   ]);
   return {
     uid: userRes.user?.id ?? null,
