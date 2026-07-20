@@ -350,33 +350,13 @@ export async function markProspectContactedFromLead(leadId: string): Promise<boo
   } | null;
   const prospectId = row?.prospect_id;
   const ownerId = row?.owner_id;
-  const orgId = row?.organization_id;
   if (!prospectId || !ownerId) return false;
 
   // Só olha o estado privado do dono; NUNCA mexe em prospects.
-  const { data: sRow, error: sErr } = await db
-    .from("user_lead_state")
-    .select("status")
-    .eq("prospect_id", prospectId)
-    .eq("user_id", ownerId)
-    .maybeSingle();
-  if (sErr) throw new Error(sErr.message);
-  const status = (sRow as { status: string | null } | null)?.status ?? null;
+  const status = await getPrivateProspectStatus(prospectId, ownerId);
   if (status && status !== "nao_contatado") return false;
 
-  const { error: updErr } = await db
-    .from("user_lead_state")
-    .upsert(
-      {
-        prospect_id: prospectId,
-        user_id: ownerId,
-        organization_id: orgId,
-        status: "primeiro_contato",
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "prospect_id,user_id" },
-    );
-  if (updErr) throw new Error(updErr.message);
+  await savePrivateProspectStatus(prospectId, ownerId, "primeiro_contato");
   return true;
 }
 
@@ -802,25 +782,25 @@ export async function importFromProspects(): Promise<{ imported: number; updated
   const lastContactByProspect = new Map<string, string>();
 
   for (const batch of chunk(prospectIds, 200)) {
-    const { data: stateRows, error: stateError } = await db
-      .from("user_lead_state")
-      .select("prospect_id,status")
-      .eq("user_id", ctx.uid)
-      .in("prospect_id", batch);
-    if (stateError) throw new Error(stateError.message);
-    for (const row of (stateRows ?? []) as Array<{ prospect_id: string; status: string | null }>) {
-      if (row.status) privateStatusByProspect.set(row.prospect_id, row.status);
-    }
-
     const { data: touchRows, error: touchError } = await db
       .from("prospect_touchpoints")
-      .select("prospect_id,enviado_em")
+      .select("prospect_id,tipo,resultado,mensagem,enviado_em")
       .eq("user_id", ctx.uid)
       .in("prospect_id", batch)
-      .in("tipo", ["whatsapp", "ligacao", "email"]);
+      .in("tipo", ["whatsapp", "ligacao", "email", "reuniao", "resposta", "status"]);
     if (touchError) throw new Error(touchError.message);
-    for (const row of (touchRows ?? []) as Array<{ prospect_id: string; enviado_em?: string | null }>) {
-      ownContactedProspects.add(row.prospect_id);
+    for (const row of (touchRows ?? []) as Array<{ prospect_id: string; tipo?: string | null; resultado?: string | null; mensagem?: string | null; enviado_em?: string | null }>) {
+      if (row.tipo === "status") {
+        const status = normalizeProspectStatus(row.resultado) ?? normalizeProspectStatus(row.mensagem);
+        if (status && !privateStatusByProspect.has(row.prospect_id)) privateStatusByProspect.set(row.prospect_id, status);
+      } else {
+        ownContactedProspects.add(row.prospect_id);
+        if (row.tipo === "resposta" || row.resultado === "respondido" || row.resultado === "interessado") {
+          privateStatusByProspect.set(row.prospect_id, "qualificado");
+        } else if (!privateStatusByProspect.has(row.prospect_id)) {
+          privateStatusByProspect.set(row.prospect_id, "primeiro_contato");
+        }
+      }
       if (row.enviado_em) {
         const prev = lastContactByProspect.get(row.prospect_id);
         if (!prev || new Date(row.enviado_em).getTime() > new Date(prev).getTime()) {
