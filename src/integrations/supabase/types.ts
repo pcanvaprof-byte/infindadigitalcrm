@@ -385,6 +385,95 @@ export type Database = {
           },
         ]
       }
+      business_profiles: {
+        Row: {
+          ai_model: string | null
+          analyzed_at: string | null
+          approach: string | null
+          audience: string | null
+          benefits: string[]
+          created_at: string
+          created_by: string | null
+          description: string | null
+          differentials: string | null
+          focus: string | null
+          id: string
+          ideal_customer: string | null
+          initial_message: string | null
+          language: string | null
+          niche: string | null
+          onboarding_status: string
+          org_id: string
+          pains: string[]
+          product: string | null
+          region: string | null
+          tone: string | null
+          triggers: string[]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          ai_model?: string | null
+          analyzed_at?: string | null
+          approach?: string | null
+          audience?: string | null
+          benefits?: string[]
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          differentials?: string | null
+          focus?: string | null
+          id?: string
+          ideal_customer?: string | null
+          initial_message?: string | null
+          language?: string | null
+          niche?: string | null
+          onboarding_status?: string
+          org_id: string
+          pains?: string[]
+          product?: string | null
+          region?: string | null
+          tone?: string | null
+          triggers?: string[]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          ai_model?: string | null
+          analyzed_at?: string | null
+          approach?: string | null
+          audience?: string | null
+          benefits?: string[]
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          differentials?: string | null
+          focus?: string | null
+          id?: string
+          ideal_customer?: string | null
+          initial_message?: string | null
+          language?: string | null
+          niche?: string | null
+          onboarding_status?: string
+          org_id?: string
+          pains?: string[]
+          product?: string | null
+          region?: string | null
+          tone?: string | null
+          triggers?: string[]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_profiles_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cad_leads: {
         Row: {
           cargo: string | null
