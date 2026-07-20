@@ -359,19 +359,37 @@ export const regenerateOrgCadTemplates = createServerFn({ method: "POST" })
     );
     if (items.length === 0) throw new Error("A IA não retornou mensagens válidas. Tente novamente.");
 
-    // Upsert por (organization_id, stage). Preserva cad_messages já renderizadas.
+    // Atualiza (ou cria) o template PADRÃO da organização (owner_id IS NULL)
+    // por stage. Overrides individuais de members (owner_id = auth.uid()) NÃO
+    // são tocados — se o usuário quiser adotar o novo padrão, basta clicar
+    // em "Restaurar padrão" em /meus-templates.
+    // Também preserva cad_messages já renderizadas em cadências em andamento.
     let updated = 0;
     for (const it of items) {
       const stage = it.stage as Stage;
       const titulo = (it.titulo ?? `Mensagem — ${stage}`).slice(0, 200);
       const corpo = String(it.corpo).slice(0, 4000);
-      const { error } = await supabase
+
+      const { data: existing } = await supabase
         .from("cad_templates")
-        .upsert(
-          { organization_id: orgId, stage, titulo, corpo, updated_at: new Date().toISOString() },
-          { onConflict: "organization_id,stage" },
-        );
-      if (!error) updated += 1;
+        .select("id")
+        .eq("organization_id", orgId)
+        .is("owner_id", null)
+        .eq("stage", stage)
+        .maybeSingle();
+
+      if (existing?.id) {
+        const { error } = await supabase
+          .from("cad_templates")
+          .update({ titulo, corpo, updated_at: new Date().toISOString() })
+          .eq("id", existing.id);
+        if (!error) updated += 1;
+      } else {
+        const { error } = await supabase
+          .from("cad_templates")
+          .insert({ organization_id: orgId, owner_id: null, stage, titulo, corpo });
+        if (!error) updated += 1;
+      }
     }
 
     return { updated, total_stages: STAGES.length };
