@@ -4383,6 +4383,7 @@ export type Database = {
         Args: { p_kind: string; p_lead: string; p_text: string; p_user: string }
         Returns: undefined
       }
+      _is_org_admin: { Args: never; Returns: boolean }
       acoes_hoje: {
         Args: { _limit?: number }
         Returns: {

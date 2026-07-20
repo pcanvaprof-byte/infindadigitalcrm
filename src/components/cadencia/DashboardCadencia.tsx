@@ -9,11 +9,23 @@ import { supabase } from "@/integrations/supabase/client";
 // Conta direto na tabela (head:true não baixa rows) — usado para detectar
 // divergência entre o que o cliente carrega (paginado) e o total real.
 async function fetchCadLeadsAudit() {
-  const db = supabase as unknown as { from: (t: string) => any };
+  const db = supabase as unknown as { from: (t: string) => any; rpc: (n: string) => Promise<{ data: unknown; error: { message: string } | null }> };
+  const [{ data: userRes }, roleRes] = await Promise.all([
+    supabase.auth.getUser(),
+    db.rpc("current_org_role").catch(() => ({ data: null, error: null })),
+  ]);
+  const uid = userRes.user?.id ?? null;
+  const role = typeof roleRes.data === "string" ? roleRes.data : null;
+  const ownOnly = role !== "owner" && role !== "admin";
+  const scoped = () => {
+    let q = db.from("cad_leads").select("id", { count: "exact", head: true });
+    if (ownOnly && uid) q = q.eq("owner_id", uid);
+    return q;
+  };
   const [{ count: total, error: e1 }, withMsg, withoutMsg] = await Promise.all([
-    db.from("cad_leads").select("id", { count: "exact", head: true }),
-    db.from("cad_leads").select("id", { count: "exact", head: true }).not("last_contact_at", "is", null),
-    db.from("cad_leads").select("id", { count: "exact", head: true }).is("last_contact_at", null),
+    scoped(),
+    scoped().not("last_contact_at", "is", null),
+    scoped().is("last_contact_at", null),
   ]);
   if (e1) throw new Error(e1.message);
   return {
