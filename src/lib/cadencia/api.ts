@@ -477,18 +477,34 @@ export async function upsertMyTemplate(input: {
   corpo: string;
 }): Promise<void> {
   const { orgId, ownerId, packKey } = await getMyContext();
-  const { error } = await db.from("cad_templates").upsert(
-    {
-      organization_id: orgId,
-      owner_id: ownerId,
-      pack_key: packKey,
-      is_system: false,
-      stage: input.stage,
-      titulo: input.titulo,
-      corpo: input.corpo,
-    },
-    { onConflict: "organization_id,owner_id,pack_key,stage" },
-  );
+  const { data: existing, error: findError } = await db
+    .from("cad_templates")
+    .select("id")
+    .eq("organization_id", orgId)
+    .eq("owner_id", ownerId)
+    .eq("pack_key", packKey)
+    .eq("stage", input.stage)
+    .maybeSingle();
+  if (findError) throw new Error(findError.message);
+
+  if ((existing as { id?: string } | null)?.id) {
+    const { error } = await db
+      .from("cad_templates")
+      .update({ titulo: input.titulo, corpo: input.corpo, is_system: false })
+      .eq("id", (existing as { id: string }).id);
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  const { error } = await db.from("cad_templates").insert({
+    organization_id: orgId,
+    owner_id: ownerId,
+    pack_key: packKey,
+    is_system: false,
+    stage: input.stage,
+    titulo: input.titulo,
+    corpo: input.corpo,
+  });
   if (error) throw new Error(error.message);
 }
 
