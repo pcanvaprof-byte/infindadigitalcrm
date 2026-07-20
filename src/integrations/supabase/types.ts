@@ -2793,6 +2793,7 @@ export type Database = {
           deliveries: Json
           mensalidade: number
           name: string
+          organization_id: string | null
           updated_at: string
         }
         Insert: {
@@ -2802,6 +2803,7 @@ export type Database = {
           deliveries?: Json
           mensalidade?: number
           name: string
+          organization_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2811,9 +2813,18 @@ export type Database = {
           deliveries?: Json
           mensalidade?: number
           name?: string
+          organization_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "plan_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       proposal_adjustments: {
         Row: {
