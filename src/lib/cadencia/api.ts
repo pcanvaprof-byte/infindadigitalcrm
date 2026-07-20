@@ -9,9 +9,16 @@ const db = supabase as unknown as {
 
 type ProspectStatusRow = { id: string; status: string | null };
 type CadLeadStageRow = Pick<CadLead, "id" | "prospect_id" | "stage">;
-type CadContext = { uid: string | null; role: string | null };
+type CadContext = { uid: string | null; role: string | null; orgId: string | null };
 type CadMessageMetricRow = { lead_id: string; direction: string; created_at: string };
-type ImportProspectRow = ProspectStatusRow & { whatsapp?: string | null; phone?: string | null };
+type ImportProspectRow = ProspectStatusRow & {
+  organization_id?: string | null;
+  company?: string | null;
+  owner_name?: string | null;
+  whatsapp?: string | null;
+  phone?: string | null;
+  created_at?: string | null;
+};
 
 const PROSPECT_STATUS_TO_CAD_STAGE: Record<string, CadStage> = {
   primeiro_contato: "followup_2",
@@ -119,13 +126,15 @@ function chunk<T>(items: T[], size: number): T[][] {
 }
 
 async function getCadContext(): Promise<CadContext> {
-  const [{ data: userRes }, roleRes] = await Promise.all([
+  const [{ data: userRes }, roleRes, orgRes] = await Promise.all([
     supabase.auth.getUser(),
     db.rpc("current_org_role").catch(() => ({ data: null, error: null })),
+    db.rpc("current_org_id").catch(() => ({ data: null, error: null })),
   ]);
   return {
     uid: userRes.user?.id ?? null,
     role: typeof roleRes.data === "string" ? roleRes.data : null,
+    orgId: typeof orgRes.data === "string" ? orgRes.data : null,
   };
 }
 
