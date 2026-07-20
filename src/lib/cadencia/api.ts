@@ -66,7 +66,7 @@ function prospectStatusToCadStage(status: string | null | undefined): CadStage {
  * Propaga uma mudança de stage da cadência para o status do prospect (CRM),
  * mantendo Prospecção, CRM e Cadência sempre coerentes.
  * Arquitetura híbrida: NUNCA grava em `prospects` (compartilhado).
- * A projeção do stage vira `status` privado no `user_lead_state` do
+ * A projeção do stage vira `status` privado no histórico de touchpoints do
  * dono da cadência (`cad_leads.owner_id`).
  */
 async function propagateStageToProspect(leadId: string, stage: CadStage): Promise<void> {
@@ -83,18 +83,10 @@ async function propagateStageToProspect(leadId: string, stage: CadStage): Promis
   } | null;
   const prospectId = row?.prospect_id;
   const ownerId = row?.owner_id;
-  const orgId = row?.organization_id;
   if (!prospectId || !ownerId) return;
 
   // Lê o estado privado ATUAL do dono da cadência (não o compartilhado).
-  const { data: sRow, error: sErr } = await db
-    .from("user_lead_state")
-    .select("status")
-    .eq("prospect_id", prospectId)
-    .eq("user_id", ownerId)
-    .maybeSingle();
-  if (sErr) return;
-  const current = (sRow as { status: string | null } | null)?.status ?? null;
+  const current = await getPrivateProspectStatus(prospectId, ownerId);
 
   if (current && prospectStatusToCadStage(current) === stage) return;
 
@@ -105,18 +97,7 @@ async function propagateStageToProspect(leadId: string, stage: CadStage): Promis
   const targetStatus = CAD_STAGE_TO_PROSPECT_STATUS[stage];
   if (!targetStatus) return;
 
-  await db
-    .from("user_lead_state")
-    .upsert(
-      {
-        prospect_id: prospectId,
-        user_id: ownerId,
-        organization_id: orgId,
-        status: targetStatus,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "prospect_id,user_id" },
-    );
+  await savePrivateProspectStatus(prospectId, ownerId, targetStatus);
 }
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -140,6 +121,48 @@ async function getCadContext(): Promise<CadContext> {
 
 function isMemberContext(ctx: CadContext): boolean {
   return ctx.role !== "owner" && ctx.role !== "admin";
+}
+
+function normalizeProspectStatus(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const status = value.trim().replace(/^status\s*:\s*/i, "");
+  return Object.prototype.hasOwnProperty.call(PROSPECT_STATUS_TO_CAD_STAGE, status) || status === "nao_contatado"
+    ? status
+    : null;
+}
+
+async function getPrivateProspectStatus(prospectId: string, userId: string): Promise<string | null> {
+  const { data, error } = await db
+    .from("prospect_touchpoints")
+    .select("tipo,resultado,mensagem,enviado_em")
+    .eq("prospect_id", prospectId)
+    .eq("user_id", userId)
+    .in("tipo", ["status", "whatsapp", "ligacao", "email", "reuniao", "resposta"])
+    .order("enviado_em", { ascending: false })
+    .limit(50);
+  if (error) return null;
+  for (const row of (data ?? []) as Array<{ tipo: string | null; resultado: string | null; mensagem: string | null }>) {
+    if (row.tipo === "status") {
+      const status = normalizeProspectStatus(row.resultado) ?? normalizeProspectStatus(row.mensagem);
+      if (status) return status;
+    }
+    if (row.tipo === "resposta" || row.resultado === "respondido" || row.resultado === "interessado") return "qualificado";
+    if (["whatsapp", "ligacao", "email", "reuniao"].includes(row.tipo ?? "")) return "primeiro_contato";
+  }
+  return null;
+}
+
+async function savePrivateProspectStatus(prospectId: string, userId: string, status: string): Promise<void> {
+  const { error } = await db.from("prospect_touchpoints").insert({
+    prospect_id: prospectId,
+    user_id: userId,
+    tipo: "status",
+    resultado: status,
+    mensagem: `status:${status}`,
+    by_name: "Sistema",
+    enviado_em: new Date().toISOString(),
+  });
+  if (error) throw new Error(error.message);
 }
 
 export async function listLeads(): Promise<CadLead[]> {
