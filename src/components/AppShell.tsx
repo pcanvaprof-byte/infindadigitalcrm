@@ -24,6 +24,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Sparkles,
+  MessageSquareText,
 } from "lucide-react";
 import { BookOpen } from "lucide-react";
 import { Briefcase } from "lucide-react";
@@ -72,6 +73,7 @@ const NAV: readonly NavItem[] = [
   { to: "/crm", label: "CRM Comercial", icon: Users, enabled: true },
   { to: "/prospeccao", label: "Prospecção", icon: Search, enabled: true },
   { to: "/cadencia", label: "Cadência", icon: Repeat2, enabled: true },
+  { to: "/meus-templates", label: "Meus Templates", icon: MessageSquareText, enabled: true },
   { to: "/operacoes", label: "Operações", icon: Briefcase, enabled: true, roles: ADMIN_ROLES },
   { to: "/briefings", label: "Briefings Comerciais", icon: FileText, enabled: true, roles: ADMIN_ROLES },
   { to: "/catalogo", label: "Catálogo Comercial", icon: Package, enabled: true, roles: ADMIN_ROLES },
