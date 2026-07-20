@@ -149,15 +149,49 @@ function normalizeAi(raw: unknown): BusinessAiResult {
 
 async function callGroq(prompt: string, system: string): Promise<string> {
   const groqKey = process.env.GROQ_API_KEY;
-  if (!groqKey) throw new Error("GROQ_API_KEY ausente");
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+  if (groqKey) {
+    try {
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${groqKey}`,
+        },
+        body: JSON.stringify({
+          model: AI_MODEL,
+          temperature: 0.4,
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: prompt },
+          ],
+        }),
+      });
+      if (res.ok) {
+        const json = (await res.json()) as {
+          choices?: Array<{ message?: { content?: string } }>;
+        };
+        return json.choices?.[0]?.message?.content?.trim() ?? "";
+      }
+      // 4xx/5xx → cai para o fallback
+      console.warn(`[business] Groq ${res.status}, tentando fallback Lovable AI`);
+    } catch (err) {
+      console.warn("[business] Groq falhou, tentando fallback Lovable AI:", err);
+    }
+  }
+  // Fallback: Lovable AI Gateway (sempre disponível via LOVABLE_API_KEY)
+  const lovableKey = process.env.LOVABLE_API_KEY;
+  if (!lovableKey) {
+    throw new Error("Nenhuma chave de IA disponível (GROQ_API_KEY e LOVABLE_API_KEY ausentes)");
+  }
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${groqKey}`,
+      "Lovable-API-Key": lovableKey,
     },
     body: JSON.stringify({
-      model: AI_MODEL,
+      model: "google/gemini-2.5-flash",
       temperature: 0.4,
       response_format: { type: "json_object" },
       messages: [
@@ -168,7 +202,7 @@ async function callGroq(prompt: string, system: string): Promise<string> {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Groq ${res.status}: ${text.slice(0, 300)}`);
+    throw new Error(`IA indisponível (${res.status}): ${text.slice(0, 200)}`);
   }
   const json = (await res.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
