@@ -19,6 +19,7 @@ import { Route as MetasObjetivosRouteImport } from './routes/metas-objetivos'
 import { Route as MetasRouteImport } from './routes/metas'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as KickoffRouteImport } from './routes/kickoff'
+import { Route as DocumentacaoRouteImport } from './routes/documentacao'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CrmRouteImport } from './routes/crm'
 import { Route as ContratosRouteImport } from './routes/contratos'
@@ -111,6 +112,11 @@ const LoginRoute = LoginRouteImport.update({
 const KickoffRoute = KickoffRouteImport.update({
   id: '/kickoff',
   path: '/kickoff',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentacaoRoute = DocumentacaoRouteImport.update({
+  id: '/documentacao',
+  path: '/documentacao',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -348,6 +354,7 @@ export interface FileRoutesByFullPath {
   '/contratos': typeof ContratosRouteWithChildren
   '/crm': typeof CrmRoute
   '/dashboard': typeof DashboardRoute
+  '/documentacao': typeof DocumentacaoRoute
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
@@ -402,6 +409,7 @@ export interface FileRoutesByTo {
   '/contratos': typeof ContratosRouteWithChildren
   '/crm': typeof CrmRoute
   '/dashboard': typeof DashboardRoute
+  '/documentacao': typeof DocumentacaoRoute
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
@@ -455,6 +463,7 @@ export interface FileRoutesById {
   '/contratos': typeof ContratosRouteWithChildren
   '/crm': typeof CrmRoute
   '/dashboard': typeof DashboardRoute
+  '/documentacao': typeof DocumentacaoRoute
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
   '/metas': typeof MetasRoute
@@ -511,6 +520,7 @@ export interface FileRouteTypes {
     | '/contratos'
     | '/crm'
     | '/dashboard'
+    | '/documentacao'
     | '/kickoff'
     | '/login'
     | '/metas'
@@ -565,6 +575,7 @@ export interface FileRouteTypes {
     | '/contratos'
     | '/crm'
     | '/dashboard'
+    | '/documentacao'
     | '/kickoff'
     | '/login'
     | '/metas'
@@ -617,6 +628,7 @@ export interface FileRouteTypes {
     | '/contratos'
     | '/crm'
     | '/dashboard'
+    | '/documentacao'
     | '/kickoff'
     | '/login'
     | '/metas'
@@ -672,6 +684,7 @@ export interface RootRouteChildren {
   ContratosRoute: typeof ContratosRouteWithChildren
   CrmRoute: typeof CrmRoute
   DashboardRoute: typeof DashboardRoute
+  DocumentacaoRoute: typeof DocumentacaoRoute
   KickoffRoute: typeof KickoffRoute
   LoginRoute: typeof LoginRoute
   MetasRoute: typeof MetasRoute
@@ -764,6 +777,13 @@ declare module '@tanstack/react-router' {
       path: '/kickoff'
       fullPath: '/kickoff'
       preLoaderRoute: typeof KickoffRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documentacao': {
+      id: '/documentacao'
+      path: '/documentacao'
+      fullPath: '/documentacao'
+      preLoaderRoute: typeof DocumentacaoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -1201,6 +1221,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContratosRoute: ContratosRouteWithChildren,
   CrmRoute: CrmRoute,
   DashboardRoute: DashboardRoute,
+  DocumentacaoRoute: DocumentacaoRoute,
   KickoffRoute: KickoffRoute,
   LoginRoute: LoginRoute,
   MetasRoute: MetasRoute,
