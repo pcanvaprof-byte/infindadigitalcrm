@@ -9,9 +9,16 @@ const db = supabase as unknown as {
 
 type ProspectStatusRow = { id: string; status: string | null };
 type CadLeadStageRow = Pick<CadLead, "id" | "prospect_id" | "stage">;
-type CadContext = { uid: string | null; role: string | null };
+type CadContext = { uid: string | null; role: string | null; orgId: string | null };
 type CadMessageMetricRow = { lead_id: string; direction: string; created_at: string };
-type ImportProspectRow = ProspectStatusRow & { whatsapp?: string | null; phone?: string | null };
+type ImportProspectRow = ProspectStatusRow & {
+  organization_id?: string | null;
+  company?: string | null;
+  owner_name?: string | null;
+  whatsapp?: string | null;
+  phone?: string | null;
+  created_at?: string | null;
+};
 
 const PROSPECT_STATUS_TO_CAD_STAGE: Record<string, CadStage> = {
   primeiro_contato: "followup_2",
@@ -119,13 +126,15 @@ function chunk<T>(items: T[], size: number): T[][] {
 }
 
 async function getCadContext(): Promise<CadContext> {
-  const [{ data: userRes }, roleRes] = await Promise.all([
+  const [{ data: userRes }, roleRes, orgRes] = await Promise.all([
     supabase.auth.getUser(),
     db.rpc("current_org_role").catch(() => ({ data: null, error: null })),
+    db.rpc("current_org_id").catch(() => ({ data: null, error: null })),
   ]);
   return {
     uid: userRes.user?.id ?? null,
     role: typeof roleRes.data === "string" ? roleRes.data : null,
+    orgId: typeof orgRes.data === "string" ? orgRes.data : null,
   };
 }
 
@@ -748,13 +757,14 @@ export async function syncLeadStagesFromProspects(): Promise<number> {
 export async function importFromProspects(): Promise<{ imported: number; updated: number; skipped: number; cleaned: number }> {
   const ctx = await getCadContext();
   if (!ctx.uid) throw new Error("Sessão expirada — entre novamente.");
+  if (!ctx.orgId) throw new Error("Organização ativa não encontrada — recarregue e tente novamente.");
   const memberScoped = isMemberContext(ctx);
   const pageSize = 1000;
   const prospectRows: ImportProspectRow[] = [];
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await db
       .from("prospects")
-      .select("id,status,whatsapp,phone")
+      .select("id,organization_id,status,company,owner_name,whatsapp,phone,created_at")
       .order("created_at", { ascending: false })
       .range(from, from + pageSize - 1);
     if (error) throw new Error(error.message);
@@ -766,6 +776,7 @@ export async function importFromProspects(): Promise<{ imported: number; updated
   const prospectIds = prospectRows.map((r) => r.id);
   const privateStatusByProspect = new Map<string, string>();
   const ownContactedProspects = new Set<string>();
+  const lastContactByProspect = new Map<string, string>();
 
   for (const batch of chunk(prospectIds, 200)) {
     const { data: stateRows, error: stateError } = await db
@@ -780,24 +791,36 @@ export async function importFromProspects(): Promise<{ imported: number; updated
 
     const { data: touchRows, error: touchError } = await db
       .from("prospect_touchpoints")
-      .select("prospect_id")
+      .select("prospect_id,enviado_em")
       .eq("user_id", ctx.uid)
       .in("prospect_id", batch)
       .in("tipo", ["whatsapp", "ligacao", "email"]);
     if (touchError) throw new Error(touchError.message);
-    for (const row of (touchRows ?? []) as Array<{ prospect_id: string }>) {
+    for (const row of (touchRows ?? []) as Array<{ prospect_id: string; enviado_em?: string | null }>) {
       ownContactedProspects.add(row.prospect_id);
+      if (row.enviado_em) {
+        const prev = lastContactByProspect.get(row.prospect_id);
+        if (!prev || new Date(row.enviado_em).getTime() > new Date(prev).getTime()) {
+          lastContactByProspect.set(row.prospect_id, row.enviado_em);
+        }
+      }
     }
 
     const { data: interactionRows, error: interactionError } = await db
       .from("prospect_interactions")
-      .select("prospect_id")
+      .select("prospect_id,created_at")
       .eq("user_id", ctx.uid)
       .in("prospect_id", batch)
       .in("kind", ["whatsapp", "ligacao", "email"]);
     if (interactionError) throw new Error(interactionError.message);
-    for (const row of (interactionRows ?? []) as Array<{ prospect_id: string }>) {
+    for (const row of (interactionRows ?? []) as Array<{ prospect_id: string; created_at?: string | null }>) {
       ownContactedProspects.add(row.prospect_id);
+      if (row.created_at) {
+        const prev = lastContactByProspect.get(row.prospect_id);
+        if (!prev || new Date(row.created_at).getTime() > new Date(prev).getTime()) {
+          lastContactByProspect.set(row.prospect_id, row.created_at);
+        }
+      }
     }
   }
 
@@ -817,9 +840,10 @@ export async function importFromProspects(): Promise<{ imported: number; updated
     if (digits.length >= 8) digitsMap.set(row.id, digits);
   }
 
-  // Dedupe: remove prospects cujo WhatsApp já existe em cad_leads (mesma org),
-  // evitando estourar a unique constraint `ux_cad_leads_org_whatsapp_norm`
-  // dentro da RPC `cad_import_from_prospects`.
+  // Dedupe por usuário: Member deve poder importar para a SUA cadência privada
+  // mesmo que outro usuário já tenha o mesmo prospect/telefone na organização.
+  // Antes este filtro lia todos os cad_leads visíveis e podia remover conversas
+  // válidas do Member antes da RPC rodar.
   let skippedDup = 0;
   if (digitsMap.size > 0) {
     const existingDigits = new Set<string>();
@@ -828,6 +852,8 @@ export async function importFromProspects(): Promise<{ imported: number; updated
       const { data, error } = await db
         .from("cad_leads")
         .select("whatsapp,telefone")
+        .eq("owner_id", ctx.uid)
+        .neq("stage", "perdido")
         .range(from, from + pageSz - 1);
       if (error) break;
       const rows = (data ?? []) as { whatsapp: string | null; telefone: string | null }[];
@@ -850,18 +876,128 @@ export async function importFromProspects(): Promise<{ imported: number; updated
   }
 
   let imported = 0;
+  const fallbackIds: string[] = [];
   for (const batch of chunk(eligibleIds, 500)) {
     const { data, error } = await db.rpc("cad_import_from_prospects", { p_ids: batch });
     if (error) {
       const msg = String(error.message || "");
-      // Ignora duplicatas residuais (corrida entre clientes); reporta o resto.
-      if (!/duplicate key|unique constraint|ux_cad_leads_/i.test(msg)) {
+      // Duplicata em lote não pode descartar todos os outros leads válidos.
+      // Repassa o lote para o fallback granular abaixo, que tenta item a item.
+      if (!/duplicate key|unique constraint|ux_cad_leads_|cad_leads_.*uniq/i.test(msg)) {
         throw new Error(msg);
       }
-      skippedDup += batch.length;
+      fallbackIds.push(...batch);
       continue;
     }
-    imported += (data as number) ?? 0;
+    const importedBatch = (data as number) ?? 0;
+    imported += importedBatch;
+    // Mesmo quando a RPC importa parte do lote, versões antigas no banco podem
+    // deixar alguns prospects contatados de fora. Conferimos quais já viraram
+    // card do usuário atual e mandamos os faltantes para o fallback granular.
+    const { data: ownRows, error: ownError } = await db
+      .from("cad_leads")
+      .select("prospect_id")
+      .eq("owner_id", ctx.uid)
+      .in("prospect_id", batch);
+    if (ownError) throw new Error(ownError.message);
+    const ownSet = new Set(
+      ((ownRows ?? []) as Array<{ prospect_id: string | null }>)
+        .map((row) => row.prospect_id)
+        .filter((id): id is string => Boolean(id)),
+    );
+    fallbackIds.push(...batch.filter((id) => !ownSet.has(id)));
+  }
+
+  if (fallbackIds.length > 0) {
+    const uniqueFallbackIds = Array.from(new Set(fallbackIds));
+    const byId = new Map(prospectRows.map((row) => [row.id, row]));
+    const existingProspects = new Set<string>();
+    for (const batch of chunk(uniqueFallbackIds, 200)) {
+      const { data, error } = await db
+        .from("cad_leads")
+        .select("prospect_id")
+        .eq("owner_id", ctx.uid)
+        .in("prospect_id", batch);
+      if (error) throw new Error(error.message);
+      for (const row of (data ?? []) as Array<{ prospect_id: string | null }>) {
+        if (row.prospect_id) existingProspects.add(row.prospect_id);
+      }
+    }
+
+    const fallbackPayload: Array<Partial<CadLead> & { empresa: string }> = [];
+    for (const id of uniqueFallbackIds) {
+      if (existingProspects.has(id)) continue;
+      const privateStatus = privateStatusByProspect.get(id) ?? null;
+      const hasPrivateContactSignal = Boolean(privateStatus && privateStatus !== "nao_contatado");
+      if (!ownContactedProspects.has(id) && !hasPrivateContactSignal && memberScoped) continue;
+      const p = byId.get(id);
+      if (!p) continue;
+      const firstContact = new Date(lastContactByProspect.get(id) ?? p.created_at ?? Date.now());
+      fallbackPayload.push({
+        organization_id: ctx.orgId,
+        owner_id: ctx.uid,
+        prospect_id: p.id,
+        empresa: p.company?.trim() || "Sem nome",
+        responsavel: p.owner_name ?? null,
+        telefone: p.phone ?? null,
+        whatsapp: p.whatsapp ?? null,
+        primeira_abordagem_at: firstContact.toISOString(),
+        stage: "followup_1",
+        next_action_at: new Date(firstContact.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+      });
+    }
+
+    for (const batch of chunk(fallbackPayload, 200)) {
+      if (batch.length === 0) continue;
+      const { data, error } = await db
+        .from("cad_leads")
+        .insert(batch)
+        .select("id");
+      if (error) {
+        const msg = String(error.message || "");
+        if (!/duplicate key|unique constraint|ux_cad_leads_|cad_leads_.*uniq/i.test(msg)) {
+          throw new Error(msg);
+        }
+        // Se o lote bateu em UMA duplicidade antiga/global, salva o restante
+        // individualmente para não perder as 4 conversas iniciadas do usuário.
+        for (const item of batch) {
+          const { data: oneData, error: oneError } = await db
+            .from("cad_leads")
+            .insert(item)
+            .select("id")
+            .maybeSingle();
+          if (oneError) {
+            const oneMsg = String(oneError.message || "");
+            if (!/duplicate key|unique constraint|ux_cad_leads_|cad_leads_.*uniq/i.test(oneMsg)) {
+              throw new Error(oneMsg);
+            }
+            // Banco externo antigo pode ainda ter unique global por prospect_id.
+            // Nesse caso, cria o card privado sem vínculo direto para não bloquear
+            // a cadência do Member que iniciou a conversa.
+            const { data: detachedData, error: detachedError } = await db
+              .from("cad_leads")
+              .insert({ ...item, prospect_id: null })
+              .select("id")
+              .maybeSingle();
+            if (!detachedError && detachedData) {
+              imported += 1;
+              continue;
+            }
+            if (detachedError) {
+              const detachedMsg = String(detachedError.message || "");
+              if (!/duplicate key|unique constraint|ux_cad_leads_|cad_leads_.*uniq/i.test(detachedMsg)) {
+                throw new Error(detachedMsg);
+              }
+            }
+            skippedDup += 1;
+            continue;
+          }
+          if (oneData) imported += 1;
+        }
+        continue;
+      }
+      imported += ((data ?? []) as Array<{ id: string }>).length;
+    }
   }
 
   // Limpa cards que entraram antes dessa regra: remove leads vinculados a prospects
@@ -871,6 +1007,7 @@ export async function importFromProspects(): Promise<{ imported: number; updated
     const { data, error } = await db
       .from("cad_leads")
       .delete()
+      .eq("owner_id", ctx.uid)
       .in("prospect_id", batch)
       .is("last_contact_at", null)
       .select("id");
