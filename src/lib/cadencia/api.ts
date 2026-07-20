@@ -776,6 +776,7 @@ export async function importFromProspects(): Promise<{ imported: number; updated
   const prospectIds = prospectRows.map((r) => r.id);
   const privateStatusByProspect = new Map<string, string>();
   const ownContactedProspects = new Set<string>();
+  const lastContactByProspect = new Map<string, string>();
 
   for (const batch of chunk(prospectIds, 200)) {
     const { data: stateRows, error: stateError } = await db
@@ -790,24 +791,36 @@ export async function importFromProspects(): Promise<{ imported: number; updated
 
     const { data: touchRows, error: touchError } = await db
       .from("prospect_touchpoints")
-      .select("prospect_id")
+      .select("prospect_id,enviado_em")
       .eq("user_id", ctx.uid)
       .in("prospect_id", batch)
       .in("tipo", ["whatsapp", "ligacao", "email"]);
     if (touchError) throw new Error(touchError.message);
-    for (const row of (touchRows ?? []) as Array<{ prospect_id: string }>) {
+    for (const row of (touchRows ?? []) as Array<{ prospect_id: string; enviado_em?: string | null }>) {
       ownContactedProspects.add(row.prospect_id);
+      if (row.enviado_em) {
+        const prev = lastContactByProspect.get(row.prospect_id);
+        if (!prev || new Date(row.enviado_em).getTime() > new Date(prev).getTime()) {
+          lastContactByProspect.set(row.prospect_id, row.enviado_em);
+        }
+      }
     }
 
     const { data: interactionRows, error: interactionError } = await db
       .from("prospect_interactions")
-      .select("prospect_id")
+      .select("prospect_id,created_at")
       .eq("user_id", ctx.uid)
       .in("prospect_id", batch)
       .in("kind", ["whatsapp", "ligacao", "email"]);
     if (interactionError) throw new Error(interactionError.message);
-    for (const row of (interactionRows ?? []) as Array<{ prospect_id: string }>) {
+    for (const row of (interactionRows ?? []) as Array<{ prospect_id: string; created_at?: string | null }>) {
       ownContactedProspects.add(row.prospect_id);
+      if (row.created_at) {
+        const prev = lastContactByProspect.get(row.prospect_id);
+        if (!prev || new Date(row.created_at).getTime() > new Date(prev).getTime()) {
+          lastContactByProspect.set(row.prospect_id, row.created_at);
+        }
+      }
     }
   }
 
@@ -919,7 +932,7 @@ export async function importFromProspects(): Promise<{ imported: number; updated
       if (!ownContactedProspects.has(id) && !hasPrivateContactSignal && memberScoped) continue;
       const p = byId.get(id);
       if (!p) continue;
-      const firstContact = new Date(p.created_at ?? Date.now());
+      const firstContact = new Date(lastContactByProspect.get(id) ?? p.created_at ?? Date.now());
       fallbackPayload.push({
         organization_id: ctx.orgId,
         owner_id: ctx.uid,
