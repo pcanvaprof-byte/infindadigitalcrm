@@ -32,19 +32,13 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 
 export const requireSupabaseAuth = createMiddleware({ type: 'function' }).server(
   async ({ next }) => {
-    
-    const SUPABASE_URL = process.env.SUPABASE_URL;
-    const SUPABASE_PUBLISHABLE_KEY = process.env.SUPABASE_PUBLISHABLE_KEY;
-
-    if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-      const missing = [
-        ...(!SUPABASE_URL ? ['SUPABASE_URL'] : []),
-        ...(!SUPABASE_PUBLISHABLE_KEY ? ['SUPABASE_PUBLISHABLE_KEY'] : []),
-      ];
-      const message = `Missing Supabase environment variable(s): ${missing.join(', ')}. Connect Supabase in Lovable Cloud.`;
-      console.error(`[Supabase] ${message}`);
-      throw new Error(message);
-    }
+    // Aponta para o projeto Supabase externo do cliente (oxmhwwopxurwqcrwgsyf).
+    // Deve permanecer alinhado com src/integrations/supabase/client.ts (browser).
+    // A chave publishable/anon é pública por design e já viaja no bundle do cliente.
+    const SUPABASE_URL =
+      process.env.OWN_SB_URL || 'https://oxmhwwopxurwqcrwgsyf.supabase.co';
+    const SUPABASE_PUBLISHABLE_KEY =
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94bWh3d29weHVyd3Fjcndnc3lmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE1MzA2NjYsImV4cCI6MjA5NzEwNjY2Nn0.nAGtGeU-7YkzIjjCKJnfH5yeJ7LsQ-2s5ltMgHF7v88';
     
     const request = getRequest();
 
