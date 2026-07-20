@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { CadLead, CadMessage, CadMetrics, CadStage, CadTemp, CadTemplate, CadMsgTipo } from "./types";
+import { CAD_STAGES, type CadLead, type CadMessage, type CadMetrics, type CadStage, type CadTemp, type CadTemplate, type CadMsgTipo } from "./types";
 
 // Cast helpers — tables não geradas ainda em Database types
 const db = supabase as unknown as {
@@ -364,6 +364,17 @@ export type ResolvedTemplate = {
   source: "user" | "org" | "system";
 };
 
+type TemplateResolutionRow = {
+  id: string;
+  stage: CadStage;
+  titulo: string;
+  corpo: string;
+  pack_key: string | null;
+  organization_id: string | null;
+  owner_id: string | null;
+  is_system: boolean | null;
+};
+
 async function getMyContext(): Promise<{ orgId: string; ownerId: string; packKey: string }> {
   const { data: userRes } = await supabase.auth.getUser();
   const ownerId = userRes.user?.id;
@@ -384,42 +395,56 @@ async function getMyContext(): Promise<{ orgId: string; ownerId: string; packKey
   return { orgId, ownerId, packKey };
 }
 
+function templateSource(row: TemplateResolutionRow, orgId: string, ownerId: string): ResolvedTemplate["source"] | null {
+  if (row.organization_id === orgId && row.owner_id === ownerId) return "user";
+  if (row.organization_id === orgId && !row.owner_id) return "org";
+  if (row.is_system) return "system";
+  return null;
+}
+
+function templatePriority(row: TemplateResolutionRow, orgId: string, ownerId: string, packKey: string): number {
+  const packRank = row.pack_key === packKey ? 0 : row.pack_key === "default" ? 10 : 20;
+  const source = templateSource(row, orgId, ownerId);
+  const sourceRank = source === "user" ? 0 : source === "org" ? 1 : source === "system" ? 2 : 9;
+  return packRank + sourceRank;
+}
+
+async function fetchResolvedTemplatesDirect(stages: CadStage[]): Promise<Array<ResolvedTemplate & { override_id: string | null }>> {
+  const { orgId, ownerId, packKey } = await getMyContext();
+  const packKeys = packKey === "default" ? ["default"] : [packKey, "default"];
+
+  const { data, error } = await db
+    .from("cad_templates")
+    .select("id,stage,titulo,corpo,pack_key,organization_id,owner_id,is_system")
+    .in("pack_key", packKeys)
+    .in("stage", stages);
+  if (error) throw new Error(error.message);
+
+  const rows = (data ?? []) as TemplateResolutionRow[];
+  return stages.flatMap((stage) => {
+    const candidates = rows
+      .filter((row) => row.stage === stage && templateSource(row, orgId, ownerId))
+      .sort((a, b) => templatePriority(a, orgId, ownerId, packKey) - templatePriority(b, orgId, ownerId, packKey));
+    const row = candidates[0];
+    const source = row ? templateSource(row, orgId, ownerId) : null;
+    if (!row || !source) return [];
+
+    const ownOverride = rows.find(
+      (item) => item.stage === stage && item.pack_key === packKey && item.organization_id === orgId && item.owner_id === ownerId,
+    );
+    return [{ stage, titulo: row.titulo, corpo: row.corpo, source, override_id: ownOverride?.id ?? null }];
+  });
+}
+
 /** Resolve UM template via RPC (motor de disparo). */
 export async function resolveTemplate(stage: CadStage): Promise<ResolvedTemplate | null> {
-  const { orgId, ownerId, packKey } = await getMyContext();
-  const { data, error } = await db.rpc("cad_resolve_template", {
-    p_organization_id: orgId,
-    p_owner_id: ownerId,
-    p_pack_key: packKey,
-    p_stage: stage,
-  });
-  if (error) throw new Error(error.message);
-  const row = Array.isArray(data) ? data[0] : null;
-  if (!row) return null;
-  return {
-    stage,
-    titulo: row.titulo as string,
-    corpo: row.corpo as string,
-    source: row.source as ResolvedTemplate["source"],
-  };
+  const [row] = await fetchResolvedTemplatesDirect([stage]);
+  return row ? { stage: row.stage, titulo: row.titulo, corpo: row.corpo, source: row.source } : null;
 }
 
 /** Resolve TODOS os 7 followups via RPC (para Kanban / listagem). */
 export async function listResolvedTemplates(): Promise<ResolvedTemplate[]> {
-  const { orgId, ownerId, packKey } = await getMyContext();
-  const { data, error } = await db.rpc("cad_list_resolved_templates", {
-    p_organization_id: orgId,
-    p_owner_id: ownerId,
-    p_pack_key: packKey,
-  });
-  if (error) throw new Error(error.message);
-  return ((data ?? []) as Array<{ stage: CadStage; titulo: string; corpo: string; source: string }>)
-    .map((r) => ({
-      stage: r.stage,
-      titulo: r.titulo,
-      corpo: r.corpo,
-      source: r.source as ResolvedTemplate["source"],
-    }));
+  return (await fetchResolvedTemplatesDirect([...CAD_STAGES])).map(({ override_id: _overrideId, ...row }) => row);
 }
 
 // ============================================================
@@ -436,14 +461,7 @@ export type MyTemplateRow = {
 
 /** Lista os 7 followups já resolvidos + marca se há override do usuário. */
 export async function listMyTemplates(): Promise<MyTemplateRow[]> {
-  const { orgId, ownerId, packKey } = await getMyContext();
-  const { data, error } = await db.rpc("cad_list_resolved_templates", {
-    p_organization_id: orgId,
-    p_owner_id: ownerId,
-    p_pack_key: packKey,
-  });
-  if (error) throw new Error(error.message);
-  return ((data ?? []) as MyTemplateRow[]).map((r) => ({
+  return (await fetchResolvedTemplatesDirect([...CAD_STAGES])).map((r) => ({
     stage: r.stage,
     titulo: r.titulo,
     corpo: r.corpo,
@@ -459,18 +477,34 @@ export async function upsertMyTemplate(input: {
   corpo: string;
 }): Promise<void> {
   const { orgId, ownerId, packKey } = await getMyContext();
-  const { error } = await db.from("cad_templates").upsert(
-    {
-      organization_id: orgId,
-      owner_id: ownerId,
-      pack_key: packKey,
-      is_system: false,
-      stage: input.stage,
-      titulo: input.titulo,
-      corpo: input.corpo,
-    },
-    { onConflict: "organization_id,owner_id,pack_key,stage" },
-  );
+  const { data: existing, error: findError } = await db
+    .from("cad_templates")
+    .select("id")
+    .eq("organization_id", orgId)
+    .eq("owner_id", ownerId)
+    .eq("pack_key", packKey)
+    .eq("stage", input.stage)
+    .maybeSingle();
+  if (findError) throw new Error(findError.message);
+
+  if ((existing as { id?: string } | null)?.id) {
+    const { error } = await db
+      .from("cad_templates")
+      .update({ titulo: input.titulo, corpo: input.corpo, is_system: false })
+      .eq("id", (existing as { id: string }).id);
+    if (error) throw new Error(error.message);
+    return;
+  }
+
+  const { error } = await db.from("cad_templates").insert({
+    organization_id: orgId,
+    owner_id: ownerId,
+    pack_key: packKey,
+    is_system: false,
+    stage: input.stage,
+    titulo: input.titulo,
+    corpo: input.corpo,
+  });
   if (error) throw new Error(error.message);
 }
 
