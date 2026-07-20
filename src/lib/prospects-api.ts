@@ -349,7 +349,7 @@ export async function insertProspect(p: Omit<Prospect, "id" | "createdAt" | "int
 export async function updateProspect(id: string, patch: Partial<Prospect>) {
   console.log("[prospects-api] updateProspect:start", { id, patch });
   const uid = await requireUserId();
-  // Arquitetura híbrida: campos operacionais privados vão para user_lead_state.
+  // Arquitetura híbrida: campos operacionais privados vão para o histórico privado.
   // Somente cadastro compartilhado é gravado em prospects.
   const map: Record<string, unknown> = {};
   if (patch.company !== undefined) map.company = patch.company;
