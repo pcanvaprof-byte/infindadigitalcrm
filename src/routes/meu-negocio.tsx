@@ -225,8 +225,9 @@ function MeuNegocioPage() {
               <div>
                 <h2 className="text-lg font-semibold">3. Primeira mensagem de prospecção</h2>
                 <p className="text-sm text-muted-foreground">
-                  Prévia da qualidade da IA sobre o seu negócio. Ela <b>não é enviada automaticamente</b> —
-                  os disparos reais usam os <code>templates de cadência</code> da sua organização.
+                  Esta é a mensagem oficial do <b>primeiro disparo</b> em Prospecção.
+                  A partir do <code>followup_2</code>, os envios usam os templates de cadência da organização
+                  (regenere-os no card 4 quando precisar alinhá-los ao novo perfil).
                 </p>
               </div>
               <Button
