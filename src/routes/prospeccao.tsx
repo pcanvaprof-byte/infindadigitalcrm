@@ -871,18 +871,34 @@ function ProspeccaoPage() {
       // Busca em paralelo o template resolvido E o nome do contato no cad_leads
       // (fonte oficial do `responsavel`). `p.owner` é o VENDEDOR interno,
       // NÃO deve ser usado como {{primeiro_nome}} no texto enviado ao cliente.
-      const [tplRes, leadRes] = await Promise.all([
+      const [tplRes, leadRes, bizRes] = await Promise.all([
         isFirstOutreach
           ? Promise.resolve({ data: null })
           : supabase.rpc("cad_resolve_template" as never, { _stage: stage } as never),
         supabase.from("cad_leads").select("responsavel").eq("prospect_id", p.id).maybeSingle(),
+        isFirstOutreach
+          ? supabase.from("business_profiles").select("initial_message").maybeSingle()
+          : Promise.resolve({ data: null }),
       ]);
       const tpl = tplRes.data;
       responsavelLead = (leadRes.data as { responsavel?: string | null } | null)?.responsavel ?? "";
+      // 1a) Primeira abordagem: se o operador confirmou a mensagem em
+      // /meu-negocio (item 3), ela vira a mensagem oficial do 1º disparo.
+      // Placeholders continuam suportados via renderTemplate.
+      if (isFirstOutreach) {
+        const bizMsg = (bizRes.data as { initial_message?: string | null } | null)?.initial_message;
+        if (bizMsg && bizMsg.trim()) {
+          msg = renderTemplate(bizMsg, {
+            empresa: p.company || "",
+            responsavel: responsavelLead,
+          });
+          console.log("[prosp] openWhats:usando-mensagem-meu-negocio", { id: p.id });
+        }
+      }
       const row = Array.isArray(tpl) ? tpl[0] : null;
       const corpo = (row as { corpo?: string } | null)?.corpo;
       const packKey = (row as { pack_key?: string } | null)?.pack_key ?? "default";
-      if (corpo && corpo.trim()) {
+      if (!msg && corpo && corpo.trim()) {
         // Usa variantes explícitas (`---`) quando existem; caso contrário
         // gera 3 variações naturais (source="auto") rotacionando
         // saudação/softener pra evitar disparos idênticos. `chooseVariant`
