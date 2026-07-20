@@ -527,6 +527,18 @@ function ProspeccaoPage() {
     return [...active, ...blocked.map((b) => b.p)];
   }, [filtered]);
 
+  // Paginação: 20 leads por página na visão em tabela
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(filteredOrdered.length / PAGE_SIZE));
+  useEffect(() => {
+    if (page > pageCount) setPage(1);
+  }, [pageCount, page]);
+  const pagedItems = useMemo(
+    () => filteredOrdered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filteredOrdered, page],
+  );
+
   const mapPointsQ = useQuery({
     queryKey: crmKeys.tasks,
     queryFn: loadMapPoints,
