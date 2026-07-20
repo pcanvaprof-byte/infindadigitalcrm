@@ -48,11 +48,11 @@ begin
 
   select count(*) into v_total_msgs from public.cad_messages
     where organization_id = v_org and direction = 'out'
-      and (not v_is_member or owner_id = v_uid);
+      and (not v_is_member or lead_id in (select id from public.cad_leads where owner_id = v_uid));
 
   select count(distinct lead_id) into v_total_resp from public.cad_messages
     where organization_id = v_org and direction = 'in'
-      and (not v_is_member or owner_id = v_uid);
+      and (not v_is_member or lead_id in (select id from public.cad_leads where owner_id = v_uid));
 
   select count(*) into v_total_fech from public.cad_leads
     where organization_id = v_org and stage = 'fechado'
@@ -67,11 +67,11 @@ begin
     select d::date as dia,
       (select count(*) from public.cad_messages m
          where m.organization_id = v_org and m.direction='out'
-           and (not v_is_member or m.owner_id = v_uid)
+           and (not v_is_member or m.lead_id in (select id from public.cad_leads where owner_id = v_uid))
            and m.created_at::date = d::date) as enviadas,
       (select count(*) from public.cad_messages m
          where m.organization_id = v_org and m.direction='in'
-           and (not v_is_member or m.owner_id = v_uid)
+           and (not v_is_member or m.lead_id in (select id from public.cad_leads where owner_id = v_uid))
            and m.created_at::date = d::date) as respostas
     from generate_series((now() - interval '29 days')::date, now()::date, interval '1 day') d
   ) s;
@@ -109,7 +109,7 @@ as $$
       and m.organization_id = public.current_org_id()
       and (
         public.current_org_role() <> 'member'
-        or m.owner_id = auth.uid()
+        or m.lead_id in (select id from public.cad_leads where owner_id = auth.uid())
       )
     group by 1
   )
