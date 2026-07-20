@@ -1896,7 +1896,8 @@ function ProspeccaoPage() {
                   // C-6: só avança status/touchpoint se o prospect ainda existe
                   // no cache atual (pode ter sido excluído em outra aba).
                   if (target) {
-                    void logAttempt(target, "whatsapp");
+                    // Touchpoint já foi registrado no clique do WhatsApp;
+                    // aqui só avançamos o status para `primeiro_contato`.
                     updateStatus(whatsConfirm.id, "primeiro_contato");
                   } else {
                     toast.error("Prospect não encontrado. Recarregue a página.");
