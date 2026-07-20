@@ -2020,11 +2020,25 @@ function DesktopProspectTable({
                   <div className="px-4 py-3">
                     <div className="text-xs">{p.whatsapp || p.phone || "—"}</div>
                     <div className="text-[11px] text-muted-foreground">{p.email || p.instagram || "—"}</div>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {(((p.whatsapp || "").replace(/\D/g, "")).length < 10) && (
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      {(((p.whatsapp || "").replace(/\D/g, "")).length < 10) ? (
                         <span className="inline-flex items-center rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300" title="Empresa sem WhatsApp — candidata a enriquecimento">
                           Sem WhatsApp
                         </span>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 gap-1 border-emerald-500/40 px-2 text-[10px] font-medium text-emerald-300 hover:bg-emerald-500/10 hover:text-emerald-200"
+                          disabled={busyWhatsIds?.has(p.id)}
+                          title="Disparar WhatsApp (usa a conta selecionada no topo)"
+                          onClick={(e) => { e.stopPropagation(); onWhats(p); }}
+                        >
+                          {busyWhatsIds?.has(p.id)
+                            ? <Loader2 className="h-3 w-3 animate-spin" />
+                            : <MessageSquare className="h-3 w-3" />}
+                          Disparar WhatsApp
+                        </Button>
                       )}
                       {(() => {
                         const isOut = (k: string) => k === "whatsapp" || k === "ligacao" || k === "email";
