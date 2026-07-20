@@ -757,13 +757,14 @@ export async function syncLeadStagesFromProspects(): Promise<number> {
 export async function importFromProspects(): Promise<{ imported: number; updated: number; skipped: number; cleaned: number }> {
   const ctx = await getCadContext();
   if (!ctx.uid) throw new Error("Sessão expirada — entre novamente.");
+  if (!ctx.orgId) throw new Error("Organização ativa não encontrada — recarregue e tente novamente.");
   const memberScoped = isMemberContext(ctx);
   const pageSize = 1000;
   const prospectRows: ImportProspectRow[] = [];
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await db
       .from("prospects")
-      .select("id,status,whatsapp,phone")
+      .select("id,organization_id,status,company,owner_name,whatsapp,phone,created_at")
       .order("created_at", { ascending: false })
       .range(from, from + pageSize - 1);
     if (error) throw new Error(error.message);
@@ -826,9 +827,10 @@ export async function importFromProspects(): Promise<{ imported: number; updated
     if (digits.length >= 8) digitsMap.set(row.id, digits);
   }
 
-  // Dedupe: remove prospects cujo WhatsApp já existe em cad_leads (mesma org),
-  // evitando estourar a unique constraint `ux_cad_leads_org_whatsapp_norm`
-  // dentro da RPC `cad_import_from_prospects`.
+  // Dedupe por usuário: Member deve poder importar para a SUA cadência privada
+  // mesmo que outro usuário já tenha o mesmo prospect/telefone na organização.
+  // Antes este filtro lia todos os cad_leads visíveis e podia remover conversas
+  // válidas do Member antes da RPC rodar.
   let skippedDup = 0;
   if (digitsMap.size > 0) {
     const existingDigits = new Set<string>();
@@ -837,6 +839,8 @@ export async function importFromProspects(): Promise<{ imported: number; updated
       const { data, error } = await db
         .from("cad_leads")
         .select("whatsapp,telefone")
+        .eq("owner_id", ctx.uid)
+        .neq("stage", "perdido")
         .range(from, from + pageSz - 1);
       if (error) break;
       const rows = (data ?? []) as { whatsapp: string | null; telefone: string | null }[];
@@ -859,6 +863,7 @@ export async function importFromProspects(): Promise<{ imported: number; updated
   }
 
   let imported = 0;
+  const fallbackIds: string[] = [];
   for (const batch of chunk(eligibleIds, 500)) {
     const { data, error } = await db.rpc("cad_import_from_prospects", { p_ids: batch });
     if (error) {
@@ -870,7 +875,66 @@ export async function importFromProspects(): Promise<{ imported: number; updated
       skippedDup += batch.length;
       continue;
     }
-    imported += (data as number) ?? 0;
+    const importedBatch = (data as number) ?? 0;
+    imported += importedBatch;
+    // Se a RPC antiga no banco retornar 0 para uma leva que o cliente já provou
+    // estar contatada, tentamos criar os cards diretamente com RLS do usuário.
+    // Isso cobre ambientes onde a função no banco ainda está com a versão antiga.
+    if (importedBatch === 0) fallbackIds.push(...batch);
+  }
+
+  if (fallbackIds.length > 0) {
+    const byId = new Map(prospectRows.map((row) => [row.id, row]));
+    const existingProspects = new Set<string>();
+    for (const batch of chunk(fallbackIds, 200)) {
+      const { data, error } = await db
+        .from("cad_leads")
+        .select("prospect_id")
+        .eq("owner_id", ctx.uid)
+        .in("prospect_id", batch);
+      if (error) throw new Error(error.message);
+      for (const row of (data ?? []) as Array<{ prospect_id: string | null }>) {
+        if (row.prospect_id) existingProspects.add(row.prospect_id);
+      }
+    }
+
+    const fallbackPayload: Array<Partial<CadLead> & { empresa: string }> = [];
+    for (const id of fallbackIds) {
+      if (existingProspects.has(id)) continue;
+      if (!ownContactedProspects.has(id) && memberScoped) continue;
+      const p = byId.get(id);
+      if (!p) continue;
+      const firstContact = new Date(p.created_at ?? Date.now());
+      fallbackPayload.push({
+        organization_id: ctx.orgId,
+        owner_id: ctx.uid,
+        prospect_id: p.id,
+        empresa: p.company?.trim() || "Sem nome",
+        responsavel: p.owner_name ?? null,
+        telefone: p.phone ?? null,
+        whatsapp: p.whatsapp ?? null,
+        primeira_abordagem_at: firstContact.toISOString(),
+        stage: "followup_1",
+        next_action_at: new Date(firstContact.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+      });
+    }
+
+    for (const batch of chunk(fallbackPayload, 200)) {
+      if (batch.length === 0) continue;
+      const { data, error } = await db
+        .from("cad_leads")
+        .insert(batch)
+        .select("id");
+      if (error) {
+        const msg = String(error.message || "");
+        if (!/duplicate key|unique constraint|ux_cad_leads_|cad_leads_.*uniq/i.test(msg)) {
+          throw new Error(msg);
+        }
+        skippedDup += batch.length;
+        continue;
+      }
+      imported += ((data ?? []) as Array<{ id: string }>).length;
+    }
   }
 
   // Limpa cards que entraram antes dessa regra: remove leads vinculados a prospects
