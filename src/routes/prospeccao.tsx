@@ -2019,22 +2019,10 @@ function DesktopProspectTable({
                     </button>
                   </div>
                   <div className="px-4 py-3">
-                    <div className="text-xs">{p.whatsapp || p.phone || "—"}</div>
-                    <div className="text-[11px] text-muted-foreground">{p.email || p.instagram || "—"}</div>
-                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <span>{p.whatsapp || p.phone || "—"}</span>
                       <TooltipProvider delayDuration={150}>
-                        {(((p.whatsapp || "").replace(/\D/g, "")).length < 10) ? (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="inline-flex items-center rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
-                                Sem WhatsApp
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="top">
-                              Contato sem número de WhatsApp — enriqueça o lead para liberar o disparo.
-                            </TooltipContent>
-                          </Tooltip>
-                        ) : (
+                        {(((p.whatsapp || "").replace(/\D/g, "")).length >= 10) && (
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
@@ -2055,6 +2043,23 @@ function DesktopProspectTable({
                             </TooltipContent>
                           </Tooltip>
                         )}
+                      </TooltipProvider>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">{p.email || p.instagram || "—"}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      <TooltipProvider delayDuration={150}>
+                        {(((p.whatsapp || "").replace(/\D/g, "")).length < 10) ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex items-center rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                                Sem WhatsApp
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              Contato sem número de WhatsApp — enriqueça o lead para liberar o disparo.
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : null}
                       </TooltipProvider>
                       {(() => {
                         const isOut = (k: string) => k === "whatsapp" || k === "ligacao" || k === "email";
