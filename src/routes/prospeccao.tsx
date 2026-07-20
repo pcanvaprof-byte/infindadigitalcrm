@@ -1731,11 +1731,19 @@ function ProspeccaoPage() {
             onRemove={(id) => removeProspect([id])}
             busyWhatsIds={dispatchingIds}
           />
-          <div className="flex flex-col gap-2 border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-            <span>
-              Mostrando {filteredOrdered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}
-              –{Math.min(page * PAGE_SIZE, filteredOrdered.length)} de {filteredOrdered.length} empresas
-              {" "}(filtradas de {prospects.length}) · 20 por página
+          <div className="flex flex-col gap-2 border-t border-border px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-sm font-semibold text-foreground tabular-nums">
+              Mostrando{" "}
+              <span className="text-base font-bold text-primary">
+                {filteredOrdered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}
+                –{Math.min(page * PAGE_SIZE, filteredOrdered.length)}
+              </span>{" "}
+              de{" "}
+              <span className="text-base font-bold text-primary">{filteredOrdered.length}</span>{" "}
+              empresas
+              <span className="ml-1 font-normal text-muted-foreground">
+                (filtradas de {prospects.length}) · 20 por página
+              </span>
             </span>
             <div className="flex items-center gap-2">
               <Button
