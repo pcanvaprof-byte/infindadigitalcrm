@@ -878,16 +878,28 @@ export async function importFromProspects(): Promise<{ imported: number; updated
     }
     const importedBatch = (data as number) ?? 0;
     imported += importedBatch;
-    // Se a RPC antiga no banco retornar 0 para uma leva que o cliente já provou
-    // estar contatada, tentamos criar os cards diretamente com RLS do usuário.
-    // Isso cobre ambientes onde a função no banco ainda está com a versão antiga.
-    if (importedBatch === 0) fallbackIds.push(...batch);
+    // Mesmo quando a RPC importa parte do lote, versões antigas no banco podem
+    // deixar alguns prospects contatados de fora. Conferimos quais já viraram
+    // card do usuário atual e mandamos os faltantes para o fallback granular.
+    const { data: ownRows, error: ownError } = await db
+      .from("cad_leads")
+      .select("prospect_id")
+      .eq("owner_id", ctx.uid)
+      .in("prospect_id", batch);
+    if (ownError) throw new Error(ownError.message);
+    const ownSet = new Set(
+      ((ownRows ?? []) as Array<{ prospect_id: string | null }>)
+        .map((row) => row.prospect_id)
+        .filter((id): id is string => Boolean(id)),
+    );
+    fallbackIds.push(...batch.filter((id) => !ownSet.has(id)));
   }
 
   if (fallbackIds.length > 0) {
+    const uniqueFallbackIds = Array.from(new Set(fallbackIds));
     const byId = new Map(prospectRows.map((row) => [row.id, row]));
     const existingProspects = new Set<string>();
-    for (const batch of chunk(fallbackIds, 200)) {
+    for (const batch of chunk(uniqueFallbackIds, 200)) {
       const { data, error } = await db
         .from("cad_leads")
         .select("prospect_id")
@@ -900,7 +912,7 @@ export async function importFromProspects(): Promise<{ imported: number; updated
     }
 
     const fallbackPayload: Array<Partial<CadLead> & { empresa: string }> = [];
-    for (const id of fallbackIds) {
+    for (const id of uniqueFallbackIds) {
       if (existingProspects.has(id)) continue;
       if (!ownContactedProspects.has(id) && memberScoped) continue;
       const p = byId.get(id);
