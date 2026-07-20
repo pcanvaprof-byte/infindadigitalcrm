@@ -10,8 +10,7 @@ export const Route = createFileRoute("/api/public/v1/_diag_ai")({
   server: {
     handlers: {
       OPTIONS: async () => optionsResponse(),
-      GET: async ({ request }) =>
-        (await import("@/lib/api-public/auth.server")).withApiAuth(request, async () => {
+      GET: async () => {
           const results: Record<string, unknown> = {};
 
           // 1) Groq — llama-3.3-70b-versatile
@@ -89,7 +88,7 @@ export const Route = createFileRoute("/api/public/v1/_diag_ai")({
           }
 
           return json({ ok: true, results });
-        }),
+      },
     },
   },
 });
