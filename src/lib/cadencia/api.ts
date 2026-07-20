@@ -193,6 +193,31 @@ export async function listLeads(): Promise<CadLead[]> {
     all.push(...rows);
     if (rows.length < pageSize) break;
   }
+  const missingContact = all.filter((lead) => lead.prospect_id && !lead.whatsapp && !lead.telefone);
+  if (missingContact.length > 0) {
+    const prospectIds = Array.from(new Set(missingContact.map((lead) => lead.prospect_id).filter(Boolean))) as string[];
+    const contactByProspect = new Map<string, { whatsapp: string | null; phone: string | null }>();
+    for (const batch of chunk(prospectIds, 200)) {
+      const { data, error } = await db
+        .from("prospects")
+        .select("id,whatsapp,phone")
+        .in("id", batch);
+      if (error) continue;
+      for (const row of (data ?? []) as Array<{ id: string; whatsapp: string | null; phone: string | null }>) {
+        contactByProspect.set(row.id, { whatsapp: row.whatsapp, phone: row.phone });
+      }
+    }
+    return all.map((lead) => {
+      if (!lead.prospect_id || lead.whatsapp || lead.telefone) return lead;
+      const contact = contactByProspect.get(lead.prospect_id);
+      if (!contact) return lead;
+      return {
+        ...lead,
+        whatsapp: contact.whatsapp ?? lead.whatsapp,
+        telefone: contact.phone ?? lead.telefone,
+      };
+    });
+  }
   return all;
 }
 
@@ -792,7 +817,8 @@ export async function importFromProspects(): Promise<{ imported: number; updated
       .select("prospect_id,tipo,resultado,mensagem,enviado_em")
       .eq("user_id", ctx.uid)
       .in("prospect_id", batch)
-      .in("tipo", ["whatsapp", "ligacao", "email", "reuniao", "resposta", "status"]);
+      .in("tipo", ["whatsapp", "ligacao", "email", "reuniao", "resposta", "status"])
+      .order("enviado_em", { ascending: false });
     if (touchError) throw new Error(touchError.message);
     for (const row of (touchRows ?? []) as Array<{ prospect_id: string; tipo?: string | null; resultado?: string | null; mensagem?: string | null; enviado_em?: string | null }>) {
       if (row.tipo === "status") {
@@ -979,12 +1005,35 @@ export async function importFromProspects(): Promise<{ imported: number; updated
             if (!/duplicate key|unique constraint|ux_cad_leads_|cad_leads_.*uniq/i.test(oneMsg)) {
               throw new Error(oneMsg);
             }
-            // Banco externo antigo pode ainda ter unique global por prospect_id.
-            // Nesse caso, cria o card privado sem vínculo direto para não bloquear
-            // a cadência do Member que iniciou a conversa.
+            // Banco externo antigo pode ainda ter unique global por telefone.
+            // Nesse caso, mantém o vínculo com o prospect e deixa o contato ser
+            // hidratado em listLeads(), evitando perder o card privado do Member.
+            const contactlessNotes = [
+              item.notes,
+              item.whatsapp ? `WhatsApp original: ${item.whatsapp}` : null,
+              item.telefone ? `Telefone original: ${item.telefone}` : null,
+            ].filter(Boolean).join("\n");
+            const { data: contactlessData, error: contactlessError } = await db
+              .from("cad_leads")
+              .insert({ ...item, whatsapp: null, telefone: null, notes: contactlessNotes || item.notes || null })
+              .select("id")
+              .maybeSingle();
+            if (!contactlessError && contactlessData) {
+              imported += 1;
+              continue;
+            }
+            if (contactlessError) {
+              const contactlessMsg = String(contactlessError.message || "");
+              if (!/duplicate key|unique constraint|ux_cad_leads_|cad_leads_.*uniq/i.test(contactlessMsg)) {
+                throw new Error(contactlessMsg);
+              }
+            }
+            // Se também houver unique global por prospect_id, cria o card privado
+            // sem vínculo direto como último recurso, mas ainda sem telefone para
+            // não bater nos índices globais antigos.
             const { data: detachedData, error: detachedError } = await db
               .from("cad_leads")
-              .insert({ ...item, prospect_id: null })
+              .insert({ ...item, prospect_id: null, whatsapp: null, telefone: null, notes: contactlessNotes || item.notes || null })
               .select("id")
               .maybeSingle();
             if (!detachedError && detachedData) {
