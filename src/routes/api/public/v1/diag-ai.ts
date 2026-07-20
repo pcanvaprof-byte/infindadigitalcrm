@@ -6,7 +6,7 @@ import { json, optionsResponse } from "@/lib/api-public/cors";
  * Autenticado por API key da organização (mesmo mecanismo do restante da /v1).
  * Não expõe segredos: retorna apenas boolean + status + amostra curta.
  */
-export const Route = createFileRoute("/api/public/v1/_diag_ai")({
+export const Route = createFileRoute("/api/public/v1/diag-ai")({
   server: {
     handlers: {
       OPTIONS: async () => optionsResponse(),
