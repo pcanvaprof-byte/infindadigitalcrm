@@ -1701,7 +1701,7 @@ function ProspeccaoPage() {
           {/* Mobile: card list */}
           <div className="md:hidden">
             <MobileProspectList
-              items={filteredOrdered}
+              items={pagedItems}
               selected={selected}
               onToggleSelect={toggleSelect}
               onOpen={setDetailId}
@@ -1717,7 +1717,7 @@ function ProspeccaoPage() {
             />
           </div>
           <DesktopProspectTable
-            items={filteredOrdered}
+            items={pagedItems}
             selected={selected}
             allVisibleSelected={allVisibleSelected}
             onToggleSelect={toggleSelect}
@@ -1731,9 +1731,35 @@ function ProspeccaoPage() {
             onRemove={(id) => removeProspect([id])}
             busyWhatsIds={dispatchingIds}
           />
-          <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground">
-            <span>Mostrando {filteredOrdered.length} de {prospects.length} empresas · empresas com disparo nas últimas 24h vão para o final</span>
-            <span className="hidden sm:inline">INFINDA digital — Prospecção</span>
+          <div className="flex flex-col gap-2 border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <span>
+              Mostrando {filteredOrdered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}
+              –{Math.min(page * PAGE_SIZE, filteredOrdered.length)} de {filteredOrdered.length} empresas
+              {" "}(filtradas de {prospects.length}) · 20 por página
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 px-2"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+              >
+                Anterior
+              </Button>
+              <span className="tabular-nums">Página {page} de {pageCount}</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 px-2"
+                onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                disabled={page >= pageCount}
+              >
+                Próxima
+              </Button>
+            </div>
           </div>
         </section>
       ) : view === "kanban" ? (
