@@ -9,6 +9,8 @@ const db = supabase as unknown as {
 
 type ProspectStatusRow = { id: string; status: string | null };
 type CadLeadStageRow = Pick<CadLead, "id" | "prospect_id" | "stage">;
+type CadContext = { uid: string | null; role: string | null };
+type CadMessageMetricRow = { lead_id: string; direction: string; created_at: string };
 
 const PROSPECT_STATUS_TO_CAD_STAGE: Record<string, CadStage> = {
   primeiro_contato: "followup_2",
@@ -115,13 +117,34 @@ function chunk<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
+async function getCadContext(): Promise<CadContext> {
+  const [{ data: userRes }, roleRes] = await Promise.all([
+    supabase.auth.getUser(),
+    db.rpc("current_org_role").catch(() => ({ data: null, error: null })),
+  ]);
+  return {
+    uid: userRes.user?.id ?? null,
+    role: typeof roleRes.data === "string" ? roleRes.data : null,
+  };
+}
+
+function isMemberContext(ctx: CadContext): boolean {
+  return ctx.role !== "owner" && ctx.role !== "admin";
+}
+
 export async function listLeads(): Promise<CadLead[]> {
+  const ctx = await getCadContext();
+  if (isMemberContext(ctx) && !ctx.uid) return [];
   const pageSize = 1000;
   const all: CadLead[] = [];
   for (let from = 0; ; from += pageSize) {
-    const { data, error } = await db
+    let query = db
       .from("cad_leads")
       .select("*")
+      // Defesa no cliente: Member nunca carrega cards de outros usuários,
+      // mesmo se alguma policy/RPC antiga ainda estiver permissiva no banco.
+    if (isMemberContext(ctx)) query = query.eq("owner_id", ctx.uid);
+    const { data, error } = await query
       // Ordem canônica da fila: vencidos/no prazo primeiro (asc),
       // futuros depois, sem data por último. Mesma regra do Kanban.
       .order("next_action_at", { ascending: true, nullsFirst: false })
@@ -521,6 +544,12 @@ export async function resetMyTemplate(stage: CadStage): Promise<void> {
 }
 
 export async function fetchMetrics(): Promise<CadMetrics> {
+  const ctx = await getCadContext();
+  if (isMemberContext(ctx)) {
+    if (!ctx.uid) return emptyMetrics();
+    return fetchMemberMetrics();
+  }
+
   const { data, error } = await db.rpc("cad_dashboard_metrics");
   if (error) throw new Error(error.message);
   const base = (data ?? {}) as Partial<CadMetrics>;
@@ -534,6 +563,67 @@ export async function fetchMetrics(): Promise<CadMetrics> {
     taxa_conversao: base.taxa_conversao ?? 0,
     total_mensagens: base.total_mensagens ?? 0,
     serie_30d: serie,
+  };
+}
+
+async function fetchMemberMetrics(): Promise<CadMetrics> {
+  const leads = await listLeads();
+  const since = new Date(Date.now() - 29 * 24 * 60 * 60 * 1000);
+  since.setHours(0, 0, 0, 0);
+  const by_stage: Partial<Record<CadStage, number>> = {};
+  for (const lead of leads) by_stage[lead.stage] = (by_stage[lead.stage] ?? 0) + 1;
+
+  const messages: CadMessageMetricRow[] = [];
+  const leadIds = leads.map((lead) => lead.id);
+  for (const batch of chunk(leadIds, 200)) {
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await db
+        .from("cad_messages")
+        .select("lead_id,direction,created_at")
+        .in("lead_id", batch)
+        .gte("created_at", since.toISOString())
+        .order("created_at", { ascending: true })
+        .range(from, from + 999);
+      if (error) throw new Error(error.message);
+      const rows = (data ?? []) as CadMessageMetricRow[];
+      messages.push(...rows);
+      if (rows.length < 1000) break;
+    }
+  }
+
+  const total = leads.length;
+  const total_mensagens = messages.filter((m) => m.direction === "out").length;
+  const total_resp = new Set(messages.filter((m) => m.direction === "in").map((m) => m.lead_id)).size;
+  const total_fech = leads.filter((lead) => lead.stage === "fechado").length;
+  const serie_30d = buildEmptySerie(since);
+  const indexByDia = new Map(serie_30d.map((row) => [row.dia, row]));
+  for (const msg of messages) {
+    const bucket = indexByDia.get(dayKey(new Date(msg.created_at)));
+    if (!bucket) continue;
+    if (msg.direction === "in") bucket.respostas += 1;
+    else bucket.enviadas += 1;
+  }
+
+  return {
+    total,
+    by_stage,
+    taxa_resposta: total > 0 ? Math.round((total_resp * 1000) / total) / 10 : 0,
+    taxa_conversao: total > 0 ? Math.round((total_fech * 1000) / total) / 10 : 0,
+    total_mensagens,
+    serie_30d,
+  };
+}
+
+function emptyMetrics(): CadMetrics {
+  const since = new Date(Date.now() - 29 * 24 * 60 * 60 * 1000);
+  since.setHours(0, 0, 0, 0);
+  return {
+    total: 0,
+    by_stage: {},
+    taxa_resposta: 0,
+    taxa_conversao: 0,
+    total_mensagens: 0,
+    serie_30d: buildEmptySerie(since),
   };
 }
 

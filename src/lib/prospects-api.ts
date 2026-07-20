@@ -115,6 +115,8 @@ function fromRow(r: Row, ixs: IxRow[] = []): Prospect {
 export async function loadAllProspects(): Promise<Prospect[]> {
   const uid = await currentUserId();
   if (!uid) return [];
+  const role = await currentOrgRole();
+  const ownOnlyTouchpoints = role !== "owner" && role !== "admin";
   // PostgREST limita 1000 linhas/consulta — paginar via range() até esgotar.
   const PAGE = 1000;
   const rows = await loadProspectRowsWithPrivateState(uid, PAGE);
@@ -133,10 +135,14 @@ export async function loadAllProspects(): Promise<Prospect[]> {
     slices.map(async (slice) => {
       const out: TpRow[] = [];
       for (let from = 0; ; from += PAGE) {
-        const { data, error } = await dbExt
+        let query = dbExt
           .from("prospect_touchpoints")
           .select("id, prospect_id, tipo, mensagem, by_name, enviado_em")
-          .in("prospect_id", slice)
+          .in("prospect_id", slice);
+        // Defesa no cliente: Member nunca carrega disparos/interações de outro usuário.
+        // Owner/Admin mantêm visão completa para auditoria e gestão.
+        if (ownOnlyTouchpoints) query = query.eq("user_id", uid);
+        const { data, error } = await query
           .order("enviado_em", { ascending: false })
           .range(from, from + PAGE - 1);
         if (error) { console.warn("loadAllProspects touchpoints error", error); break; }
@@ -156,6 +162,16 @@ export async function loadAllProspects(): Promise<Prospect[]> {
     created_at: row.enviado_em,
   }));
   return rows.map((r) => fromRow(r, ixs));
+}
+
+async function currentOrgRole(): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.rpc("current_org_role" as never);
+    if (error) return null;
+    return typeof data === "string" ? data : null;
+  } catch {
+    return null;
+  }
 }
 
 async function loadProspectRowsWithPrivateState(uid: string, pageSize: number): Promise<Row[]> {
