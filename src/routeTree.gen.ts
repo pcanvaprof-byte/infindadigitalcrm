@@ -59,6 +59,7 @@ import { Route as ApiPublicV1TasksRouteImport } from './routes/api/public/v1/tas
 import { Route as ApiPublicV1ProposalsRouteImport } from './routes/api/public/v1/proposals'
 import { Route as ApiPublicV1OpenapiRouteImport } from './routes/api/public/v1/openapi'
 import { Route as ApiPublicV1MeRouteImport } from './routes/api/public/v1/me'
+import { Route as ApiPublicV1DiagAiRouteImport } from './routes/api/public/v1/diag-ai'
 import { Route as ApiPublicV1ClientsRouteImport } from './routes/api/public/v1/clients'
 import { Route as ApiPublicV1ClientsIdRouteImport } from './routes/api/public/v1/clients.$id'
 import { Route as ApiPublicV1ClientsIdInteractionsRouteImport } from './routes/api/public/v1/clients.$id.interactions'
@@ -324,6 +325,11 @@ const ApiPublicV1MeRoute = ApiPublicV1MeRouteImport.update({
   path: '/api/public/v1/me',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicV1DiagAiRoute = ApiPublicV1DiagAiRouteImport.update({
+  id: '/api/public/v1/diag-ai',
+  path: '/api/public/v1/diag-ai',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicV1ClientsRoute = ApiPublicV1ClientsRouteImport.update({
   id: '/api/public/v1/clients',
   path: '/api/public/v1/clients',
@@ -380,6 +386,7 @@ export interface FileRoutesByFullPath {
   '/operacoes/clientes/$id': typeof OperacoesClientesIdRouteWithChildren
   '/operacoes/clientes/': typeof OperacoesClientesIndexRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRouteWithChildren
+  '/api/public/v1/diag-ai': typeof ApiPublicV1DiagAiRoute
   '/api/public/v1/me': typeof ApiPublicV1MeRoute
   '/api/public/v1/openapi': typeof ApiPublicV1OpenapiRoute
   '/api/public/v1/proposals': typeof ApiPublicV1ProposalsRoute
@@ -433,6 +440,7 @@ export interface FileRoutesByTo {
   '/operacoes': typeof OperacoesIndexRoute
   '/operacoes/clientes': typeof OperacoesClientesIndexRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRouteWithChildren
+  '/api/public/v1/diag-ai': typeof ApiPublicV1DiagAiRoute
   '/api/public/v1/me': typeof ApiPublicV1MeRoute
   '/api/public/v1/openapi': typeof ApiPublicV1OpenapiRoute
   '/api/public/v1/proposals': typeof ApiPublicV1ProposalsRoute
@@ -489,6 +497,7 @@ export interface FileRoutesById {
   '/operacoes/clientes/$id': typeof OperacoesClientesIdRouteWithChildren
   '/operacoes/clientes/': typeof OperacoesClientesIndexRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRouteWithChildren
+  '/api/public/v1/diag-ai': typeof ApiPublicV1DiagAiRoute
   '/api/public/v1/me': typeof ApiPublicV1MeRoute
   '/api/public/v1/openapi': typeof ApiPublicV1OpenapiRoute
   '/api/public/v1/proposals': typeof ApiPublicV1ProposalsRoute
@@ -546,6 +555,7 @@ export interface FileRouteTypes {
     | '/operacoes/clientes/$id'
     | '/operacoes/clientes/'
     | '/api/public/v1/clients'
+    | '/api/public/v1/diag-ai'
     | '/api/public/v1/me'
     | '/api/public/v1/openapi'
     | '/api/public/v1/proposals'
@@ -599,6 +609,7 @@ export interface FileRouteTypes {
     | '/operacoes'
     | '/operacoes/clientes'
     | '/api/public/v1/clients'
+    | '/api/public/v1/diag-ai'
     | '/api/public/v1/me'
     | '/api/public/v1/openapi'
     | '/api/public/v1/proposals'
@@ -654,6 +665,7 @@ export interface FileRouteTypes {
     | '/operacoes/clientes/$id'
     | '/operacoes/clientes/'
     | '/api/public/v1/clients'
+    | '/api/public/v1/diag-ai'
     | '/api/public/v1/me'
     | '/api/public/v1/openapi'
     | '/api/public/v1/proposals'
@@ -701,6 +713,7 @@ export interface RootRouteChildren {
   PropostaTokenRoute: typeof PropostaTokenRoute
   OperacoesIndexRoute: typeof OperacoesIndexRoute
   ApiPublicV1ClientsRoute: typeof ApiPublicV1ClientsRouteWithChildren
+  ApiPublicV1DiagAiRoute: typeof ApiPublicV1DiagAiRoute
   ApiPublicV1MeRoute: typeof ApiPublicV1MeRoute
   ApiPublicV1OpenapiRoute: typeof ApiPublicV1OpenapiRoute
   ApiPublicV1ProposalsRoute: typeof ApiPublicV1ProposalsRoute
@@ -1059,6 +1072,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicV1MeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/v1/diag-ai': {
+      id: '/api/public/v1/diag-ai'
+      path: '/api/public/v1/diag-ai'
+      fullPath: '/api/public/v1/diag-ai'
+      preLoaderRoute: typeof ApiPublicV1DiagAiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/v1/clients': {
       id: '/api/public/v1/clients'
       path: '/api/public/v1/clients'
@@ -1238,6 +1258,7 @@ const rootRouteChildren: RootRouteChildren = {
   PropostaTokenRoute: PropostaTokenRoute,
   OperacoesIndexRoute: OperacoesIndexRoute,
   ApiPublicV1ClientsRoute: ApiPublicV1ClientsRouteWithChildren,
+  ApiPublicV1DiagAiRoute: ApiPublicV1DiagAiRoute,
   ApiPublicV1MeRoute: ApiPublicV1MeRoute,
   ApiPublicV1OpenapiRoute: ApiPublicV1OpenapiRoute,
   ApiPublicV1ProposalsRoute: ApiPublicV1ProposalsRoute,
