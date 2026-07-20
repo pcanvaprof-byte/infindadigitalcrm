@@ -177,7 +177,9 @@ AS $$
 DECLARE
   _stages public.cad_stage[] := ARRAY[
     'followup_1','followup_2','followup_3','followup_4',
-    'followup_5','followup_6','followup_7'
+    'followup_5','followup_6','followup_7',
+    'interessado','reuniao_agendada','proposta_enviada',
+    'negociacao','fechado','perdido'
   ]::public.cad_stage[];
   _s public.cad_stage;
 BEGIN
