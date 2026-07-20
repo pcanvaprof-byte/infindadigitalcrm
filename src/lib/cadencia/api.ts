@@ -914,7 +914,9 @@ export async function importFromProspects(): Promise<{ imported: number; updated
     const fallbackPayload: Array<Partial<CadLead> & { empresa: string }> = [];
     for (const id of uniqueFallbackIds) {
       if (existingProspects.has(id)) continue;
-      if (!ownContactedProspects.has(id) && memberScoped) continue;
+      const privateStatus = privateStatusByProspect.get(id) ?? null;
+      const hasPrivateContactSignal = Boolean(privateStatus && privateStatus !== "nao_contatado");
+      if (!ownContactedProspects.has(id) && !hasPrivateContactSignal && memberScoped) continue;
       const p = byId.get(id);
       if (!p) continue;
       const firstContact = new Date(p.created_at ?? Date.now());
@@ -955,6 +957,18 @@ export async function importFromProspects(): Promise<{ imported: number; updated
             const oneMsg = String(oneError.message || "");
             if (!/duplicate key|unique constraint|ux_cad_leads_|cad_leads_.*uniq/i.test(oneMsg)) {
               throw new Error(oneMsg);
+            }
+            // Banco externo antigo pode ainda ter unique global por prospect_id.
+            // Nesse caso, cria o card privado sem vínculo direto para não bloquear
+            // a cadência do Member que iniciou a conversa.
+            const { data: detachedData, error: detachedError } = await db
+              .from("cad_leads")
+              .insert({ ...item, prospect_id: null })
+              .select("id")
+              .maybeSingle();
+            if (!detachedError && detachedData) {
+              imported += 1;
+              continue;
             }
             skippedDup += 1;
             continue;
