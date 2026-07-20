@@ -870,7 +870,7 @@ export async function importFromProspects(): Promise<{ imported: number; updated
       const msg = String(error.message || "");
       // Duplicata em lote não pode descartar todos os outros leads válidos.
       // Repassa o lote para o fallback granular abaixo, que tenta item a item.
-      if (!/duplicate key|unique constraint|ux_cad_leads_/i.test(msg)) {
+      if (!/duplicate key|unique constraint|ux_cad_leads_|cad_leads_.*uniq/i.test(msg)) {
         throw new Error(msg);
       }
       fallbackIds.push(...batch);
