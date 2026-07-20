@@ -970,6 +970,12 @@ export async function importFromProspects(): Promise<{ imported: number; updated
               imported += 1;
               continue;
             }
+            if (detachedError) {
+              const detachedMsg = String(detachedError.message || "");
+              if (!/duplicate key|unique constraint|ux_cad_leads_|cad_leads_.*uniq/i.test(detachedMsg)) {
+                throw new Error(detachedMsg);
+              }
+            }
             skippedDup += 1;
             continue;
           }
