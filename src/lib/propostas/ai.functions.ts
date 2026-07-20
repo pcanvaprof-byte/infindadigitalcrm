@@ -91,8 +91,11 @@ export const gerarConteudoProposta = createServerFn({ method: "POST" })
       })),
     };
 
-    const groqKey = process.env.GROQ_API_KEY;
-    if (!groqKey) {
+    const hasAnyAiKey =
+      !!process.env.GROQ_API_KEY ||
+      !!process.env.GROQ_API_KEY_2 ||
+      !!process.env.LOVABLE_API_KEY;
+    if (!hasAnyAiKey) {
       return {
         content: buildDeterministicContent(fallbackInput),
         source: "fallback",
@@ -141,7 +144,7 @@ export const gerarConteudoProposta = createServerFn({ method: "POST" })
     for (const tightening of [false, true]) {
       attempts++;
       try {
-        const raw = await callGroq(groqKey, systemMsg, userPrompt, tightening);
+        const raw = await callGroq(systemMsg, userPrompt, tightening);
         const parsed = safeParseJson(raw);
         if (!parsed) {
           lastReason = "json_invalido";
@@ -228,36 +231,24 @@ Responda APENAS com o objeto JSON, sem markdown, sem prefixo, sem texto fora do 
 }
 
 async function callGroq(
-  key: string,
   systemMsg: string,
   userPrompt: string,
   stricter: boolean,
 ): Promise<string> {
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
-      temperature: stricter ? 0.2 : 0.5,
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: systemMsg },
-        {
-          role: "user",
-          content: stricter
-            ? userPrompt +
-              "\n\nATENÇÃO: a tentativa anterior foi rejeitada por conteúdo genérico ou fora do schema. Seja específico, cite o setor e os itens, evite placeholders, jargão e frases vazias."
-            : userPrompt,
-        },
-      ],
-    }),
+  const { callGroqChat } = await import("@/lib/ai/groq-client.server");
+  return callGroqChat({
+    model: "llama-3.3-70b-versatile",
+    temperature: stricter ? 0.2 : 0.5,
+    jsonMode: true,
+    messages: [
+      { role: "system", content: systemMsg },
+      {
+        role: "user",
+        content: stricter
+          ? userPrompt +
+            "\n\nATENÇÃO: a tentativa anterior foi rejeitada por conteúdo genérico ou fora do schema. Seja específico, cite o setor e os itens, evite placeholders, jargão e frases vazias."
+          : userPrompt,
+      },
+    ],
   });
-  if (!res.ok) {
-    const t = await res.text();
-    throw new Error(`Groq ${res.status}: ${t.slice(0, 200)}`);
-  }
-  const json = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  return (json.choices?.[0]?.message?.content ?? "").trim();
 }

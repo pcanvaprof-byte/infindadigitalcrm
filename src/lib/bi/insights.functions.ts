@@ -32,8 +32,11 @@ export const gerarInsightBI = createServerFn({ method: "POST" })
     const { data: orgId } = await sb.rpc("current_org_id");
     if (!orgId) throw new Error("Organização ativa não definida");
 
-    // 3) chama IA (Groq) — fallback determinístico se a chave não estiver presente
-    const apiKey = process.env.GROQ_API_KEY;
+    // 3) chama IA (Groq com rotação + fallback Lovable) — fallback determinístico se tudo falhar
+    const hasAnyAiKey =
+      !!process.env.GROQ_API_KEY ||
+      !!process.env.GROQ_API_KEY_2 ||
+      !!process.env.LOVABLE_API_KEY;
     let summary = "";
     let recommendations: string[] = [];
     let model = "fallback";
@@ -44,29 +47,22 @@ export const gerarInsightBI = createServerFn({ method: "POST" })
 Dados:
 ${JSON.stringify(payload, null, 2)}`;
 
-    if (apiKey) {
+    if (hasAnyAiKey) {
       try {
-        const resp = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-          body: JSON.stringify({
-            model: "llama-3.3-70b-versatile",
-            temperature: 0.3,
-            response_format: { type: "json_object" },
-            messages: [
-              { role: "system", content: "Você responde sempre em JSON válido em português." },
-              { role: "user", content: prompt },
-            ],
-          }),
+        const { callGroqChat } = await import("@/lib/ai/groq-client.server");
+        const content = await callGroqChat({
+          model: "llama-3.3-70b-versatile",
+          temperature: 0.3,
+          jsonMode: true,
+          messages: [
+            { role: "system", content: "Você responde sempre em JSON válido em português." },
+            { role: "user", content: prompt },
+          ],
         });
-        if (resp.ok) {
-          const j = (await resp.json()) as { choices?: Array<{ message?: { content?: string } }> };
-          const content = j.choices?.[0]?.message?.content ?? "{}";
-          const parsed = JSON.parse(content) as { summary?: string; recommendations?: string[] };
-          summary = parsed.summary ?? "";
-          recommendations = Array.isArray(parsed.recommendations) ? parsed.recommendations : [];
-          model = "groq:llama-3.3-70b-versatile";
-        }
+        const parsed = JSON.parse(content || "{}") as { summary?: string; recommendations?: string[] };
+        summary = parsed.summary ?? "";
+        recommendations = Array.isArray(parsed.recommendations) ? parsed.recommendations : [];
+        model = "groq:llama-3.3-70b-versatile";
       } catch (e) {
         console.warn("IA insights falhou, usando fallback", e);
       }
@@ -76,7 +72,7 @@ ${JSON.stringify(payload, null, 2)}`;
       summary = `Análise automática (sem IA) da área ${data.area}: dados consolidados disponíveis no painel.`;
       recommendations = [
         "Revisar manualmente os indicadores destacados",
-        "Configurar GROQ_API_KEY para análises automáticas detalhadas",
+        "Verificar as chaves de IA (Groq/Lovable) para análises automáticas detalhadas",
       ];
     }
 
