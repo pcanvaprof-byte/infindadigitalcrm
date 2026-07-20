@@ -758,7 +758,8 @@ export async function importFromProspects(): Promise<{ imported: number; updated
       .order("created_at", { ascending: false })
       .range(from, from + pageSize - 1);
     if (error) throw new Error(error.message);
-    prospectRows.push(...((data ?? []) as ImportProspectRow[]));
+    const rows = (data ?? []) as ImportProspectRow[];
+    prospectRows.push(...rows);
     if (rows.length < pageSize) break;
   }
 
