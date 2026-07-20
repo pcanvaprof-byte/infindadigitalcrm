@@ -11,6 +11,7 @@ type ProspectStatusRow = { id: string; status: string | null };
 type CadLeadStageRow = Pick<CadLead, "id" | "prospect_id" | "stage">;
 type CadContext = { uid: string | null; role: string | null };
 type CadMessageMetricRow = { lead_id: string; direction: string; created_at: string };
+type ImportProspectRow = ProspectStatusRow & { whatsapp?: string | null; phone?: string | null };
 
 const PROSPECT_STATUS_TO_CAD_STAGE: Record<string, CadStage> = {
   primeiro_contato: "followup_2",
@@ -745,9 +746,11 @@ export async function syncLeadStagesFromProspects(): Promise<number> {
  * para serem selecionados no momento do disparo.
  */
 export async function importFromProspects(): Promise<{ imported: number; updated: number; skipped: number; cleaned: number }> {
+  const ctx = await getCadContext();
+  if (!ctx.uid) throw new Error("Sessão expirada — entre novamente.");
+  const memberScoped = isMemberContext(ctx);
   const pageSize = 1000;
-  const eligibleIds: string[] = [];
-  const naoContatadoIds: string[] = [];
+  const prospectRows: ImportProspectRow[] = [];
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await db
       .from("prospects")
@@ -755,22 +758,68 @@ export async function importFromProspects(): Promise<{ imported: number; updated
       .order("created_at", { ascending: false })
       .range(from, from + pageSize - 1);
     if (error) throw new Error(error.message);
-    const rows = (data ?? []) as (ProspectStatusRow & { whatsapp?: string | null; phone?: string | null })[];
-    for (const r of rows) {
-      if (!r.status || r.status === "nao_contatado") naoContatadoIds.push(r.id);
-      else eligibleIds.push(r.id);
-      // guarda dígitos para dedupe abaixo
-      (eligibleIds as any).__digits = (eligibleIds as any).__digits || new Map<string, string>();
-      const digits = ((r.whatsapp || r.phone || "") as string).replace(/\D/g, "");
-      if (digits.length >= 8) (eligibleIds as any).__digits.set(r.id, digits);
-    }
+    const rows = (data ?? []) as ImportProspectRow[];
+    prospectRows.push(...rows);
     if (rows.length < pageSize) break;
+  }
+
+  const prospectIds = prospectRows.map((r) => r.id);
+  const privateStatusByProspect = new Map<string, string>();
+  const ownContactedProspects = new Set<string>();
+
+  for (const batch of chunk(prospectIds, 200)) {
+    const { data: stateRows, error: stateError } = await db
+      .from("user_lead_state")
+      .select("prospect_id,status")
+      .eq("user_id", ctx.uid)
+      .in("prospect_id", batch);
+    if (stateError) throw new Error(stateError.message);
+    for (const row of (stateRows ?? []) as Array<{ prospect_id: string; status: string | null }>) {
+      if (row.status) privateStatusByProspect.set(row.prospect_id, row.status);
+    }
+
+    const { data: touchRows, error: touchError } = await db
+      .from("prospect_touchpoints")
+      .select("prospect_id")
+      .eq("user_id", ctx.uid)
+      .in("prospect_id", batch)
+      .in("tipo", ["whatsapp", "ligacao", "email"]);
+    if (touchError) throw new Error(touchError.message);
+    for (const row of (touchRows ?? []) as Array<{ prospect_id: string }>) {
+      ownContactedProspects.add(row.prospect_id);
+    }
+
+    const { data: interactionRows, error: interactionError } = await db
+      .from("prospect_interactions")
+      .select("prospect_id")
+      .eq("user_id", ctx.uid)
+      .in("prospect_id", batch)
+      .in("kind", ["whatsapp", "ligacao", "email"]);
+    if (interactionError) throw new Error(interactionError.message);
+    for (const row of (interactionRows ?? []) as Array<{ prospect_id: string }>) {
+      ownContactedProspects.add(row.prospect_id);
+    }
+  }
+
+  const eligibleIds: string[] = [];
+  const naoContatadoIds: string[] = [];
+  const digitsMap = new Map<string, string>();
+  for (const row of prospectRows) {
+    const privateStatus = privateStatusByProspect.get(row.id) ?? null;
+    const effectiveStatus = memberScoped ? privateStatus : privateStatus ?? row.status;
+    const hasContactSignal =
+      ownContactedProspects.has(row.id) || Boolean(effectiveStatus && effectiveStatus !== "nao_contatado");
+
+    if (hasContactSignal) eligibleIds.push(row.id);
+    else naoContatadoIds.push(row.id);
+
+    const digits = ((row.whatsapp || row.phone || "") as string).replace(/\D/g, "");
+    if (digits.length >= 8) digitsMap.set(row.id, digits);
   }
 
   // Dedupe: remove prospects cujo WhatsApp já existe em cad_leads (mesma org),
   // evitando estourar a unique constraint `ux_cad_leads_org_whatsapp_norm`
   // dentro da RPC `cad_import_from_prospects`.
-  const digitsMap: Map<string, string> = (eligibleIds as any).__digits ?? new Map();
   let skippedDup = 0;
   if (digitsMap.size > 0) {
     const existingDigits = new Set<string>();
