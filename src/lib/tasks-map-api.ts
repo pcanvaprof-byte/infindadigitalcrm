@@ -40,8 +40,6 @@ type ProspectRow = {
   potential: string | null; city: string | null; state: string | null;
 };
 
-type UserLeadStateRow = { prospect_id: string; status: string | null };
-
 type DbErrorLike = { code?: string; message?: string };
 
 const PAGE = 1000;
@@ -148,18 +146,6 @@ export async function loadMapPoints(): Promise<MapPoint[]> {
 }
 
 async function loadMapProspects(uid: string): Promise<ProspectRow[]> {
-  try {
-    return await fetchAll<ProspectRow>((from, to) =>
-      // v_prospects_user: 'status' privado por usuário (Fase 2 isolamento).
-      db.from("v_prospects_user" as never)
-        .select("cnpj,company,whatsapp,phone,email,status,potential,city,state")
-        .range(from, to),
-    );
-  } catch (error) {
-    if (!isMissingRelation(error)) throw error;
-    console.warn("v_prospects_user indisponível no mapa; usando fallback seguro", error);
-  }
-
   const rows = await fetchAll<ProspectRow & { id: string }>((from, to) =>
     db.from("prospects")
       .select("id,cnpj,company,whatsapp,phone,email,potential,city,state")
@@ -184,18 +170,39 @@ async function fetchUserLeadStatuses(uid: string, ids: string[]): Promise<Map<st
   const out = new Map<string, string>();
   if (!ids.length) return out;
   try {
-    const states = await fetchByIds<UserLeadStateRow>(ids, (slice, from, to) =>
-      db.from("user_lead_state")
-        .select("prospect_id,status")
+    const states = await fetchByIds<{ prospect_id: string; tipo: string | null; resultado: string | null; mensagem: string | null }>(ids, (slice, from, to) =>
+      db.from("prospect_touchpoints")
+        .select("prospect_id,tipo,resultado,mensagem,enviado_em")
         .eq("user_id", uid)
         .in("prospect_id", slice)
+        .in("tipo", ["status", "whatsapp", "ligacao", "email", "reuniao", "resposta"])
+        .order("enviado_em", { ascending: false })
         .range(from, to),
     );
-    for (const state of states) out.set(state.prospect_id, state.status ?? "nao_contatado");
+    for (const state of states) {
+      if (out.has(state.prospect_id)) continue;
+      if (state.tipo === "status") {
+        out.set(state.prospect_id, normalizeProspectStatus(state.resultado) ?? normalizeProspectStatus(state.mensagem) ?? "nao_contatado");
+      } else if (state.tipo === "resposta" || state.resultado === "respondido" || state.resultado === "interessado") {
+        out.set(state.prospect_id, "qualificado");
+      } else {
+        out.set(state.prospect_id, "primeiro_contato");
+      }
+    }
   } catch (error) {
-    if (!isMissingRelation(error)) console.warn("loadMapPoints user_lead_state fallback error", error);
+    if (!isMissingRelation(error)) console.warn("loadMapPoints touchpoints status fallback error", error);
   }
   return out;
+}
+
+function normalizeProspectStatus(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const status = value.trim().replace(/^status\s*:\s*/i, "");
+  return [
+    "nao_contatado", "primeiro_contato", "em_negociacao", "qualificado", "agendado", "perdido",
+    "briefing_enviado", "diagnostico_pendente", "proposta_pendente", "proposta_enviada", "fechado_ganho",
+    "aguardando_kickoff", "aguardando_producao", "em_producao", "entregue", "cliente",
+  ].includes(status) ? status : null;
 }
 
 function isMissingRelation(error: unknown): boolean {

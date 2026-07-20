@@ -42,16 +42,6 @@ type IxRow = {
   created_at: string;  // mapeado de touchpoints.enviado_em
 };
 
-type UserLeadStateRow = {
-  prospect_id: string;
-  status: string | null;
-  cadence_step: number | null;
-  cadence_status: string | null;
-  response_status: string | null;
-  last_contact_at: string | null;
-  next_contact_at: string | null;
-};
-
 type DbErrorLike = { code?: string; message?: string };
 
 const VALID_POTENTIALS = ["alto", "medio", "baixo"];
@@ -175,28 +165,7 @@ async function currentOrgRole(): Promise<string | null> {
 }
 
 async function loadProspectRowsWithPrivateState(uid: string, pageSize: number): Promise<Row[]> {
-  const rows: Row[] = [];
-  for (let from = 0; ; from += pageSize) {
-    // Preferência: view no banco com overlay privado por usuário.
-    const { data, error } = await dbExt.from("v_prospects_user" as never)
-      .select("*")
-      .order("created_at", { ascending: false })
-      .range(from, from + pageSize - 1);
-
-    if (error) {
-      if (isMissingRelation(error)) {
-        console.warn("v_prospects_user indisponível; usando fallback seguro em prospects + user_lead_state", error);
-        return loadProspectRowsFallback(uid, pageSize);
-      }
-      console.error("loadAllProspects prospects error", error);
-      throw new Error(`Falha ao carregar prospects: ${error.message}`);
-    }
-
-    const batch = (data ?? []) as Row[];
-    rows.push(...batch);
-    if (batch.length < pageSize) break;
-  }
-  return rows;
+  return loadProspectRowsFallback(uid, pageSize);
 }
 
 async function loadProspectRowsFallback(uid: string, pageSize: number): Promise<Row[]> {
@@ -217,37 +186,52 @@ async function loadProspectRowsFallback(uid: string, pageSize: number): Promise<
     if (batch.length < pageSize) break;
   }
 
-  const states = await loadUserLeadStates(uid, rows.map((r) => r.id), pageSize);
+  const states = await loadPrivateStatesFromTouchpoints(uid, rows.map((r) => r.id), pageSize);
   return rows.map((row) => ({ ...row, ...(states.get(row.id) ?? {}) }));
 }
 
-async function loadUserLeadStates(uid: string, ids: string[], pageSize: number): Promise<Map<string, Partial<Row>>> {
+async function loadPrivateStatesFromTouchpoints(uid: string, ids: string[], pageSize: number): Promise<Map<string, Partial<Row>>> {
   const out = new Map<string, Partial<Row>>();
   if (!ids.length) return out;
   const ID_BATCH = 200;
   for (let i = 0; i < ids.length; i += ID_BATCH) {
     const slice = ids.slice(i, i + ID_BATCH);
     for (let from = 0; ; from += pageSize) {
-      const { data, error } = await dbExt.from("user_lead_state" as never)
-        .select("prospect_id,status,cadence_step,cadence_status,response_status,last_contact_at,next_contact_at")
+      const { data, error } = await dbExt.from("prospect_touchpoints")
+        .select("prospect_id,tipo,resultado,mensagem,enviado_em")
         .eq("user_id", uid)
         .in("prospect_id", slice)
+        .in("tipo", ["whatsapp", "ligacao", "email", "reuniao", "resposta", "status"])
+        .order("enviado_em", { ascending: false })
         .range(from, from + pageSize - 1);
       if (error) {
-        if (isMissingRelation(error)) return out;
-        console.warn("loadAllProspects user_lead_state fallback error", error);
+        console.warn("loadAllProspects private touchpoints fallback error", error);
         return out;
       }
-      const batch = (data ?? []) as UserLeadStateRow[];
-      for (const state of batch) {
-        out.set(state.prospect_id, {
-          status: state.status ?? "nao_contatado",
-          cadence_step: state.cadence_step ?? 0,
-          cadence_status: state.cadence_status ?? "ativo",
-          response_status: state.response_status ?? "sem_resposta",
-          last_contact_at: state.last_contact_at,
-          next_contact_at: state.next_contact_at,
-        });
+      const batch = (data ?? []) as Array<{
+        prospect_id: string;
+        tipo: string | null;
+        resultado: string | null;
+        mensagem: string | null;
+        enviado_em: string | null;
+      }>;
+      for (const event of batch) {
+        const prev = out.get(event.prospect_id) ?? {};
+        const next: Partial<Row> = { ...prev };
+        const eventAt = event.enviado_em ?? null;
+        if (eventAt && (!next.last_contact_at || new Date(eventAt) > new Date(next.last_contact_at))) {
+          next.last_contact_at = eventAt;
+        }
+        if (event.tipo === "resposta" || event.resultado === "respondido" || event.resultado === "interessado") {
+          next.response_status = "respondido";
+          if (!next.status || next.status === "nao_contatado" || next.status === "primeiro_contato") next.status = "qualificado";
+        } else if (event.tipo === "status") {
+          const status = normalizePrivateStatus(event.resultado) ?? normalizePrivateStatus(event.mensagem);
+          if (status && !next.status) next.status = status;
+        } else if (!next.status) {
+          next.status = "primeiro_contato";
+        }
+        out.set(event.prospect_id, next);
       }
       if (batch.length < pageSize) break;
     }
@@ -283,6 +267,13 @@ function withDefaultPrivateState(row: Partial<Row>): Row {
 
 function isMissingRelation(error: DbErrorLike): boolean {
   return error.code === "PGRST205" || /schema cache|Could not find the table|does not exist/i.test(error.message ?? "");
+}
+
+function normalizePrivateStatus(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const raw = value.trim();
+  const stripped = raw.replace(/^status\s*:\s*/i, "");
+  return VALID_STATUSES.includes(stripped) ? stripped : null;
 }
 
 async function currentUserId(): Promise<string | null> {
@@ -358,7 +349,7 @@ export async function insertProspect(p: Omit<Prospect, "id" | "createdAt" | "int
 export async function updateProspect(id: string, patch: Partial<Prospect>) {
   console.log("[prospects-api] updateProspect:start", { id, patch });
   const uid = await requireUserId();
-  // Arquitetura híbrida: campos operacionais privados vão para user_lead_state.
+  // Arquitetura híbrida: campos operacionais privados vão para o histórico privado.
   // Somente cadastro compartilhado é gravado em prospects.
   const map: Record<string, unknown> = {};
   if (patch.company !== undefined) map.company = patch.company;
@@ -380,9 +371,9 @@ export async function updateProspect(id: string, patch: Partial<Prospect>) {
       throw error;
     }
   }
-  // Estado operacional privado (por usuário)
+  // Estado operacional privado (por usuário): registrado no histórico de touchpoints.
   if (patch.status !== undefined) {
-    const err = await upsertUserLeadStateStatus(id, uid, String(patch.status));
+    const err = await savePrivateStatusTouchpoint(id, uid, String(patch.status));
     if (err) {
       console.error("[prospects-api] updateProspect:state_error", { id, err });
       throw new Error(err.message ?? "Falha ao salvar status privado");
@@ -488,36 +479,45 @@ export async function bulkUpdateProspects(
     const { error } = await dbExt.from("prospects").update(map as never).in("id", ids);
     if (error) throw error;
   }
-  // Status é privado por usuário — grava em lote em user_lead_state.
+  // Status é privado por usuário — grava em lote no histórico de touchpoints.
   if (patch.status !== undefined) {
     const rows = ids.map((prospect_id) => ({
       prospect_id,
       user_id: uid,
-      status: String(patch.status),
-      updated_at: new Date().toISOString(),
+      tipo: "status",
+      resultado: String(patch.status),
+      mensagem: `status:${String(patch.status)}`,
+      by_name: "Sistema",
+      enviado_em: new Date().toISOString(),
     }));
     const { error } = await dbExt
-      .from("user_lead_state" as never)
-      .upsert(rows as never, { onConflict: "prospect_id,user_id" });
+      .from("prospect_touchpoints")
+      .insert(rows as never);
     if (error) throw error;
   }
 }
 
 /**
- * Upsert do estado privado do usuário para um lead compartilhado.
- * organization_id é preenchido pelo default/trigger no banco.
+ * Registro do estado privado do usuário para um lead compartilhado.
+ * Usa prospect_touchpoints porque essa tabela já está exposta no backend externo
+ * e é a fonte única usada para disparos e importação para Cadência.
  */
-async function upsertUserLeadStateStatus(
+async function savePrivateStatusTouchpoint(
   prospectId: string,
   userId: string,
   status: string,
 ): Promise<{ message?: string } | null> {
   const { error } = await dbExt
-    .from("user_lead_state" as never)
-    .upsert(
-      { prospect_id: prospectId, user_id: userId, status, updated_at: new Date().toISOString() } as never,
-      { onConflict: "prospect_id,user_id" },
-    );
+    .from("prospect_touchpoints")
+    .insert({
+      prospect_id: prospectId,
+      user_id: userId,
+      tipo: "status",
+      resultado: status,
+      mensagem: `status:${status}`,
+      by_name: "Sistema",
+      enviado_em: new Date().toISOString(),
+    });
   return error ? { message: error.message } : null;
 }
 
