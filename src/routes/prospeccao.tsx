@@ -2027,17 +2027,17 @@ function DesktopProspectTable({
                         </span>
                       ) : (
                         <Button
-                          size="sm"
+                          size="icon"
                           variant="outline"
-                          className="h-6 gap-1 border-emerald-500/40 px-2 text-[10px] font-medium text-emerald-300 hover:bg-emerald-500/10 hover:text-emerald-200"
+                          className="h-6 w-6 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 hover:text-emerald-200"
                           disabled={busyWhatsIds?.has(p.id)}
                           title="Disparar WhatsApp (usa a conta selecionada no topo)"
+                          aria-label="Disparar WhatsApp"
                           onClick={(e) => { e.stopPropagation(); onWhats(p); }}
                         >
                           {busyWhatsIds?.has(p.id)
-                            ? <Loader2 className="h-3 w-3 animate-spin" />
-                            : <MessageSquare className="h-3 w-3" />}
-                          Disparar WhatsApp
+                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            : <MessageSquare className="h-3.5 w-3.5" />}
                         </Button>
                       )}
                       {(() => {
