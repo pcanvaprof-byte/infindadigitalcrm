@@ -868,11 +868,12 @@ export async function importFromProspects(): Promise<{ imported: number; updated
     const { data, error } = await db.rpc("cad_import_from_prospects", { p_ids: batch });
     if (error) {
       const msg = String(error.message || "");
-      // Ignora duplicatas residuais (corrida entre clientes); reporta o resto.
+      // Duplicata em lote não pode descartar todos os outros leads válidos.
+      // Repassa o lote para o fallback granular abaixo, que tenta item a item.
       if (!/duplicate key|unique constraint|ux_cad_leads_/i.test(msg)) {
         throw new Error(msg);
       }
-      skippedDup += batch.length;
+      fallbackIds.push(...batch);
       continue;
     }
     const importedBatch = (data as number) ?? 0;
@@ -930,7 +931,24 @@ export async function importFromProspects(): Promise<{ imported: number; updated
         if (!/duplicate key|unique constraint|ux_cad_leads_|cad_leads_.*uniq/i.test(msg)) {
           throw new Error(msg);
         }
-        skippedDup += batch.length;
+        // Se o lote bateu em UMA duplicidade antiga/global, salva o restante
+        // individualmente para não perder as 4 conversas iniciadas do usuário.
+        for (const item of batch) {
+          const { data: oneData, error: oneError } = await db
+            .from("cad_leads")
+            .insert(item)
+            .select("id")
+            .maybeSingle();
+          if (oneError) {
+            const oneMsg = String(oneError.message || "");
+            if (!/duplicate key|unique constraint|ux_cad_leads_|cad_leads_.*uniq/i.test(oneMsg)) {
+              throw new Error(oneMsg);
+            }
+            skippedDup += 1;
+            continue;
+          }
+          if (oneData) imported += 1;
+        }
         continue;
       }
       imported += ((data ?? []) as Array<{ id: string }>).length;
