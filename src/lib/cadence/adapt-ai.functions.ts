@@ -108,9 +108,6 @@ export const adaptarPackComIA = createServerFn({ method: "POST" })
   .middleware([authWithAccess])
   .inputValidator((v: unknown) => Input.parse(v))
   .handler(async ({ data, context }) => {
-    const key = process.env.GROQ_API_KEY;
-    if (!key) throw new Error("GROQ_API_KEY ausente no servidor");
-
     const { supabase } = context;
 
     let adapted: TplItem[] = [];
@@ -145,31 +142,18 @@ ${briefingBlock}
 Mensagens originais:
 ${JSON.stringify(items, null, 2)}`;
 
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          Authorization: `Bearer ${key}`,
-        },
-        body: JSON.stringify({
-          model: "llama-3.3-70b-versatile",
-          response_format: { type: "json_object" },
-          temperature: 0.6,
-          messages: [
-            { role: "system", content: "Você retorna APENAS JSON válido, sem texto extra, sem markdown, sem crases." },
-            { role: "user", content: prompt },
-          ],
-        }),
+      const { callGroqChat } = await import("@/lib/ai/groq-client.server");
+      const raw = await callGroqChat({
+        model: "llama-3.3-70b-versatile",
+        temperature: 0.6,
+        jsonMode: true,
+        messages: [
+          { role: "system", content: "Você retorna APENAS JSON válido, sem texto extra, sem markdown, sem crases." },
+          { role: "user", content: prompt },
+        ],
       });
-      if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        if (res.status === 429) throw new Error("Limite de uso da IA (Groq) atingido — aguarde alguns segundos e tente novamente.");
-        throw new Error(`IA falhou (${res.status}): ${txt.slice(0, 200)}`);
-      }
-      const j = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
-      const raw = j.choices?.[0]?.message?.content ?? "{}";
       let parsed: { items?: TplItem[] };
-      try { parsed = JSON.parse(raw); } catch { throw new Error("Resposta IA inválida (JSON malformado)"); }
+      try { parsed = JSON.parse(raw || "{}"); } catch { throw new Error("Resposta IA inválida (JSON malformado)"); }
       adapted = (parsed.items ?? []).filter(
         (i) => i && typeof i.stage === "string" && STAGES.includes(i.stage as StageKey),
       );
