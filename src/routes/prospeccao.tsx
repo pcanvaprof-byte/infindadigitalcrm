@@ -2022,25 +2022,40 @@ function DesktopProspectTable({
                     <div className="text-xs">{p.whatsapp || p.phone || "—"}</div>
                     <div className="text-[11px] text-muted-foreground">{p.email || p.instagram || "—"}</div>
                     <div className="mt-1 flex flex-wrap items-center gap-1">
-                      {(((p.whatsapp || "").replace(/\D/g, "")).length < 10) ? (
-                        <span className="inline-flex items-center rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300" title="Empresa sem WhatsApp — candidata a enriquecimento">
-                          Sem WhatsApp
-                        </span>
-                      ) : (
-                        <Button
-                          size="icon"
-                          variant="outline"
-                          className="h-6 w-6 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 hover:text-emerald-200"
-                          disabled={busyWhatsIds?.has(p.id)}
-                          title="Disparar WhatsApp (usa a conta selecionada no topo)"
-                          aria-label="Disparar WhatsApp"
-                          onClick={(e) => { e.stopPropagation(); onWhats(p); }}
-                        >
-                          {busyWhatsIds?.has(p.id)
-                            ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            : <MessageSquare className="h-3.5 w-3.5" />}
-                        </Button>
-                      )}
+                      <TooltipProvider delayDuration={150}>
+                        {(((p.whatsapp || "").replace(/\D/g, "")).length < 10) ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex items-center rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                                Sem WhatsApp
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              Contato sem número de WhatsApp — enriqueça o lead para liberar o disparo.
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-6 w-6 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 hover:text-emerald-200"
+                                disabled={busyWhatsIds?.has(p.id)}
+                                aria-label="Disparar no WhatsApp"
+                                onClick={(e) => { e.stopPropagation(); onWhats(p); }}
+                              >
+                                {busyWhatsIds?.has(p.id)
+                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  : <MessageSquare className="h-3.5 w-3.5" />}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              Disparar no WhatsApp (usa a conta selecionada no topo).
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </TooltipProvider>
                       {(() => {
                         const isOut = (k: string) => k === "whatsapp" || k === "ligacao" || k === "email";
                         let max = 0;
