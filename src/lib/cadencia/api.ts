@@ -974,6 +974,7 @@ export async function importFromProspects(): Promise<{ imported: number; updated
     const { data, error } = await db
       .from("cad_leads")
       .delete()
+      .eq("owner_id", ctx.uid)
       .in("prospect_id", batch)
       .is("last_contact_at", null)
       .select("id");
