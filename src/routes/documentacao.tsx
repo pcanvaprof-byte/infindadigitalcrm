@@ -23,6 +23,7 @@ import { RequireAuth } from "@/lib/auth-context";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { useOrgRole, isOwnerOrAdmin } from "@/lib/org/plans";
 
 export const Route = createFileRoute("/documentacao")({
   head: () => ({
@@ -98,8 +99,8 @@ const SECTIONS: Section[] = [
             antes de qualquer outra ação. Sem isso, a IA responde de forma genérica.
           </li>
           <li>
-            <strong>Explore o menu lateral</strong> — os módulos aparecem conforme o seu papel
-            (Owner/Admin veem tudo; Member vê só o comercial).
+            <strong>Explore o menu lateral</strong> — os módulos disponíveis aparecem conforme o
+            seu acesso.
           </li>
         </Steps>
         <Tip>
@@ -161,12 +162,8 @@ const SECTIONS: Section[] = [
         <p>Visão consolidada e filtrada automaticamente pelo seu papel.</p>
         <Steps>
           <li>
-            <strong>Owner/Admin</strong>: números da organização inteira — total de leads, ativos,
-            propostas, MRR e conversões.
-          </li>
-          <li>
-            <strong>Member</strong>: apenas leads e tarefas <em>atribuídos a você</em>. Números de
-            colegas nunca aparecem.
+            Você vê apenas leads, tarefas e números <em>atribuídos a você</em>. Dados de colegas
+            nunca aparecem.
           </li>
           <li>
             Clique nos cards para pular direto para a lista filtrada (ex.: “tarefas atrasadas”
@@ -222,8 +219,7 @@ const SECTIONS: Section[] = [
         <>
         <p>
           Base de leads <strong>compartilhada</strong> pela organização + cadência{" "}
-          <strong>privada</strong> por usuário. Dois members podem trabalhar o mesmo lead sem
-          atropelar um ao outro.
+          <strong>privada</strong> por usuário.
         </p>
         <Steps>
           <li>
@@ -290,10 +286,6 @@ const SECTIONS: Section[] = [
             uma resposta pendente aguarda retorno.
           </li>
         </Steps>
-        <Warn>
-          Nunca dois usuários enviam pelo mesmo lead ao mesmo tempo — a cadência é privada, mas o
-          lead é compartilhado. Combinem responsabilidade no CRM.
-        </Warn>
       </>
     ),
   },
