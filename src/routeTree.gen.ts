@@ -14,6 +14,7 @@ import { Route as TarefasRouteImport } from './routes/tarefas'
 import { Route as ProspeccaoTemplatesNichoRouteImport } from './routes/prospeccao-templates-nicho'
 import { Route as ProspeccaoRouteImport } from './routes/prospeccao'
 import { Route as PropostasRouteImport } from './routes/propostas'
+import { Route as MeusTemplatesRouteImport } from './routes/meus-templates'
 import { Route as MeuNegocioRouteImport } from './routes/meu-negocio'
 import { Route as MetasObjetivosRouteImport } from './routes/metas-objetivos'
 import { Route as MetasRouteImport } from './routes/metas'
@@ -88,6 +89,11 @@ const ProspeccaoRoute = ProspeccaoRouteImport.update({
 const PropostasRoute = PropostasRouteImport.update({
   id: '/propostas',
   path: '/propostas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MeusTemplatesRoute = MeusTemplatesRouteImport.update({
+  id: '/meus-templates',
+  path: '/meus-templates',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MeuNegocioRoute = MeuNegocioRouteImport.update({
@@ -366,6 +372,7 @@ export interface FileRoutesByFullPath {
   '/metas': typeof MetasRoute
   '/metas-objetivos': typeof MetasObjetivosRoute
   '/meu-negocio': typeof MeuNegocioRoute
+  '/meus-templates': typeof MeusTemplatesRoute
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/prospeccao-templates-nicho': typeof ProspeccaoTemplatesNichoRoute
@@ -422,6 +429,7 @@ export interface FileRoutesByTo {
   '/metas': typeof MetasRoute
   '/metas-objetivos': typeof MetasObjetivosRoute
   '/meu-negocio': typeof MeuNegocioRoute
+  '/meus-templates': typeof MeusTemplatesRoute
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/prospeccao-templates-nicho': typeof ProspeccaoTemplatesNichoRoute
@@ -477,6 +485,7 @@ export interface FileRoutesById {
   '/metas': typeof MetasRoute
   '/metas-objetivos': typeof MetasObjetivosRoute
   '/meu-negocio': typeof MeuNegocioRoute
+  '/meus-templates': typeof MeusTemplatesRoute
   '/propostas': typeof PropostasRouteWithChildren
   '/prospeccao': typeof ProspeccaoRoute
   '/prospeccao-templates-nicho': typeof ProspeccaoTemplatesNichoRoute
@@ -535,6 +544,7 @@ export interface FileRouteTypes {
     | '/metas'
     | '/metas-objetivos'
     | '/meu-negocio'
+    | '/meus-templates'
     | '/propostas'
     | '/prospeccao'
     | '/prospeccao-templates-nicho'
@@ -591,6 +601,7 @@ export interface FileRouteTypes {
     | '/metas'
     | '/metas-objetivos'
     | '/meu-negocio'
+    | '/meus-templates'
     | '/propostas'
     | '/prospeccao'
     | '/prospeccao-templates-nicho'
@@ -645,6 +656,7 @@ export interface FileRouteTypes {
     | '/metas'
     | '/metas-objetivos'
     | '/meu-negocio'
+    | '/meus-templates'
     | '/propostas'
     | '/prospeccao'
     | '/prospeccao-templates-nicho'
@@ -702,6 +714,7 @@ export interface RootRouteChildren {
   MetasRoute: typeof MetasRoute
   MetasObjetivosRoute: typeof MetasObjetivosRoute
   MeuNegocioRoute: typeof MeuNegocioRoute
+  MeusTemplatesRoute: typeof MeusTemplatesRoute
   PropostasRoute: typeof PropostasRouteWithChildren
   ProspeccaoRoute: typeof ProspeccaoRoute
   ProspeccaoTemplatesNichoRoute: typeof ProspeccaoTemplatesNichoRoute
@@ -755,6 +768,13 @@ declare module '@tanstack/react-router' {
       path: '/propostas'
       fullPath: '/propostas'
       preLoaderRoute: typeof PropostasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/meus-templates': {
+      id: '/meus-templates'
+      path: '/meus-templates'
+      fullPath: '/meus-templates'
+      preLoaderRoute: typeof MeusTemplatesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/meu-negocio': {
@@ -1247,6 +1267,7 @@ const rootRouteChildren: RootRouteChildren = {
   MetasRoute: MetasRoute,
   MetasObjetivosRoute: MetasObjetivosRoute,
   MeuNegocioRoute: MeuNegocioRoute,
+  MeusTemplatesRoute: MeusTemplatesRoute,
   PropostasRoute: PropostasRouteWithChildren,
   ProspeccaoRoute: ProspeccaoRoute,
   ProspeccaoTemplatesNichoRoute: ProspeccaoTemplatesNichoRoute,

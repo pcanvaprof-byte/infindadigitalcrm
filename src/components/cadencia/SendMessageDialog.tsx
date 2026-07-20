@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Copy, Send, Shuffle } from "lucide-react";
 import { toast } from "sonner";
-import { listTemplates, registerSend, markProspectContactedFromLead } from "@/lib/cadencia/api";
+import { resolveTemplate, registerSend, markProspectContactedFromLead } from "@/lib/cadencia/api";
 import {
   renderTemplate,
   sanitizeTemplateForSend,
@@ -33,7 +33,11 @@ export function SendMessageDialog({
   lead, open, onOpenChange,
 }: { lead: CadLead | null; open: boolean; onOpenChange: (o: boolean) => void }) {
   const qc = useQueryClient();
-  const tpls = useQuery({ queryKey: ["cad-templates"], queryFn: listTemplates, enabled: open });
+  const tplQ = useQuery({
+    queryKey: ["cad-resolved-template", lead?.stage ?? null],
+    queryFn: () => resolveTemplate(lead!.stage),
+    enabled: open && !!lead,
+  });
   const [msg, setMsg] = useState("");
   const [variants, setVariants] = useState<string[]>([]);
   const [variantIdx, setVariantIdx] = useState(0);
@@ -64,8 +68,7 @@ export function SendMessageDialog({
 
   useEffect(() => {
     if (!lead || !open) return;
-    const tpl = (tpls.data ?? []).find((t) => t.stage === lead.stage);
-    const corpo = tpl?.corpo ?? "";
+    const corpo = tplQ.data?.corpo ?? "";
     const parts = expandVariants(corpo);
     setVariants(parts);
     if (parts.length === 0) {
@@ -86,7 +89,7 @@ export function SendMessageDialog({
     const idxInParts = parts.indexOf(pick.text);
     setVariantIdx(idxInParts >= 0 ? idxInParts : 0);
     setMsg(renderTemplate(pick.text, lead));
-  }, [lead, open, tpls.data]);
+  }, [lead, open, tplQ.data]);
 
   function cycleVariant() {
     if (!lead || variants.length <= 1) return;

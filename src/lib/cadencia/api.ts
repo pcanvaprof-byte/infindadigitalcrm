@@ -330,18 +330,159 @@ export async function registerResponse(leadId: string, mensagem: string): Promis
 }
 
 export async function listTemplates(): Promise<CadTemplate[]> {
-  const { data, error } = await db.from("cad_templates").select("*").order("stage");
+  // Padrão da organização apenas (owner_id IS NULL). Overrides de member
+  // são resolvidos pela RPC cad_resolve_template — nunca consumidos daqui.
+  const { data, error } = await db.from("cad_templates")
+    .select("*")
+    .is("owner_id", null)
+    .order("stage");
   if (error) throw new Error(error.message);
   return (data ?? []) as CadTemplate[];
 }
 
 export async function upsertTemplate(input: { stage: CadStage; titulo: string; corpo: string }): Promise<void> {
-  // Buscar org via RPC current_org_id
+  // Editor do padrão da organização (owner/admin). owner_id fica NULL.
   const { data: orgData, error: orgErr } = await db.rpc("current_org_id");
   if (orgErr) throw new Error(orgErr.message);
   const organization_id = orgData as string;
   const { error } = await db.from("cad_templates")
-    .upsert({ organization_id, ...input }, { onConflict: "organization_id,stage" });
+    .upsert(
+      { organization_id, owner_id: null, pack_key: "default", ...input },
+      { onConflict: "organization_id,owner_id,pack_key,stage" },
+    );
+  if (error) throw new Error(error.message);
+}
+
+// ============================================================
+// Resolução via RPC (fonte única para o motor de disparo)
+// ============================================================
+
+export type ResolvedTemplate = {
+  stage: CadStage;
+  titulo: string;
+  corpo: string;
+  source: "user" | "org" | "system";
+};
+
+async function getMyContext(): Promise<{ orgId: string; ownerId: string; packKey: string }> {
+  const { data: userRes } = await supabase.auth.getUser();
+  const ownerId = userRes.user?.id;
+  if (!ownerId) throw new Error("auth_required");
+
+  const { data: orgData, error: orgErr } = await db.rpc("current_org_id");
+  if (orgErr) throw new Error(orgErr.message);
+  const orgId = orgData as string;
+  if (!orgId) throw new Error("no_active_org");
+
+  // Pack ativo da organização (fallback default).
+  const { data: orgRow } = await db.from("organizations")
+    .select("active_template_pack")
+    .eq("id", orgId)
+    .maybeSingle();
+  const packKey = (orgRow?.active_template_pack as string | null) || "default";
+
+  return { orgId, ownerId, packKey };
+}
+
+/** Resolve UM template via RPC (motor de disparo). */
+export async function resolveTemplate(stage: CadStage): Promise<ResolvedTemplate | null> {
+  const { orgId, ownerId, packKey } = await getMyContext();
+  const { data, error } = await db.rpc("cad_resolve_template", {
+    p_organization_id: orgId,
+    p_owner_id: ownerId,
+    p_pack_key: packKey,
+    p_stage: stage,
+  });
+  if (error) throw new Error(error.message);
+  const row = Array.isArray(data) ? data[0] : null;
+  if (!row) return null;
+  return {
+    stage,
+    titulo: row.titulo as string,
+    corpo: row.corpo as string,
+    source: row.source as ResolvedTemplate["source"],
+  };
+}
+
+/** Resolve TODOS os 7 followups via RPC (para Kanban / listagem). */
+export async function listResolvedTemplates(): Promise<ResolvedTemplate[]> {
+  const { orgId, ownerId, packKey } = await getMyContext();
+  const { data, error } = await db.rpc("cad_list_resolved_templates", {
+    p_organization_id: orgId,
+    p_owner_id: ownerId,
+    p_pack_key: packKey,
+  });
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as Array<{ stage: CadStage; titulo: string; corpo: string; source: string }>)
+    .map((r) => ({
+      stage: r.stage,
+      titulo: r.titulo,
+      corpo: r.corpo,
+      source: r.source as ResolvedTemplate["source"],
+    }));
+}
+
+// ============================================================
+// Overrides do member: CRUD
+// ============================================================
+
+export type MyTemplateRow = {
+  stage: CadStage;
+  titulo: string;
+  corpo: string;
+  source: "user" | "org" | "system";
+  override_id: string | null;
+};
+
+/** Lista os 7 followups já resolvidos + marca se há override do usuário. */
+export async function listMyTemplates(): Promise<MyTemplateRow[]> {
+  const { orgId, ownerId, packKey } = await getMyContext();
+  const { data, error } = await db.rpc("cad_list_resolved_templates", {
+    p_organization_id: orgId,
+    p_owner_id: ownerId,
+    p_pack_key: packKey,
+  });
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as MyTemplateRow[]).map((r) => ({
+    stage: r.stage,
+    titulo: r.titulo,
+    corpo: r.corpo,
+    source: r.source,
+    override_id: r.override_id ?? null,
+  }));
+}
+
+/** Cria/atualiza override do member (owner_id = auth.uid()). */
+export async function upsertMyTemplate(input: {
+  stage: CadStage;
+  titulo: string;
+  corpo: string;
+}): Promise<void> {
+  const { orgId, ownerId, packKey } = await getMyContext();
+  const { error } = await db.from("cad_templates").upsert(
+    {
+      organization_id: orgId,
+      owner_id: ownerId,
+      pack_key: packKey,
+      is_system: false,
+      stage: input.stage,
+      titulo: input.titulo,
+      corpo: input.corpo,
+    },
+    { onConflict: "organization_id,owner_id,pack_key,stage" },
+  );
+  if (error) throw new Error(error.message);
+}
+
+/** Restaura padrão da organização — apenas apaga o override do usuário. */
+export async function resetMyTemplate(stage: CadStage): Promise<void> {
+  const { orgId, ownerId, packKey } = await getMyContext();
+  const { error } = await db.from("cad_templates")
+    .delete()
+    .eq("organization_id", orgId)
+    .eq("owner_id", ownerId)
+    .eq("pack_key", packKey)
+    .eq("stage", stage);
   if (error) throw new Error(error.message);
 }
 
