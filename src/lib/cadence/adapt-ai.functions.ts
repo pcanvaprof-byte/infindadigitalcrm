@@ -108,8 +108,8 @@ export const adaptarPackComIA = createServerFn({ method: "POST" })
   .middleware([authWithAccess])
   .inputValidator((v: unknown) => Input.parse(v))
   .handler(async ({ data, context }) => {
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) throw new Error("LOVABLE_API_KEY ausente no servidor");
+    const key = process.env.GROQ_API_KEY;
+    if (!key) throw new Error("GROQ_API_KEY ausente no servidor");
 
     const { supabase } = context;
 
@@ -145,15 +145,14 @@ ${briefingBlock}
 Mensagens originais:
 ${JSON.stringify(items, null, 2)}`;
 
-      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "Lovable-API-Key": key,
-          "X-Lovable-AIG-SDK": "custom-fetch",
+          Authorization: `Bearer ${key}`,
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: "llama-3.3-70b-versatile",
           response_format: { type: "json_object" },
           temperature: 0.6,
           messages: [
@@ -164,8 +163,7 @@ ${JSON.stringify(items, null, 2)}`;
       });
       if (!res.ok) {
         const txt = await res.text().catch(() => "");
-        if (res.status === 429) throw new Error("Limite de uso da IA atingido — aguarde alguns segundos e tente novamente.");
-        if (res.status === 402) throw new Error("Créditos de IA esgotados no workspace.");
+        if (res.status === 429) throw new Error("Limite de uso da IA (Groq) atingido — aguarde alguns segundos e tente novamente.");
         throw new Error(`IA falhou (${res.status}): ${txt.slice(0, 200)}`);
       }
       const j = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
