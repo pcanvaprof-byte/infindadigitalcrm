@@ -815,10 +815,17 @@ function ProspeccaoPage() {
       return n;
     });
 
-  const allVisibleSelected = filteredOrdered.length > 0 && filteredOrdered.every((p) => selected.has(p.id));
+  const allVisibleSelected = pagedItems.length > 0 && pagedItems.every((p) => selected.has(p.id));
   const toggleSelectAll = () => {
-    if (allVisibleSelected) setSelected(new Set());
-    else setSelected(new Set(filteredOrdered.map((p) => p.id)));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        for (const p of pagedItems) next.delete(p.id);
+      } else {
+        for (const p of pagedItems) next.add(p.id);
+      }
+      return next;
+    });
   };
 
   const logAttempt = async (prospect: Prospect, tipo: TouchpointTipo) => {
