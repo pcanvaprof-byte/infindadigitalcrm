@@ -971,17 +971,17 @@ function ProspeccaoPage() {
     // Sanitização final antes do envio — remove qualquer placeholder
     // remanescente e colapsa espaços/linhas em branco.
     msg = sanitizeTemplateForSend(msg);
-    // Define o confirm ANTES de abrir o WhatsApp para garantir que o estado
-    // esteja commitado caso o navegador móvel saia da aba para o app.
-    console.log("[prosp] openWhats:setConfirm", { id: p.id, company: p.company });
-    setWhatsConfirm({ id: p.id, company: p.company });
     // Registra o touchpoint IMEDIATAMENTE — no mobile o operador sai pro
     // app do WhatsApp e raramente volta pra confirmar no diálogo, o que
     // deixava o lead como "não disparado" mesmo depois do envio.
-    // O diálogo pós-envio segue existindo, mas só avança o STATUS para
-    // `primeiro_contato` (indicando resposta), não é mais o gatilho do
-    // registro do disparo em si.
     void logAttempt(p, "whatsapp");
+    // Avança o STATUS para `primeiro_contato` na mesma ação, para o lead
+    // sair da fila de "não contatado" e não reaparecer como pendente após
+    // recarregar a página. Só sobrescreve o estado inicial — status mais
+    // avançados (qualificado, agendado, cliente) são preservados.
+    if (p.status === "nao_contatado") {
+      updateStatus(p.id, "primeiro_contato");
+    }
     // Honra a conta de WhatsApp escolhida (Normal/Business). No Android
     // forçamos o app correto via intent://; no iPhone/desktop o link abre
     // o app definido como padrão do sistema.
