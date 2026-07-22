@@ -370,6 +370,20 @@ function ProspeccaoPage() {
   const [onlyWithContact, setOnlyWithContact] = useState(false);
   const [noWhatsapp, setNoWhatsapp] = useState(false);
   const [onlyWhatsapp, setOnlyWhatsapp] = useState(false);
+  // Oculta leads que já saíram de "não contatado" na visão privada do usuário
+  // (status derivado do próprio histórico de touchpoints). Após um disparo o
+  // lead avança para "primeiro contato" e some da fila de prospecção, ficando
+  // pronto pra ser trabalhado em Cadência. Persistido por usuário.
+  const [hideDispatched, setHideDispatched] = useState<boolean>(true);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const v = window.localStorage.getItem("prosp_hide_dispatched");
+    if (v === "0") setHideDispatched(false);
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try { window.localStorage.setItem("prosp_hide_dispatched", hideDispatched ? "1" : "0"); } catch { /* ignore */ }
+  }, [hideDispatched]);
   type CadenceChip = "all" | "hoje" | "atrasados" | "sem_resposta" | "responderam" | "interessados" | "clientes";
   const [cadenceFilter, setCadenceFilter] = useState<CadenceChip>("all");
   const [touchpointTarget, setTouchpointTarget] = useState<{ prospect: Prospect; tipo: TouchpointTipo } | null>(null);
@@ -448,6 +462,10 @@ function ProspeccaoPage() {
     const q = search.trim().toLowerCase();
     return prospects.filter((p) => {
       if (statusFilter !== "all" && p.status !== statusFilter) return false;
+      // Quando ativo, esconde qualquer lead já disparado por este usuário
+      // (status privado != "nao_contatado"). Ignora se o operador escolheu
+      // um status específico no filtro (aí ele quer ver aquele status).
+      if (hideDispatched && statusFilter === "all" && p.status !== "nao_contatado") return false;
       if (segmentFilter !== "all" && (p.segment || "").trim().toLowerCase() !== segmentFilter.toLowerCase()) return false;
       if (stateFilter !== "all" && p.state !== stateFilter) return false;
       if (potentialFilter !== "all" && p.potential !== potentialFilter) return false;
@@ -498,7 +516,7 @@ function ProspeccaoPage() {
       return [p.company, p.segment, p.owner, p.email, p.whatsapp, p.phone, p.instagram, p.city, p.state, p.source]
         .join(" ").toLowerCase().includes(q);
     });
-  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter]);
+  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter, hideDispatched]);
 
   // Bloqueio de 24h por disparo recente (whatsapp/ligação/email outbound).
   // Empresas com disparo nas últimas 24h são jogadas para o FINAL da lista,
@@ -1607,6 +1625,17 @@ function ProspeccaoPage() {
                 ariaLabel="Mostrar somente empresas com contato disponível"
               />
               Mostrar somente empresas com contato disponível (WhatsApp, telefone ou e-mail)
+            </label>
+            <label className="col-span-full flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
+              <NativeCheckbox
+                checked={hideDispatched}
+                onChange={setHideDispatched}
+                ariaLabel="Ocultar leads já disparados por mim"
+              />
+              <span>
+                Ocultar leads <strong className="text-foreground">já disparados por mim</strong>
+                {" "}(some da prospecção assim que avançam para "Primeiro contato" — cada usuário vê a própria fila)
+              </span>
             </label>
             <label className="col-span-full flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
               <NativeCheckbox
