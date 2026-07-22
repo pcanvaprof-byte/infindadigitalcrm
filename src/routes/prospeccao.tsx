@@ -370,6 +370,20 @@ function ProspeccaoPage() {
   const [onlyWithContact, setOnlyWithContact] = useState(false);
   const [noWhatsapp, setNoWhatsapp] = useState(false);
   const [onlyWhatsapp, setOnlyWhatsapp] = useState(false);
+  // Oculta leads que já saíram de "não contatado" na visão privada do usuário
+  // (status derivado do próprio histórico de touchpoints). Após um disparo o
+  // lead avança para "primeiro contato" e some da fila de prospecção, ficando
+  // pronto pra ser trabalhado em Cadência. Persistido por usuário.
+  const [hideDispatched, setHideDispatched] = useState<boolean>(true);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const v = window.localStorage.getItem("prosp_hide_dispatched");
+    if (v === "0") setHideDispatched(false);
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try { window.localStorage.setItem("prosp_hide_dispatched", hideDispatched ? "1" : "0"); } catch { /* ignore */ }
+  }, [hideDispatched]);
   type CadenceChip = "all" | "hoje" | "atrasados" | "sem_resposta" | "responderam" | "interessados" | "clientes";
   const [cadenceFilter, setCadenceFilter] = useState<CadenceChip>("all");
   const [touchpointTarget, setTouchpointTarget] = useState<{ prospect: Prospect; tipo: TouchpointTipo } | null>(null);
