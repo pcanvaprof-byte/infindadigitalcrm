@@ -1628,6 +1628,17 @@ function ProspeccaoPage() {
             </label>
             <label className="col-span-full flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
               <NativeCheckbox
+                checked={hideDispatched}
+                onChange={setHideDispatched}
+                ariaLabel="Ocultar leads já disparados por mim"
+              />
+              <span>
+                Ocultar leads <strong className="text-foreground">já disparados por mim</strong>
+                {" "}(some da prospecção assim que avançam para "Primeiro contato" — cada usuário vê a própria fila)
+              </span>
+            </label>
+            <label className="col-span-full flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
+              <NativeCheckbox
                 checked={noWhatsapp}
                 onChange={(v) => { setNoWhatsapp(v); if (v) setOnlyWhatsapp(false); }}
                 ariaLabel="Mostrar somente empresas sem WhatsApp"
