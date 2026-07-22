@@ -485,7 +485,9 @@ export async function bulkUpdateProspects(
       prospect_id,
       user_id: uid,
       tipo: "status",
-      resultado: String(patch.status),
+      // `resultado` tem CHECK constraint restrito; o status privado do
+      // usuário é lido a partir de `mensagem` ("status:<X>") pelo reader.
+      resultado: "enviado",
       mensagem: `status:${String(patch.status)}`,
       by_name: "Sistema",
       enviado_em: new Date().toISOString(),
@@ -513,7 +515,7 @@ async function savePrivateStatusTouchpoint(
       prospect_id: prospectId,
       user_id: userId,
       tipo: "status",
-      resultado: status,
+      resultado: "enviado",
       mensagem: `status:${status}`,
       by_name: "Sistema",
       enviado_em: new Date().toISOString(),
