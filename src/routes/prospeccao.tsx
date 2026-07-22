@@ -462,6 +462,10 @@ function ProspeccaoPage() {
     const q = search.trim().toLowerCase();
     return prospects.filter((p) => {
       if (statusFilter !== "all" && p.status !== statusFilter) return false;
+      // Quando ativo, esconde qualquer lead já disparado por este usuário
+      // (status privado != "nao_contatado"). Ignora se o operador escolheu
+      // um status específico no filtro (aí ele quer ver aquele status).
+      if (hideDispatched && statusFilter === "all" && p.status !== "nao_contatado") return false;
       if (segmentFilter !== "all" && (p.segment || "").trim().toLowerCase() !== segmentFilter.toLowerCase()) return false;
       if (stateFilter !== "all" && p.state !== stateFilter) return false;
       if (potentialFilter !== "all" && p.potential !== potentialFilter) return false;
@@ -512,7 +516,7 @@ function ProspeccaoPage() {
       return [p.company, p.segment, p.owner, p.email, p.whatsapp, p.phone, p.instagram, p.city, p.state, p.source]
         .join(" ").toLowerCase().includes(q);
     });
-  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter]);
+  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter, hideDispatched]);
 
   // Bloqueio de 24h por disparo recente (whatsapp/ligação/email outbound).
   // Empresas com disparo nas últimas 24h são jogadas para o FINAL da lista,
