@@ -45,6 +45,7 @@ import { Route as BriefingsIdRouteImport } from './routes/briefings.$id'
 import { Route as BriefingTokenRouteImport } from './routes/briefing.$token'
 import { Route as BiDisparosRouteImport } from './routes/bi.disparos'
 import { Route as BiConfiguracoesRouteImport } from './routes/bi.configuracoes'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as OperacoesClientesIndexRouteImport } from './routes/operacoes.clientes.index'
 import { Route as OperacoesClientesIdRouteImport } from './routes/operacoes.clientes.$id'
 import { Route as OperacoesClientesIdIndexRouteImport } from './routes/operacoes.clientes.$id.index'
@@ -248,6 +249,11 @@ const BiConfiguracoesRoute = BiConfiguracoesRouteImport.update({
   path: '/configuracoes',
   getParentRoute: () => BiRoute,
 } as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/callback',
+  path: '/callback',
+  getParentRoute: () => AuthRoute,
+} as any)
 const OperacoesClientesIndexRoute = OperacoesClientesIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -365,7 +371,7 @@ export interface FileRoutesByFullPath {
   '/alterar-senha': typeof AlterarSenhaRoute
   '/api-keys': typeof ApiKeysRoute
   '/assinatura': typeof AssinaturaRoute
-  '/auth': typeof AuthRoute
+  '/auth': typeof AuthRouteWithChildren
   '/bi': typeof BiRouteWithChildren
   '/briefings': typeof BriefingsRouteWithChildren
   '/cadencia': typeof CadenciaRoute
@@ -385,6 +391,7 @@ export interface FileRoutesByFullPath {
   '/prospeccao-templates-nicho': typeof ProspeccaoTemplatesNichoRoute
   '/tarefas': typeof TarefasRoute
   '/usuarios': typeof UsuariosRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/bi/configuracoes': typeof BiConfiguracoesRoute
   '/bi/disparos': typeof BiDisparosRoute
   '/briefing/$token': typeof BriefingTokenRoute
@@ -423,7 +430,7 @@ export interface FileRoutesByTo {
   '/alterar-senha': typeof AlterarSenhaRoute
   '/api-keys': typeof ApiKeysRoute
   '/assinatura': typeof AssinaturaRoute
-  '/auth': typeof AuthRoute
+  '/auth': typeof AuthRouteWithChildren
   '/bi': typeof BiRouteWithChildren
   '/briefings': typeof BriefingsRouteWithChildren
   '/cadencia': typeof CadenciaRoute
@@ -443,6 +450,7 @@ export interface FileRoutesByTo {
   '/prospeccao-templates-nicho': typeof ProspeccaoTemplatesNichoRoute
   '/tarefas': typeof TarefasRoute
   '/usuarios': typeof UsuariosRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/bi/configuracoes': typeof BiConfiguracoesRoute
   '/bi/disparos': typeof BiDisparosRoute
   '/briefing/$token': typeof BriefingTokenRoute
@@ -480,7 +488,7 @@ export interface FileRoutesById {
   '/alterar-senha': typeof AlterarSenhaRoute
   '/api-keys': typeof ApiKeysRoute
   '/assinatura': typeof AssinaturaRoute
-  '/auth': typeof AuthRoute
+  '/auth': typeof AuthRouteWithChildren
   '/bi': typeof BiRouteWithChildren
   '/briefings': typeof BriefingsRouteWithChildren
   '/cadencia': typeof CadenciaRoute
@@ -500,6 +508,7 @@ export interface FileRoutesById {
   '/prospeccao-templates-nicho': typeof ProspeccaoTemplatesNichoRoute
   '/tarefas': typeof TarefasRoute
   '/usuarios': typeof UsuariosRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/bi/configuracoes': typeof BiConfiguracoesRoute
   '/bi/disparos': typeof BiDisparosRoute
   '/briefing/$token': typeof BriefingTokenRoute
@@ -560,6 +569,7 @@ export interface FileRouteTypes {
     | '/prospeccao-templates-nicho'
     | '/tarefas'
     | '/usuarios'
+    | '/auth/callback'
     | '/bi/configuracoes'
     | '/bi/disparos'
     | '/briefing/$token'
@@ -618,6 +628,7 @@ export interface FileRouteTypes {
     | '/prospeccao-templates-nicho'
     | '/tarefas'
     | '/usuarios'
+    | '/auth/callback'
     | '/bi/configuracoes'
     | '/bi/disparos'
     | '/briefing/$token'
@@ -674,6 +685,7 @@ export interface FileRouteTypes {
     | '/prospeccao-templates-nicho'
     | '/tarefas'
     | '/usuarios'
+    | '/auth/callback'
     | '/bi/configuracoes'
     | '/bi/disparos'
     | '/briefing/$token'
@@ -713,7 +725,7 @@ export interface RootRouteChildren {
   AlterarSenhaRoute: typeof AlterarSenhaRoute
   ApiKeysRoute: typeof ApiKeysRoute
   AssinaturaRoute: typeof AssinaturaRoute
-  AuthRoute: typeof AuthRoute
+  AuthRoute: typeof AuthRouteWithChildren
   BiRoute: typeof BiRouteWithChildren
   BriefingsRoute: typeof BriefingsRouteWithChildren
   CadenciaRoute: typeof CadenciaRoute
@@ -1001,6 +1013,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BiConfiguracoesRouteImport
       parentRoute: typeof BiRoute
     }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof AuthRoute
+    }
     '/operacoes/clientes/': {
       id: '/operacoes/clientes/'
       path: '/'
@@ -1144,6 +1163,16 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthRouteChildren {
+  AuthCallbackRoute: typeof AuthCallbackRoute
+}
+
+const AuthRouteChildren: AuthRouteChildren = {
+  AuthCallbackRoute: AuthCallbackRoute,
+}
+
+const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
+
 interface BiRouteChildren {
   BiConfiguracoesRoute: typeof BiConfiguracoesRoute
   BiDisparosRoute: typeof BiDisparosRoute
@@ -1274,7 +1303,7 @@ const rootRouteChildren: RootRouteChildren = {
   AlterarSenhaRoute: AlterarSenhaRoute,
   ApiKeysRoute: ApiKeysRoute,
   AssinaturaRoute: AssinaturaRoute,
-  AuthRoute: AuthRoute,
+  AuthRoute: AuthRouteWithChildren,
   BiRoute: BiRouteWithChildren,
   BriefingsRoute: BriefingsRouteWithChildren,
   CadenciaRoute: CadenciaRoute,
