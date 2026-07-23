@@ -191,6 +191,7 @@ function UsuariosPanel() {
                   user={u}
                   onReset={() => setResetTarget(u)}
                   onRenew={() => setRenewTarget(u)}
+                  onHistory={() => setHistoryTarget(u)}
                 />
               ))}
             </tbody>
@@ -209,6 +210,7 @@ function UsuariosPanel() {
         onDone={invalidate}
       />
       <InviteUserDialog open={inviteOpen} onOpenChange={setInviteOpen} onDone={invalidate} />
+      <HistorySheet user={historyTarget} onClose={() => setHistoryTarget(null)} />
     </div>
   );
 }
