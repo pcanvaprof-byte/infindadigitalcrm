@@ -202,6 +202,8 @@ export const startDemo = createServerFn({ method: "POST" })
     z
       .object({
         fullName: z.string().trim().min(2).max(80).optional(),
+        email: z.string().trim().email().max(160).optional(),
+        password: z.string().min(8).max(72).optional(),
       })
       .parse(d ?? {}),
   )
@@ -232,9 +234,37 @@ export const startDemo = createServerFn({ method: "POST" })
 
     // 2) Cria usuário demo.
     const suffix = shortId();
-    const email = `demo-${Date.now().toString(36)}-${suffix}@demo.infinda.local`;
-    const password = randomPassword(14);
+    const requestedEmail = data.email?.trim().toLowerCase();
+    const email =
+      requestedEmail && requestedEmail.length > 0
+        ? requestedEmail
+        : `demo-${Date.now().toString(36)}-${suffix}@demo.infinda.local`;
+    const password = data.password && data.password.length >= 8
+      ? data.password
+      : randomPassword(14);
     const fullName = data.fullName?.trim() || "Usuário Demo";
+
+    // Se o email real já existe, não recria — devolve orientação de login.
+    if (requestedEmail) {
+      try {
+        for (let page = 1; page <= 10; page++) {
+          const { data: list } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+          const users = list?.users ?? [];
+          const found = users.find(
+            (u: { email?: string | null }) => (u.email ?? "").toLowerCase() === requestedEmail,
+          );
+          if (found) {
+            throw new Error(
+              "Este email já tem conta na Infinda. Faça login com sua senha ou peça reset ao admin.",
+            );
+          }
+          if (users.length < 200) break;
+        }
+      } catch (err) {
+        if (err instanceof Error && err.message.startsWith("Este email")) throw err;
+        // listUsers falhou — segue e deixa o createUser reclamar duplicidade.
+      }
+    }
 
     const { data: created, error: createErr } = await admin.auth.admin.createUser({
       email,

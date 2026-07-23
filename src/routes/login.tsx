@@ -1,6 +1,7 @@
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { FormEvent, useState } from "react";
-import { BarChart3, Loader2, Shield, Sparkles } from "lucide-react";
+import { BarChart3, Loader2, Rocket, Shield, Sparkles } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
 
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 import { APP_VERSION } from "@/lib/version";
+import { startDemo } from "@/lib/access/demo.functions";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search): { redirect?: string; reason?: string } => ({
@@ -38,6 +40,12 @@ export function AuthPageContent({ redirect, reason }: { redirect?: string; reaso
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [demoOpen, setDemoOpen] = useState(false);
+  const [demoName, setDemoName] = useState("");
+  const [demoEmail, setDemoEmail] = useState("");
+  const [demoPass, setDemoPass] = useState("");
+  const [demoLoading, setDemoLoading] = useState(false);
+  const startDemoFn = useServerFn(startDemo);
 
   if (isReady && user) {
     return <Navigate to={redirect || "/dashboard"} replace />;
@@ -86,6 +94,32 @@ export function AuthPageContent({ redirect, reason }: { redirect?: string; reaso
           : "Não foi possível iniciar o login com Google.",
       );
       setGoogleLoading(false);
+    }
+  };
+
+  const handleStartDemo = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError("");
+    setDemoLoading(true);
+    try {
+      const result = await startDemoFn({
+        data: {
+          fullName: demoName.trim() || undefined,
+          email: demoEmail.trim(),
+          password: demoPass,
+        },
+      });
+      // Já provisionado — faz login automático com as credenciais retornadas.
+      const loginRes = await login(result.email, demoPass || (result as { password?: string }).password || "");
+      if (!loginRes.ok) {
+        setError(loginRes.error);
+        setDemoLoading(false);
+        return;
+      }
+      await navigate({ to: "/dashboard", replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao ativar demo.");
+      setDemoLoading(false);
     }
   };
 
@@ -164,6 +198,56 @@ export function AuthPageContent({ redirect, reason }: { redirect?: string; reaso
             <p className="mt-2 text-center text-[11px] text-muted-foreground">
               Ambiente real, sua base de dados. Sem cartão de crédito.
             </p>
+
+            <div className="mt-3 rounded-md border border-primary/30 bg-primary/5 p-3">
+              <button
+                type="button"
+                onClick={() => setDemoOpen((v) => !v)}
+                className="flex w-full items-center justify-between text-left text-xs font-medium text-primary"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Rocket className="h-3.5 w-3.5" />
+                  Ou libere 2h de demo com email e senha
+                </span>
+                <span aria-hidden>{demoOpen ? "−" : "+"}</span>
+              </button>
+              {demoOpen && (
+                <form onSubmit={handleStartDemo} className="mt-3 space-y-2">
+                  <Input
+                    type="text"
+                    placeholder="Seu nome"
+                    value={demoName}
+                    onChange={(e) => setDemoName(e.target.value)}
+                    autoComplete="name"
+                    required
+                  />
+                  <Input
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={demoEmail}
+                    onChange={(e) => setDemoEmail(e.target.value)}
+                    autoComplete="email"
+                    required
+                  />
+                  <Input
+                    type="password"
+                    placeholder="Crie uma senha (mín. 8)"
+                    value={demoPass}
+                    onChange={(e) => setDemoPass(e.target.value)}
+                    minLength={8}
+                    autoComplete="new-password"
+                    required
+                  />
+                  <Button
+                    type="submit"
+                    className="btn-gradient h-10 w-full text-sm"
+                    disabled={demoLoading}
+                  >
+                    {demoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Ativar demo de 2 horas"}
+                  </Button>
+                </form>
+              )}
+            </div>
 
             <div className="my-5 relative">
               <div className="absolute inset-0 flex items-center">
