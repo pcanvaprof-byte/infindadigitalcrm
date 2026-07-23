@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   UserPlus,
+  History as HistoryIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -33,8 +34,18 @@ import {
   resetMemberTempPassword,
   renewUserAccess,
   provisionMemberUser,
+  listUserAccessEvents,
   type OrgUserRow,
+  type UserAccessEvent,
 } from "@/lib/access/access.functions";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { useOrgRole, isOwnerOrAdmin } from "@/lib/org/plans";
 
 export const Route = createFileRoute("/usuarios")({
@@ -72,6 +83,7 @@ function UsuariosPanel() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [resetTarget, setResetTarget] = useState<OrgUserRow | null>(null);
   const [renewTarget, setRenewTarget] = useState<OrgUserRow | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<OrgUserRow | null>(null);
 
   const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ["org-users"],
