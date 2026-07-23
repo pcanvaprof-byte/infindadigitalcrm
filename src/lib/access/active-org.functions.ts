@@ -128,5 +128,25 @@ export const ensureBestActiveOrg = createServerFn({ method: "POST" })
         { onConflict: "user_id" },
       );
 
+    // Auditoria: registra a troca automática (usuário, org anterior, org nova, score).
+    try {
+      await admin.from("org_switch_audit").insert({
+        user_id: userId,
+        previous_org_id: currentOrg,
+        new_org_id: winner,
+        reason: currentOrg ? "auto_switch_empty_current" : "auto_set_no_current",
+        previous_score: currentOrg ? counts[currentOrg] ?? 0 : null,
+        new_score: winnerScore,
+        metadata: {
+          source: "ensureBestActiveOrg",
+          membership_count: rows.length,
+          scores: counts,
+          winner_role: ranked[0]!.role,
+        },
+      });
+    } catch {
+      /* auditoria não deve bloquear a troca */
+    }
+
     return { picked: winner, reason: "switched" as const, previous: currentOrg };
   });
