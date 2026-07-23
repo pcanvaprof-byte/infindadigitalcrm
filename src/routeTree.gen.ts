@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UsuariosRouteImport } from './routes/usuarios'
 import { Route as TarefasRouteImport } from './routes/tarefas'
 import { Route as ProspeccaoTemplatesNichoRouteImport } from './routes/prospeccao-templates-nicho'
 import { Route as ProspeccaoRouteImport } from './routes/prospeccao'
@@ -67,6 +68,11 @@ import { Route as ApiPublicHooksCleanupDemosRouteImport } from './routes/api/pub
 import { Route as ApiPublicV1ClientsIdRouteImport } from './routes/api/public/v1/clients.$id'
 import { Route as ApiPublicV1ClientsIdInteractionsRouteImport } from './routes/api/public/v1/clients.$id.interactions'
 
+const UsuariosRoute = UsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TarefasRoute = TarefasRouteImport.update({
   id: '/tarefas',
   path: '/tarefas',
@@ -391,6 +397,7 @@ export interface FileRoutesByFullPath {
   '/prospeccao': typeof ProspeccaoRoute
   '/prospeccao-templates-nicho': typeof ProspeccaoTemplatesNichoRoute
   '/tarefas': typeof TarefasRoute
+  '/usuarios': typeof UsuariosRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/bi/configuracoes': typeof BiConfiguracoesRoute
   '/bi/disparos': typeof BiDisparosRoute
@@ -450,6 +457,7 @@ export interface FileRoutesByTo {
   '/prospeccao': typeof ProspeccaoRoute
   '/prospeccao-templates-nicho': typeof ProspeccaoTemplatesNichoRoute
   '/tarefas': typeof TarefasRoute
+  '/usuarios': typeof UsuariosRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/bi/configuracoes': typeof BiConfiguracoesRoute
   '/bi/disparos': typeof BiDisparosRoute
@@ -508,6 +516,7 @@ export interface FileRoutesById {
   '/prospeccao': typeof ProspeccaoRoute
   '/prospeccao-templates-nicho': typeof ProspeccaoTemplatesNichoRoute
   '/tarefas': typeof TarefasRoute
+  '/usuarios': typeof UsuariosRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/bi/configuracoes': typeof BiConfiguracoesRoute
   '/bi/disparos': typeof BiDisparosRoute
@@ -569,6 +578,7 @@ export interface FileRouteTypes {
     | '/prospeccao'
     | '/prospeccao-templates-nicho'
     | '/tarefas'
+    | '/usuarios'
     | '/auth/callback'
     | '/bi/configuracoes'
     | '/bi/disparos'
@@ -628,6 +638,7 @@ export interface FileRouteTypes {
     | '/prospeccao'
     | '/prospeccao-templates-nicho'
     | '/tarefas'
+    | '/usuarios'
     | '/auth/callback'
     | '/bi/configuracoes'
     | '/bi/disparos'
@@ -685,6 +696,7 @@ export interface FileRouteTypes {
     | '/prospeccao'
     | '/prospeccao-templates-nicho'
     | '/tarefas'
+    | '/usuarios'
     | '/auth/callback'
     | '/bi/configuracoes'
     | '/bi/disparos'
@@ -745,6 +757,7 @@ export interface RootRouteChildren {
   ProspeccaoRoute: typeof ProspeccaoRoute
   ProspeccaoTemplatesNichoRoute: typeof ProspeccaoTemplatesNichoRoute
   TarefasRoute: typeof TarefasRoute
+  UsuariosRoute: typeof UsuariosRoute
   BriefingTokenRoute: typeof BriefingTokenRoute
   OperacoesAuditoriaLifecycleRoute: typeof OperacoesAuditoriaLifecycleRoute
   OperacoesClientesRoute: typeof OperacoesClientesRouteWithChildren
@@ -762,6 +775,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/usuarios': {
+      id: '/usuarios'
+      path: '/usuarios'
+      fullPath: '/usuarios'
+      preLoaderRoute: typeof UsuariosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tarefas': {
       id: '/tarefas'
       path: '/tarefas'
@@ -1323,6 +1343,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProspeccaoRoute: ProspeccaoRoute,
   ProspeccaoTemplatesNichoRoute: ProspeccaoTemplatesNichoRoute,
   TarefasRoute: TarefasRoute,
+  UsuariosRoute: UsuariosRoute,
   BriefingTokenRoute: BriefingTokenRoute,
   OperacoesAuditoriaLifecycleRoute: OperacoesAuditoriaLifecycleRoute,
   OperacoesClientesRoute: OperacoesClientesRouteWithChildren,
