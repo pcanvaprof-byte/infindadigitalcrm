@@ -69,7 +69,7 @@ export const Route = createFileRoute("/api/public/test-mp-activate")({
           }
         }
 
-        await admin.from("user_access_events").insert({
+        const eventInsert = await admin.from("user_access_events").insert({
           user_id: userId,
           organization_id: before.organization_id,
           event: "MP_SUBSCRIPTION_ACTIVE",
@@ -101,6 +101,7 @@ export const Route = createFileRoute("/api/public/test-mp-activate")({
           before,
           after,
           slugFix,
+          eventInsertError: eventInsert.error?.message ?? null,
           recentEvents: events,
         });
       },
