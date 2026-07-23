@@ -2844,6 +2844,42 @@ export type Database = {
           },
         ]
       }
+      org_switch_audit: {
+        Row: {
+          created_at: string
+          id: string
+          metadata: Json
+          new_org_id: string
+          new_score: number | null
+          previous_org_id: string | null
+          previous_score: number | null
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metadata?: Json
+          new_org_id: string
+          new_score?: number | null
+          previous_org_id?: string | null
+          previous_score?: number | null
+          reason: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metadata?: Json
+          new_org_id?: string
+          new_score?: number | null
+          previous_org_id?: string | null
+          previous_score?: number | null
+          reason?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       organization_members: {
         Row: {
           joined_at: string
