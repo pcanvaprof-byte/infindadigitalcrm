@@ -186,6 +186,11 @@ export function AppShell({
   const routerState = useRouterState();
   const pathname = routerState.location.pathname;
   const { data: access, isLoading: accessLoading } = useAccessStatus();
+  const shouldShowCountdown =
+    !!access?.expires_at &&
+    access.status === "active" &&
+    (access.access_type === "demo" ||
+      (access.access_type === "trial" && access.is_privileged));
 
   useEffect(() => {
     if (!access) return;
@@ -249,8 +254,11 @@ export function AppShell({
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {access && access.status === "active" && access.access_type === "demo" && access.expires_at && (
-          <DemoCountdown expiresAt={access.expires_at} />
+        {shouldShowCountdown && access?.expires_at && (
+          <DemoCountdown
+            expiresAt={access.expires_at}
+            label={access.access_type === "demo" ? "Demo gratuita" : "Acesso de demonstração"}
+          />
         )}
         {access &&
           access.status === "active" &&
