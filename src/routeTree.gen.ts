@@ -63,6 +63,7 @@ import { Route as ApiPublicV1OpenapiRouteImport } from './routes/api/public/v1/o
 import { Route as ApiPublicV1MeRouteImport } from './routes/api/public/v1/me'
 import { Route as ApiPublicV1DiagAiRouteImport } from './routes/api/public/v1/diag-ai'
 import { Route as ApiPublicV1ClientsRouteImport } from './routes/api/public/v1/clients'
+import { Route as ApiPublicHooksMercadopagoRouteImport } from './routes/api/public/hooks/mercadopago'
 import { Route as ApiPublicHooksCleanupDemosRouteImport } from './routes/api/public/hooks/cleanup-demos'
 import { Route as ApiPublicV1ClientsIdRouteImport } from './routes/api/public/v1/clients.$id'
 import { Route as ApiPublicV1ClientsIdInteractionsRouteImport } from './routes/api/public/v1/clients.$id.interactions'
@@ -348,6 +349,12 @@ const ApiPublicV1ClientsRoute = ApiPublicV1ClientsRouteImport.update({
   path: '/api/public/v1/clients',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksMercadopagoRoute =
+  ApiPublicHooksMercadopagoRouteImport.update({
+    id: '/api/public/hooks/mercadopago',
+    path: '/api/public/hooks/mercadopago',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksCleanupDemosRoute =
   ApiPublicHooksCleanupDemosRouteImport.update({
     id: '/api/public/hooks/cleanup-demos',
@@ -407,6 +414,7 @@ export interface FileRoutesByFullPath {
   '/operacoes/clientes/$id': typeof OperacoesClientesIdRouteWithChildren
   '/operacoes/clientes/': typeof OperacoesClientesIndexRoute
   '/api/public/hooks/cleanup-demos': typeof ApiPublicHooksCleanupDemosRoute
+  '/api/public/hooks/mercadopago': typeof ApiPublicHooksMercadopagoRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRouteWithChildren
   '/api/public/v1/diag-ai': typeof ApiPublicV1DiagAiRoute
   '/api/public/v1/me': typeof ApiPublicV1MeRoute
@@ -464,6 +472,7 @@ export interface FileRoutesByTo {
   '/operacoes': typeof OperacoesIndexRoute
   '/operacoes/clientes': typeof OperacoesClientesIndexRoute
   '/api/public/hooks/cleanup-demos': typeof ApiPublicHooksCleanupDemosRoute
+  '/api/public/hooks/mercadopago': typeof ApiPublicHooksMercadopagoRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRouteWithChildren
   '/api/public/v1/diag-ai': typeof ApiPublicV1DiagAiRoute
   '/api/public/v1/me': typeof ApiPublicV1MeRoute
@@ -524,6 +533,7 @@ export interface FileRoutesById {
   '/operacoes/clientes/$id': typeof OperacoesClientesIdRouteWithChildren
   '/operacoes/clientes/': typeof OperacoesClientesIndexRoute
   '/api/public/hooks/cleanup-demos': typeof ApiPublicHooksCleanupDemosRoute
+  '/api/public/hooks/mercadopago': typeof ApiPublicHooksMercadopagoRoute
   '/api/public/v1/clients': typeof ApiPublicV1ClientsRouteWithChildren
   '/api/public/v1/diag-ai': typeof ApiPublicV1DiagAiRoute
   '/api/public/v1/me': typeof ApiPublicV1MeRoute
@@ -585,6 +595,7 @@ export interface FileRouteTypes {
     | '/operacoes/clientes/$id'
     | '/operacoes/clientes/'
     | '/api/public/hooks/cleanup-demos'
+    | '/api/public/hooks/mercadopago'
     | '/api/public/v1/clients'
     | '/api/public/v1/diag-ai'
     | '/api/public/v1/me'
@@ -642,6 +653,7 @@ export interface FileRouteTypes {
     | '/operacoes'
     | '/operacoes/clientes'
     | '/api/public/hooks/cleanup-demos'
+    | '/api/public/hooks/mercadopago'
     | '/api/public/v1/clients'
     | '/api/public/v1/diag-ai'
     | '/api/public/v1/me'
@@ -701,6 +713,7 @@ export interface FileRouteTypes {
     | '/operacoes/clientes/$id'
     | '/operacoes/clientes/'
     | '/api/public/hooks/cleanup-demos'
+    | '/api/public/hooks/mercadopago'
     | '/api/public/v1/clients'
     | '/api/public/v1/diag-ai'
     | '/api/public/v1/me'
@@ -751,6 +764,7 @@ export interface RootRouteChildren {
   PropostaTokenRoute: typeof PropostaTokenRoute
   OperacoesIndexRoute: typeof OperacoesIndexRoute
   ApiPublicHooksCleanupDemosRoute: typeof ApiPublicHooksCleanupDemosRoute
+  ApiPublicHooksMercadopagoRoute: typeof ApiPublicHooksMercadopagoRoute
   ApiPublicV1ClientsRoute: typeof ApiPublicV1ClientsRouteWithChildren
   ApiPublicV1DiagAiRoute: typeof ApiPublicV1DiagAiRoute
   ApiPublicV1MeRoute: typeof ApiPublicV1MeRoute
@@ -1139,6 +1153,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicV1ClientsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/mercadopago': {
+      id: '/api/public/hooks/mercadopago'
+      path: '/api/public/hooks/mercadopago'
+      fullPath: '/api/public/hooks/mercadopago'
+      preLoaderRoute: typeof ApiPublicHooksMercadopagoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/cleanup-demos': {
       id: '/api/public/hooks/cleanup-demos'
       path: '/api/public/hooks/cleanup-demos'
@@ -1329,6 +1350,7 @@ const rootRouteChildren: RootRouteChildren = {
   PropostaTokenRoute: PropostaTokenRoute,
   OperacoesIndexRoute: OperacoesIndexRoute,
   ApiPublicHooksCleanupDemosRoute: ApiPublicHooksCleanupDemosRoute,
+  ApiPublicHooksMercadopagoRoute: ApiPublicHooksMercadopagoRoute,
   ApiPublicV1ClientsRoute: ApiPublicV1ClientsRouteWithChildren,
   ApiPublicV1DiagAiRoute: ApiPublicV1DiagAiRoute,
   ApiPublicV1MeRoute: ApiPublicV1MeRoute,
