@@ -4,7 +4,7 @@ import { requireSupabaseAuth } from "@/lib/app-auth-middleware";
 
 export type AccessStatus = {
   status: "active" | "expired" | "suspended";
-  access_type: "trial" | "paid" | "internal" | null;
+  access_type: "trial" | "paid" | "internal" | "demo" | null;
   plan_name: string | null;
   expires_at: string | null;
   days_remaining: number | null;

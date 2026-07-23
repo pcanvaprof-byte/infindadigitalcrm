@@ -249,7 +249,7 @@ export function AppShell({
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {access && access.status === "active" && !access.is_privileged && access.access_type === "demo" && access.expires_at && (
+        {access && access.status === "active" && access.access_type === "demo" && access.expires_at && (
           <DemoCountdown expiresAt={access.expires_at} />
         )}
         {access &&
