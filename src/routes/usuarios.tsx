@@ -693,3 +693,133 @@ function formatDateTime(iso: string): string {
     return iso;
   }
 }
+
+// -------- Histórico (timeline de eventos) --------
+
+const EVENT_META: Record<string, { label: string; className: string }> = {
+  ACCESS_CREATED: { label: "Acesso criado", className: "bg-blue-500/15 text-blue-700 border-blue-500/30" },
+  ACCESS_RENEWED: { label: "Acesso renovado", className: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30" },
+  ACCESS_EXPIRED: { label: "Acesso expirado", className: "bg-red-500/15 text-red-700 border-red-500/30" },
+  ACCESS_SUSPENDED: { label: "Acesso suspenso", className: "bg-red-500/15 text-red-700 border-red-500/30" },
+  PASSWORD_RESET: { label: "Senha redefinida", className: "bg-amber-500/15 text-amber-700 border-amber-500/30" },
+  PASSWORD_CHANGED: { label: "Senha alterada", className: "bg-slate-500/15 text-slate-700 border-slate-500/30" },
+  DEMO_STARTED: { label: "Demo iniciada", className: "bg-amber-500/15 text-amber-700 border-amber-500/30" },
+  DEMO_CONVERTED: { label: "Demo convertida em pago", className: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30" },
+  PAYMENT_APPROVED: { label: "Pagamento aprovado", className: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30" },
+  PAYMENT_REJECTED: { label: "Pagamento rejeitado", className: "bg-red-500/15 text-red-700 border-red-500/30" },
+  SUBSCRIPTION_AUTHORIZED: { label: "Assinatura autorizada", className: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30" },
+  SUBSCRIPTION_PAUSED: { label: "Assinatura pausada", className: "bg-amber-500/15 text-amber-700 border-amber-500/30" },
+  SUBSCRIPTION_CANCELLED: { label: "Assinatura cancelada", className: "bg-red-500/15 text-red-700 border-red-500/30" },
+};
+
+function eventMeta(event: string) {
+  return (
+    EVENT_META[event] ?? {
+      label: event.replace(/_/g, " ").toLowerCase(),
+      className: "bg-muted text-muted-foreground border-border",
+    }
+  );
+}
+
+function HistorySheet({
+  user,
+  onClose,
+}: {
+  user: OrgUserRow | null;
+  onClose: () => void;
+}) {
+  const fetchEvents = useServerFn(listUserAccessEvents);
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
+    queryKey: ["user-access-events", user?.userId ?? "none"],
+    enabled: !!user,
+    queryFn: async () =>
+      (await fetchEvents({ data: { userId: user!.userId, limit: 200 } })) as {
+        events: UserAccessEvent[];
+      },
+    staleTime: 15_000,
+  });
+
+  const events = data?.events ?? [];
+
+  return (
+    <Sheet open={!!user} onOpenChange={(v) => (!v ? onClose() : null)}>
+      <SheetContent side="right" className="w-full sm:max-w-lg">
+        <SheetHeader>
+          <SheetTitle>Histórico de acesso</SheetTitle>
+          <SheetDescription>
+            Timeline completa dos eventos de <strong>{user?.email ?? user?.fullName ?? "—"}</strong>.
+          </SheetDescription>
+        </SheetHeader>
+
+        <div className="mt-4 flex items-center justify-between">
+          <div className="text-xs text-muted-foreground">
+            {isLoading ? "Carregando…" : `${events.length} evento${events.length === 1 ? "" : "s"}`}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetch()}
+            disabled={isFetching}
+          >
+            <RefreshCw className={`mr-2 h-3.5 w-3.5 ${isFetching ? "animate-spin" : ""}`} />
+            Atualizar
+          </Button>
+        </div>
+
+        <ScrollArea className="mt-3 h-[calc(100vh-11rem)] pr-2">
+          {error ? (
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+              Falha ao carregar histórico: {(error as Error).message}
+            </div>
+          ) : isLoading ? (
+            <div className="p-6 text-center text-sm text-muted-foreground">Carregando…</div>
+          ) : events.length === 0 ? (
+            <div className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+              Nenhum evento registrado para este usuário.
+            </div>
+          ) : (
+            <ol className="relative space-y-4 border-l border-border/70 pl-4">
+              {events.map((ev) => {
+                const meta = eventMeta(ev.event);
+                return (
+                  <li key={ev.id} className="relative">
+                    <span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full bg-primary" />
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${meta.className}`}
+                      >
+                        {meta.label}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground">
+                        {formatDateTime(ev.createdAt)}
+                      </span>
+                    </div>
+                    <div className="mt-0.5 text-[11px] font-mono text-muted-foreground/80">
+                      {ev.event}
+                    </div>
+                    {ev.meta ? <MetaBlock raw={ev.meta} /> : null}
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </ScrollArea>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+function MetaBlock({ raw }: { raw: string }) {
+  let pretty = raw;
+  try {
+    pretty = JSON.stringify(JSON.parse(raw), null, 2);
+  } catch {
+    /* keep as-is */
+  }
+  if (!pretty || pretty === "null" || pretty === "{}") return null;
+  return (
+    <pre className="mt-1.5 max-h-40 overflow-auto rounded-md border border-border bg-muted/40 p-2 text-[11px] leading-relaxed text-muted-foreground">
+      {pretty}
+    </pre>
+  );
+}
