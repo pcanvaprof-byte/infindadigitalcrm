@@ -560,3 +560,68 @@ export type OrgUserRow = {
   daysRemaining: number | null;
   lastEvent: { event: string; created_at: string } | null;
 };
+
+export type UserAccessEvent = {
+  id: string;
+  event: string;
+  createdAt: string;
+  meta: string | null;
+};
+
+export const listUserAccessEvents = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d) =>
+    z
+      .object({
+        userId: z.string().uuid(),
+        limit: z.number().int().min(1).max(500).optional().default(200),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { createOwnSupabaseAdminClient, resolveActiveOrg } = await import(
+      "@/lib/api-keys.server"
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const callerSupabase = (context as any).supabase;
+    const orgId = await resolveActiveOrg(callerSupabase);
+    if (!orgId) throw new Error("Organização ativa não encontrada.");
+    await requireAdminOfSameOrg(callerSupabase, orgId);
+
+    const admin = createOwnSupabaseAdminClient();
+
+    // Garante que o alvo pertence à mesma organização.
+    const { data: membership, error: memErr } = await (admin as AnyClient)
+      .from("organization_members")
+      .select("user_id")
+      .eq("organization_id", orgId)
+      .eq("user_id", data.userId)
+      .maybeSingle();
+    if (memErr) throw new Error(memErr.message);
+    if (!membership) {
+      throw new Error("forbidden: usuário não pertence à sua organização.");
+    }
+
+    const { data: rows, error } = await (admin as AnyClient)
+      .from("user_access_events")
+      .select("id, event, created_at, meta, organization_id")
+      .eq("user_id", data.userId)
+      .eq("organization_id", orgId)
+      .order("created_at", { ascending: false })
+      .limit(data.limit);
+    if (error) throw new Error(error.message);
+
+    const events: UserAccessEvent[] = ((rows ?? []) as Array<{
+      id: string;
+      event: string;
+      created_at: string;
+      meta: unknown;
+    }>).map((r) => ({
+      id: r.id,
+      event: r.event,
+      createdAt: r.created_at,
+      meta: r.meta == null ? null : JSON.stringify(r.meta),
+    }));
+
+    return { events };
+  });
