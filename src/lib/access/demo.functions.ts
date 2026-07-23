@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyClient = any;
@@ -39,6 +40,162 @@ function callerIp(): string | null {
     return null;
   }
 }
+
+/**
+ * Chamada após login social (Google). Provisiona — de forma idempotente —
+ * a organização real (vazia) do usuário e concede acesso demo por 2 horas
+ * caso ele ainda não tenha `user_access`. Se já for membro/tiver acesso,
+ * apenas retorna o status atual sem alterar nada.
+ */
+export const claimDemoAccess = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const userId = context.userId as string;
+    const authUser = (context.claims ?? {}) as {
+      email?: string;
+      user_metadata?: { full_name?: string; name?: string };
+    };
+    const email =
+      authUser.email ??
+      (context as unknown as { user?: { email?: string } }).user?.email ??
+      "";
+    const fullName =
+      authUser.user_metadata?.full_name ||
+      authUser.user_metadata?.name ||
+      (email ? email.split("@")[0] : "Usuário");
+
+    const { createOwnSupabaseAdminClient } = await import("@/lib/api-keys.server");
+    const admin = createOwnSupabaseAdminClient() as AnyClient;
+
+    // Se já existe acesso, não fazemos nada — usuário reincidente.
+    const { data: existingAccess } = await admin
+      .from("user_access")
+      .select("id, status, access_type, expires_at, organization_id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (existingAccess?.id) {
+      return {
+        alreadyProvisioned: true,
+        email,
+        organizationId: existingAccess.organization_id as string | null,
+        expiresAt: existingAccess.expires_at as string | null,
+        accessType: existingAccess.access_type as string | null,
+      };
+    }
+
+    // Rate limit por IP.
+    const ip = callerIp();
+    try {
+      if (ip) {
+        const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const { count } = await admin
+          .from("demo_signups_log")
+          .select("id", { count: "exact", head: true })
+          .eq("ip", ip)
+          .gte("created_at", since);
+        if ((count ?? 0) >= DEMO_MAX_PER_IP_PER_DAY) {
+          throw new Error(
+            "Limite de demos atingido para este IP. Tente novamente amanhã.",
+          );
+        }
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith("Limite")) throw err;
+      // tabela inexistente — segue sem bloquear.
+    }
+
+    // Cria organização real (vazia) para o usuário.
+    const suffix = shortId();
+    const orgName = fullName.split(" ")[0]
+      ? `${fullName.split(" ")[0]}'s workspace`
+      : "Meu workspace";
+    const { data: org, error: orgErr } = await admin
+      .from("organizations")
+      .insert({
+        name: orgName,
+        slug: `demo-${suffix}-${Date.now().toString(36)}`,
+        created_by: userId,
+      })
+      .select("id")
+      .single();
+    if (orgErr || !org?.id) {
+      throw new Error(orgErr?.message ?? "Falha ao criar organização.");
+    }
+    const orgId = org.id as string;
+
+    // Atualiza full_name no auth se ainda não estiver setado.
+    try {
+      await admin.auth.admin.updateUserById(userId, {
+        user_metadata: { full_name: fullName },
+      });
+    } catch { /* noop */ }
+
+    // Membership owner + role admin.
+    try {
+      await admin.from("organization_members").upsert(
+        { organization_id: orgId, user_id: userId, role: "owner" },
+        { onConflict: "organization_id,user_id" },
+      );
+    } catch { /* noop */ }
+    try {
+      await admin.from("user_roles").upsert(
+        { user_id: userId, role: "admin" },
+        { onConflict: "user_id,role" },
+      );
+    } catch { /* noop */ }
+
+    // Organização ativa.
+    try {
+      await admin.from("user_active_org").upsert(
+        {
+          user_id: userId,
+          organization_id: orgId,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" },
+      );
+    } catch { /* noop */ }
+
+    // Acesso demo com expiração de 2h.
+    const expiresAt = new Date(Date.now() + DEMO_DURATION_MS).toISOString();
+    const { error: accessErr } = await admin.from("user_access").insert({
+      user_id: userId,
+      organization_id: orgId,
+      status: "active",
+      access_type: "demo",
+      expires_at: expiresAt,
+      must_change_password: false,
+    });
+    if (accessErr) {
+      throw new Error(accessErr.message ?? "Falha ao criar acesso demo.");
+    }
+    try {
+      await admin.from("user_access_events").insert({
+        user_id: userId,
+        organization_id: orgId,
+        event: "ACCESS_CREATED",
+        meta: {
+          access_type: "demo",
+          via: "google_oauth",
+          duration_hours: 2,
+          expires_at: expiresAt,
+          email,
+        },
+      });
+    } catch { /* noop */ }
+    try {
+      await admin.from("demo_signups_log").insert({ ip, organization_id: orgId });
+    } catch { /* noop */ }
+
+    return {
+      alreadyProvisioned: false,
+      email,
+      organizationId: orgId,
+      expiresAt,
+      accessType: "demo" as const,
+    };
+  });
 
 export const startDemo = createServerFn({ method: "POST" })
   .inputValidator((d) =>
