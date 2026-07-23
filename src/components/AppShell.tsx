@@ -51,6 +51,7 @@ import { FEATURES } from "@/config/features";
 import { useAccessStatus } from "@/hooks/useAccessStatus";
 import { AccessExpiredScreen } from "@/components/access/AccessExpiredScreen";
 import { TrialBanner } from "@/components/access/TrialBanner";
+import { DemoCountdown } from "@/components/access/DemoCountdown";
 
 type NavItem = {
   to: string;
@@ -248,9 +249,13 @@ export function AppShell({
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
+        {access && access.status === "active" && !access.is_privileged && access.access_type === "demo" && access.expires_at && (
+          <DemoCountdown expiresAt={access.expires_at} />
+        )}
         {access &&
           access.status === "active" &&
           !access.is_privileged &&
+          access.access_type !== "demo" &&
           typeof access.days_remaining === "number" && (
             <TrialBanner daysRemaining={access.days_remaining} />
           )}
