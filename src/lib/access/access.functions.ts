@@ -358,3 +358,205 @@ export const resetMemberTempPassword = createServerFn({ method: "POST" })
 
     return { ok: true, email, tempPassword };
   });
+
+export const listOrgUsers = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { createOwnSupabaseAdminClient, resolveActiveOrg } = await import(
+      "@/lib/api-keys.server"
+    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const callerSupabase = (context as any).supabase;
+    const orgId = await resolveActiveOrg(callerSupabase);
+    if (!orgId) throw new Error("Organização ativa não encontrada.");
+    await requireAdminOfSameOrg(callerSupabase, orgId);
+
+    const admin = createOwnSupabaseAdminClient();
+
+    // 1) Memberships da org.
+    const { data: memberships, error: memErr } = await (admin as AnyClient)
+      .from("organization_members")
+      .select("user_id, role, joined_at")
+      .eq("organization_id", orgId);
+    if (memErr) throw new Error(memErr.message);
+
+    const rows = (memberships ?? []) as Array<{
+      user_id: string;
+      role: string;
+      joined_at: string;
+    }>;
+    if (rows.length === 0) return { users: [] as OrgUserRow[] };
+
+    const userIds = rows.map((r) => r.user_id);
+
+    // 2) user_access (1 por usuário — PK unique em user_id).
+    const { data: accessRows } = await (admin as AnyClient)
+      .from("user_access")
+      .select(
+        "user_id, status, access_type, plan_name, starts_at, expires_at, renewed_at, must_change_password, organization_id",
+      )
+      .in("user_id", userIds);
+
+    const accessById = new Map<string, AnyClient>();
+    for (const a of (accessRows ?? []) as Array<{ user_id: string }>) {
+      accessById.set(a.user_id, a);
+    }
+
+    // 3) Último evento por usuário (best-effort, limitado).
+    const { data: eventRows } = await (admin as AnyClient)
+      .from("user_access_events")
+      .select("user_id, event, created_at")
+      .in("user_id", userIds)
+      .order("created_at", { ascending: false })
+      .limit(500);
+
+    const lastEventById = new Map<string, { event: string; created_at: string }>();
+    for (const e of (eventRows ?? []) as Array<{
+      user_id: string;
+      event: string;
+      created_at: string;
+    }>) {
+      if (!lastEventById.has(e.user_id)) {
+        lastEventById.set(e.user_id, { event: e.event, created_at: e.created_at });
+      }
+    }
+
+    // 4) Enriquecer com dados do auth.users (email, nome, last_sign_in_at).
+    // Percorre páginas até cobrir todos os usuários da lista.
+    const authById = new Map<
+      string,
+      { email: string | null; full_name: string | null; last_sign_in_at: string | null; created_at: string | null }
+    >();
+    const needed = new Set(userIds);
+    for (let page = 1; page <= 20 && needed.size > 0; page++) {
+      const { data: list, error: listErr } = await (admin as AnyClient).auth.admin.listUsers({
+        page,
+        perPage: 200,
+      });
+      if (listErr) throw new Error(listErr.message);
+      const users = (list?.users ?? []) as Array<{
+        id: string;
+        email?: string | null;
+        last_sign_in_at?: string | null;
+        created_at?: string | null;
+        user_metadata?: { full_name?: string | null } | null;
+      }>;
+      for (const u of users) {
+        if (needed.has(u.id)) {
+          authById.set(u.id, {
+            email: u.email ?? null,
+            full_name: u.user_metadata?.full_name ?? null,
+            last_sign_in_at: u.last_sign_in_at ?? null,
+            created_at: u.created_at ?? null,
+          });
+          needed.delete(u.id);
+        }
+      }
+      if (users.length < 200) break;
+    }
+
+    const now = Date.now();
+    const result: OrgUserRow[] = rows.map((m) => {
+      const auth = authById.get(m.user_id) ?? {
+        email: null,
+        full_name: null,
+        last_sign_in_at: null,
+        created_at: null,
+      };
+      const a = accessById.get(m.user_id) as
+        | {
+            status: string;
+            access_type: string;
+            plan_name: string | null;
+            starts_at: string | null;
+            expires_at: string | null;
+            renewed_at: string | null;
+            must_change_password: boolean;
+          }
+        | undefined;
+
+      let derived: OrgUserRow["derivedStatus"] = "sem_acesso";
+      let daysRemaining: number | null = null;
+      if (a) {
+        if (a.status === "suspended") derived = "suspenso";
+        else if (a.access_type === "internal") derived = "interno";
+        else if (a.access_type === "paid") derived = "pago";
+        else if (a.expires_at) {
+          const ms = new Date(a.expires_at).getTime() - now;
+          daysRemaining = Math.ceil(ms / 86400_000);
+          if (ms <= 0) derived = "expirado";
+          else if (a.access_type === "demo") derived = "demo";
+          else derived = "trial";
+        } else {
+          derived = a.access_type === "demo" ? "demo" : "trial";
+        }
+      }
+
+      const lastEvent = lastEventById.get(m.user_id) ?? null;
+
+      return {
+        userId: m.user_id,
+        email: auth.email,
+        fullName: auth.full_name,
+        role: m.role as "owner" | "admin" | "member",
+        joinedAt: m.joined_at,
+        lastSignInAt: auth.last_sign_in_at,
+        authCreatedAt: auth.created_at,
+        access: a
+          ? {
+              status: a.status,
+              accessType: a.access_type,
+              planName: a.plan_name,
+              startsAt: a.starts_at,
+              expiresAt: a.expires_at,
+              renewedAt: a.renewed_at,
+              mustChangePassword: a.must_change_password,
+            }
+          : null,
+        derivedStatus: derived,
+        daysRemaining,
+        lastEvent,
+      };
+    });
+
+    // Ordena: owner > admin > member, depois por nome/email.
+    const roleRank: Record<string, number> = { owner: 0, admin: 1, member: 2 };
+    result.sort((a, b) => {
+      const rr = (roleRank[a.role] ?? 3) - (roleRank[b.role] ?? 3);
+      if (rr !== 0) return rr;
+      const na = (a.fullName ?? a.email ?? "").toLowerCase();
+      const nb = (b.fullName ?? b.email ?? "").toLowerCase();
+      return na.localeCompare(nb);
+    });
+
+    return { users: result };
+  });
+
+export type OrgUserRow = {
+  userId: string;
+  email: string | null;
+  fullName: string | null;
+  role: "owner" | "admin" | "member";
+  joinedAt: string | null;
+  lastSignInAt: string | null;
+  authCreatedAt: string | null;
+  access: {
+    status: string;
+    accessType: string;
+    planName: string | null;
+    startsAt: string | null;
+    expiresAt: string | null;
+    renewedAt: string | null;
+    mustChangePassword: boolean;
+  } | null;
+  derivedStatus:
+    | "demo"
+    | "trial"
+    | "pago"
+    | "interno"
+    | "expirado"
+    | "suspenso"
+    | "sem_acesso";
+  daysRemaining: number | null;
+  lastEvent: { event: string; created_at: string } | null;
+};
