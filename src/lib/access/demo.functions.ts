@@ -97,7 +97,6 @@ export const startDemo = createServerFn({ method: "POST" })
         name: `Demo ${suffix}`,
         slug: `demo-${suffix}-${Date.now().toString(36)}`,
         created_by: userId,
-        is_demo: true,
       })
       .select("id")
       .single();
@@ -196,11 +195,11 @@ export async function cleanupExpiredDemoOrgs(): Promise<{
 
   const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  // Busca orgs demo antigas.
+  // Busca orgs demo antigas (identificadas pelo prefixo do slug).
   const { data: orgs } = await admin
     .from("organizations")
     .select("id, created_at")
-    .eq("is_demo", true)
+    .like("slug", "demo-%")
     .lt("created_at", cutoff)
     .limit(200);
 
