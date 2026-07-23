@@ -1,11 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Copy, QrCode } from "lucide-react";
+import { CheckCircle2, Copy, QrCode, Rocket, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useActiveOrg } from "@/lib/org/plans";
 import { RequireAuth } from "@/lib/auth-context";
 import { RequireOwnerOrAdmin } from "@/lib/auth/require-role";
+import { useAccessStatus } from "@/hooks/useAccessStatus";
+import { useServerFn } from "@tanstack/react-start";
+import { convertDemoToPaid } from "@/lib/access/demo.functions";
+import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/assinatura")({
   head: () => ({
@@ -40,14 +45,54 @@ const MODULOS = [
 
 function AssinaturaPage() {
   const { org } = useActiveOrg();
+  const { data: access } = useAccessStatus();
+  const isDemo = access?.access_type === "demo";
+  const convertFn = useServerFn(convertDemoToPaid);
+  const queryClient = useQueryClient();
+  const [converting, setConverting] = useState(false);
   const PIX_KEY = "financeiro@infinda.com.br";
   const copyPix = () => {
     navigator.clipboard.writeText(PIX_KEY);
     toast.success("Chave PIX copiada");
   };
+  const handleActivate = async () => {
+    setConverting(true);
+    try {
+      await convertFn({});
+      toast.success("Assinatura ativada! Todos os seus dados foram preservados.");
+      await queryClient.invalidateQueries();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Falha ao ativar assinatura");
+    } finally {
+      setConverting(false);
+    }
+  };
   return (
     <AppShell title="Assinatura" subtitle="Plano único INFINDA — todos os módulos liberados">
       <div className="mx-auto grid max-w-4xl gap-6">
+        {isDemo && (
+          <section className="surface-card space-y-4 border border-primary/40 bg-primary/5 p-6">
+            <div className="flex items-start gap-3">
+              <Rocket className="mt-1 h-5 w-5 text-primary-glow" />
+              <div>
+                <h3 className="text-lg font-semibold">Gostou da Infinda?</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Continue exatamente de onde parou por apenas <span className="font-semibold text-foreground">R$ 200/mês</span>.
+                  Todos os dados que você criou durante a demonstração ficam preservados.
+                </p>
+              </div>
+            </div>
+            <div className="rounded-md border border-border bg-background/60 p-3 text-xs text-muted-foreground">
+              <strong className="text-foreground">Como funciona:</strong> pague via PIX na chave abaixo, clique em
+              &nbsp;<em>“Já paguei — ativar assinatura”</em> e sua organização demo é convertida em real imediatamente.
+              O time financeiro confirma o pagamento em até 1 dia útil.
+            </div>
+            <Button onClick={handleActivate} disabled={converting} className="btn-gradient w-full sm:w-auto">
+              {converting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Rocket className="mr-2 h-4 w-4" />}
+              Já paguei — ativar assinatura
+            </Button>
+          </section>
+        )}
         <section className="surface-card space-y-6 p-6 sm:p-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
