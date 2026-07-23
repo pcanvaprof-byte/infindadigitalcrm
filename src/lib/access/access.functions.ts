@@ -565,7 +565,7 @@ export type UserAccessEvent = {
   id: string;
   event: string;
   createdAt: string;
-  meta: Record<string, unknown> | null;
+  meta: string | null;
 };
 
 export const listUserAccessEvents = createServerFn({ method: "POST" })
@@ -615,12 +615,12 @@ export const listUserAccessEvents = createServerFn({ method: "POST" })
       id: string;
       event: string;
       created_at: string;
-      meta: Record<string, unknown> | null;
+      meta: unknown;
     }>).map((r) => ({
       id: r.id,
       event: r.event,
       createdAt: r.created_at,
-      meta: r.meta ?? null,
+      meta: r.meta == null ? null : JSON.stringify(r.meta),
     }));
 
     return { events };
