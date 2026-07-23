@@ -26,11 +26,11 @@ export function AccessExpiredScreen() {
           {isDemo ? <Rocket className="h-7 w-7" /> : <ShieldAlert className="h-7 w-7" />}
         </div>
         <h1 className="text-xl font-semibold">
-          {isDemo ? "Sua demonstração acabou" : "Acesso expirado"}
+          {isDemo ? "Gostou da Infinda?" : "Acesso expirado"}
         </h1>
         <p className="mt-3 text-sm text-muted-foreground">
           {isDemo
-            ? "Você aproveitou 2 horas de acesso completo à plataforma. Assine agora para continuar de onde parou."
+            ? "Continue exatamente de onde parou por apenas R$ 200/mês. Todos os dados que você criou nestas 2 horas ficam preservados."
             : "Seu período de utilização da plataforma expirou. Entre em contato com o administrador para renovar seu acesso."}
         </p>
         {isDemo && (
@@ -41,7 +41,7 @@ export function AccessExpiredScreen() {
             className="btn-gradient mt-6 w-full"
           >
             <Rocket className="mr-2 h-4 w-4" />
-            Assinar agora
+            Assinar por R$ 200/mês
           </Button>
         )}
         <Button
