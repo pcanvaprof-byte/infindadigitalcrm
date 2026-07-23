@@ -20,7 +20,13 @@ function formatRemaining(ms: number) {
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-export function DemoCountdown({ expiresAt }: { expiresAt: string }) {
+export function DemoCountdown({
+  expiresAt,
+  label = "Demo gratuita",
+}: {
+  expiresAt: string;
+  label?: string;
+}) {
   const target = new Date(expiresAt).getTime();
   const [now, setNow] = useState(() => Date.now());
   const [dismissed, setDismissed] = useState(false);
@@ -64,7 +70,7 @@ export function DemoCountdown({ expiresAt }: { expiresAt: string }) {
     >
       <span className="flex items-center gap-1.5">
         <Clock className="h-3.5 w-3.5" />
-        Demo gratuita
+        {label}
       </span>
       <span className="tabular-nums">
         {expired ? "Tempo esgotado" : `Tempo restante: ${formatRemaining(remaining)}`}
