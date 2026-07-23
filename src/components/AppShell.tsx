@@ -186,11 +186,27 @@ export function AppShell({
   const routerState = useRouterState();
   const pathname = routerState.location.pathname;
   const { data: access, isLoading: accessLoading } = useAccessStatus();
+  // Flag de debug: ?demoCountdown=1  (padrão 10 min) ou ?demoCountdown=<minutos>
+  // Também aceita localStorage: infinda:demo-countdown-debug=<minutos>
+  const debugCountdownExpiresAt = (() => {
+    if (typeof window === "undefined") return null;
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get("demoCountdown") ?? window.localStorage.getItem("infinda:demo-countdown-debug");
+    if (!raw) return null;
+    // Persistir para não perder ao navegar
+    if (params.get("demoCountdown")) {
+      window.localStorage.setItem("infinda:demo-countdown-debug", raw);
+    }
+    const minutes = raw === "1" ? 10 : Number(raw);
+    if (!Number.isFinite(minutes) || minutes <= 0) return null;
+    return new Date(Date.now() + minutes * 60 * 1000).toISOString();
+  })();
   const shouldShowCountdown =
-    !!access?.expires_at &&
-    access.status === "active" &&
-    (access.access_type === "demo" ||
-      (access.access_type === "trial" && access.is_privileged));
+    !!debugCountdownExpiresAt ||
+    (!!access?.expires_at &&
+      access.status === "active" &&
+      (access.access_type === "demo" ||
+        (access.access_type === "trial" && access.is_privileged)));
 
   useEffect(() => {
     if (!access) return;
@@ -254,10 +270,16 @@ export function AppShell({
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {shouldShowCountdown && access?.expires_at && (
+        {shouldShowCountdown && (debugCountdownExpiresAt || access?.expires_at) && (
           <DemoCountdown
-            expiresAt={access.expires_at}
-            label={access.access_type === "demo" ? "Demo gratuita" : "Acesso de demonstração"}
+            expiresAt={debugCountdownExpiresAt ?? (access!.expires_at as string)}
+            label={
+              debugCountdownExpiresAt
+                ? "Demo gratuita (preview)"
+                : access?.access_type === "demo"
+                ? "Demo gratuita"
+                : "Acesso de demonstração"
+            }
           />
         )}
         {access &&
