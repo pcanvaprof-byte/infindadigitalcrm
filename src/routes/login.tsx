@@ -1,12 +1,14 @@
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { FormEvent, useState } from "react";
-import { BarChart3, Loader2, Shield, Sparkles } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { BarChart3, Loader2, Rocket, Shield, Sparkles } from "lucide-react";
 
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth-context";
+import { startDemo } from "@/lib/access/demo.functions";
 import { APP_VERSION } from "@/lib/version";
 
 export const Route = createFileRoute("/login")({
@@ -32,10 +34,12 @@ function LoginPage() {
 export function AuthPageContent({ redirect, reason }: { redirect?: string; reason?: string }) {
   const navigate = useNavigate();
   const { user, isReady, login } = useAuth();
+  const startDemoFn = useServerFn(startDemo);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [demoLoading, setDemoLoading] = useState(false);
 
   if (isReady && user) {
     return <Navigate to={redirect || "/dashboard"} replace />;
@@ -59,6 +63,31 @@ export function AuthPageContent({ redirect, reason }: { redirect?: string; reaso
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void performLogin(email, password);
+  };
+
+  const handleStartDemo = async () => {
+    setError("");
+    setDemoLoading(true);
+    try {
+      const res = (await startDemoFn({ data: {} })) as {
+        email: string;
+        password: string;
+      };
+      const result = await login(res.email, res.password);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      await navigate({ to: "/dashboard", replace: true });
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível iniciar a demonstração. Tente novamente.",
+      );
+    } finally {
+      setDemoLoading(false);
+    }
   };
 
   return (
@@ -162,6 +191,38 @@ export function AuthPageContent({ redirect, reason }: { redirect?: string; reaso
                 )}
               </Button>
             </form>
+
+            <div className="mt-6">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    ou experimente sem cadastro
+                  </span>
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-4 h-11 w-full text-base"
+                onClick={handleStartDemo}
+                disabled={demoLoading || submitting}
+              >
+                {demoLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Rocket className="mr-2 h-4 w-4" />
+                    Testar grátis por 2 horas
+                  </>
+                )}
+              </Button>
+              <p className="mt-2 text-center text-[11px] text-muted-foreground">
+                Ambiente isolado com dados fictícios. Sem cartão de crédito.
+              </p>
+            </div>
             <p className="mt-6 text-center text-[11px] text-muted-foreground">
               {APP_VERSION}
             </p>

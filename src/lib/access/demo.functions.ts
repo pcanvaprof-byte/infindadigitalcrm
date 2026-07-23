@@ -1,0 +1,238 @@
+import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
+import { z } from "zod";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyClient = any;
+
+const DEMO_DURATION_MS = 2 * 60 * 60 * 1000; // 2 horas
+const DEMO_MAX_PER_IP_PER_DAY = 5;
+
+function randomPassword(length = 14): string {
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lower = "abcdefghijkmnpqrstuvwxyz";
+  const digits = "23456789";
+  const symbols = "!@#$%*?";
+  const all = upper + lower + digits + symbols;
+  const pick = (s: string) => s[Math.floor(Math.random() * s.length)];
+  const required = [pick(upper), pick(lower), pick(digits), pick(symbols)];
+  const rest = Array.from({ length: length - required.length }, () => pick(all));
+  const out = [...required, ...rest];
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out.join("");
+}
+
+function shortId(): string {
+  return Math.random().toString(36).slice(2, 8);
+}
+
+function callerIp(): string | null {
+  try {
+    const req = getRequest();
+    const fwd = req.headers.get("x-forwarded-for");
+    if (fwd) return fwd.split(",")[0]!.trim();
+    return req.headers.get("cf-connecting-ip") ?? req.headers.get("x-real-ip") ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export const startDemo = createServerFn({ method: "POST" })
+  .inputValidator((d) =>
+    z
+      .object({
+        fullName: z.string().trim().min(2).max(80).optional(),
+      })
+      .parse(d ?? {}),
+  )
+  .handler(async ({ data }) => {
+    const { createOwnSupabaseAdminClient } = await import("@/lib/api-keys.server");
+    const admin = createOwnSupabaseAdminClient() as AnyClient;
+
+    // 1) Rate limit por IP (5/dia). Falha-aberta se a tabela não existir.
+    const ip = callerIp();
+    try {
+      if (ip) {
+        const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const { count } = await admin
+          .from("demo_signups_log")
+          .select("id", { count: "exact", head: true })
+          .eq("ip", ip)
+          .gte("created_at", since);
+        if ((count ?? 0) >= DEMO_MAX_PER_IP_PER_DAY) {
+          throw new Error(
+            "Limite de demos atingido para este IP. Tente novamente amanhã.",
+          );
+        }
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message.startsWith("Limite")) throw err;
+      // demo_signups_log inexistente ou indisponível — segue sem bloquear.
+    }
+
+    // 2) Cria usuário demo.
+    const suffix = shortId();
+    const email = `demo-${Date.now().toString(36)}-${suffix}@demo.infinda.local`;
+    const password = randomPassword(14);
+    const fullName = data.fullName?.trim() || "Usuário Demo";
+
+    const { data: created, error: createErr } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { full_name: fullName, is_demo: true },
+    });
+    if (createErr || !created?.user?.id) {
+      throw new Error(createErr?.message ?? "Falha ao criar usuário demo.");
+    }
+    const userId = created.user.id as string;
+
+    // 3) Cria organização demo.
+    const { data: org, error: orgErr } = await admin
+      .from("organizations")
+      .insert({
+        name: `Demo ${suffix}`,
+        slug: `demo-${suffix}-${Date.now().toString(36)}`,
+        created_by: userId,
+        is_demo: true,
+      })
+      .select("id")
+      .single();
+    if (orgErr || !org?.id) {
+      // Rollback do usuário para evitar lixo órfão.
+      try { await admin.auth.admin.deleteUser(userId); } catch { /* noop */ }
+      throw new Error(orgErr?.message ?? "Falha ao criar organização demo.");
+    }
+    const orgId = org.id as string;
+
+    // 4) Membership (owner) + role admin.
+    try {
+      await admin
+        .from("organization_members")
+        .upsert(
+          { organization_id: orgId, user_id: userId, role: "owner" },
+          { onConflict: "organization_id,user_id" },
+        );
+    } catch { /* noop */ }
+    try {
+      await admin
+        .from("user_roles")
+        .upsert(
+          { user_id: userId, role: "admin" },
+          { onConflict: "user_id,role" },
+        );
+    } catch { /* noop */ }
+
+    // 5) user_active_org (para current_org_id resolver corretamente).
+    try {
+      await admin
+        .from("user_active_org")
+        .upsert(
+          { user_id: userId, organization_id: orgId, updated_at: new Date().toISOString() },
+          { onConflict: "user_id" },
+        );
+    } catch { /* noop */ }
+
+    // 6) user_access com expiração de 2h e access_type='demo'.
+    const expiresAt = new Date(Date.now() + DEMO_DURATION_MS).toISOString();
+    try {
+      await admin.from("user_access").insert({
+        user_id: userId,
+        organization_id: orgId,
+        status: "active",
+        access_type: "demo",
+        expires_at: expiresAt,
+        must_change_password: false,
+      });
+    } catch (err) {
+      if (err instanceof Error) throw err;
+      throw new Error("Falha ao criar acesso demo.");
+    }
+    try {
+      await admin.from("user_access_events").insert({
+        user_id: userId,
+        organization_id: orgId,
+        event: "ACCESS_CREATED",
+        meta: { access_type: "demo", duration_hours: 2, expires_at: expiresAt },
+      });
+    } catch { /* noop */ }
+
+    // 7) Seed de dados fictícios (idempotente, não bloqueia login se falhar).
+    try {
+      const { seedDemoOrganization } = await import("./demo.seed.server");
+      await seedDemoOrganization({
+        admin,
+        organizationId: orgId,
+        userId,
+        fullName,
+      });
+    } catch { /* noop */ }
+
+    // 8) Log anti-abuso.
+    try {
+      await admin
+        .from("demo_signups_log")
+        .insert({ ip, organization_id: orgId });
+    } catch { /* noop */ }
+
+    return {
+      email,
+      password,
+      expiresAt,
+      organizationId: orgId,
+    };
+  });
+
+// Endpoint chamado pelo cron para remover organizações demo com mais de 30 dias.
+export async function cleanupExpiredDemoOrgs(): Promise<{
+  organizations: number;
+  users: number;
+}> {
+  const { createOwnSupabaseAdminClient } = await import("@/lib/api-keys.server");
+  const admin = createOwnSupabaseAdminClient() as AnyClient;
+
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Busca orgs demo antigas.
+  const { data: orgs } = await admin
+    .from("organizations")
+    .select("id, created_at")
+    .eq("is_demo", true)
+    .lt("created_at", cutoff)
+    .limit(200);
+
+  if (!orgs || orgs.length === 0) {
+    return { organizations: 0, users: 0 };
+  }
+
+  let usersDeleted = 0;
+  for (const org of orgs as Array<{ id: string }>) {
+    // Usuários vinculados a esta org.
+    const { data: members } = await admin
+      .from("organization_members")
+      .select("user_id")
+      .eq("organization_id", org.id);
+    const userIds = (members ?? []).map((m: { user_id: string }) => m.user_id);
+
+    // Delete org (cascade em cad_leads, deals, clients, prospects, etc.).
+    try { await admin.from("organizations").delete().eq("id", org.id); } catch { /* noop */ }
+
+    // Delete usuários demo do Auth (só os criados como demo).
+    for (const uid of userIds) {
+      try {
+        const { data: u } = await admin.auth.admin.getUserById(uid);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const meta = (u?.user?.user_metadata ?? {}) as any;
+        if (meta?.is_demo === true) {
+          await admin.auth.admin.deleteUser(uid);
+          usersDeleted++;
+        }
+      } catch { /* noop */ }
+    }
+  }
+
+  return { organizations: orgs.length, users: usersDeleted };
+}

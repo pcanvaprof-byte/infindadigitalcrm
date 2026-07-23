@@ -2219,6 +2219,35 @@ export type Database = {
           },
         ]
       }
+      demo_signups_log: {
+        Row: {
+          created_at: string
+          id: string
+          ip: string | null
+          organization_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip?: string | null
+          organization_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip?: string | null
+          organization_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demo_signups_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       op_campaigns: {
         Row: {
           campaign_name: string
@@ -2851,6 +2880,7 @@ export type Database = {
           created_by: string | null
           default_seed_pack: string | null
           id: string
+          is_demo: boolean
           name: string
           slug: string | null
         }
@@ -2860,6 +2890,7 @@ export type Database = {
           created_by?: string | null
           default_seed_pack?: string | null
           id?: string
+          is_demo?: boolean
           name: string
           slug?: string | null
         }
@@ -2869,6 +2900,7 @@ export type Database = {
           created_by?: string | null
           default_seed_pack?: string | null
           id?: string
+          is_demo?: boolean
           name?: string
           slug?: string | null
         }
