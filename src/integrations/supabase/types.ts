@@ -284,7 +284,7 @@ export type Database = {
           empresa: string | null
           id: string
           lead_id: string | null
-          organization_id: string | null
+          organization_id: string
           respostas_json: Json
           resumo_ia: string | null
           servico: string | null
@@ -303,7 +303,7 @@ export type Database = {
           empresa?: string | null
           id?: string
           lead_id?: string | null
-          organization_id?: string | null
+          organization_id?: string
           respostas_json?: Json
           resumo_ia?: string | null
           servico?: string | null
@@ -322,7 +322,7 @@ export type Database = {
           empresa?: string | null
           id?: string
           lead_id?: string | null
-          organization_id?: string | null
+          organization_id?: string
           respostas_json?: Json
           resumo_ia?: string | null
           servico?: string | null
@@ -4783,7 +4783,7 @@ export type Database = {
           empresa: string | null
           id: string
           lead_id: string | null
-          organization_id: string | null
+          organization_id: string
           respostas_json: Json
           resumo_ia: string | null
           servico: string | null
