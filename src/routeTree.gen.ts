@@ -48,6 +48,7 @@ import { Route as BiConfiguracoesRouteImport } from './routes/bi.configuracoes'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as OperacoesClientesIndexRouteImport } from './routes/operacoes.clientes.index'
 import { Route as OperacoesClientesIdRouteImport } from './routes/operacoes.clientes.$id'
+import { Route as ApiPublicTestMpActivateRouteImport } from './routes/api/public/test-mp-activate'
 import { Route as OperacoesClientesIdIndexRouteImport } from './routes/operacoes.clientes.$id.index'
 import { Route as OperacoesClientesIdRenovacoesRouteImport } from './routes/operacoes.clientes.$id.renovacoes'
 import { Route as OperacoesClientesIdRelacionamentoRouteImport } from './routes/operacoes.clientes.$id.relacionamento'
@@ -265,6 +266,11 @@ const OperacoesClientesIdRoute = OperacoesClientesIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => OperacoesClientesRoute,
 } as any)
+const ApiPublicTestMpActivateRoute = ApiPublicTestMpActivateRouteImport.update({
+  id: '/api/public/test-mp-activate',
+  path: '/api/public/test-mp-activate',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OperacoesClientesIdIndexRoute =
   OperacoesClientesIdIndexRouteImport.update({
     id: '/',
@@ -411,6 +417,7 @@ export interface FileRoutesByFullPath {
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
   '/operacoes/': typeof OperacoesIndexRoute
+  '/api/public/test-mp-activate': typeof ApiPublicTestMpActivateRoute
   '/operacoes/clientes/$id': typeof OperacoesClientesIdRouteWithChildren
   '/operacoes/clientes/': typeof OperacoesClientesIndexRoute
   '/api/public/hooks/cleanup-demos': typeof ApiPublicHooksCleanupDemosRoute
@@ -470,6 +477,7 @@ export interface FileRoutesByTo {
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
   '/operacoes': typeof OperacoesIndexRoute
+  '/api/public/test-mp-activate': typeof ApiPublicTestMpActivateRoute
   '/operacoes/clientes': typeof OperacoesClientesIndexRoute
   '/api/public/hooks/cleanup-demos': typeof ApiPublicHooksCleanupDemosRoute
   '/api/public/hooks/mercadopago': typeof ApiPublicHooksMercadopagoRoute
@@ -530,6 +538,7 @@ export interface FileRoutesById {
   '/proposta/$token': typeof PropostaTokenRoute
   '/propostas/$id': typeof PropostasIdRoute
   '/operacoes/': typeof OperacoesIndexRoute
+  '/api/public/test-mp-activate': typeof ApiPublicTestMpActivateRoute
   '/operacoes/clientes/$id': typeof OperacoesClientesIdRouteWithChildren
   '/operacoes/clientes/': typeof OperacoesClientesIndexRoute
   '/api/public/hooks/cleanup-demos': typeof ApiPublicHooksCleanupDemosRoute
@@ -592,6 +601,7 @@ export interface FileRouteTypes {
     | '/proposta/$token'
     | '/propostas/$id'
     | '/operacoes/'
+    | '/api/public/test-mp-activate'
     | '/operacoes/clientes/$id'
     | '/operacoes/clientes/'
     | '/api/public/hooks/cleanup-demos'
@@ -651,6 +661,7 @@ export interface FileRouteTypes {
     | '/proposta/$token'
     | '/propostas/$id'
     | '/operacoes'
+    | '/api/public/test-mp-activate'
     | '/operacoes/clientes'
     | '/api/public/hooks/cleanup-demos'
     | '/api/public/hooks/mercadopago'
@@ -710,6 +721,7 @@ export interface FileRouteTypes {
     | '/proposta/$token'
     | '/propostas/$id'
     | '/operacoes/'
+    | '/api/public/test-mp-activate'
     | '/operacoes/clientes/$id'
     | '/operacoes/clientes/'
     | '/api/public/hooks/cleanup-demos'
@@ -763,6 +775,7 @@ export interface RootRouteChildren {
   OperacoesClientesRoute: typeof OperacoesClientesRouteWithChildren
   PropostaTokenRoute: typeof PropostaTokenRoute
   OperacoesIndexRoute: typeof OperacoesIndexRoute
+  ApiPublicTestMpActivateRoute: typeof ApiPublicTestMpActivateRoute
   ApiPublicHooksCleanupDemosRoute: typeof ApiPublicHooksCleanupDemosRoute
   ApiPublicHooksMercadopagoRoute: typeof ApiPublicHooksMercadopagoRoute
   ApiPublicV1ClientsRoute: typeof ApiPublicV1ClientsRouteWithChildren
@@ -1047,6 +1060,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/operacoes/clientes/$id'
       preLoaderRoute: typeof OperacoesClientesIdRouteImport
       parentRoute: typeof OperacoesClientesRoute
+    }
+    '/api/public/test-mp-activate': {
+      id: '/api/public/test-mp-activate'
+      path: '/api/public/test-mp-activate'
+      fullPath: '/api/public/test-mp-activate'
+      preLoaderRoute: typeof ApiPublicTestMpActivateRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/operacoes/clientes/$id/': {
       id: '/operacoes/clientes/$id/'
@@ -1349,6 +1369,7 @@ const rootRouteChildren: RootRouteChildren = {
   OperacoesClientesRoute: OperacoesClientesRouteWithChildren,
   PropostaTokenRoute: PropostaTokenRoute,
   OperacoesIndexRoute: OperacoesIndexRoute,
+  ApiPublicTestMpActivateRoute: ApiPublicTestMpActivateRoute,
   ApiPublicHooksCleanupDemosRoute: ApiPublicHooksCleanupDemosRoute,
   ApiPublicHooksMercadopagoRoute: ApiPublicHooksMercadopagoRoute,
   ApiPublicV1ClientsRoute: ApiPublicV1ClientsRouteWithChildren,
