@@ -277,10 +277,12 @@ function UserRow({
   user,
   onReset,
   onRenew,
+  onHistory,
 }: {
   user: OrgUserRow;
   onReset: () => void;
   onRenew: () => void;
+  onHistory: () => void;
 }) {
   const meta = STATUS_META[user.derivedStatus];
   const StatusIcon = meta.icon;
@@ -348,6 +350,10 @@ function UserRow({
       </td>
       <td className="px-4 py-3 text-right">
         <div className="inline-flex gap-1">
+          <Button variant="outline" size="sm" onClick={onHistory}>
+            <HistoryIcon className="mr-1.5 h-3.5 w-3.5" />
+            Histórico
+          </Button>
           <Button variant="outline" size="sm" onClick={onRenew}>
             <CalendarPlus className="mr-1.5 h-3.5 w-3.5" />
             Renovar
