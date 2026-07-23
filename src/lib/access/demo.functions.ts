@@ -342,6 +342,76 @@ export const startDemo = createServerFn({ method: "POST" })
     };
   });
 
+/**
+ * Converte a organização demo do usuário atual em uma organização real (paga).
+ * Todos os dados criados durante a demonstração são preservados.
+ * Idempotente: se já não é mais demo, retorna o status atual sem alterações.
+ */
+export const convertDemoToPaid = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const userId = context.userId as string;
+    const { createOwnSupabaseAdminClient } = await import("@/lib/api-keys.server");
+    const admin = createOwnSupabaseAdminClient() as AnyClient;
+
+    const { data: access } = await admin
+      .from("user_access")
+      .select("id, access_type, organization_id, status")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (!access?.id) {
+      throw new Error("Nenhum acesso encontrado para este usuário.");
+    }
+
+    const orgId = access.organization_id as string | null;
+    if (access.access_type !== "demo") {
+      return { alreadyConverted: true, organizationId: orgId };
+    }
+
+    // 1) Atualiza acesso: paid, sem expiração, ativo.
+    const { error: accessErr } = await admin
+      .from("user_access")
+      .update({
+        access_type: "paid",
+        status: "active",
+        expires_at: null,
+      })
+      .eq("id", access.id);
+    if (accessErr) throw new Error(accessErr.message);
+
+    // 2) Remove o prefixo "demo-" do slug da organização.
+    if (orgId) {
+      try {
+        const { data: org } = await admin
+          .from("organizations")
+          .select("slug")
+          .eq("id", orgId)
+          .maybeSingle();
+        const currentSlug = (org?.slug as string | undefined) ?? "";
+        if (currentSlug.startsWith("demo-")) {
+          const newSlug = `org-${orgId.slice(0, 8)}`;
+          await admin
+            .from("organizations")
+            .update({ slug: newSlug })
+            .eq("id", orgId);
+        }
+      } catch { /* noop */ }
+    }
+
+    // 3) Log de evento.
+    try {
+      await admin.from("user_access_events").insert({
+        user_id: userId,
+        organization_id: orgId,
+        event: "DEMO_CONVERTED_TO_PAID",
+        meta: { converted_at: new Date().toISOString() },
+      });
+    } catch { /* noop */ }
+
+    return { alreadyConverted: false, organizationId: orgId };
+  });
+
 // Endpoint chamado pelo cron para remover organizações demo com mais de 30 dias.
 export async function cleanupExpiredDemoOrgs(): Promise<{
   organizations: number;
