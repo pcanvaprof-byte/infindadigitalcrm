@@ -18,6 +18,7 @@ import { Route as MeusTemplatesRouteImport } from './routes/meus-templates'
 import { Route as MeuNegocioRouteImport } from './routes/meu-negocio'
 import { Route as MetasObjetivosRouteImport } from './routes/metas-objetivos'
 import { Route as MetasRouteImport } from './routes/metas'
+import { Route as MapaRouteImport } from './routes/mapa'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as KickoffRouteImport } from './routes/kickoff'
 import { Route as DocumentacaoRouteImport } from './routes/documentacao'
@@ -112,6 +113,11 @@ const MetasObjetivosRoute = MetasObjetivosRouteImport.update({
 const MetasRoute = MetasRouteImport.update({
   id: '/metas',
   path: '/metas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MapaRoute = MapaRouteImport.update({
+  id: '/mapa',
+  path: '/mapa',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -389,6 +395,7 @@ export interface FileRoutesByFullPath {
   '/documentacao': typeof DocumentacaoRoute
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
+  '/mapa': typeof MapaRoute
   '/metas': typeof MetasRoute
   '/metas-objetivos': typeof MetasObjetivosRoute
   '/meu-negocio': typeof MeuNegocioRoute
@@ -449,6 +456,7 @@ export interface FileRoutesByTo {
   '/documentacao': typeof DocumentacaoRoute
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
+  '/mapa': typeof MapaRoute
   '/metas': typeof MetasRoute
   '/metas-objetivos': typeof MetasObjetivosRoute
   '/meu-negocio': typeof MeuNegocioRoute
@@ -508,6 +516,7 @@ export interface FileRoutesById {
   '/documentacao': typeof DocumentacaoRoute
   '/kickoff': typeof KickoffRoute
   '/login': typeof LoginRoute
+  '/mapa': typeof MapaRoute
   '/metas': typeof MetasRoute
   '/metas-objetivos': typeof MetasObjetivosRoute
   '/meu-negocio': typeof MeuNegocioRoute
@@ -570,6 +579,7 @@ export interface FileRouteTypes {
     | '/documentacao'
     | '/kickoff'
     | '/login'
+    | '/mapa'
     | '/metas'
     | '/metas-objetivos'
     | '/meu-negocio'
@@ -630,6 +640,7 @@ export interface FileRouteTypes {
     | '/documentacao'
     | '/kickoff'
     | '/login'
+    | '/mapa'
     | '/metas'
     | '/metas-objetivos'
     | '/meu-negocio'
@@ -688,6 +699,7 @@ export interface FileRouteTypes {
     | '/documentacao'
     | '/kickoff'
     | '/login'
+    | '/mapa'
     | '/metas'
     | '/metas-objetivos'
     | '/meu-negocio'
@@ -749,6 +761,7 @@ export interface RootRouteChildren {
   DocumentacaoRoute: typeof DocumentacaoRoute
   KickoffRoute: typeof KickoffRoute
   LoginRoute: typeof LoginRoute
+  MapaRoute: typeof MapaRoute
   MetasRoute: typeof MetasRoute
   MetasObjetivosRoute: typeof MetasObjetivosRoute
   MeuNegocioRoute: typeof MeuNegocioRoute
@@ -836,6 +849,13 @@ declare module '@tanstack/react-router' {
       path: '/metas'
       fullPath: '/metas'
       preLoaderRoute: typeof MetasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mapa': {
+      id: '/mapa'
+      path: '/mapa'
+      fullPath: '/mapa'
+      preLoaderRoute: typeof MapaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -1335,6 +1355,7 @@ const rootRouteChildren: RootRouteChildren = {
   DocumentacaoRoute: DocumentacaoRoute,
   KickoffRoute: KickoffRoute,
   LoginRoute: LoginRoute,
+  MapaRoute: MapaRoute,
   MetasRoute: MetasRoute,
   MetasObjetivosRoute: MetasObjetivosRoute,
   MeuNegocioRoute: MeuNegocioRoute,
