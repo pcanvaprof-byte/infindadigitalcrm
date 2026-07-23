@@ -75,6 +75,35 @@ export const claimDemoAccess = createServerFn({ method: "POST" })
       .maybeSingle();
 
     if (existingAccess?.id) {
+      if (existingAccess.access_type === "trial") {
+        const expiresAt = new Date(Date.now() + DEMO_DURATION_MS).toISOString();
+        const { error: updateErr } = await admin
+          .from("user_access")
+          .update({
+            status: "active",
+            access_type: "demo",
+            expires_at: expiresAt,
+            must_change_password: false,
+          })
+          .eq("id", existingAccess.id);
+        if (updateErr) throw new Error(updateErr.message);
+        try {
+          await admin.from("user_access_events").insert({
+            user_id: userId,
+            organization_id: existingAccess.organization_id,
+            event: "DEMO_ACCESS_RENEWED",
+            meta: { via: "google_oauth", duration_hours: 2, expires_at: expiresAt, email },
+          });
+        } catch { /* noop */ }
+        return {
+          alreadyProvisioned: true,
+          email,
+          organizationId: existingAccess.organization_id as string | null,
+          expiresAt,
+          accessType: "demo" as const,
+        };
+      }
+
       return {
         alreadyProvisioned: true,
         email,
