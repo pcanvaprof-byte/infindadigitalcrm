@@ -1,124 +1,105 @@
-# Configuração Inicial do Negócio (Business Profile + IA)
+## Objetivo
 
-Objetivo: capturar o contexto do negócio uma única vez, deixar a IA identificar nicho/público/dores/gatilhos e gerar a mensagem inicial de prospecção. Depois disso, esses dados alimentam automaticamente templates, cadência, follow-ups e sugestões.
+Botão "Testar demo grátis (2h)" na tela de login que cria em segundos uma organização isolada, com dados fictícios já populados, que expira em 2 horas. Após expirar, o usuário vê uma tela dedicada com CTA "Assinar agora"; os dados ficam preservados por 30 dias e são limpos automaticamente depois.
 
-Sem mudanças arquiteturais: reaproveita RLS por org, `authWithAccess`, Lovable AI Gateway e o padrão de server functions.
-
----
-
-## 1. Fluxos de tela
-
-### 1.1 Card no Dashboard
-- Novo card destacado **"Configure seu Negócio"** no topo do `/dashboard`.
-- Só aparece enquanto `business_profile` da org estiver vazio (`onboarding_status <> 'completed'`).
-- Botão **Configurar Negócio** → navega para `/meu-negocio`.
-
-### 1.2 Tela `/meu-negocio` (nova rota, dentro de `_authenticated/`)
-Formulário simples em 1 passo:
-
-- **Descrição da empresa** (textarea, 3–5 linhas) — seguindo sua sugestão, é o campo principal.
-- **Produto/serviço** (input curto, exemplos como chips clicáveis).
-- **Cliente ideal** (input curto, exemplos como chips).
-- **Cidade/região atendida** (opcional).
-- **Diferenciais** (textarea curto, chips de exemplo).
-
-Botão **Analisar com IA**.
-
-### 1.3 Resultado da IA (mesma tela, seção que expande)
-Cards read-only com o que a IA identificou:
-- Nicho, Público, Linguagem, Tom, Foco
-- Dores, Benefícios, Gatilhos
-- Tipo de abordagem comercial
-
-Seguido do bloco **Mensagem inicial de prospecção** (editável).
-
-Pergunta: *"Esta mensagem representa corretamente seu negócio?"*
-Botões:
-- ✓ **Sim, utilizar esta mensagem** → salva tudo, marca `onboarding_status = 'completed'`, volta ao dashboard.
-- ✏ **Editar mensagem** → habilita edição do textarea.
-- 🔄 **Gerar outra opção** → re-chama a IA só para regerar a mensagem, mantendo a análise.
-
-### 1.4 Menu "Meu Negócio"
-- Item no sidebar (todos os papéis) apontando para `/meu-negocio`.
-- Reabrir mostra os dados já salvos, editáveis.
-- Ao salvar alteração relevante (produto, público, tom, diferenciais), modal:
-  *"Deseja atualizar automaticamente todas as mensagens da prospecção?"* → **Sim** / **Não**.
-  - **Sim**: regenera templates padrão da org e a mensagem inicial.
-  - **Não**: apenas grava o perfil.
+Nenhum comportamento atual de `owner` / `admin` / `member` reais é alterado.
 
 ---
 
-## 2. Dados (nova tabela)
+## Como o usuário demo vive
 
-`public.business_profiles` (1 linha por org):
-- Campos de entrada: `description`, `product`, `ideal_customer`, `region`, `differentials`
-- Campos gerados pela IA: `niche`, `audience`, `language`, `tone`, `focus`, `pains[]`, `benefits[]`, `triggers[]`, `approach`, `initial_message`
-- Controle: `onboarding_status` (`draft` | `completed`), `ai_model`, `ai_version`, `analyzed_at`
-- Padrões: `org_id` (FK), `created_at`, `updated_at`
-
-RLS:
-- `SELECT/INSERT/UPDATE` para membros da org (helper existente `is_org_member`).
-- `GRANT` para `authenticated` + `service_role` (padrão do projeto).
-
-Migração cria a tabela, RLS, GRANTs e trigger `updated_at`. Nenhuma tabela existente é alterada.
+- Papel na org demo: `admin` (para ver o produto completo — dashboard, prospecção, cadência, CRM, propostas).
+- Acesso registrado em `user_access` com `access_type='demo'` e `expires_at = now() + 2h`.
+- Organização é uma nova org "Demo — {timestamp}", totalmente isolada. RLS existente já impede vazamento cruzado.
+- Usuário demo consegue navegar, editar e criar registros dentro do próprio sandbox durante as 2h.
 
 ---
 
-## 3. Backend (server functions)
+## Dados fictícios pré-populados
 
-Arquivo novo `src/lib/business/business.functions.ts`, todas com `authWithAccess`:
+Semente rodada no `handler` de criação:
 
-- `getBusinessProfile()` → retorna o perfil da org ativa (ou `null`).
-- `saveBusinessInputs(input)` → grava/atualiza campos de entrada (`draft`).
-- `analyzeBusinessWithAI()` → chama Lovable AI Gateway (`google/gemini-3.5-flash`, structured output com `Output.object`), grava resultado no registro, retorna JSON completo + mensagem inicial. Não marca como completo.
-- `regenerateInitialMessage()` → re-chama IA usando o perfil salvo, gera nova mensagem.
-- `confirmBusinessProfile({ initial_message })` → grava mensagem final e marca `onboarding_status = 'completed'`.
+- 40 prospects em 5 segmentos (Estética, Odonto, Advocacia, Educação, E-commerce), status distribuídos entre `nao_contatado` / `primeiro_contato` / `qualificado` / `fechado_ganho`.
+- 12 `cad_leads` em cadência (estágios variados: `M1`, `M2`, `FUP`), com `owner_id = demo user`.
+- 6 mensagens em `cad_messages` marcadas como enviadas.
+- 5 `clients` (2 com contrato ativo, 1 em onboarding, 2 em relacionamento).
+- 4 `deals` no CRM em estágios diferentes.
+- 6 tarefas pendentes (`cad_notifications` do próprio usuário demo).
+- 1 `business_profile` genérico já preenchido para a org demo.
 
-Prompt do modelo em pt-BR, pedindo JSON estrito. Fallback resiliente se o schema falhar (parse do texto bruto), padrão já usado no projeto.
-
----
-
-## 4. Integração com o resto da plataforma (sem refactor)
-
-Ponto único: helper `getActiveBusinessContext(orgId)` (server-side) que retorna nicho, tom, dores, gatilhos e mensagem inicial. Já usado por:
-
-- **Templates de cadência**: quando o usuário criar template novo, oferecer "Gerar com base no meu negócio".
-- **IA de mensagens / follow-ups**: os prompts existentes de geração passam a receber o contexto como bloco `system` adicional.
-- **Sugestões futuras** (dashboards de insights): recebem o mesmo contexto.
-
-Só encaixe — nenhuma tabela ou fluxo existente muda comportamento se o perfil estiver vazio.
+Todos os inserts usam `service_role` para bypassar RLS na semeadura e sempre com `user_id`/`owner_id`/`organization_id` do sandbox demo.
 
 ---
 
-## 5. Frontend — arquivos
+## Fluxo de expiração
 
-- `src/routes/_authenticated/meu-negocio.tsx` — nova rota (form + resultado IA + confirmação).
-- `src/components/dashboard/BusinessSetupCard.tsx` — card do dashboard, exibido condicionalmente.
-- `src/components/business/BusinessProfileForm.tsx` — formulário reutilizável (usado no onboarding e nas edições).
-- `src/components/business/AiAnalysisResult.tsx` — cartões de resultado + bloco da mensagem inicial.
-- `src/hooks/useBusinessProfile.ts` — `useQuery` + mutations.
-- Sidebar: novo item "Meu Negócio".
-
-Validação com Zod, textos em pt-BR, uso dos tokens do design system (sem cores hardcoded).
+1. `check_access_status` passa a **também** aplicar expiração quando `access_type='demo'`, mesmo para papéis privilegiados (owner/admin). Papéis não-demo continuam idênticos — `is_privileged=true` segue ignorando `expires_at` como hoje.
+2. Ao chamar qualquer server fn após 2h → middleware `authWithAccess` lança `access_expired` (fluxo já existente).
+3. `AppShell` já redireciona para `AccessExpiredScreen`. Só ajustamos essa tela para, quando `access_type==='demo'`, mostrar texto "Sua demonstração expirou" + botão "Assinar agora" (link `/assinatura`).
 
 ---
 
-## 6. Segurança e custos
+## Limpeza após 30 dias
 
-- IA roda só via server function → `LOVABLE_API_KEY` nunca sai do servidor.
-- Rate limit simples por org (mesmo padrão de `auditDispatches`): no máximo 10 análises IA / hora.
-- Log de auditoria em `user_access_events` opcional (`business_profile.analyzed`, `business_profile.confirmed`).
-
----
-
-## 7. Fora de escopo (desta entrega)
-
-- Regenerar em massa templates antigos além dos padrão da org.
-- Versionamento histórico das análises.
-- A/B testing de mensagens.
-
-Podem entrar em iterações futuras.
+- Nova coluna `organizations.is_demo boolean not null default false` (só marcada quando é criada por `startDemo`).
+- Route `POST /api/public/hooks/cleanup-demos` (bypass de auth do prefixo `/api/public/*`, autenticada por `apikey` = anon key):
+  - Acha organizações demo cujo `user_access.expires_at < now() - interval '30 days'` e apaga `organizations` (cascade já limpa filhas: `prospects`, `cad_leads`, `clients`, `deals`, `business_profiles` etc.).
+  - Apaga os usuários órfãos correspondentes via `auth.admin.deleteUser`.
+- Cron via `pg_cron` + `pg_net`, roda uma vez por dia às 04:00 UTC.
 
 ---
 
-Se aprovar, começo pela migração da tabela `business_profiles`, depois server functions com IA, e por último a UI (card do dashboard + tela).
+## Alterações de código (frontend)
+
+- `src/routes/login.tsx`: adicionar botão secundário "Testar grátis por 2 horas". Handler chama `startDemo`, faz `supabase.auth.signInWithPassword` com as credenciais retornadas, redireciona para `/dashboard`.
+- `src/components/access/AccessExpiredScreen.tsx`: quando `access_type==='demo'` renderiza copy demo + botão "Assinar agora".
+
+## Alterações de código (backend)
+
+- `src/lib/access/demo.functions.ts` (novo):
+  - `startDemo` (createServerFn, sem middleware — endpoint público) — cria user, org, membership, `user_access` demo, dispara semeadura.
+  - Rate limit simples: máximo 3 criações por IP por hora (tabela `demo_signups_log`).
+- `src/lib/access/demo.seed.server.ts` (novo, server-only) — funções de semeadura idempotentes.
+- `src/routes/api/public/hooks/cleanup-demos.ts` (novo) — endpoint do cron.
+
+## Migração SQL
+
+```sql
+-- 1. Marcador de org demo
+ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS is_demo boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS idx_organizations_is_demo ON public.organizations(is_demo) WHERE is_demo;
+
+-- 2. Log anti-abuso de signup demo
+CREATE TABLE public.demo_signups_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  ip text,
+  organization_id uuid REFERENCES public.organizations(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+GRANT ALL ON public.demo_signups_log TO service_role;
+ALTER TABLE public.demo_signups_log ENABLE ROW LEVEL SECURITY;
+-- sem policies: só service_role acessa.
+
+-- 3. check_access_status passa a expirar contas demo mesmo se owner/admin
+--    (owner/admin não-demo continuam sem expiração).
+CREATE OR REPLACE FUNCTION public.check_access_status() ... ;
+```
+
+Detalhe importante: o `CREATE OR REPLACE` da RPC mantém a assinatura e o shape do JSON — nenhum consumidor existente precisa mudar. A única diferença é: se `access_type='demo'` E `expires_at < now()`, retorna `status='expired'` mesmo com papel owner/admin.
+
+---
+
+## Testes manuais (verifico ao final)
+
+1. Login → clico em "Testar 2h" → entro na plataforma como admin de uma org nova.
+2. Dashboard mostra leads/clientes/tarefas semeados.
+3. Forço `expires_at` para o passado no DB → recarrego → vejo `AccessExpiredScreen` com CTA demo.
+4. Owner real (`cardosovaldnei@gmail.com`) continua funcionando normal.
+5. Member real (Juliana) continua vendo só seus dados privados.
+
+## Riscos e mitigações
+
+- **Bots criando contas demo**: rate limit por IP + captcha simples (honeypot field) na primeira versão; se abusarem, dá pra plugar hCaptcha depois.
+- **Custo do DB por demos abandonados**: cron 30d + índice em `is_demo` evita bloat.
+- **Semeadura falhando parcial**: cada bloco é try/catch; se um falhar, o usuário ainda entra — só sem parte dos dados. Logamos o erro server-side.
+- **Regressão em Owner/Admin reais**: teste 4 acima; a lógica só ramifica quando `access_type='demo'`.
