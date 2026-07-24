@@ -225,6 +225,12 @@ export function AppShell({
   if (access && access.status !== "active" && !access.is_privileged) {
     return <AccessExpiredScreen />;
   }
+  // Aguarda o status carregar antes de renderizar rotas protegidas.
+  // Sem isso, componentes filhos disparam server fns com `authWithAccess`
+  // antes do gate, e o throw `access_expired` gera tela em branco.
+  if (accessLoading || !access) {
+    return null;
+  }
   if (!accessLoading && access?.must_change_password && pathname !== "/alterar-senha") {
     return null;
   }
