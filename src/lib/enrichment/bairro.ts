@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { fetchCnpj, sanitizeCnpj } from "./cnpj";
 import { fetchCep, mergeAddress } from "./cep";
+import { normalizeAddress } from "./normalize";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
@@ -27,6 +28,7 @@ export async function collectBairro(cnpj: string): Promise<string | null> {
     const v = cnpjAddr.cep ? await fetchCep(cnpjAddr.cep) : null;
     address = mergeAddress(cnpjAddr, v);
   } catch { /* ignore */ }
+  address = normalizeAddress(address).address;
 
   const profileRow = {
     user_id: uid,
