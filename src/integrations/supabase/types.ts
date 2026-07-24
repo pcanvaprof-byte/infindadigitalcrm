@@ -411,6 +411,7 @@ export type Database = {
           triggers: string[]
           updated_at: string
           updated_by: string | null
+          user_id: string
         }
         Insert: {
           ai_model?: string | null
@@ -437,6 +438,7 @@ export type Database = {
           triggers?: string[]
           updated_at?: string
           updated_by?: string | null
+          user_id: string
         }
         Update: {
           ai_model?: string | null
@@ -463,12 +465,13 @@ export type Database = {
           triggers?: string[]
           updated_at?: string
           updated_by?: string | null
+          user_id?: string
         }
         Relationships: [
           {
             foreignKeyName: "business_profiles_org_id_fkey"
             columns: ["org_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
