@@ -82,6 +82,9 @@ export async function seedDemoOrganization(ctx: DemoSeedContext): Promise<void> 
     await admin.from("business_profiles").upsert(
       {
         org_id: organizationId,
+        user_id: userId,
+        created_by: userId,
+        updated_by: userId,
         description: "Empresa demo do INFINDA para experimentação da plataforma.",
         product: "Consultoria digital e gestão comercial.",
         ideal_customer: "PMEs entre 5 e 50 colaboradores.",
@@ -99,7 +102,7 @@ export async function seedDemoOrganization(ctx: DemoSeedContext): Promise<void> 
           "Olá {{nome}}! Vi que a {{empresa}} atua no setor e ajudo empresas como a sua a organizar o comercial. Posso te mostrar como em 15 minutos?",
         onboarding_status: "ready",
       },
-      { onConflict: "org_id" },
+      { onConflict: "org_id,user_id" },
     );
   } catch {
     /* noop */

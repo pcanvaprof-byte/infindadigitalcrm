@@ -63,10 +63,10 @@ function buildBriefingBlock(b?: z.infer<typeof Briefing>) {
 async function mergeWithBusinessProfile(supabase: any, b?: z.infer<typeof Briefing>) {
   let profile: Record<string, unknown> | null = null;
   try {
+    // Perfil do negócio agora é privado por usuário — RLS já filtra por auth.uid().
     const { data } = await supabase
       .from("business_profiles")
       .select("niche, audience, tone, focus, approach, pains, benefits, differentials, product")
-      .eq("org_id", (await supabase.rpc("current_org_id")).data ?? null)
       .maybeSingle();
     profile = data ?? null;
   } catch {

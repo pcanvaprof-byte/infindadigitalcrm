@@ -36,11 +36,12 @@ async function getOrgId(supabase: AnyClient): Promise<string> {
   return data as string;
 }
 
-async function loadProfile(supabase: AnyClient, orgId: string) {
+async function loadProfile(supabase: AnyClient, orgId: string, userId: string) {
   const { data, error } = await supabase
     .from("business_profiles")
     .select("*")
     .eq("org_id", orgId)
+    .eq("user_id", userId)
     .maybeSingle();
   if (error) throw error;
   return data;
@@ -52,7 +53,7 @@ async function upsertProfile(
   userId: string,
   patch: Record<string, unknown>,
 ) {
-  const existing = await loadProfile(supabase, orgId);
+  const existing = await loadProfile(supabase, orgId, userId);
   if (existing) {
     const { data, error } = await supabase
       .from("business_profiles")
@@ -67,6 +68,7 @@ async function upsertProfile(
     .from("business_profiles")
     .insert({
       org_id: orgId,
+      user_id: userId,
       created_by: userId,
       updated_by: userId,
       ...patch,
@@ -82,8 +84,10 @@ export const getBusinessProfile = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = (context as any).supabase;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const userId = (context as any).userId as string;
     const orgId = await getOrgId(supabase);
-    const profile = await loadProfile(supabase, orgId);
+    const profile = await loadProfile(supabase, orgId, userId);
     return profile;
   });
 
@@ -250,7 +254,7 @@ export const regenerateInitialMessage = createServerFn({ method: "POST" })
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const userId = (context as any).userId as string;
     const orgId = await getOrgId(supabase);
-    const p = await loadProfile(supabase, orgId);
+    const p = await loadProfile(supabase, orgId, userId);
     if (!p) throw new Error("Perfil de negócio ainda não foi analisado.");
 
     const prompt = [
@@ -318,8 +322,10 @@ export const regenerateOrgCadTemplates = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = (context as any).supabase;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const userId = (context as any).userId as string;
     const orgId = await getOrgId(supabase);
-    const profile = await loadProfile(supabase, orgId);
+    const profile = await loadProfile(supabase, orgId, userId);
     if (!profile) throw new Error("Configure seu Negócio antes de regenerar os templates.");
 
     const prompt = [
