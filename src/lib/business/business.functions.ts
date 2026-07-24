@@ -41,6 +41,7 @@ async function loadProfile(supabase: AnyClient, orgId: string) {
     .from("business_profiles")
     .select("*")
     .eq("org_id", orgId)
+    .eq("user_id", (await supabase.auth.getUser()).data.user?.id ?? "")
     .maybeSingle();
   if (error) throw error;
   return data;
@@ -67,6 +68,7 @@ async function upsertProfile(
     .from("business_profiles")
     .insert({
       org_id: orgId,
+      user_id: userId,
       created_by: userId,
       updated_by: userId,
       ...patch,
