@@ -4,6 +4,7 @@ import { fetchCep, mergeAddress } from "./cep";
 import { geocode } from "./geo";
 import { fetchMarketData } from "./ibge";
 import { computeScore } from "./score";
+import { normalizeAddress } from "./normalize";
 import type {
   EnrichmentResult,
   EnrichmentStep,
@@ -251,7 +252,14 @@ export async function runEnrichment(
   try {
     const viacep = cnpjAddress.cep ? await fetchCep(cnpjAddress.cep) : null;
     address = mergeAddress(cnpjAddress, viacep);
-    emit(opts, "cep", viacep ? "done" : "skipped", viacep ? undefined : "CEP não normalizado");
+    const norm = normalizeAddress(address);
+    address = norm.address;
+    const msg = !viacep
+      ? "CEP não normalizado"
+      : norm.missing.length
+        ? `campos ausentes: ${norm.missing.join(", ")}`
+        : undefined;
+    emit(opts, "cep", viacep ? (norm.isComplete ? "done" : "skipped") : "skipped", msg);
   } catch (e) {
     emit(opts, "cep", "error", (e as Error).message);
   }
@@ -372,8 +380,9 @@ export async function runEnrichment(
           const tel2 = filled(profile.telefone_2);
           const tel = tel1 || tel2;
           const email = filled(profile.email);
-          const city = filled(address.cidade);
-          const state = filled(address.uf);
+          const normalized = normalizeAddress(address).address;
+          const city = filled(normalized.cidade);
+          const state = filled(normalized.uf);
           if (prosp && !filled(prosp.phone) && tel) patch.phone = tel;
           if (prosp && !filled(prosp.whatsapp) && tel) patch.whatsapp = tel;
           if (prosp && !filled(prosp.email) && email) patch.email = email;
