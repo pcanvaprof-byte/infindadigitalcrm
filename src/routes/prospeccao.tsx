@@ -417,6 +417,8 @@ function ProspeccaoPage() {
       bizProfile.onboarding_status !== "completed" ||
       !String(bizProfile.initial_message ?? "").trim());
   const [showBizDialog, setShowBizDialog] = useState(false);
+  // Disparo que ficou pendente por causa do pop-up de configuração.
+  const [pendingWhatsId, setPendingWhatsId] = useState<string | null>(null);
   // Confirmação de exclusão em lote (C-1): evita perda irreversível por clique acidental.
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState<{ ids: string[] } | null>(null);
   const [bulkDeleteInput, setBulkDeleteInput] = useState("");
