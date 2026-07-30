@@ -112,6 +112,9 @@ function MapaPage() {
   const withoutCoords = filtered.length - withCoords;
   const withoutCep = points.filter((p) => !p.cep).length;
   const withoutAddress = points.filter((p) => !p.logradouro).length;
+  const pendingCount = points.filter(
+    (p) => !p.cep || !p.logradouro || !p.lat || !p.lon,
+  ).length;
 
   const missingList = useMemo(
     () => filtered.filter((p) => !p.cep || !p.logradouro).slice(0, 200),
@@ -146,10 +149,11 @@ function MapaPage() {
             onClick={() => enrichMut.mutate()}
           >
             {enriching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-            Enriquecer todos (CEP + Endereço)
+            Enriquecer 20 (CEP + Endereço)
           </Button>
           <p className="text-[10px] text-muted-foreground leading-snug">
-            Busca via Receita Federal → ViaCEP → OpenStreetMap para cada CNPJ sem endereço completo.
+            Processa em lotes de {BATCH_SIZE} CNPJs por vez (Receita Federal → ViaCEP → OpenStreetMap).
+            {pendingCount > 0 ? ` ${pendingCount} lead(s) pendente(s).` : " Nenhum lead pendente."}
           </p>
 
           <div className="-mx-1 flex-1 overflow-y-auto px-1 max-h-[40vh] lg:max-h-[calc(100vh-380px)]">
