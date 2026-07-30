@@ -207,8 +207,6 @@ function MapaPage() {
 
   const withCoords = filtered.filter((p) => p.lat && p.lon).length;
   const withoutCoords = filtered.length - withCoords;
-  const withoutCep = points.filter((p) => !p.cep).length;
-  const withoutAddress = points.filter((p) => !p.logradouro).length;
 
   // ---- roteiro do dia ----
   // respeita o bairro selecionado no mapa/lista
