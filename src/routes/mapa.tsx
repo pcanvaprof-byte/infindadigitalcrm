@@ -31,6 +31,8 @@ export const Route = createFileRoute("/mapa")({
   ),
 });
 
+const BATCH_SIZE = 20;
+
 function MapaPage() {
   const qc = useQueryClient();
   const [selectedBairro, setSelectedBairro] = useState<string | null>(null);
@@ -51,24 +53,32 @@ function MapaPage() {
 
   const enrichMut = useMutation({
     mutationFn: async () => {
-      const missing = points.filter((p) => !p.cep || !p.logradouro || !p.lat || !p.lon);
-      if (!missing.length) {
+      const pending = points.filter((p) => !p.cep || !p.logradouro || !p.lat || !p.lon);
+      if (!pending.length) {
         toast.info("Todos os leads já possuem endereço completo e coordenadas.");
         return 0;
       }
-      const tid = toast.loading(`Enriquecendo 0/${missing.length}…`);
+      // processa em lotes de 20 por execução
+      const batch = pending.slice(0, BATCH_SIZE);
+      const restante = pending.length - batch.length;
+      const tid = toast.loading(`Enriquecendo 0/${batch.length}…`);
       let ok = 0;
-      for (let i = 0; i < missing.length; i++) {
+      for (let i = 0; i < batch.length; i++) {
         try {
-          await runEnrichment(missing[i].cnpj);
+          await runEnrichment(batch[i].cnpj);
           ok++;
         } catch {
           /* segue para o próximo */
         }
-        toast.loading(`Enriquecendo ${i + 1}/${missing.length}…`, { id: tid });
+        toast.loading(`Enriquecendo ${i + 1}/${batch.length}…`, { id: tid });
         await new Promise((r) => setTimeout(r, 1100));
       }
-      toast.success(`Concluído: ${ok}/${missing.length}`, { id: tid });
+      toast.success(
+        restante > 0
+          ? `Lote concluído: ${ok}/${batch.length} · ${restante} pendente(s). Clique novamente para o próximo lote.`
+          : `Concluído: ${ok}/${batch.length}`,
+        { id: tid },
+      );
       return ok;
     },
     onSuccess: refresh,
@@ -102,6 +112,9 @@ function MapaPage() {
   const withoutCoords = filtered.length - withCoords;
   const withoutCep = points.filter((p) => !p.cep).length;
   const withoutAddress = points.filter((p) => !p.logradouro).length;
+  const pendingCount = points.filter(
+    (p) => !p.cep || !p.logradouro || !p.lat || !p.lon,
+  ).length;
 
   const missingList = useMemo(
     () => filtered.filter((p) => !p.cep || !p.logradouro).slice(0, 200),
@@ -136,10 +149,11 @@ function MapaPage() {
             onClick={() => enrichMut.mutate()}
           >
             {enriching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-            Enriquecer todos (CEP + Endereço)
+            Enriquecer 20 (CEP + Endereço)
           </Button>
           <p className="text-[10px] text-muted-foreground leading-snug">
-            Busca via Receita Federal → ViaCEP → OpenStreetMap para cada CNPJ sem endereço completo.
+            Processa em lotes de {BATCH_SIZE} CNPJs por vez (Receita Federal → ViaCEP → OpenStreetMap).
+            {pendingCount > 0 ? ` ${pendingCount} lead(s) pendente(s).` : " Nenhum lead pendente."}
           </p>
 
           <div className="-mx-1 flex-1 overflow-y-auto px-1 max-h-[40vh] lg:max-h-[calc(100vh-380px)]">
@@ -196,12 +210,12 @@ function MapaPage() {
             <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
               <MapPin className="h-8 w-8 text-muted-foreground" />
               <p className="max-w-md text-sm text-muted-foreground">
-                Nenhum lead possui coordenadas ainda. Use <strong>Enriquecer todos</strong> para
+                Nenhum lead possui coordenadas ainda. Use <strong>Enriquecer 20</strong> para
                 buscar endereço completo, CEP e geolocalização automaticamente.
               </p>
               <Button onClick={() => enrichMut.mutate()} disabled={enriching} className="btn-gradient h-9">
                 {enriching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                Enriquecer agora
+                Enriquecer próximos 20
               </Button>
             </div>
           ) : (
