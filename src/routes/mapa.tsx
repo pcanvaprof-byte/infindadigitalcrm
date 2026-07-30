@@ -30,7 +30,6 @@ import {
   loadLatestVisitsByCnpj,
   visitKeys,
   visitColor,
-  VISIT_STATUSES,
   flushVisitQueue,
 } from "@/lib/visits/api";
 import { isOnline, queueSize } from "@/lib/visits/offline";
@@ -222,20 +221,6 @@ function MapaPage() {
   const withoutCep = points.filter((p) => !p.cep).length;
   const withoutAddress = points.filter((p) => !p.logradouro).length;
 
-  // ---- cobertura por status (leads filtrados) ----
-  const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = { "não visitado": 0 };
-    for (const s of VISIT_STATUSES) counts[s] = 0;
-    for (const p of filtered) {
-      const st = visits[digits(p.cnpj)]?.status;
-      const key = st && counts[st] !== undefined ? st : "não visitado";
-      counts[key] = (counts[key] ?? 0) + 1;
-    }
-    return counts;
-  }, [filtered, visits]);
-  const visitedCount = filtered.length - (statusCounts["não visitado"] ?? 0);
-  const coverage = filtered.length ? Math.round((visitedCount / filtered.length) * 100) : 0;
-
   // ---- roteiro do dia ----
   // respeita o bairro selecionado no mapa/lista
   const scoped = useMemo(
@@ -403,7 +388,7 @@ function MapaPage() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <Select
               value={uf}
               onValueChange={(v) => {
@@ -449,35 +434,6 @@ function MapaPage() {
             <div className="flex justify-between"><span>Sem endereço</span><span className="font-semibold text-foreground">{withoutAddress}</span></div>
           </div>
 
-          {/* Cobertura + legenda de status */}
-          <div className="rounded-md border border-border/60 p-2 text-[11px] space-y-1.5">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold uppercase tracking-wide text-muted-foreground">
-                Cobertura
-              </span>
-              <span className="font-semibold text-foreground">
-                {visitedCount}/{filtered.length} ({coverage}%)
-              </span>
-            </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-              <div className="h-full rounded-full bg-primary" style={{ width: `${coverage}%` }} />
-            </div>
-            <ul className="space-y-0.5 pt-1">
-              {["não visitado", ...VISIT_STATUSES].map((s) => (
-                <li key={s} className="flex items-center justify-between text-muted-foreground">
-                  <span className="flex items-center gap-1.5">
-                    <span
-                      className="inline-block h-2 w-2 rounded-full"
-                      style={{ background: visitColor(s === "não visitado" ? null : s) }}
-                    />
-                    <span className="capitalize">{s}</span>
-                  </span>
-                  <span className="font-medium text-foreground">{statusCounts[s] ?? 0}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
           <Button
             className="btn-gradient h-9"
             disabled={enriching}
@@ -491,7 +447,7 @@ function MapaPage() {
             {pendingCount > 0 ? ` ${pendingCount} lead(s) pendente(s).` : " Nenhum lead pendente."}
           </p>
 
-          <div className="-mx-1 flex-1 overflow-y-auto px-1 max-h-[40vh] lg:max-h-[calc(100vh-380px)]">
+          <div className="hidden flex-1 overflow-y-auto px-1 -mx-1 lg:block lg:max-h-[calc(100vh-320px)]">
             {selectedBairro && (
               <button
                 className="mb-2 w-full rounded-md border border-border/60 px-2 py-1 text-left text-[11px] text-muted-foreground hover:bg-accent"
