@@ -52,6 +52,29 @@ function rangeLastDays(n: number): Range {
 
 const OUTBOUND_TYPES = ["whatsapp", "ligacao", "email", "reuniao"] as const;
 
+/**
+ * Escopo de leitura dos disparos. Member enxerga somente os próprios envios;
+ * owner/admin enxerga os envios da organização ativa.
+ */
+export type DispatchScope = {
+  userId: string;
+  organizationId: string | null;
+  privileged: boolean;
+};
+
+async function resolveScope(context: unknown): Promise<DispatchScope> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ctx = context as any;
+  const supabase = ctx?.supabase;
+  const userId: string | undefined = ctx?.userId;
+  if (!supabase || !userId) throw new Error("unauthenticated");
+  const { resolveActiveOrg } = await import("@/lib/api-keys.server");
+  const organizationId = await resolveActiveOrg(supabase);
+  const { data: role } = await supabase.rpc("current_org_role");
+  const privileged = role === "owner" || role === "admin";
+  return { userId, organizationId, privileged };
+}
+
 async function ownClient() {
   // Lazy import para não vazar o módulo server-only no bundle do client.
   // Usa OWN_SB (banco canônico do INFINDA) com service role para garantir
@@ -87,28 +110,38 @@ export interface DispatchAuditResult {
 type CadRow = { id: string; created_at: string; lead_id: string | null; tipo: string | null; direction: string | null };
 type TpRow = { id: string; enviado_em: string; tipo: string; prospect_id: string | null };
 
-async function fetchBucket(range: Range): Promise<{
+async function fetchBucket(range: Range, scope: DispatchScope): Promise<{
   bucket: DispatchBucket;
   cadRows: CadRow[];
   tpRows: TpRow[];
 }> {
   const sb = await ownClient();
+  let cadQuery = sb.from("cad_messages")
+    .select("id, created_at, lead_id, tipo, direction")
+    .gte("created_at", range.from)
+    .lte("created_at", range.to)
+    .neq("tipo", "sistema");
+  let tpQuery = sb.from("prospect_touchpoints")
+    .select("id, enviado_em, tipo, prospect_id")
+    .gte("enviado_em", range.from)
+    .lte("enviado_em", range.to)
+    .in("tipo", OUTBOUND_TYPES as unknown as string[]);
+
+  if (scope.privileged) {
+    // Owner/Admin: escopo da organização ativa (nunca global).
+    const org = scope.organizationId ?? "00000000-0000-0000-0000-000000000000";
+    cadQuery = cadQuery.eq("organization_id", org);
+    tpQuery = tpQuery.eq("organization_id", org);
+  } else {
+    // Member: somente os próprios disparos.
+    cadQuery = cadQuery.eq("author_id", scope.userId);
+    tpQuery = tpQuery.eq("user_id", scope.userId);
+  }
+
   // Paginação simples (limite 5k) — auditoria diária dificilmente passa disso.
   const [cadRes, tpRes] = await Promise.all([
-    sb.from("cad_messages")
-      .select("id, created_at, lead_id, tipo, direction")
-      .gte("created_at", range.from)
-      .lte("created_at", range.to)
-      .neq("tipo", "sistema")
-      .order("created_at", { ascending: true })
-      .limit(5000),
-    sb.from("prospect_touchpoints")
-      .select("id, enviado_em, tipo, prospect_id")
-      .gte("enviado_em", range.from)
-      .lte("enviado_em", range.to)
-      .in("tipo", OUTBOUND_TYPES as unknown as string[])
-      .order("enviado_em", { ascending: true })
-      .limit(5000),
+    cadQuery.order("created_at", { ascending: true }).limit(5000),
+    tpQuery.order("enviado_em", { ascending: true }).limit(5000),
   ]);
   if (cadRes.error) throw cadRes.error;
   if (tpRes.error) throw tpRes.error;
