@@ -51,24 +51,32 @@ function MapaPage() {
 
   const enrichMut = useMutation({
     mutationFn: async () => {
-      const missing = points.filter((p) => !p.cep || !p.logradouro || !p.lat || !p.lon);
-      if (!missing.length) {
+      const pending = points.filter((p) => !p.cep || !p.logradouro || !p.lat || !p.lon);
+      if (!pending.length) {
         toast.info("Todos os leads já possuem endereço completo e coordenadas.");
         return 0;
       }
-      const tid = toast.loading(`Enriquecendo 0/${missing.length}…`);
+      // processa em lotes de 20 por execução
+      const batch = pending.slice(0, BATCH_SIZE);
+      const restante = pending.length - batch.length;
+      const tid = toast.loading(`Enriquecendo 0/${batch.length}…`);
       let ok = 0;
-      for (let i = 0; i < missing.length; i++) {
+      for (let i = 0; i < batch.length; i++) {
         try {
-          await runEnrichment(missing[i].cnpj);
+          await runEnrichment(batch[i].cnpj);
           ok++;
         } catch {
           /* segue para o próximo */
         }
-        toast.loading(`Enriquecendo ${i + 1}/${missing.length}…`, { id: tid });
+        toast.loading(`Enriquecendo ${i + 1}/${batch.length}…`, { id: tid });
         await new Promise((r) => setTimeout(r, 1100));
       }
-      toast.success(`Concluído: ${ok}/${missing.length}`, { id: tid });
+      toast.success(
+        restante > 0
+          ? `Lote concluído: ${ok}/${batch.length} · ${restante} pendente(s). Clique novamente para o próximo lote.`
+          : `Concluído: ${ok}/${batch.length}`,
+        { id: tid },
+      );
       return ok;
     },
     onSuccess: refresh,
