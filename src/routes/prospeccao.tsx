@@ -412,11 +412,17 @@ function ProspeccaoPage() {
   const [dispatchingIds, setDispatchingIds] = useState<Set<string>>(new Set());
   // Perfil do negócio: sem ele a 1ª mensagem de prospecção não existe.
   const { data: bizProfile, isLoading: bizLoading } = useBusinessProfile();
-  const bizPending =
+  // Flag persistida: uma vez que o perfil ficou pronto, não mostramos mais o pop-up.
+  const [bizGateDone, setBizGateDone] = useState(false);
+  useEffect(() => {
+    setBizGateDone(isBizGateDone(user?.id));
+  }, [user?.id]);
+  const bizIncomplete =
     !bizLoading &&
     (!bizProfile ||
       bizProfile.onboarding_status !== "completed" ||
       !String(bizProfile.initial_message ?? "").trim());
+  const bizPending = bizIncomplete && !bizGateDone;
   const [showBizDialog, setShowBizDialog] = useState(false);
   // Disparo que ficou pendente por causa do pop-up de configuração.
   const [pendingWhatsId, setPendingWhatsId] = useState<string | null>(null);
