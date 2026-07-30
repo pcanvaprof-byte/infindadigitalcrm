@@ -311,11 +311,15 @@ function DashboardPage() {
   /* Auditoria oficial de disparos (mesma fonte do /bi/disparos).
    * Cacheada no backend por 30s para evitar consultas repetidas. */
   const audit = useServerFn(auditDispatches);
+  const { role: orgRole } = useOrgRole();
+  const canAudit = orgRole === "owner" || orgRole === "admin";
   const qAudit = useQuery({
     queryKey: ["dashboard", "audit-dispatches"] as const,
     queryFn: () => audit({ data: {} }),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
+    enabled: canAudit,
+    retry: false,
   });
 
   const subtitle = "Seu desempenho e cadência";
