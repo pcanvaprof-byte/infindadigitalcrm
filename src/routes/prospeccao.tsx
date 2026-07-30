@@ -884,6 +884,11 @@ function ProspeccaoPage() {
 
   const openWhats = async (p: Prospect) => {
     console.log("[prosp] openWhats:click", { id: p.id, company: p.company, whatsapp: p.whatsapp });
+    // Bloqueia o disparo enquanto o Member não configurar o negócio (1 clique).
+    if (bizPending) {
+      setShowBizDialog(true);
+      return;
+    }
     const d = onlyDigits(p.whatsapp);
     if (!d) {
       console.warn("[prosp] openWhats:abort:no-whatsapp", { id: p.id });
