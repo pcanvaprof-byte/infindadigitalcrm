@@ -225,3 +225,44 @@ export function bairroColor(bairro?: string | null): string {
   const hue = h % 360;
   return `hsl(${hue} 75% 55%)`;
 }
+
+/* ---------- Cache offline dos pontos do mapa (uso em campo) ---------- */
+
+const POINTS_CACHE = "pap.map.points.v1";
+
+function readPointsCache(): MapPoint[] {
+  try {
+    return JSON.parse(localStorage.getItem(POINTS_CACHE) || "[]") as MapPoint[];
+  } catch {
+    return [];
+  }
+}
+
+function writePointsCache(points: MapPoint[]) {
+  try {
+    localStorage.setItem(POINTS_CACHE, JSON.stringify(points.slice(0, 3000)));
+  } catch {
+    /* quota — ignora */
+  }
+}
+
+/**
+ * Carrega os pontos do mapa. Sem conexão (ou em caso de falha),
+ * devolve a última lista salva no aparelho.
+ */
+export async function loadMapPoints(): Promise<MapPoint[]> {
+  const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+  if (offline) {
+    const cached = readPointsCache();
+    if (cached.length) return cached;
+  }
+  try {
+    const points = await loadMapPointsRemote();
+    writePointsCache(points);
+    return points;
+  } catch (e) {
+    const cached = readPointsCache();
+    if (cached.length) return cached;
+    throw e;
+  }
+}
