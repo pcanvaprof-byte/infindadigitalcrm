@@ -832,6 +832,13 @@ function ProspeccaoPage() {
   // Fecha o pop-up sozinho assim que o perfil do negócio fica pronto
   // (inclusive se a configuração foi concluída em outra aba/janela).
   useEffect(() => {
+    if (!bizLoading && !bizIncomplete && !bizGateDone) {
+      markBizGateDone(user?.id);
+      setBizGateDone(true);
+    }
+  }, [bizLoading, bizIncomplete, bizGateDone, user?.id]);
+
+  useEffect(() => {
     if (showBizDialog && !bizLoading && !bizPending) {
       setShowBizDialog(false);
       toast.success("Perfil do negócio configurado — disparos liberados.");
