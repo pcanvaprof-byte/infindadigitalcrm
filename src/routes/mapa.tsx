@@ -73,7 +73,6 @@ function MapaPage() {
   const [selectedBairro, setSelectedBairro] = useState<string | null>(null);
   const [uf, setUf] = useState<string>("all");
   const [q, setQ] = useState("");
-  const [missingUf, setMissingUf] = useState<string>("all");
   const [origin, setOrigin] = useState<LatLng | null>(null);
   const [route, setRoute] = useState<MapPoint[]>([]);
   const [routing, setRouting] = useState(false);
@@ -133,19 +132,9 @@ function MapaPage() {
 
   const enrichMut = useMutation({
     mutationFn: async () => {
-      const pending = points
-        .filter((p) => !p.cep || !p.logradouro || !p.lat || !p.lon)
-        .filter(
-          (p) =>
-            missingUf === "all" ||
-            (p.uf || "").trim().toUpperCase() === missingUf,
-        );
+      const pending = points.filter((p) => !p.cep || !p.logradouro || !p.lat || !p.lon);
       if (!pending.length) {
-        toast.info(
-          missingUf === "all"
-            ? "Todos os leads já possuem endereço completo e coordenadas."
-            : `Nenhum lead pendente em ${missingUf}.`,
-        );
+        toast.info("Todos os leads já possuem endereço completo e coordenadas.");
         return 0;
       }
       // processa em lotes de 20 por execução
@@ -218,8 +207,6 @@ function MapaPage() {
 
   const withCoords = filtered.filter((p) => p.lat && p.lon).length;
   const withoutCoords = filtered.length - withCoords;
-  const withoutCep = points.filter((p) => !p.cep).length;
-  const withoutAddress = points.filter((p) => !p.logradouro).length;
 
   // ---- roteiro do dia ----
   // respeita o bairro selecionado no mapa/lista
@@ -316,33 +303,6 @@ function MapaPage() {
   const routeKm = useMemo(() => routeDistanceKm(route, origin), [route, origin]);
   const routeUrl = useMemo(() => googleMapsRouteUrl(route, origin), [route, origin]);
 
-  const missingAll = useMemo(
-    () => points.filter((p) => !p.cep || !p.logradouro),
-    [points],
-  );
-
-  const missingUfOptions = useMemo(() => {
-    const set = new Map<string, number>();
-    for (const p of missingAll) {
-      const key = (p.uf || "").trim().toUpperCase() || "—";
-      set.set(key, (set.get(key) ?? 0) + 1);
-    }
-    return Array.from(set.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [missingAll]);
-
-  const matchMissingUf = (p: MapPoint) =>
-    missingUf === "all" ||
-    ((p.uf || "").trim().toUpperCase() || "—") === missingUf;
-
-  const pendingCount = points.filter(
-    (p) => (!p.cep || !p.logradouro || !p.lat || !p.lon) && matchMissingUf(p),
-  ).length;
-
-  const missingList = useMemo(
-    () => missingAll.filter(matchMissingUf).slice(0, 200),
-    [missingAll, missingUf],
-  );
-
   return (
     <AppShell title="Mapa" subtitle="Todos os leads prospectados com endereço completo e CEP">
       {(!online || pendingQueue > 0) && (
@@ -375,7 +335,7 @@ function MapaPage() {
           )}
         </div>
       )}
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-[280px_1fr_320px] lg:grid-cols-[280px_1fr]">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[280px_1fr]">
         {/* Sidebar */}
         <aside className="surface-card flex flex-col gap-3 p-3">
           <div className="relative">
@@ -430,8 +390,6 @@ function MapaPage() {
           <div className="rounded-md border border-border/60 p-2 text-[11px] text-muted-foreground space-y-1">
             <div className="flex justify-between"><span>No mapa</span><span className="font-semibold text-foreground">{withCoords}</span></div>
             <div className="flex justify-between"><span>Sem coordenadas</span><span className="font-semibold text-foreground">{withoutCoords}</span></div>
-            <div className="flex justify-between"><span>Sem CEP</span><span className="font-semibold text-foreground">{withoutCep}</span></div>
-            <div className="flex justify-between"><span>Sem endereço</span><span className="font-semibold text-foreground">{withoutAddress}</span></div>
           </div>
 
           <Button
@@ -440,11 +398,10 @@ function MapaPage() {
             onClick={() => enrichMut.mutate()}
           >
             {enriching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-            Enriquecer 20 (CEP + Endereço)
+            Enriquecer próximos 20
           </Button>
           <p className="text-[10px] text-muted-foreground leading-snug">
             Processa em lotes de {BATCH_SIZE} CNPJs por vez (Receita Federal → ViaCEP → OpenStreetMap).
-            {pendingCount > 0 ? ` ${pendingCount} lead(s) pendente(s).` : " Nenhum lead pendente."}
           </p>
 
           <div className="hidden flex-1 overflow-y-auto px-1 -mx-1 lg:block lg:max-h-[calc(100vh-320px)]">
@@ -525,77 +482,6 @@ function MapaPage() {
           )}
         </section>
 
-        {/* Missing address list */}
-        <aside className="surface-card flex flex-col gap-2 p-3 xl:col-auto lg:col-span-2 xl:col-span-1">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Sem endereço / CEP
-            </h3>
-            <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
-              {missingList.length}
-            </Badge>
-          </div>
-          <p className="text-[11px] text-muted-foreground">
-            Leads que ainda não têm endereço completo cadastrado.
-          </p>
-          <Select value={missingUf} onValueChange={setMissingUf}>
-            <SelectTrigger className="h-9 text-xs">
-              <SelectValue placeholder="Filtrar por estado" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">
-                Todos os estados ({missingAll.length})
-              </SelectItem>
-              {missingUfOptions.map(([code, count]) => (
-                <SelectItem key={code} value={code}>
-                  {code === "—" ? "Sem UF" : code} ({count})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <ol className="-mx-1 flex-1 space-y-1 overflow-y-auto px-1 max-h-[50vh] lg:max-h-[calc(100vh-260px)]">
-            {missingList.map((p, i) => (
-              <li
-                key={p.cnpj + i}
-                className="rounded-md border border-border/60 p-2 text-xs hover:bg-accent/40"
-              >
-                <div className="flex items-start gap-2">
-                  <span className="mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
-                    {i + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-medium">{p.company}</div>
-                    <div className="truncate text-[10px] text-muted-foreground">
-                      CNPJ {p.cnpj}
-                    </div>
-                    <div className="mt-0.5 flex flex-wrap gap-1">
-                      {!p.cep && (
-                        <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-600">
-                          Sem CEP
-                        </span>
-                      )}
-                      {!p.logradouro && (
-                        <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-600">
-                          Sem endereço
-                        </span>
-                      )}
-                      {(!p.lat || !p.lon) && (
-                        <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-600">
-                          Sem coordenadas
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </li>
-            ))}
-            {missingList.length === 0 && (
-              <li className="px-2 py-6 text-center text-[11px] text-muted-foreground">
-                Todos os leads possuem endereço completo.
-              </li>
-            )}
-          </ol>
-        </aside>
       </div>
 
       {/* Roteiro do dia — abaixo do mapa */}
