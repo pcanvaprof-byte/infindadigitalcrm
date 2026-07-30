@@ -78,9 +78,11 @@ export const getOnboardingState = createServerFn({ method: "GET" })
       /* ignore */
     }
 
-    const steps: OnboardingSteps = { ...EMPTY_STEPS, password, business, dispatch };
-    const done = Object.values(steps).filter(Boolean).length;
-    return { seen, steps, done, total: 3, completed: done === 3 };
+    // Fluxo de troca de senha foi removido do produto: o passo fica sempre concluído
+    // e não conta para o progresso.
+    const steps: OnboardingSteps = { ...EMPTY_STEPS, password: true, business, dispatch };
+    const done = [business, dispatch].filter(Boolean).length;
+    return { seen, steps, done, total: 2, completed: done === 2 };
   });
 
 export const markOnboardingSeen = createServerFn({ method: "POST" })
