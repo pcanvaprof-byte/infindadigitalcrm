@@ -141,6 +141,12 @@ function MeuNegocioPage() {
       }
     >
       <div className="mx-auto max-w-4xl space-y-6">
+        {pendingReturn && !isCompleted && (
+          <Card className="border-primary/30 bg-primary/5 p-4 text-sm">
+            Você veio do fluxo de <b>disparos</b>. Assim que confirmar a configuração abaixo,
+            levamos você de volta automaticamente para continuar o disparo.
+          </Card>
+        )}
 
         <Card className="space-y-5 p-6">
           <div>
