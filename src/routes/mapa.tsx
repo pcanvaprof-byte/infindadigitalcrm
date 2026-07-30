@@ -441,81 +441,6 @@ function MapaPage() {
             </ul>
           </div>
 
-          {/* Roteiro do dia */}
-          <div className="rounded-md border border-border/60 p-2 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Roteiro do dia
-              </span>
-              {route.length > 0 && (
-                <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
-                  {route.length} paradas · {routeKm.toFixed(1)} km
-                </Badge>
-              )}
-            </div>
-            <Button
-              variant="outline"
-              className="h-9 w-full text-xs"
-              disabled={routing || !online}
-              onClick={buildRoute}
-            >
-              {routing ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Navigation className="mr-2 h-4 w-4" />
-              )}
-              Montar roteiro ({Math.min(routeCandidates.length, ROUTE_SIZE)})
-            </Button>
-            {route.length > 0 && (
-              <>
-                <ol className="max-h-40 space-y-1 overflow-y-auto text-[11px]">
-                  {route.map((p, i) => {
-                    const v = visits[digits(p.cnpj)];
-                    return (
-                      <li key={p.cnpj} className="flex items-start gap-2 rounded px-1 py-1 hover:bg-accent/40">
-                        <span
-                          className="mt-0.5 inline-flex h-4 w-4 flex-none items-center justify-center rounded-full text-[9px] font-semibold text-white"
-                          style={{ background: visitColor(v?.status) }}
-                        >
-                          {i + 1}
-                        </span>
-                        <button
-                          className="min-w-0 flex-1 text-left"
-                          onClick={() => setCheckinPoint(p)}
-                        >
-                          <span className="block truncate font-medium">{p.company}</span>
-                          <span className="block truncate text-muted-foreground">
-                            {[p.logradouro, p.numero, p.bairro].filter(Boolean).join(", ") || "—"}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ol>
-                <div className="flex gap-2">
-                  <Button asChild size="sm" className="btn-gradient h-8 flex-1 text-[11px]">
-                    <a href={routeUrl} target="_blank" rel="noreferrer">
-                      Abrir no Maps
-                    </a>
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-8 text-[11px]"
-                    onClick={() => setRoute([])}
-                  >
-                    Limpar
-                  </Button>
-                </div>
-                {route.length > MAX_WAYPOINTS && (
-                  <p className="text-[10px] text-muted-foreground">
-                    O Google Maps aceita até {MAX_WAYPOINTS} paradas por rota.
-                  </p>
-                )}
-              </>
-            )}
-          </div>
-
           <Button
             className="btn-gradient h-9"
             disabled={enriching}
@@ -679,6 +604,90 @@ function MapaPage() {
           </ol>
         </aside>
       </div>
+
+      {/* Roteiro do dia — abaixo do mapa */}
+      <section className="surface-card mt-3 space-y-3 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Roteiro do dia
+            </h3>
+            {route.length > 0 && (
+              <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                {route.length} paradas · {routeKm.toFixed(1)} km
+              </Badge>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              className="h-9 text-xs"
+              disabled={routing || !online}
+              onClick={buildRoute}
+            >
+              {routing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Navigation className="mr-2 h-4 w-4" />
+              )}
+              Montar roteiro ({Math.min(routeCandidates.length, ROUTE_SIZE)})
+            </Button>
+            {route.length > 0 && (
+              <>
+                <Button asChild size="sm" className="btn-gradient h-9 text-[11px]">
+                  <a href={routeUrl} target="_blank" rel="noreferrer">
+                    Abrir no Maps
+                  </a>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-9 text-[11px]"
+                  onClick={() => setRoute([])}
+                >
+                  Limpar
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {route.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground">
+            Monte o roteiro para ordenar as próximas paradas pela menor distância a partir da sua
+            localização.
+          </p>
+        ) : (
+          <>
+            <ol className="grid grid-cols-1 gap-1 text-[11px] sm:grid-cols-2 xl:grid-cols-3">
+              {route.map((p, i) => {
+                const v = visits[digits(p.cnpj)];
+                return (
+                  <li key={p.cnpj} className="flex items-start gap-2 rounded px-1 py-1 hover:bg-accent/40">
+                    <span
+                      className="mt-0.5 inline-flex h-4 w-4 flex-none items-center justify-center rounded-full text-[9px] font-semibold text-white"
+                      style={{ background: visitColor(v?.status) }}
+                    >
+                      {i + 1}
+                    </span>
+                    <button className="min-w-0 flex-1 text-left" onClick={() => setCheckinPoint(p)}>
+                      <span className="block truncate font-medium">{p.company}</span>
+                      <span className="block truncate text-muted-foreground">
+                        {[p.logradouro, p.numero, p.bairro].filter(Boolean).join(", ") || "—"}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+            {route.length > MAX_WAYPOINTS && (
+              <p className="text-[10px] text-muted-foreground">
+                O Google Maps aceita até {MAX_WAYPOINTS} paradas por rota.
+              </p>
+            )}
+          </>
+        )}
+      </section>
 
       <VisitCheckinDialog
         point={checkinPoint}
