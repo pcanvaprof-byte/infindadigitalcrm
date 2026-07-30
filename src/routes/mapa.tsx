@@ -149,13 +149,31 @@ function MapaPage() {
   const withoutCoords = filtered.length - withCoords;
   const withoutCep = points.filter((p) => !p.cep).length;
   const withoutAddress = points.filter((p) => !p.logradouro).length;
+  const missingAll = useMemo(
+    () => points.filter((p) => !p.cep || !p.logradouro),
+    [points],
+  );
+
+  const missingUfOptions = useMemo(() => {
+    const set = new Map<string, number>();
+    for (const p of missingAll) {
+      const key = (p.uf || "").trim().toUpperCase() || "—";
+      set.set(key, (set.get(key) ?? 0) + 1);
+    }
+    return Array.from(set.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [missingAll]);
+
+  const matchMissingUf = (p: MapPoint) =>
+    missingUf === "all" ||
+    ((p.uf || "").trim().toUpperCase() || "—") === missingUf;
+
   const pendingCount = points.filter(
-    (p) => !p.cep || !p.logradouro || !p.lat || !p.lon,
+    (p) => (!p.cep || !p.logradouro || !p.lat || !p.lon) && matchMissingUf(p),
   ).length;
 
   const missingList = useMemo(
-    () => filtered.filter((p) => !p.cep || !p.logradouro).slice(0, 200),
-    [filtered],
+    () => missingAll.filter(matchMissingUf).slice(0, 200),
+    [missingAll, missingUf],
   );
 
   return (
