@@ -888,6 +888,7 @@ function ProspeccaoPage() {
     console.log("[prosp] openWhats:click", { id: p.id, company: p.company, whatsapp: p.whatsapp });
     // Bloqueia o disparo enquanto o Member não configurar o negócio (1 clique).
     if (bizPending) {
+      setPendingWhatsId(p.id);
       setShowBizDialog(true);
       return;
     }
