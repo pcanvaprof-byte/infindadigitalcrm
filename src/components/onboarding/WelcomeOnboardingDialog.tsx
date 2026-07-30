@@ -76,15 +76,6 @@ export function WelcomeOnboardingDialog() {
 
   const checklist = [
     {
-      key: "password",
-      icon: KeyRound,
-      title: "Definir sua senha definitiva",
-      desc: "Troque a senha temporária que você recebeu.",
-      done: state.steps.password,
-      cta: "Trocar senha",
-      to: "/alterar-senha",
-    },
-    {
       key: "business",
       icon: Sparkles,
       title: "Configurar Meu Negócio",
