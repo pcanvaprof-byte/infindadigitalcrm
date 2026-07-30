@@ -31,6 +31,8 @@ export const Route = createFileRoute("/mapa")({
   ),
 });
 
+const BATCH_SIZE = 20;
+
 function MapaPage() {
   const qc = useQueryClient();
   const [selectedBairro, setSelectedBairro] = useState<string | null>(null);
