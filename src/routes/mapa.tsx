@@ -594,7 +594,16 @@ function MapaPage() {
             </div>
           ) : (
             <Suspense fallback={<div className="flex h-full items-center justify-center text-xs text-muted-foreground">Carregando mapa…</div>}>
-              <TasksMap points={filtered} selectedBairro={selectedBairro} onSelectBairro={setSelectedBairro} />
+              <TasksMap
+                points={filtered}
+                selectedBairro={selectedBairro}
+                onSelectBairro={setSelectedBairro}
+                visits={visits}
+                colorMode="status"
+                route={route}
+                origin={origin}
+                onCheckin={setCheckinPoint}
+              />
             </Suspense>
           )}
         </section>
@@ -671,6 +680,15 @@ function MapaPage() {
           </ol>
         </aside>
       </div>
+
+      <VisitCheckinDialog
+        point={checkinPoint}
+        onClose={() => setCheckinPoint(null)}
+        onSaved={() => {
+          setPendingQueue(queueSize());
+          qc.invalidateQueries({ queryKey: visitKeys.all });
+        }}
+      />
     </AppShell>
   );
 }
