@@ -77,7 +77,7 @@ async function fetchByIds<T>(
   return out;
 }
 
-export async function loadMapPoints(): Promise<MapPoint[]> {
+async function loadMapPointsRemote(): Promise<MapPoint[]> {
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData.user?.id;
   if (!uid) return [];
