@@ -332,6 +332,21 @@ function MapaPage() {
           <p className="text-[11px] text-muted-foreground">
             Leads que ainda não têm endereço completo cadastrado.
           </p>
+          <Select value={missingUf} onValueChange={setMissingUf}>
+            <SelectTrigger className="h-9 text-xs">
+              <SelectValue placeholder="Filtrar por estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                Todos os estados ({missingAll.length})
+              </SelectItem>
+              {missingUfOptions.map(([code, count]) => (
+                <SelectItem key={code} value={code}>
+                  {code === "—" ? "Sem UF" : code} ({count})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <ol className="-mx-1 flex-1 space-y-1 overflow-y-auto px-1 max-h-[50vh] lg:max-h-[calc(100vh-260px)]">
             {missingList.map((p, i) => (
               <li
