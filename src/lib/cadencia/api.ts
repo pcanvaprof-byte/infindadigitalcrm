@@ -179,9 +179,12 @@ export async function listLeads(): Promise<CadLead[]> {
     let query = db
       .from("cad_leads")
       .select("*")
-      // Aquecimento compartilhado por organização: todos os membros
-      // enxergam os leads em cadência da org (leitura). Escrita continua
-      // restrita ao dono via RLS.
+      // Cadência privada por usuário: member só enxerga os próprios cards.
+      // Owner/admin mantêm visão organizacional.
+      ;
+    if (isMemberContext(ctx) && ctx.uid) {
+      query = query.eq("owner_id", ctx.uid);
+    }
     const { data, error } = await query
       // Ordem canônica da fila: vencidos/no prazo primeiro (asc),
       // futuros depois, sem data por último. Mesma regra do Kanban.
