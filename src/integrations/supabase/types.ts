@@ -4829,6 +4829,7 @@ export type Database = {
         Args: { p_resumo: string; p_token: string }
         Returns: undefined
       }
+      shares_org_with: { Args: { _other: string }; Returns: boolean }
       snooze_prospect: {
         Args: { _days: number; _prospect_id: string }
         Returns: string

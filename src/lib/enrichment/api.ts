@@ -114,15 +114,17 @@ export async function loadExistingEnrichment(
   const { data: profile } = await db
     .from("company_profiles")
     .select("*")
-    .eq("user_id", uid)
     .eq("cnpj", clean)
+    .order("updated_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
   if (!profile) return null;
   const [{ data: addr }, { data: loc }, { data: market }, { data: score }] = await Promise.all([
     db.from("company_addresses").select("*").eq("profile_id", profile.id).maybeSingle(),
     db.from("company_locations").select("*").eq("profile_id", profile.id).maybeSingle(),
-    db.from("company_market_data").select("*").eq("user_id", uid)
-      .eq("cidade", profile.raw?.municipio ?? "").maybeSingle(),
+    db.from("company_market_data").select("*")
+      .eq("cidade", profile.raw?.municipio ?? "")
+      .limit(1).maybeSingle(),
     db.from("company_scores").select("*").eq("profile_id", profile.id)
       .order("calculated_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
@@ -173,7 +175,6 @@ export async function listVisits(profileId: string): Promise<CompanyVisit[]> {
   const { data } = await db
     .from("company_visits")
     .select("*")
-    .eq("user_id", uid)
     .eq("profile_id", profileId)
     .order("visited_at", { ascending: false });
   return (data ?? []) as CompanyVisit[];
@@ -197,8 +198,9 @@ export async function addVisit(input: {
   const { data: profile } = await db
     .from("company_profiles")
     .select("id")
-    .eq("user_id", uid)
     .eq("cnpj", clean)
+    .order("updated_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
   const row = {
     user_id: uid,

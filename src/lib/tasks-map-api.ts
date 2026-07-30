@@ -86,7 +86,6 @@ export async function loadMapPoints(): Promise<MapPoint[]> {
     fetchAll<ProfileRow>((from, to) =>
       db.from("company_profiles")
         .select("id,cnpj,razao_social,nome_fantasia")
-        .eq("user_id", uid)
         .range(from, to),
     ),
     loadMapProspects(uid),
@@ -115,7 +114,16 @@ export async function loadMapPoints(): Promise<MapPoint[]> {
   for (const l of locs) locByProf.set(l.profile_id, l);
 
   const profByCnpj = new Map<string, ProfileRow>();
-  for (const p of profiles) if (p.cnpj) profByCnpj.set(p.cnpj.replace(/\D/g, ""), p);
+  const richness = (p: ProfileRow) =>
+    (locByProf.has(p.id) ? 2 : 0) + (addrByProf.has(p.id) ? 1 : 0);
+  for (const p of profiles) {
+    if (!p.cnpj) continue;
+    const key = p.cnpj.replace(/\D/g, "");
+    const current = profByCnpj.get(key);
+    // com dados compartilhados podem existir varios perfis do mesmo CNPJ:
+    // mantem o mais completo (com localizacao/endereco)
+    if (!current || richness(p) > richness(current)) profByCnpj.set(key, p);
+  }
 
   return prospects
     .filter((p) => p.cnpj && p.cnpj.replace(/\D/g, "").length === 14)
