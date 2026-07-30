@@ -409,6 +409,14 @@ function ProspeccaoPage() {
   const [waAccount, setWaAccount] = useState<WaAccount>("default");
   const [quickEnrichingIds, setQuickEnrichingIds] = useState<Set<string>>(new Set());
   const [dispatchingIds, setDispatchingIds] = useState<Set<string>>(new Set());
+  // Perfil do negócio: sem ele a 1ª mensagem de prospecção não existe.
+  const { data: bizProfile, isLoading: bizLoading } = useBusinessProfile();
+  const bizPending =
+    !bizLoading &&
+    (!bizProfile ||
+      bizProfile.onboarding_status !== "completed" ||
+      !String(bizProfile.initial_message ?? "").trim());
+  const [showBizDialog, setShowBizDialog] = useState(false);
   // Confirmação de exclusão em lote (C-1): evita perda irreversível por clique acidental.
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState<{ ids: string[] } | null>(null);
   const [bulkDeleteInput, setBulkDeleteInput] = useState("");
