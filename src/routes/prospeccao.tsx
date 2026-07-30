@@ -1523,12 +1523,19 @@ function ProspeccaoPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:justify-between">
-            <Button variant="ghost" onClick={() => setShowBizDialog(false)}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setPendingWhatsId(null);
+                setShowBizDialog(false);
+              }}
+            >
               Agora não
             </Button>
             <Button
               className="btn-gradient"
               onClick={() => {
+                setBizReturn({ to: "/prospeccao", prospectId: pendingWhatsId ?? undefined });
                 setShowBizDialog(false);
                 void navigate({ to: "/meu-negocio" });
               }}
