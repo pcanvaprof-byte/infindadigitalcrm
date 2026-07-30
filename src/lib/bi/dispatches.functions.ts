@@ -52,6 +52,29 @@ function rangeLastDays(n: number): Range {
 
 const OUTBOUND_TYPES = ["whatsapp", "ligacao", "email", "reuniao"] as const;
 
+/**
+ * Escopo de leitura dos disparos. Member enxerga somente os próprios envios;
+ * owner/admin enxerga os envios da organização ativa.
+ */
+export type DispatchScope = {
+  userId: string;
+  organizationId: string | null;
+  privileged: boolean;
+};
+
+async function resolveScope(context: unknown): Promise<DispatchScope> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ctx = context as any;
+  const supabase = ctx?.supabase;
+  const userId: string | undefined = ctx?.userId;
+  if (!supabase || !userId) throw new Error("unauthenticated");
+  const { resolveActiveOrg } = await import("@/lib/api-keys.server");
+  const organizationId = await resolveActiveOrg(supabase);
+  const { data: role } = await supabase.rpc("current_org_role");
+  const privileged = role === "owner" || role === "admin";
+  return { userId, organizationId, privileged };
+}
+
 async function ownClient() {
   // Lazy import para não vazar o módulo server-only no bundle do client.
   // Usa OWN_SB (banco canônico do INFINDA) com service role para garantir
@@ -87,28 +110,38 @@ export interface DispatchAuditResult {
 type CadRow = { id: string; created_at: string; lead_id: string | null; tipo: string | null; direction: string | null };
 type TpRow = { id: string; enviado_em: string; tipo: string; prospect_id: string | null };
 
-async function fetchBucket(range: Range): Promise<{
+async function fetchBucket(range: Range, scope: DispatchScope): Promise<{
   bucket: DispatchBucket;
   cadRows: CadRow[];
   tpRows: TpRow[];
 }> {
   const sb = await ownClient();
+  let cadQuery = sb.from("cad_messages")
+    .select("id, created_at, lead_id, tipo, direction")
+    .gte("created_at", range.from)
+    .lte("created_at", range.to)
+    .neq("tipo", "sistema");
+  let tpQuery = sb.from("prospect_touchpoints")
+    .select("id, enviado_em, tipo, prospect_id")
+    .gte("enviado_em", range.from)
+    .lte("enviado_em", range.to)
+    .in("tipo", OUTBOUND_TYPES as unknown as string[]);
+
+  if (scope.privileged) {
+    // Owner/Admin: escopo da organização ativa (nunca global).
+    const org = scope.organizationId ?? "00000000-0000-0000-0000-000000000000";
+    cadQuery = cadQuery.eq("organization_id", org);
+    tpQuery = tpQuery.eq("organization_id", org);
+  } else {
+    // Member: somente os próprios disparos.
+    cadQuery = cadQuery.eq("author_id", scope.userId);
+    tpQuery = tpQuery.eq("user_id", scope.userId);
+  }
+
   // Paginação simples (limite 5k) — auditoria diária dificilmente passa disso.
   const [cadRes, tpRes] = await Promise.all([
-    sb.from("cad_messages")
-      .select("id, created_at, lead_id, tipo, direction")
-      .gte("created_at", range.from)
-      .lte("created_at", range.to)
-      .neq("tipo", "sistema")
-      .order("created_at", { ascending: true })
-      .limit(5000),
-    sb.from("prospect_touchpoints")
-      .select("id, enviado_em, tipo, prospect_id")
-      .gte("enviado_em", range.from)
-      .lte("enviado_em", range.to)
-      .in("tipo", OUTBOUND_TYPES as unknown as string[])
-      .order("enviado_em", { ascending: true })
-      .limit(5000),
+    cadQuery.order("created_at", { ascending: true }).limit(5000),
+    tpQuery.order("enviado_em", { ascending: true }).limit(5000),
   ]);
   if (cadRes.error) throw cadRes.error;
   if (tpRes.error) throw tpRes.error;
@@ -180,12 +213,17 @@ function spDateKey(iso: string): string {
 export const auditDispatches = createServerFn({ method: "POST" })
   .middleware([authWithAccess])
   .inputValidator((input: { from?: string; to?: string } | undefined) => input ?? {})
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const scope = await resolveScope(context);
     // ----- Cache + rate-limit (in-memory, por instância do worker) -----
     // Não há primitiva de rate-limit oficial no backend; este controle é
     // best-effort para evitar consultas repetidas. Persistência distribuída
     // exigiria uma tabela/edge dedicada, fora do escopo deste endpoint.
-    const cacheKey = data?.from && data?.to ? `${data.from}|${data.to}` : "__default__";
+    const scopeKey = scope.privileged
+      ? `org:${scope.organizationId ?? "none"}`
+      : `user:${scope.userId}`;
+    const cacheKey =
+      `${scopeKey}|` + (data?.from && data?.to ? `${data.from}|${data.to}` : "__default__");
     const cached = AUDIT_CACHE.get(cacheKey);
     const nowMs = Date.now();
     if (cached && nowMs - cached.at < AUDIT_TTL_MS) {
@@ -203,9 +241,9 @@ export const auditDispatches = createServerFn({ method: "POST" })
     const last7d = rangeLastDays(7);
 
     const [t, ye, w] = await Promise.all([
-      fetchBucket(today),
-      fetchBucket(yesterday),
-      fetchBucket(last7d),
+      fetchBucket(today, scope),
+      fetchBucket(yesterday, scope),
+      fetchBucket(last7d, scope),
     ]);
 
     // Série diária a partir do bucket de 7d (sem rodar query extra).
@@ -235,7 +273,7 @@ export const auditDispatches = createServerFn({ method: "POST" })
       const a = new Date(data.from);
       const b = new Date(data.to);
       const range: Range = { from: localTs(a), to: localTs(b), label: "custom" };
-      custom = (await fetchBucket(range)).bucket;
+      custom = (await fetchBucket(range, scope)).bucket;
     }
 
     const result: DispatchAuditResult = {
@@ -288,13 +326,14 @@ export const listDispatchRows = createServerFn({ method: "POST" })
     if (!input?.from || !input?.to) throw new Error("from/to obrigatórios");
     return input;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const scope = await resolveScope(context);
     const range: Range = {
       from: localTs(new Date(data.from)),
       to: localTs(new Date(data.to)),
       label: "csv",
     };
-    const { cadRows, tpRows } = await fetchBucket(range);
+    const { cadRows, tpRows } = await fetchBucket(range, scope);
     const sb = await ownClient();
 
     const leadIds = [...new Set(cadRows.map((r) => r.lead_id).filter(Boolean))] as string[];
