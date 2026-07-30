@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Loader2, Sparkles, RefreshCw, CheckCircle2, ArrowLeft, Wand2 } from "lucide-react";
@@ -19,6 +19,7 @@ import {
   useConfirmBusiness,
   useRegenerateOrgCadTemplates,
 } from "@/hooks/useBusinessProfile";
+import { peekBizReturn, consumeBizReturn } from "@/lib/business/return-flow";
 
 export const Route = createFileRoute("/meu-negocio")({
   head: () => ({ meta: [{ title: "Meu Negócio — INFINDA" }] }),
@@ -31,6 +32,7 @@ export const Route = createFileRoute("/meu-negocio")({
 
 function MeuNegocioPage() {
   const { data: profile, isLoading } = useBusinessProfile();
+  const navigate = useNavigate();
   const analyze = useAnalyzeBusiness();
   const regenerate = useRegenerateMessage();
   const confirm = useConfirmBusiness();
@@ -44,6 +46,8 @@ function MeuNegocioPage() {
     differentials: "",
   });
   const [message, setMessage] = useState("");
+  // Veio do pop-up de disparos? Então, ao confirmar, voltamos sozinhos pra lá.
+  const [pendingReturn] = useState(() => peekBizReturn());
 
   useEffect(() => {
     if (profile) {
@@ -92,6 +96,12 @@ function MeuNegocioPage() {
     }
     try {
       await confirm.mutateAsync(message.trim());
+      const back = consumeBizReturn();
+      if (back) {
+        toast.success("Perfil confirmado! Voltando para os disparos…");
+        void navigate({ to: back.to });
+        return;
+      }
       toast.success("Perfil confirmado com sucesso!");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Falha ao confirmar");
