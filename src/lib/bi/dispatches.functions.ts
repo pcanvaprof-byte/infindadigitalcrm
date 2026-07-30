@@ -213,12 +213,17 @@ function spDateKey(iso: string): string {
 export const auditDispatches = createServerFn({ method: "POST" })
   .middleware([authWithAccess])
   .inputValidator((input: { from?: string; to?: string } | undefined) => input ?? {})
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const scope = await resolveScope(context);
     // ----- Cache + rate-limit (in-memory, por instância do worker) -----
     // Não há primitiva de rate-limit oficial no backend; este controle é
     // best-effort para evitar consultas repetidas. Persistência distribuída
     // exigiria uma tabela/edge dedicada, fora do escopo deste endpoint.
-    const cacheKey = data?.from && data?.to ? `${data.from}|${data.to}` : "__default__";
+    const scopeKey = scope.privileged
+      ? `org:${scope.organizationId ?? "none"}`
+      : `user:${scope.userId}`;
+    const cacheKey =
+      `${scopeKey}|` + (data?.from && data?.to ? `${data.from}|${data.to}` : "__default__");
     const cached = AUDIT_CACHE.get(cacheKey);
     const nowMs = Date.now();
     if (cached && nowMs - cached.at < AUDIT_TTL_MS) {
@@ -236,9 +241,9 @@ export const auditDispatches = createServerFn({ method: "POST" })
     const last7d = rangeLastDays(7);
 
     const [t, ye, w] = await Promise.all([
-      fetchBucket(today),
-      fetchBucket(yesterday),
-      fetchBucket(last7d),
+      fetchBucket(today, scope),
+      fetchBucket(yesterday, scope),
+      fetchBucket(last7d, scope),
     ]);
 
     // Série diária a partir do bucket de 7d (sem rodar query extra).
@@ -268,7 +273,7 @@ export const auditDispatches = createServerFn({ method: "POST" })
       const a = new Date(data.from);
       const b = new Date(data.to);
       const range: Range = { from: localTs(a), to: localTs(b), label: "custom" };
-      custom = (await fetchBucket(range)).bucket;
+      custom = (await fetchBucket(range, scope)).bucket;
     }
 
     const result: DispatchAuditResult = {
@@ -321,13 +326,14 @@ export const listDispatchRows = createServerFn({ method: "POST" })
     if (!input?.from || !input?.to) throw new Error("from/to obrigatórios");
     return input;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const scope = await resolveScope(context);
     const range: Range = {
       from: localTs(new Date(data.from)),
       to: localTs(new Date(data.to)),
       label: "csv",
     };
-    const { cadRows, tpRows } = await fetchBucket(range);
+    const { cadRows, tpRows } = await fetchBucket(range, scope);
     const sb = await ownClient();
 
     const leadIds = [...new Set(cadRows.map((r) => r.lead_id).filter(Boolean))] as string[];
