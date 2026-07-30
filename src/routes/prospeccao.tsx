@@ -128,6 +128,8 @@ import {
   sanitizeTemplateForSend,
 } from "@/lib/cadencia/types";
 import { pickNicheMessage } from "@/lib/prospeccao/niche-templates";
+import { useBusinessProfile } from "@/hooks/useBusinessProfile";
+import { ArrowRight } from "lucide-react";
 import { chooseVariant } from "@/lib/prospeccao/variant-telemetry";
 import {
   listCurrentNicheTemplates,
@@ -407,6 +409,14 @@ function ProspeccaoPage() {
   const [waAccount, setWaAccount] = useState<WaAccount>("default");
   const [quickEnrichingIds, setQuickEnrichingIds] = useState<Set<string>>(new Set());
   const [dispatchingIds, setDispatchingIds] = useState<Set<string>>(new Set());
+  // Perfil do negócio: sem ele a 1ª mensagem de prospecção não existe.
+  const { data: bizProfile, isLoading: bizLoading } = useBusinessProfile();
+  const bizPending =
+    !bizLoading &&
+    (!bizProfile ||
+      bizProfile.onboarding_status !== "completed" ||
+      !String(bizProfile.initial_message ?? "").trim());
+  const [showBizDialog, setShowBizDialog] = useState(false);
   // Confirmação de exclusão em lote (C-1): evita perda irreversível por clique acidental.
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState<{ ids: string[] } | null>(null);
   const [bulkDeleteInput, setBulkDeleteInput] = useState("");
@@ -874,6 +884,11 @@ function ProspeccaoPage() {
 
   const openWhats = async (p: Prospect) => {
     console.log("[prosp] openWhats:click", { id: p.id, company: p.company, whatsapp: p.whatsapp });
+    // Bloqueia o disparo enquanto o Member não configurar o negócio (1 clique).
+    if (bizPending) {
+      setShowBizDialog(true);
+      return;
+    }
     const d = onlyDigits(p.whatsapp);
     if (!d) {
       console.warn("[prosp] openWhats:abort:no-whatsapp", { id: p.id });
@@ -1465,6 +1480,34 @@ function ProspeccaoPage() {
         </div>
       }
     >
+      {/* Pop-up: perfil do negócio pendente (bloqueia o disparo) */}
+      <Dialog open={showBizDialog} onOpenChange={setShowBizDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Configure seu negócio para disparar</DialogTitle>
+            <DialogDescription>
+              A primeira mensagem de prospecção vem do seu perfil de negócio. Leva 1 minuto:
+              informe nicho, público e tom de voz — a IA gera a mensagem inicial pra você.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Button variant="ghost" onClick={() => setShowBizDialog(false)}>
+              Agora não
+            </Button>
+            <Button
+              className="btn-gradient"
+              onClick={() => {
+                setShowBizDialog(false);
+                void navigate({ to: "/meu-negocio" });
+              }}
+            >
+              Configurar agora
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Stats */}
       <section className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-5">
         <StatCard icon={Building2} label={hasActiveFilters ? "Empresas (filtro)" : "Empresas cadastradas"} value={stats.t} hint={hasActiveFilters ? `de ${stats.total} · filtro ativo` : "Base total"} />
