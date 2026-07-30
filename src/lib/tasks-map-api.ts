@@ -86,7 +86,6 @@ export async function loadMapPoints(): Promise<MapPoint[]> {
     fetchAll<ProfileRow>((from, to) =>
       db.from("company_profiles")
         .select("id,cnpj,razao_social,nome_fantasia")
-        .eq("user_id", uid)
         .range(from, to),
     ),
     loadMapProspects(uid),
