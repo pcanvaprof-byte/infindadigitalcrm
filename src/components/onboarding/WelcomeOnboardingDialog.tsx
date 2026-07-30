@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   CheckCircle2,
   Circle,
-  KeyRound,
   Sparkles,
   Send,
   PartyPopper,

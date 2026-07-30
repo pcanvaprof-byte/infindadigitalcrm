@@ -211,7 +211,7 @@ export const provisionMemberUser = createServerFn({ method: "POST" })
         status: "active",
         access_type: "trial",
         expires_at: expiresAtIso,
-        must_change_password: true,
+        must_change_password: false,
       });
       await (admin as AnyClient).from("user_access_events").insert({
         user_id: userId,
