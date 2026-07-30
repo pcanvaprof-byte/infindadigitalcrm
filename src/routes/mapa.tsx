@@ -45,6 +45,7 @@ function MapaPage() {
   const [selectedBairro, setSelectedBairro] = useState<string | null>(null);
   const [uf, setUf] = useState<string>("all");
   const [q, setQ] = useState("");
+  const [missingUf, setMissingUf] = useState<string>("all");
 
   const pointsQ = useQuery({
     queryKey: crmKeys.tasks,
@@ -61,9 +62,19 @@ function MapaPage() {
 
   const enrichMut = useMutation({
     mutationFn: async () => {
-      const pending = points.filter((p) => !p.cep || !p.logradouro || !p.lat || !p.lon);
+      const pending = points
+        .filter((p) => !p.cep || !p.logradouro || !p.lat || !p.lon)
+        .filter(
+          (p) =>
+            missingUf === "all" ||
+            (p.uf || "").trim().toUpperCase() === missingUf,
+        );
       if (!pending.length) {
-        toast.info("Todos os leads já possuem endereço completo e coordenadas.");
+        toast.info(
+          missingUf === "all"
+            ? "Todos os leads já possuem endereço completo e coordenadas."
+            : `Nenhum lead pendente em ${missingUf}.`,
+        );
         return 0;
       }
       // processa em lotes de 20 por execução
