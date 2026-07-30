@@ -38,3 +38,29 @@ export function consumeBizReturn(): BizReturn | null {
   }
   return data;
 }
+
+// ── Flag "já configurei" ────────────────────────────────────────────────
+// Depois que o perfil do negócio fica pronto para disparos, marcamos por
+// usuário (localStorage) para o pop-up nunca mais aparecer nesse navegador.
+const DONE_KEY = "infinda:biz-gate-done";
+
+const doneKey = (userId: string) => `${DONE_KEY}:${userId}`;
+
+export function isBizGateDone(userId?: string | null): boolean {
+  if (typeof window === "undefined" || !userId) return false;
+  try {
+    return localStorage.getItem(doneKey(userId)) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function markBizGateDone(userId?: string | null) {
+  if (typeof window === "undefined" || !userId) return;
+  try { localStorage.setItem(doneKey(userId), "1"); } catch { /* noop */ }
+}
+
+export function clearBizGateDone(userId?: string | null) {
+  if (typeof window === "undefined" || !userId) return;
+  try { localStorage.removeItem(doneKey(userId)); } catch { /* noop */ }
+}

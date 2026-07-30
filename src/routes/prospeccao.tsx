@@ -112,7 +112,7 @@ import { convertProspectToClient, crmKeys, invalidateCrmCore } from "@/lib/crm/a
 import { TouchpointModal } from "@/components/cadence/TouchpointModal";
 import { ProspectTimeline } from "@/components/cadence/ProspectTimeline";
 import { CloseCadenceDialog } from "@/components/cadence/CloseCadenceDialog";
-import { consumeBizReturn, setBizReturn } from "@/lib/business/return-flow";
+import { consumeBizReturn, setBizReturn, isBizGateDone, markBizGateDone } from "@/lib/business/return-flow";
 import { TemplateLibrary } from "@/components/cadence/TemplateLibrary";
 import {
   addTouchpoint,
@@ -412,11 +412,17 @@ function ProspeccaoPage() {
   const [dispatchingIds, setDispatchingIds] = useState<Set<string>>(new Set());
   // Perfil do negócio: sem ele a 1ª mensagem de prospecção não existe.
   const { data: bizProfile, isLoading: bizLoading } = useBusinessProfile();
-  const bizPending =
+  // Flag persistida: uma vez que o perfil ficou pronto, não mostramos mais o pop-up.
+  const [bizGateDone, setBizGateDone] = useState(false);
+  useEffect(() => {
+    setBizGateDone(isBizGateDone(user?.id));
+  }, [user?.id]);
+  const bizIncomplete =
     !bizLoading &&
     (!bizProfile ||
       bizProfile.onboarding_status !== "completed" ||
       !String(bizProfile.initial_message ?? "").trim());
+  const bizPending = bizIncomplete && !bizGateDone;
   const [showBizDialog, setShowBizDialog] = useState(false);
   // Disparo que ficou pendente por causa do pop-up de configuração.
   const [pendingWhatsId, setPendingWhatsId] = useState<string | null>(null);
@@ -825,6 +831,13 @@ function ProspeccaoPage() {
 
   // Fecha o pop-up sozinho assim que o perfil do negócio fica pronto
   // (inclusive se a configuração foi concluída em outra aba/janela).
+  useEffect(() => {
+    if (!bizLoading && !bizIncomplete && !bizGateDone) {
+      markBizGateDone(user?.id);
+      setBizGateDone(true);
+    }
+  }, [bizLoading, bizIncomplete, bizGateDone, user?.id]);
+
   useEffect(() => {
     if (showBizDialog && !bizLoading && !bizPending) {
       setShowBizDialog(false);
