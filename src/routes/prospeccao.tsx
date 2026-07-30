@@ -112,6 +112,7 @@ import { convertProspectToClient, crmKeys, invalidateCrmCore } from "@/lib/crm/a
 import { TouchpointModal } from "@/components/cadence/TouchpointModal";
 import { ProspectTimeline } from "@/components/cadence/ProspectTimeline";
 import { CloseCadenceDialog } from "@/components/cadence/CloseCadenceDialog";
+import { consumeBizReturn, setBizReturn } from "@/lib/business/return-flow";
 import { TemplateLibrary } from "@/components/cadence/TemplateLibrary";
 import {
   addTouchpoint,
