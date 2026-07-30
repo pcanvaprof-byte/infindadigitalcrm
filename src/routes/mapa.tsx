@@ -324,6 +324,36 @@ function MapaPage() {
 
   return (
     <AppShell title="Mapa" subtitle="Todos os leads prospectados com endereço completo e CEP">
+      {(!online || pendingQueue > 0) && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+          {!online ? (
+            <>
+              <WifiOff className="h-4 w-4" />
+              Você está offline. O roteiro do dia continua disponível e os check-ins ficam salvos no aparelho.
+            </>
+          ) : (
+            <>
+              <CloudUpload className="h-4 w-4" />
+              {pendingQueue} check-in(s) aguardando envio.
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px]"
+                onClick={async () => {
+                  const sent = await flushVisitQueue();
+                  setPendingQueue(queueSize());
+                  if (sent) {
+                    toast.success(`${sent} check-in(s) enviados.`);
+                    refresh();
+                  } else toast.error("Ainda não foi possível enviar. Tente novamente.");
+                }}
+              >
+                Enviar agora
+              </Button>
+            </>
+          )}
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-[280px_1fr_320px] lg:grid-cols-[280px_1fr]">
         {/* Sidebar */}
         <aside className="surface-card flex flex-col gap-3 p-3">
@@ -381,6 +411,110 @@ function MapaPage() {
             <div className="flex justify-between"><span>Sem coordenadas</span><span className="font-semibold text-foreground">{withoutCoords}</span></div>
             <div className="flex justify-between"><span>Sem CEP</span><span className="font-semibold text-foreground">{withoutCep}</span></div>
             <div className="flex justify-between"><span>Sem endereço</span><span className="font-semibold text-foreground">{withoutAddress}</span></div>
+          </div>
+
+          {/* Cobertura + legenda de status */}
+          <div className="rounded-md border border-border/60 p-2 text-[11px] space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold uppercase tracking-wide text-muted-foreground">
+                Cobertura
+              </span>
+              <span className="font-semibold text-foreground">
+                {visitedCount}/{filtered.length} ({coverage}%)
+              </span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <div className="h-full rounded-full bg-primary" style={{ width: `${coverage}%` }} />
+            </div>
+            <ul className="space-y-0.5 pt-1">
+              {["não visitado", ...VISIT_STATUSES].map((s) => (
+                <li key={s} className="flex items-center justify-between text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className="inline-block h-2 w-2 rounded-full"
+                      style={{ background: visitColor(s === "não visitado" ? null : s) }}
+                    />
+                    <span className="capitalize">{s}</span>
+                  </span>
+                  <span className="font-medium text-foreground">{statusCounts[s] ?? 0}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Roteiro do dia */}
+          <div className="rounded-md border border-border/60 p-2 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Roteiro do dia
+              </span>
+              {route.length > 0 && (
+                <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                  {route.length} paradas · {routeKm.toFixed(1)} km
+                </Badge>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              className="h-9 w-full text-xs"
+              disabled={routing || !online}
+              onClick={buildRoute}
+            >
+              {routing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Navigation className="mr-2 h-4 w-4" />
+              )}
+              Montar roteiro ({Math.min(routeCandidates.length, ROUTE_SIZE)})
+            </Button>
+            {route.length > 0 && (
+              <>
+                <ol className="max-h-40 space-y-1 overflow-y-auto text-[11px]">
+                  {route.map((p, i) => {
+                    const v = visits[digits(p.cnpj)];
+                    return (
+                      <li key={p.cnpj} className="flex items-start gap-2 rounded px-1 py-1 hover:bg-accent/40">
+                        <span
+                          className="mt-0.5 inline-flex h-4 w-4 flex-none items-center justify-center rounded-full text-[9px] font-semibold text-white"
+                          style={{ background: visitColor(v?.status) }}
+                        >
+                          {i + 1}
+                        </span>
+                        <button
+                          className="min-w-0 flex-1 text-left"
+                          onClick={() => setCheckinPoint(p)}
+                        >
+                          <span className="block truncate font-medium">{p.company}</span>
+                          <span className="block truncate text-muted-foreground">
+                            {[p.logradouro, p.numero, p.bairro].filter(Boolean).join(", ") || "—"}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ol>
+                <div className="flex gap-2">
+                  <Button asChild size="sm" className="btn-gradient h-8 flex-1 text-[11px]">
+                    <a href={routeUrl} target="_blank" rel="noreferrer">
+                      Abrir no Maps
+                    </a>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 text-[11px]"
+                    onClick={() => setRoute([])}
+                  >
+                    Limpar
+                  </Button>
+                </div>
+                {route.length > MAX_WAYPOINTS && (
+                  <p className="text-[10px] text-muted-foreground">
+                    O Google Maps aceita até {MAX_WAYPOINTS} paradas por rota.
+                  </p>
+                )}
+              </>
+            )}
           </div>
 
           <Button
