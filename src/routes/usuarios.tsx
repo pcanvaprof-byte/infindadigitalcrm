@@ -81,7 +81,6 @@ function UsuariosPanel() {
   const [filter, setFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | OrgUserRow["derivedStatus"]>("all");
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [resetTarget, setResetTarget] = useState<OrgUserRow | null>(null);
   const [renewTarget, setRenewTarget] = useState<OrgUserRow | null>(null);
   const [historyTarget, setHistoryTarget] = useState<OrgUserRow | null>(null);
 
@@ -189,7 +188,6 @@ function UsuariosPanel() {
                 <UserRow
                   key={u.userId}
                   user={u}
-                  onReset={() => setResetTarget(u)}
                   onRenew={() => setRenewTarget(u)}
                   onHistory={() => setHistoryTarget(u)}
                 />
@@ -199,11 +197,6 @@ function UsuariosPanel() {
         </div>
       )}
 
-      <ResetPasswordDialog
-        user={resetTarget}
-        onClose={() => setResetTarget(null)}
-        onDone={invalidate}
-      />
       <RenewAccessDialog
         user={renewTarget}
         onClose={() => setRenewTarget(null)}
@@ -275,12 +268,10 @@ function StatusStrip({
 
 function UserRow({
   user,
-  onReset,
   onRenew,
   onHistory,
 }: {
   user: OrgUserRow;
-  onReset: () => void;
   onRenew: () => void;
   onHistory: () => void;
 }) {
@@ -304,9 +295,6 @@ function UserRow({
           {StatusIcon ? <StatusIcon className="h-3 w-3" /> : null}
           {meta.label}
         </span>
-        {user.access?.mustChangePassword ? (
-          <div className="mt-1 text-[11px] text-amber-600">Precisa trocar senha</div>
-        ) : null}
         {user.access?.planName ? (
           <div className="mt-1 text-[11px] text-muted-foreground">{user.access.planName}</div>
         ) : null}
@@ -357,10 +345,6 @@ function UserRow({
           <Button variant="outline" size="sm" onClick={onRenew}>
             <CalendarPlus className="mr-1.5 h-3.5 w-3.5" />
             Renovar
-          </Button>
-          <Button variant="outline" size="sm" onClick={onReset}>
-            <KeyRound className="mr-1.5 h-3.5 w-3.5" />
-            Senha
           </Button>
         </div>
       </td>
