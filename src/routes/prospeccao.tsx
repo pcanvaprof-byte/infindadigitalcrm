@@ -1109,6 +1109,25 @@ function ProspeccaoPage() {
     setTouchpointTarget({ prospect: p, tipo: "email" });
   };
 
+  // Ao voltar de /meu-negocio com o perfil concluído, retomamos o disparo
+  // que ficou pendente — sem precisar procurar o lead de novo.
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (resumedRef.current || bizLoading || bizPending || !prospects.length) return;
+    const back = consumeBizReturn();
+    if (!back?.prospectId) return;
+    resumedRef.current = true;
+    const target = prospects.find((p) => p.id === back.prospectId);
+    if (!target) return;
+    // Não abrimos o WhatsApp sozinhos (o navegador bloquearia o pop-up):
+    // devolvemos o disparo a 1 clique, exatamente de onde o usuário parou.
+    toast.success(`Tudo pronto! Continue o disparo para ${target.company}.`, {
+      duration: 12000,
+      action: { label: "Disparar agora", onClick: () => void openWhats(target) },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bizLoading, bizPending, prospects]);
+
   const convertToLead = async (p: Prospect) => {
     try {
       const res = await convertProspectToClient(p.id, { dealTitle: p.company });
