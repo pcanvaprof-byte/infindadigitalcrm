@@ -654,13 +654,18 @@ function MapaPage() {
                 {route.length} paradas · {routeKm.toFixed(1)} km
               </Badge>
             )}
+            {selectedBairro && (
+              <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                {selectedBairro}
+              </Badge>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               className="h-9 text-xs"
               disabled={routing || !online}
-              onClick={buildRoute}
+              onClick={() => buildRoute(false)}
             >
               {routing ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -671,6 +676,14 @@ function MapaPage() {
             </Button>
             {route.length > 0 && (
               <>
+                <Button
+                  variant="outline"
+                  className="h-9 text-xs"
+                  disabled={routing || !online || remainingCandidates.length === 0}
+                  onClick={() => buildRoute(true)}
+                >
+                  Próximo roteiro ({Math.min(remainingCandidates.length, ROUTE_SIZE)})
+                </Button>
                 <Button asChild size="sm" className="btn-gradient h-9 text-[11px]">
                   <a href={routeUrl} target="_blank" rel="noreferrer">
                     Abrir no Maps
@@ -680,7 +693,10 @@ function MapaPage() {
                   size="sm"
                   variant="ghost"
                   className="h-9 text-[11px]"
-                  onClick={() => setRoute([])}
+                  onClick={() => {
+                    setRoute([]);
+                    setRoutedCnpjs([]);
+                  }}
                 >
                   Limpar
                 </Button>
@@ -692,7 +708,7 @@ function MapaPage() {
         {route.length === 0 ? (
           <p className="text-[11px] text-muted-foreground">
             Monte o roteiro para ordenar as próximas paradas pela menor distância a partir da sua
-            localização.
+            localização. Selecione um bairro na lista para roteirizar só aquele bairro.
           </p>
         ) : (
           <>
