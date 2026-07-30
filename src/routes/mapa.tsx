@@ -21,7 +21,6 @@ import {
   Navigation,
   WifiOff,
   CloudUpload,
-  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { loadMapPoints, bairroColor, type MapPoint } from "@/lib/tasks-map-api";
