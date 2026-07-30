@@ -45,6 +45,7 @@ function MapaPage() {
   const [selectedBairro, setSelectedBairro] = useState<string | null>(null);
   const [uf, setUf] = useState<string>("all");
   const [q, setQ] = useState("");
+  const [missingUf, setMissingUf] = useState<string>("all");
 
   const pointsQ = useQuery({
     queryKey: crmKeys.tasks,
@@ -61,9 +62,19 @@ function MapaPage() {
 
   const enrichMut = useMutation({
     mutationFn: async () => {
-      const pending = points.filter((p) => !p.cep || !p.logradouro || !p.lat || !p.lon);
+      const pending = points
+        .filter((p) => !p.cep || !p.logradouro || !p.lat || !p.lon)
+        .filter(
+          (p) =>
+            missingUf === "all" ||
+            (p.uf || "").trim().toUpperCase() === missingUf,
+        );
       if (!pending.length) {
-        toast.info("Todos os leads já possuem endereço completo e coordenadas.");
+        toast.info(
+          missingUf === "all"
+            ? "Todos os leads já possuem endereço completo e coordenadas."
+            : `Nenhum lead pendente em ${missingUf}.`,
+        );
         return 0;
       }
       // processa em lotes de 20 por execução
@@ -138,13 +149,31 @@ function MapaPage() {
   const withoutCoords = filtered.length - withCoords;
   const withoutCep = points.filter((p) => !p.cep).length;
   const withoutAddress = points.filter((p) => !p.logradouro).length;
+  const missingAll = useMemo(
+    () => points.filter((p) => !p.cep || !p.logradouro),
+    [points],
+  );
+
+  const missingUfOptions = useMemo(() => {
+    const set = new Map<string, number>();
+    for (const p of missingAll) {
+      const key = (p.uf || "").trim().toUpperCase() || "—";
+      set.set(key, (set.get(key) ?? 0) + 1);
+    }
+    return Array.from(set.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [missingAll]);
+
+  const matchMissingUf = (p: MapPoint) =>
+    missingUf === "all" ||
+    ((p.uf || "").trim().toUpperCase() || "—") === missingUf;
+
   const pendingCount = points.filter(
-    (p) => !p.cep || !p.logradouro || !p.lat || !p.lon,
+    (p) => (!p.cep || !p.logradouro || !p.lat || !p.lon) && matchMissingUf(p),
   ).length;
 
   const missingList = useMemo(
-    () => filtered.filter((p) => !p.cep || !p.logradouro).slice(0, 200),
-    [filtered],
+    () => missingAll.filter(matchMissingUf).slice(0, 200),
+    [missingAll, missingUf],
   );
 
   return (
@@ -303,6 +332,21 @@ function MapaPage() {
           <p className="text-[11px] text-muted-foreground">
             Leads que ainda não têm endereço completo cadastrado.
           </p>
+          <Select value={missingUf} onValueChange={setMissingUf}>
+            <SelectTrigger className="h-9 text-xs">
+              <SelectValue placeholder="Filtrar por estado" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">
+                Todos os estados ({missingAll.length})
+              </SelectItem>
+              {missingUfOptions.map(([code, count]) => (
+                <SelectItem key={code} value={code}>
+                  {code === "—" ? "Sem UF" : code} ({count})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <ol className="-mx-1 flex-1 space-y-1 overflow-y-auto px-1 max-h-[50vh] lg:max-h-[calc(100vh-260px)]">
             {missingList.map((p, i) => (
               <li
