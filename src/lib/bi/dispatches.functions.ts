@@ -70,7 +70,10 @@ async function resolveScope(context: unknown): Promise<DispatchScope> {
   if (!supabase || !userId) throw new Error("unauthenticated");
   const { resolveActiveOrg } = await import("@/lib/api-keys.server");
   const organizationId = await resolveActiveOrg(supabase);
-  // Escopo fechado por usuário para todos os papéis.
+  // Auditoria de disparos é restrita a owner/admin da organização.
+  const { data: role } = await supabase.rpc("current_org_role");
+  if (role !== "owner" && role !== "admin") throw new Error("forbidden");
+  // Escopo fechado por usuário: cada admin vê apenas os próprios envios.
   return { userId, organizationId, privileged: false };
 }
 
