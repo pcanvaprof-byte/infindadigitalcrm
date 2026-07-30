@@ -7,7 +7,40 @@
 
 BEGIN;
 
--- helper local: papel do usuário na org ativa
+-- helpers (recriados aqui para a migração ser autossuficiente)
+CREATE OR REPLACE FUNCTION public._is_org_admin()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT coalesce(public.current_org_role() IN ('owner', 'admin'), false)
+$$;
+
+REVOKE ALL ON FUNCTION public._is_org_admin() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public._is_org_admin() TO authenticated, service_role;
+
+CREATE OR REPLACE FUNCTION public._can_see_cad_lead(_lead uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.cad_leads l
+    WHERE l.id = _lead
+      AND l.organization_id = public.current_org_id()
+      AND (public._is_org_admin() OR l.owner_id = auth.uid())
+  )
+$$;
+
+REVOKE ALL ON FUNCTION public._can_see_cad_lead(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public._can_see_cad_lead(uuid) TO authenticated, service_role;
+
+-- alias usado pelas policies abaixo
 CREATE OR REPLACE FUNCTION public.cad_is_org_admin()
 RETURNS boolean
 LANGUAGE sql
