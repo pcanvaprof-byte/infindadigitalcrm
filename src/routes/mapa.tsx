@@ -237,9 +237,18 @@ function MapaPage() {
   const coverage = filtered.length ? Math.round((visitedCount / filtered.length) * 100) : 0;
 
   // ---- roteiro do dia ----
+  // respeita o bairro selecionado no mapa/lista
+  const scoped = useMemo(
+    () =>
+      selectedBairro
+        ? filtered.filter((p) => (p.bairro || "Sem bairro") === selectedBairro)
+        : filtered,
+    [filtered, selectedBairro],
+  );
+
   const routeCandidates = useMemo(
     () =>
-      filtered.filter((p) => {
+      scoped.filter((p) => {
         if (p.lat == null || p.lon == null) return false;
         const v = visits[digits(p.cnpj)];
         if (!v) return true;
@@ -249,32 +258,59 @@ function MapaPage() {
         }
         return false; // já visitado
       }),
-    [filtered, visits],
+    [scoped, visits],
   );
 
-  const buildRoute = async () => {
+  const remainingCandidates = useMemo(
+    () => routeCandidates.filter((p) => !routedCnpjs.includes(digits(p.cnpj))),
+    [routeCandidates, routedCnpjs],
+  );
+
+  const buildRoute = async (next = false) => {
     setRouting(true);
     try {
+      const pool = next ? remainingCandidates : routeCandidates;
+      if (!pool.length) {
+        toast.info(
+          next
+            ? "Não há mais leads pendentes nesse filtro."
+            : "Nenhum lead pendente de visita com coordenadas nesse filtro.",
+        );
+        return;
+      }
       let from = origin;
-      try {
-        from = await getCurrentPosition();
-        setOrigin(from);
-      } catch {
-        if (!from) {
-          const first = routeCandidates[0];
-          if (!first) throw new Error("Nenhum lead disponível para roteirizar.");
-          from = { lat: first.lat!, lon: first.lon! };
-          toast.info("Sem GPS: roteiro montado a partir do primeiro lead da lista.");
+      const last = next ? route[route.length - 1] : null;
+      if (last?.lat != null && last?.lon != null) {
+        from = { lat: last.lat, lon: last.lon };
+      } else {
+        try {
+          from = await getCurrentPosition();
+          setOrigin(from);
+        } catch {
+          if (!from) {
+            const first = pool[0];
+            from = { lat: first.lat!, lon: first.lon! };
+            toast.info("Sem GPS: roteiro montado a partir do primeiro lead da lista.");
+          }
         }
       }
-      const ordered = orderByNearest(routeCandidates, from).slice(0, ROUTE_SIZE);
+      const ordered = orderByNearest(pool, from).slice(0, ROUTE_SIZE);
       if (!ordered.length) {
         toast.info("Nenhum lead pendente de visita com coordenadas nesse filtro.");
         return;
       }
       setRoute(ordered);
+      setRoutedCnpjs((prev) =>
+        next
+          ? [...prev, ...ordered.map((p) => digits(p.cnpj))]
+          : ordered.map((p) => digits(p.cnpj)),
+      );
       saveRouteCache(ordered.map((p) => digits(p.cnpj)));
-      toast.success(`Roteiro com ${ordered.length} paradas montado.`);
+      toast.success(
+        `${next ? "Próximo roteiro" : "Roteiro"} com ${ordered.length} paradas montado${
+          selectedBairro ? ` em ${selectedBairro}` : ""
+        }.`,
+      );
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
