@@ -157,7 +157,13 @@ export const provisionMemberUser = createServerFn({ method: "POST" })
         email,
         password: tempPassword,
         email_confirm: true,
-        user_metadata: { full_name: data.fullName },
+        // invite_org_id faz o gatilho de novos usuários vincular à organização
+        // do convite em vez de criar um workspace próprio.
+        user_metadata: {
+          full_name: data.fullName,
+          invite_org_id: orgId,
+          invite_role: "member",
+        },
       });
       if (createErr || !createdUser?.user?.id) {
         throw new Error(createErr?.message ?? "Falha ao criar usuário.");
@@ -179,6 +185,14 @@ export const provisionMemberUser = createServerFn({ method: "POST" })
       .upsert(
         { user_id: userId, role: "member" },
         { onConflict: "user_id,role" },
+      );
+
+    // Garante que o usuário abra o sistema já na organização do convite.
+    await (admin as AnyClient)
+      .from("user_active_org")
+      .upsert(
+        { user_id: userId, organization_id: orgId },
+        { onConflict: "user_id" },
       );
 
     // user_access — cria se não existir; se já existir, NÃO sobrescreve.
