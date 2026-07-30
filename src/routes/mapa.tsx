@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState, lazy, Suspense } from "react";
+import { useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/lib/auth-context";
@@ -13,11 +13,39 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MapPin, Loader2, Sparkles, Search } from "lucide-react";
+import {
+  MapPin,
+  Loader2,
+  Sparkles,
+  Search,
+  Navigation,
+  WifiOff,
+  CloudUpload,
+  CheckCircle2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { loadMapPoints, bairroColor, type MapPoint } from "@/lib/tasks-map-api";
 import { runEnrichment } from "@/lib/enrichment/api";
 import { crmKeys } from "@/lib/crm/api";
+import {
+  loadLatestVisitsByCnpj,
+  visitKeys,
+  visitColor,
+  VISIT_STATUSES,
+  flushVisitQueue,
+} from "@/lib/visits/api";
+import { isOnline, queueSize } from "@/lib/visits/offline";
+import {
+  getCurrentPosition,
+  googleMapsRouteUrl,
+  orderByNearest,
+  routeDistanceKm,
+  saveRouteCache,
+  readRouteCache,
+  MAX_WAYPOINTS,
+  type LatLng,
+} from "@/lib/visits/route";
+import { VisitCheckinDialog } from "@/components/VisitCheckinDialog";
 
 const TasksMap = lazy(() => import("@/components/TasksMap").then((m) => ({ default: m.TasksMap })));
 
@@ -39,6 +67,8 @@ export const Route = createFileRoute("/mapa")({
 });
 
 const BATCH_SIZE = 20;
+const ROUTE_SIZE = 15;
+const digits = (v?: string | null) => (v ?? "").replace(/\D/g, "");
 
 function MapaPage() {
   const qc = useQueryClient();
@@ -46,6 +76,12 @@ function MapaPage() {
   const [uf, setUf] = useState<string>("all");
   const [q, setQ] = useState("");
   const [missingUf, setMissingUf] = useState<string>("all");
+  const [origin, setOrigin] = useState<LatLng | null>(null);
+  const [route, setRoute] = useState<MapPoint[]>([]);
+  const [routing, setRouting] = useState(false);
+  const [checkinPoint, setCheckinPoint] = useState<MapPoint | null>(null);
+  const [online, setOnline] = useState(true);
+  const [pendingQueue, setPendingQueue] = useState(0);
 
   const pointsQ = useQuery({
     queryKey: crmKeys.tasks,
@@ -55,9 +91,45 @@ function MapaPage() {
   const points: MapPoint[] = pointsQ.data ?? [];
   const loading = pointsQ.isLoading;
 
+  const visitsQ = useQuery({
+    queryKey: visitKeys.all,
+    queryFn: loadLatestVisitsByCnpj,
+    staleTime: 15_000,
+  });
+  const visits = visitsQ.data ?? {};
+
+  // ---- estado de conexão + fila offline ----
+  useEffect(() => {
+    const sync = () => {
+      setOnline(isOnline());
+      setPendingQueue(queueSize());
+    };
+    sync();
+    const onQueue = () => setPendingQueue(queueSize());
+    const goOnline = async () => {
+      setOnline(true);
+      const sent = await flushVisitQueue();
+      setPendingQueue(queueSize());
+      if (sent > 0) {
+        toast.success(`${sent} check-in(s) offline enviados.`);
+        qc.invalidateQueries({ queryKey: visitKeys.all });
+      }
+    };
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", sync);
+    window.addEventListener("pap-visits-queue:changed", onQueue);
+    void goOnline();
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", sync);
+      window.removeEventListener("pap-visits-queue:changed", onQueue);
+    };
+  }, [qc]);
+
   const refresh = () => {
     qc.invalidateQueries({ queryKey: crmKeys.tasks });
     qc.invalidateQueries({ queryKey: crmKeys.prospects });
+    qc.invalidateQueries({ queryKey: visitKeys.all });
   };
 
   const enrichMut = useMutation({
@@ -149,6 +221,80 @@ function MapaPage() {
   const withoutCoords = filtered.length - withCoords;
   const withoutCep = points.filter((p) => !p.cep).length;
   const withoutAddress = points.filter((p) => !p.logradouro).length;
+
+  // ---- cobertura por status (leads filtrados) ----
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { "não visitado": 0 };
+    for (const s of VISIT_STATUSES) counts[s] = 0;
+    for (const p of filtered) {
+      const st = visits[digits(p.cnpj)]?.status;
+      const key = st && counts[st] !== undefined ? st : "não visitado";
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    return counts;
+  }, [filtered, visits]);
+  const visitedCount = filtered.length - (statusCounts["não visitado"] ?? 0);
+  const coverage = filtered.length ? Math.round((visitedCount / filtered.length) * 100) : 0;
+
+  // ---- roteiro do dia ----
+  const routeCandidates = useMemo(
+    () =>
+      filtered.filter((p) => {
+        if (p.lat == null || p.lon == null) return false;
+        const v = visits[digits(p.cnpj)];
+        if (!v) return true;
+        if (v.status === "Fechado" || v.status === "Sem sucesso") return false;
+        if (v.status === "Reagendar") {
+          return !v.retornar_em || v.retornar_em <= new Date().toISOString().slice(0, 10);
+        }
+        return false; // já visitado
+      }),
+    [filtered, visits],
+  );
+
+  const buildRoute = async () => {
+    setRouting(true);
+    try {
+      let from = origin;
+      try {
+        from = await getCurrentPosition();
+        setOrigin(from);
+      } catch {
+        if (!from) {
+          const first = routeCandidates[0];
+          if (!first) throw new Error("Nenhum lead disponível para roteirizar.");
+          from = { lat: first.lat!, lon: first.lon! };
+          toast.info("Sem GPS: roteiro montado a partir do primeiro lead da lista.");
+        }
+      }
+      const ordered = orderByNearest(routeCandidates, from).slice(0, ROUTE_SIZE);
+      if (!ordered.length) {
+        toast.info("Nenhum lead pendente de visita com coordenadas nesse filtro.");
+        return;
+      }
+      setRoute(ordered);
+      saveRouteCache(ordered.map((p) => digits(p.cnpj)));
+      toast.success(`Roteiro com ${ordered.length} paradas montado.`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setRouting(false);
+    }
+  };
+
+  // restaura roteiro do dia (funciona offline)
+  useEffect(() => {
+    if (route.length || !points.length) return;
+    const cached = readRouteCache();
+    if (!cached.length) return;
+    const byCnpj = new Map(points.map((p) => [digits(p.cnpj), p]));
+    const restored = cached.map((c) => byCnpj.get(c)).filter(Boolean) as MapPoint[];
+    if (restored.length) setRoute(restored);
+  }, [points, route.length]);
+
+  const routeKm = useMemo(() => routeDistanceKm(route, origin), [route, origin]);
+  const routeUrl = useMemo(() => googleMapsRouteUrl(route, origin), [route, origin]);
+
   const missingAll = useMemo(
     () => points.filter((p) => !p.cep || !p.logradouro),
     [points],
