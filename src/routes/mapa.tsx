@@ -162,6 +162,45 @@ function MapaPage() {
             />
           </div>
 
+          <div className="grid grid-cols-2 gap-2">
+            <Select
+              value={uf}
+              onValueChange={(v) => {
+                setUf(v);
+                setSelectedBairro(null);
+              }}
+            >
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue placeholder="Estado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os estados</SelectItem>
+                {ufOptions.map(([code, count]) => (
+                  <SelectItem key={code} value={code}>
+                    {code} ({count})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={selectedBairro ?? "all"}
+              onValueChange={(v) => setSelectedBairro(v === "all" ? null : v)}
+            >
+              <SelectTrigger className="h-9 text-xs">
+                <SelectValue placeholder="Bairro" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os bairros</SelectItem>
+                {grouped.map(([bairro, items]) => (
+                  <SelectItem key={bairro} value={bairro}>
+                    {bairro} ({items.length})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="rounded-md border border-border/60 p-2 text-[11px] text-muted-foreground space-y-1">
             <div className="flex justify-between"><span>No mapa</span><span className="font-semibold text-foreground">{withCoords}</span></div>
             <div className="flex justify-between"><span>Sem coordenadas</span><span className="font-semibold text-foreground">{withoutCoords}</span></div>
