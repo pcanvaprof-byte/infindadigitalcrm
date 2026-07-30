@@ -608,6 +608,12 @@ function DocsPage() {
     <AppShell
       title="Documentação"
       subtitle="Guia rápido de como usar a plataforma INFINDA"
+      actions={
+        <Button variant="secondary" size="sm" onClick={openWelcomeTour}>
+          <Compass className="mr-2 h-4 w-4" />
+          Ver tour novamente
+        </Button>
+      }
     >
       <div className="grid gap-6 lg:grid-cols-[240px_1fr]">
         <aside className="hidden lg:block">
