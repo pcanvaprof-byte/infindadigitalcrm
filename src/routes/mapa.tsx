@@ -210,12 +210,12 @@ function MapaPage() {
             <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
               <MapPin className="h-8 w-8 text-muted-foreground" />
               <p className="max-w-md text-sm text-muted-foreground">
-                Nenhum lead possui coordenadas ainda. Use <strong>Enriquecer todos</strong> para
+                Nenhum lead possui coordenadas ainda. Use <strong>Enriquecer 20</strong> para
                 buscar endereço completo, CEP e geolocalização automaticamente.
               </p>
               <Button onClick={() => enrichMut.mutate()} disabled={enriching} className="btn-gradient h-9">
                 {enriching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                Enriquecer agora
+                Enriquecer próximos 20
               </Button>
             </div>
           ) : (
