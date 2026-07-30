@@ -129,7 +129,7 @@ import {
 } from "@/lib/cadencia/types";
 import { pickNicheMessage } from "@/lib/prospeccao/niche-templates";
 import { useBusinessProfile } from "@/hooks/useBusinessProfile";
-import { Sparkles, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { chooseVariant } from "@/lib/prospeccao/variant-telemetry";
 import {
   listCurrentNicheTemplates,
