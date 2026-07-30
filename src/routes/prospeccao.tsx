@@ -823,6 +823,32 @@ function ProspeccaoPage() {
     }
   };
 
+  // Fecha o pop-up sozinho assim que o perfil do negócio fica pronto
+  // (inclusive se a configuração foi concluída em outra aba/janela).
+  useEffect(() => {
+    if (showBizDialog && !bizLoading && !bizPending) {
+      setShowBizDialog(false);
+      toast.success("Perfil do negócio configurado — disparos liberados.");
+    }
+  }, [showBizDialog, bizLoading, bizPending]);
+
+  // Ao voltar de /meu-negocio, retoma o disparo que estava pendente.
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (resumedRef.current || bizLoading || bizPending) return;
+    const back = consumeBizReturn();
+    if (!back?.prospectId) return;
+    resumedRef.current = true;
+    const target = prospects.find((p) => p.id === back.prospectId);
+    if (!target) return;
+    // Não abrimos o WhatsApp sozinhos (o navegador bloquearia o pop-up):
+    // devolvemos o disparo a 1 clique, exatamente de onde o usuário parou.
+    toast.success(`Tudo pronto! Continue o disparo para ${target.company}.`, {
+      duration: 12000,
+      action: { label: "Disparar agora", onClick: () => void openWhats(target) },
+    });
+  }, [bizLoading, bizPending, prospects, openWhats]);
+
   const bulkAssign = async (owner: string) => {
     const ids = Array.from(selected);
     if (!ids.length) return;
