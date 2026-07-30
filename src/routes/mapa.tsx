@@ -30,7 +30,6 @@ import {
   loadLatestVisitsByCnpj,
   visitKeys,
   visitColor,
-  VISIT_STATUSES,
   flushVisitQueue,
 } from "@/lib/visits/api";
 import { isOnline, queueSize } from "@/lib/visits/offline";
