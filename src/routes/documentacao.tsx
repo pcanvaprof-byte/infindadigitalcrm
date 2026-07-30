@@ -17,13 +17,16 @@ import {
   Bot,
   Lightbulb,
   MessageSquareText,
+  Compass,
 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/lib/auth-context";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useOrgRole, isOwnerOrAdmin } from "@/lib/org/plans";
+import { openWelcomeTour } from "@/hooks/useOnboarding";
 
 export const Route = createFileRoute("/documentacao")({
   head: () => ({
