@@ -73,7 +73,6 @@ function MapaPage() {
   const [selectedBairro, setSelectedBairro] = useState<string | null>(null);
   const [uf, setUf] = useState<string>("all");
   const [q, setQ] = useState("");
-  const [missingUf, setMissingUf] = useState<string>("all");
   const [origin, setOrigin] = useState<LatLng | null>(null);
   const [route, setRoute] = useState<MapPoint[]>([]);
   const [routing, setRouting] = useState(false);
