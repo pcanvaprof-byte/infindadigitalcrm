@@ -337,7 +337,7 @@ function MapaPage() {
           )}
         </div>
       )}
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-[280px_1fr_320px] lg:grid-cols-[280px_1fr]">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[280px_1fr]">
         {/* Sidebar */}
         <aside className="surface-card flex flex-col gap-3 p-3">
           <div className="relative">
