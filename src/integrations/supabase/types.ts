@@ -1760,6 +1760,7 @@ export type Database = {
           profile_id: string | null
           prospect_id: string | null
           resultado: string | null
+          retornar_em: string | null
           status: string
           user_id: string
           visited_at: string
@@ -1776,6 +1777,7 @@ export type Database = {
           profile_id?: string | null
           prospect_id?: string | null
           resultado?: string | null
+          retornar_em?: string | null
           status?: string
           user_id: string
           visited_at?: string
@@ -1792,6 +1794,7 @@ export type Database = {
           profile_id?: string | null
           prospect_id?: string | null
           resultado?: string | null
+          retornar_em?: string | null
           status?: string
           user_id?: string
           visited_at?: string

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState, lazy, Suspense } from "react";
+import { useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/lib/auth-context";
@@ -13,11 +13,38 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MapPin, Loader2, Sparkles, Search } from "lucide-react";
+import {
+  MapPin,
+  Loader2,
+  Sparkles,
+  Search,
+  Navigation,
+  WifiOff,
+  CloudUpload,
+} from "lucide-react";
 import { toast } from "sonner";
 import { loadMapPoints, bairroColor, type MapPoint } from "@/lib/tasks-map-api";
 import { runEnrichment } from "@/lib/enrichment/api";
 import { crmKeys } from "@/lib/crm/api";
+import {
+  loadLatestVisitsByCnpj,
+  visitKeys,
+  visitColor,
+  VISIT_STATUSES,
+  flushVisitQueue,
+} from "@/lib/visits/api";
+import { isOnline, queueSize } from "@/lib/visits/offline";
+import {
+  getCurrentPosition,
+  googleMapsRouteUrl,
+  orderByNearest,
+  routeDistanceKm,
+  saveRouteCache,
+  readRouteCache,
+  MAX_WAYPOINTS,
+  type LatLng,
+} from "@/lib/visits/route";
+import { VisitCheckinDialog } from "@/components/VisitCheckinDialog";
 
 const TasksMap = lazy(() => import("@/components/TasksMap").then((m) => ({ default: m.TasksMap })));
 
@@ -39,6 +66,8 @@ export const Route = createFileRoute("/mapa")({
 });
 
 const BATCH_SIZE = 20;
+const ROUTE_SIZE = 15;
+const digits = (v?: string | null) => (v ?? "").replace(/\D/g, "");
 
 function MapaPage() {
   const qc = useQueryClient();
@@ -46,6 +75,12 @@ function MapaPage() {
   const [uf, setUf] = useState<string>("all");
   const [q, setQ] = useState("");
   const [missingUf, setMissingUf] = useState<string>("all");
+  const [origin, setOrigin] = useState<LatLng | null>(null);
+  const [route, setRoute] = useState<MapPoint[]>([]);
+  const [routing, setRouting] = useState(false);
+  const [checkinPoint, setCheckinPoint] = useState<MapPoint | null>(null);
+  const [online, setOnline] = useState(true);
+  const [pendingQueue, setPendingQueue] = useState(0);
 
   const pointsQ = useQuery({
     queryKey: crmKeys.tasks,
@@ -55,9 +90,45 @@ function MapaPage() {
   const points: MapPoint[] = pointsQ.data ?? [];
   const loading = pointsQ.isLoading;
 
+  const visitsQ = useQuery({
+    queryKey: visitKeys.all,
+    queryFn: loadLatestVisitsByCnpj,
+    staleTime: 15_000,
+  });
+  const visits = visitsQ.data ?? {};
+
+  // ---- estado de conexão + fila offline ----
+  useEffect(() => {
+    const sync = () => {
+      setOnline(isOnline());
+      setPendingQueue(queueSize());
+    };
+    sync();
+    const onQueue = () => setPendingQueue(queueSize());
+    const goOnline = async () => {
+      setOnline(true);
+      const sent = await flushVisitQueue();
+      setPendingQueue(queueSize());
+      if (sent > 0) {
+        toast.success(`${sent} check-in(s) offline enviados.`);
+        qc.invalidateQueries({ queryKey: visitKeys.all });
+      }
+    };
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", sync);
+    window.addEventListener("pap-visits-queue:changed", onQueue);
+    void goOnline();
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", sync);
+      window.removeEventListener("pap-visits-queue:changed", onQueue);
+    };
+  }, [qc]);
+
   const refresh = () => {
     qc.invalidateQueries({ queryKey: crmKeys.tasks });
     qc.invalidateQueries({ queryKey: crmKeys.prospects });
+    qc.invalidateQueries({ queryKey: visitKeys.all });
   };
 
   const enrichMut = useMutation({
@@ -149,6 +220,80 @@ function MapaPage() {
   const withoutCoords = filtered.length - withCoords;
   const withoutCep = points.filter((p) => !p.cep).length;
   const withoutAddress = points.filter((p) => !p.logradouro).length;
+
+  // ---- cobertura por status (leads filtrados) ----
+  const statusCounts = useMemo(() => {
+    const counts: Record<string, number> = { "não visitado": 0 };
+    for (const s of VISIT_STATUSES) counts[s] = 0;
+    for (const p of filtered) {
+      const st = visits[digits(p.cnpj)]?.status;
+      const key = st && counts[st] !== undefined ? st : "não visitado";
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+    return counts;
+  }, [filtered, visits]);
+  const visitedCount = filtered.length - (statusCounts["não visitado"] ?? 0);
+  const coverage = filtered.length ? Math.round((visitedCount / filtered.length) * 100) : 0;
+
+  // ---- roteiro do dia ----
+  const routeCandidates = useMemo(
+    () =>
+      filtered.filter((p) => {
+        if (p.lat == null || p.lon == null) return false;
+        const v = visits[digits(p.cnpj)];
+        if (!v) return true;
+        if (v.status === "Fechado" || v.status === "Sem sucesso") return false;
+        if (v.status === "Reagendar") {
+          return !v.retornar_em || v.retornar_em <= new Date().toISOString().slice(0, 10);
+        }
+        return false; // já visitado
+      }),
+    [filtered, visits],
+  );
+
+  const buildRoute = async () => {
+    setRouting(true);
+    try {
+      let from = origin;
+      try {
+        from = await getCurrentPosition();
+        setOrigin(from);
+      } catch {
+        if (!from) {
+          const first = routeCandidates[0];
+          if (!first) throw new Error("Nenhum lead disponível para roteirizar.");
+          from = { lat: first.lat!, lon: first.lon! };
+          toast.info("Sem GPS: roteiro montado a partir do primeiro lead da lista.");
+        }
+      }
+      const ordered = orderByNearest(routeCandidates, from).slice(0, ROUTE_SIZE);
+      if (!ordered.length) {
+        toast.info("Nenhum lead pendente de visita com coordenadas nesse filtro.");
+        return;
+      }
+      setRoute(ordered);
+      saveRouteCache(ordered.map((p) => digits(p.cnpj)));
+      toast.success(`Roteiro com ${ordered.length} paradas montado.`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setRouting(false);
+    }
+  };
+
+  // restaura roteiro do dia (funciona offline)
+  useEffect(() => {
+    if (route.length || !points.length) return;
+    const cached = readRouteCache();
+    if (!cached.length) return;
+    const byCnpj = new Map(points.map((p) => [digits(p.cnpj), p]));
+    const restored = cached.map((c) => byCnpj.get(c)).filter(Boolean) as MapPoint[];
+    if (restored.length) setRoute(restored);
+  }, [points, route.length]);
+
+  const routeKm = useMemo(() => routeDistanceKm(route, origin), [route, origin]);
+  const routeUrl = useMemo(() => googleMapsRouteUrl(route, origin), [route, origin]);
+
   const missingAll = useMemo(
     () => points.filter((p) => !p.cep || !p.logradouro),
     [points],
@@ -178,6 +323,36 @@ function MapaPage() {
 
   return (
     <AppShell title="Mapa" subtitle="Todos os leads prospectados com endereço completo e CEP">
+      {(!online || pendingQueue > 0) && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+          {!online ? (
+            <>
+              <WifiOff className="h-4 w-4" />
+              Você está offline. O roteiro do dia continua disponível e os check-ins ficam salvos no aparelho.
+            </>
+          ) : (
+            <>
+              <CloudUpload className="h-4 w-4" />
+              {pendingQueue} check-in(s) aguardando envio.
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-[11px]"
+                onClick={async () => {
+                  const sent = await flushVisitQueue();
+                  setPendingQueue(queueSize());
+                  if (sent) {
+                    toast.success(`${sent} check-in(s) enviados.`);
+                    refresh();
+                  } else toast.error("Ainda não foi possível enviar. Tente novamente.");
+                }}
+              >
+                Enviar agora
+              </Button>
+            </>
+          )}
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-[280px_1fr_320px] lg:grid-cols-[280px_1fr]">
         {/* Sidebar */}
         <aside className="surface-card flex flex-col gap-3 p-3">
@@ -235,6 +410,110 @@ function MapaPage() {
             <div className="flex justify-between"><span>Sem coordenadas</span><span className="font-semibold text-foreground">{withoutCoords}</span></div>
             <div className="flex justify-between"><span>Sem CEP</span><span className="font-semibold text-foreground">{withoutCep}</span></div>
             <div className="flex justify-between"><span>Sem endereço</span><span className="font-semibold text-foreground">{withoutAddress}</span></div>
+          </div>
+
+          {/* Cobertura + legenda de status */}
+          <div className="rounded-md border border-border/60 p-2 text-[11px] space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="font-semibold uppercase tracking-wide text-muted-foreground">
+                Cobertura
+              </span>
+              <span className="font-semibold text-foreground">
+                {visitedCount}/{filtered.length} ({coverage}%)
+              </span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <div className="h-full rounded-full bg-primary" style={{ width: `${coverage}%` }} />
+            </div>
+            <ul className="space-y-0.5 pt-1">
+              {["não visitado", ...VISIT_STATUSES].map((s) => (
+                <li key={s} className="flex items-center justify-between text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className="inline-block h-2 w-2 rounded-full"
+                      style={{ background: visitColor(s === "não visitado" ? null : s) }}
+                    />
+                    <span className="capitalize">{s}</span>
+                  </span>
+                  <span className="font-medium text-foreground">{statusCounts[s] ?? 0}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Roteiro do dia */}
+          <div className="rounded-md border border-border/60 p-2 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Roteiro do dia
+              </span>
+              {route.length > 0 && (
+                <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                  {route.length} paradas · {routeKm.toFixed(1)} km
+                </Badge>
+              )}
+            </div>
+            <Button
+              variant="outline"
+              className="h-9 w-full text-xs"
+              disabled={routing || !online}
+              onClick={buildRoute}
+            >
+              {routing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Navigation className="mr-2 h-4 w-4" />
+              )}
+              Montar roteiro ({Math.min(routeCandidates.length, ROUTE_SIZE)})
+            </Button>
+            {route.length > 0 && (
+              <>
+                <ol className="max-h-40 space-y-1 overflow-y-auto text-[11px]">
+                  {route.map((p, i) => {
+                    const v = visits[digits(p.cnpj)];
+                    return (
+                      <li key={p.cnpj} className="flex items-start gap-2 rounded px-1 py-1 hover:bg-accent/40">
+                        <span
+                          className="mt-0.5 inline-flex h-4 w-4 flex-none items-center justify-center rounded-full text-[9px] font-semibold text-white"
+                          style={{ background: visitColor(v?.status) }}
+                        >
+                          {i + 1}
+                        </span>
+                        <button
+                          className="min-w-0 flex-1 text-left"
+                          onClick={() => setCheckinPoint(p)}
+                        >
+                          <span className="block truncate font-medium">{p.company}</span>
+                          <span className="block truncate text-muted-foreground">
+                            {[p.logradouro, p.numero, p.bairro].filter(Boolean).join(", ") || "—"}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ol>
+                <div className="flex gap-2">
+                  <Button asChild size="sm" className="btn-gradient h-8 flex-1 text-[11px]">
+                    <a href={routeUrl} target="_blank" rel="noreferrer">
+                      Abrir no Maps
+                    </a>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 text-[11px]"
+                    onClick={() => setRoute([])}
+                  >
+                    Limpar
+                  </Button>
+                </div>
+                {route.length > MAX_WAYPOINTS && (
+                  <p className="text-[10px] text-muted-foreground">
+                    O Google Maps aceita até {MAX_WAYPOINTS} paradas por rota.
+                  </p>
+                )}
+              </>
+            )}
           </div>
 
           <Button
@@ -314,7 +593,16 @@ function MapaPage() {
             </div>
           ) : (
             <Suspense fallback={<div className="flex h-full items-center justify-center text-xs text-muted-foreground">Carregando mapa…</div>}>
-              <TasksMap points={filtered} selectedBairro={selectedBairro} onSelectBairro={setSelectedBairro} />
+              <TasksMap
+                points={filtered}
+                selectedBairro={selectedBairro}
+                onSelectBairro={setSelectedBairro}
+                visits={visits}
+                colorMode="status"
+                route={route}
+                origin={origin}
+                onCheckin={setCheckinPoint}
+              />
             </Suspense>
           )}
         </section>
@@ -391,6 +679,15 @@ function MapaPage() {
           </ol>
         </aside>
       </div>
+
+      <VisitCheckinDialog
+        point={checkinPoint}
+        onClose={() => setCheckinPoint(null)}
+        onSaved={() => {
+          setPendingQueue(queueSize());
+          qc.invalidateQueries({ queryKey: visitKeys.all });
+        }}
+      />
     </AppShell>
   );
 }
