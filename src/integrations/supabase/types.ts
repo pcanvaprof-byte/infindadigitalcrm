@@ -4511,6 +4511,7 @@ export type Database = {
         }[]
       }
       cad_import_from_prospects: { Args: { p_ids?: string[] }; Returns: number }
+      cad_is_org_admin: { Args: never; Returns: boolean }
       cad_list_packs: {
         Args: never
         Returns: {
