@@ -211,13 +211,6 @@ export function AppShell({
         (access.access_type === "trial" && access.is_privileged)));
 
   useEffect(() => {
-    if (!access) return;
-    if (access.must_change_password && pathname !== "/alterar-senha") {
-      void navigate({ to: "/alterar-senha", replace: true });
-    }
-  }, [access, pathname, navigate]);
-
-  useEffect(() => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem("infinda:sidebar-collapsed", sidebarCollapsed ? "1" : "0");
   }, [sidebarCollapsed]);
@@ -230,9 +223,6 @@ export function AppShell({
   // Sem isso, componentes filhos disparam server fns com `authWithAccess`
   // antes do gate, e o throw `access_expired` gera tela em branco.
   if (accessLoading || !access) {
-    return null;
-  }
-  if (!accessLoading && access?.must_change_password && pathname !== "/alterar-senha") {
     return null;
   }
 

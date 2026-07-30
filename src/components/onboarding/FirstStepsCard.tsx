@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { ArrowRight, CheckCircle2, Circle, KeyRound, Send, Sparkles, Compass } from "lucide-react";
+import { ArrowRight, CheckCircle2, Circle, Send, Sparkles, Compass } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -12,13 +12,6 @@ export function FirstStepsCard() {
   if (isLoading || !state || state.completed) return null;
 
   const items = [
-    {
-      key: "password",
-      icon: KeyRound,
-      label: "Senha definitiva",
-      done: state.steps.password,
-      to: "/alterar-senha",
-    },
     {
       key: "business",
       icon: Sparkles,

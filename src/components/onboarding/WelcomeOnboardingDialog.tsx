@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   CheckCircle2,
   Circle,
-  KeyRound,
   Sparkles,
   Send,
   PartyPopper,
@@ -75,15 +74,6 @@ export function WelcomeOnboardingDialog() {
   const firstName = (user?.name ?? "").split(" ")[0] || "bem-vindo(a)";
 
   const checklist = [
-    {
-      key: "password",
-      icon: KeyRound,
-      title: "Definir sua senha definitiva",
-      desc: "Troque a senha temporária que você recebeu.",
-      done: state.steps.password,
-      cta: "Trocar senha",
-      to: "/alterar-senha",
-    },
     {
       key: "business",
       icon: Sparkles,

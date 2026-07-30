@@ -45,8 +45,5 @@ export const authWithAccess = createMiddleware({ type: "function" })
     if (access.status !== "active") {
       throw new Error("access_expired");
     }
-    if (access.must_change_password) {
-      throw new Error("password_change_required");
-    }
     return next({ context: { access } });
   });

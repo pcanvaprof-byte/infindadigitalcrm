@@ -3,9 +3,6 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type FormEvent } from "react";
 import {
-  KeyRound,
-  Copy,
-  Check,
   Users as UsersIcon,
   RefreshCw,
   CalendarPlus,
@@ -31,7 +28,6 @@ import {
 } from "@/components/ui/dialog";
 import {
   listOrgUsers,
-  resetMemberTempPassword,
   renewUserAccess,
   provisionMemberUser,
   listUserAccessEvents,
@@ -81,7 +77,6 @@ function UsuariosPanel() {
   const [filter, setFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | OrgUserRow["derivedStatus"]>("all");
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [resetTarget, setResetTarget] = useState<OrgUserRow | null>(null);
   const [renewTarget, setRenewTarget] = useState<OrgUserRow | null>(null);
   const [historyTarget, setHistoryTarget] = useState<OrgUserRow | null>(null);
 
@@ -189,7 +184,6 @@ function UsuariosPanel() {
                 <UserRow
                   key={u.userId}
                   user={u}
-                  onReset={() => setResetTarget(u)}
                   onRenew={() => setRenewTarget(u)}
                   onHistory={() => setHistoryTarget(u)}
                 />
@@ -199,11 +193,6 @@ function UsuariosPanel() {
         </div>
       )}
 
-      <ResetPasswordDialog
-        user={resetTarget}
-        onClose={() => setResetTarget(null)}
-        onDone={invalidate}
-      />
       <RenewAccessDialog
         user={renewTarget}
         onClose={() => setRenewTarget(null)}
@@ -275,12 +264,10 @@ function StatusStrip({
 
 function UserRow({
   user,
-  onReset,
   onRenew,
   onHistory,
 }: {
   user: OrgUserRow;
-  onReset: () => void;
   onRenew: () => void;
   onHistory: () => void;
 }) {
@@ -304,9 +291,6 @@ function UserRow({
           {StatusIcon ? <StatusIcon className="h-3 w-3" /> : null}
           {meta.label}
         </span>
-        {user.access?.mustChangePassword ? (
-          <div className="mt-1 text-[11px] text-amber-600">Precisa trocar senha</div>
-        ) : null}
         {user.access?.planName ? (
           <div className="mt-1 text-[11px] text-muted-foreground">{user.access.planName}</div>
         ) : null}
@@ -358,103 +342,9 @@ function UserRow({
             <CalendarPlus className="mr-1.5 h-3.5 w-3.5" />
             Renovar
           </Button>
-          <Button variant="outline" size="sm" onClick={onReset}>
-            <KeyRound className="mr-1.5 h-3.5 w-3.5" />
-            Senha
-          </Button>
         </div>
       </td>
     </tr>
-  );
-}
-
-function ResetPasswordDialog({
-  user,
-  onClose,
-  onDone,
-}: {
-  user: OrgUserRow | null;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const reset = useServerFn(resetMemberTempPassword);
-  const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<{ email: string; tempPassword: string } | null>(null);
-  const [copied, setCopied] = useState(false);
-
-  const close = () => {
-    setResult(null);
-    setCopied(false);
-    onClose();
-  };
-
-  const submit = async () => {
-    if (!user?.email) {
-      toast.error("Usuário sem e-mail.");
-      return;
-    }
-    setBusy(true);
-    try {
-      const r = (await reset({ data: { email: user.email, requireChange: true } })) as {
-        email: string;
-        tempPassword: string;
-      };
-      setResult(r);
-      onDone();
-      toast.success("Senha temporária gerada.");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Falha ao gerar senha.");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const copy = async () => {
-    if (!result) return;
-    await navigator.clipboard.writeText(result.tempPassword);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  return (
-    <Dialog open={!!user} onOpenChange={(v) => (!v ? close() : null)}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Gerar senha temporária</DialogTitle>
-          <DialogDescription>
-            Uma nova senha será gerada para <strong>{user?.email}</strong>. Ele será obrigado a
-            alterá-la no próximo login.
-          </DialogDescription>
-        </DialogHeader>
-
-        {result ? (
-          <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
-            <div className="flex items-center gap-2">
-              <code className="flex-1 rounded-md border border-border bg-background px-3 py-2 font-mono text-base">
-                {result.tempPassword}
-              </code>
-              <Button type="button" variant="outline" size="icon" onClick={copy}>
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              </Button>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Copie e envie ao usuário por canal seguro. Ela só aparece agora.
-            </p>
-          </div>
-        ) : null}
-
-        <DialogFooter>
-          <Button variant="outline" onClick={close}>
-            {result ? "Fechar" : "Cancelar"}
-          </Button>
-          {!result && (
-            <Button onClick={submit} disabled={busy}>
-              {busy ? "Gerando…" : "Gerar senha"}
-            </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
 

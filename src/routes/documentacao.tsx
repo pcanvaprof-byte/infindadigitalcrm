@@ -89,11 +89,6 @@ const SECTIONS: Section[] = [
             e faça login com o e-mail + senha temporária.
           </li>
           <li>
-            <strong>Troque a senha</strong> — o sistema redireciona automaticamente para{" "}
-            <code className="rounded bg-muted px-1">/alterar-senha</code>. Escolha uma senha forte
-            (mínimo 8 caracteres) e confirme.
-          </li>
-          <li>
             <strong>Confirme o trial</strong> — se você é uma conta nova, verifique o banner no topo
             que mostra os dias restantes (30 dias por padrão).
           </li>
@@ -464,10 +459,6 @@ const SECTIONS: Section[] = [
             canal seguro (não fica gravada em lugar nenhum depois de fechar o modal).
           </li>
           <li>
-            Para <strong>resetar senha</strong> de alguém que esqueceu, use o botão{" "}
-            <em>“Gerar nova senha temporária”</em> na lista.
-          </li>
-          <li>
             <strong>Trial de 30 dias</strong>: novos users começam em trial. Owners podem estender
             ou ativar assinatura em <code className="rounded bg-muted px-1">/assinatura</code>.
           </li>
@@ -550,10 +541,6 @@ const SECTIONS: Section[] = [
           <li>
             <strong>Encerrar sessão global</strong>: no seu perfil (avatar → “Sair de todos os
             dispositivos”), invalida todos os tokens ativos em qualquer computador/celular.
-          </li>
-          <li>
-            <strong>Senha obrigatória forte</strong>: mínimo 8 caracteres. Troca obrigatória no
-            primeiro login e após reset.
           </li>
           <li>
             <strong>Auditoria</strong>: uso de chaves e alterações críticas ficam registradas.

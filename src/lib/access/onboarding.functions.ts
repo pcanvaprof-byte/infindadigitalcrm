@@ -30,19 +30,17 @@ export const getOnboardingState = createServerFn({ method: "GET" })
     const userId = (context as unknown as { userId: string }).userId;
 
     let seen = false;
-    let password = true;
 
-    // 1) user_access: onboarded_at + troca de senha pendente.
+    // 1) user_access: onboarded_at.
     // Fail-open: se a coluna/migração ainda não existir, tratamos como "nunca viu".
     try {
       const { data, error } = await supabase
         .from("user_access")
-        .select("onboarded_at, must_change_password")
+        .select("onboarded_at")
         .eq("user_id", userId)
         .maybeSingle();
       if (!error && data) {
         seen = !!(data as { onboarded_at?: string | null }).onboarded_at;
-        password = !(data as { must_change_password?: boolean }).must_change_password;
       }
     } catch {
       /* migração pendente — segue com defaults */
@@ -78,9 +76,11 @@ export const getOnboardingState = createServerFn({ method: "GET" })
       /* ignore */
     }
 
-    const steps: OnboardingSteps = { ...EMPTY_STEPS, password, business, dispatch };
-    const done = Object.values(steps).filter(Boolean).length;
-    return { seen, steps, done, total: 3, completed: done === 3 };
+    // Fluxo de troca de senha foi removido do produto: o passo fica sempre concluído
+    // e não conta para o progresso.
+    const steps: OnboardingSteps = { ...EMPTY_STEPS, password: true, business, dispatch };
+    const done = [business, dispatch].filter(Boolean).length;
+    return { seen, steps, done, total: 2, completed: done === 2 };
   });
 
 export const markOnboardingSeen = createServerFn({ method: "POST" })

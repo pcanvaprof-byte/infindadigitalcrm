@@ -32,7 +32,6 @@ import { Route as BiRouteImport } from './routes/bi'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AssinaturaRouteImport } from './routes/assinatura'
 import { Route as ApiKeysRouteImport } from './routes/api-keys'
-import { Route as AlterarSenhaRouteImport } from './routes/alterar-senha'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OperacoesIndexRouteImport } from './routes/operacoes.index'
 import { Route as PropostasIdRouteImport } from './routes/propostas.$id'
@@ -183,11 +182,6 @@ const AssinaturaRoute = AssinaturaRouteImport.update({
 const ApiKeysRoute = ApiKeysRouteImport.update({
   id: '/api-keys',
   path: '/api-keys',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AlterarSenhaRoute = AlterarSenhaRouteImport.update({
-  id: '/alterar-senha',
-  path: '/alterar-senha',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -381,7 +375,6 @@ const ApiPublicV1ClientsIdInteractionsRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/alterar-senha': typeof AlterarSenhaRoute
   '/api-keys': typeof ApiKeysRoute
   '/assinatura': typeof AssinaturaRoute
   '/auth': typeof AuthRouteWithChildren
@@ -442,7 +435,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/alterar-senha': typeof AlterarSenhaRoute
   '/api-keys': typeof ApiKeysRoute
   '/assinatura': typeof AssinaturaRoute
   '/auth': typeof AuthRouteWithChildren
@@ -502,7 +494,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/alterar-senha': typeof AlterarSenhaRoute
   '/api-keys': typeof ApiKeysRoute
   '/assinatura': typeof AssinaturaRoute
   '/auth': typeof AuthRouteWithChildren
@@ -565,7 +556,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/alterar-senha'
     | '/api-keys'
     | '/assinatura'
     | '/auth'
@@ -626,7 +616,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/alterar-senha'
     | '/api-keys'
     | '/assinatura'
     | '/auth'
@@ -685,7 +674,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/alterar-senha'
     | '/api-keys'
     | '/assinatura'
     | '/auth'
@@ -747,7 +735,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AlterarSenhaRoute: typeof AlterarSenhaRoute
   ApiKeysRoute: typeof ApiKeysRoute
   AssinaturaRoute: typeof AssinaturaRoute
   AuthRoute: typeof AuthRouteWithChildren
@@ -947,13 +934,6 @@ declare module '@tanstack/react-router' {
       path: '/api-keys'
       fullPath: '/api-keys'
       preLoaderRoute: typeof ApiKeysRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/alterar-senha': {
-      id: '/alterar-senha'
-      path: '/alterar-senha'
-      fullPath: '/alterar-senha'
-      preLoaderRoute: typeof AlterarSenhaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -1341,7 +1321,6 @@ const ApiPublicV1ClientsRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AlterarSenhaRoute: AlterarSenhaRoute,
   ApiKeysRoute: ApiKeysRoute,
   AssinaturaRoute: AssinaturaRoute,
   AuthRoute: AuthRouteWithChildren,
