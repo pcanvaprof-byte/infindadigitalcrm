@@ -6,6 +6,13 @@ import { RequireAuth } from "@/lib/auth-context";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { MapPin, Loader2, Sparkles, Search } from "lucide-react";
 import { toast } from "sonner";
 import { loadMapPoints, bairroColor, type MapPoint } from "@/lib/tasks-map-api";
@@ -36,6 +43,7 @@ const BATCH_SIZE = 20;
 function MapaPage() {
   const qc = useQueryClient();
   const [selectedBairro, setSelectedBairro] = useState<string | null>(null);
+  const [uf, setUf] = useState<string>("all");
   const [q, setQ] = useState("");
 
   const pointsQ = useQuery({
@@ -86,17 +94,35 @@ function MapaPage() {
 
   const enriching = enrichMut.isPending;
 
+  const ufOptions = useMemo(() => {
+    const set = new Map<string, number>();
+    for (const p of points) {
+      const key = (p.uf || "").trim().toUpperCase();
+      if (!key) continue;
+      set.set(key, (set.get(key) ?? 0) + 1);
+    }
+    return Array.from(set.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [points]);
+
+  const byUf = useMemo(
+    () =>
+      uf === "all"
+        ? points
+        : points.filter((p) => (p.uf || "").trim().toUpperCase() === uf),
+    [points, uf],
+  );
+
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
-    if (!term) return points;
-    return points.filter((p) =>
+    if (!term) return byUf;
+    return byUf.filter((p) =>
       [p.company, p.bairro, p.cidade, p.logradouro, p.cep, p.cnpj]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
         .includes(term),
     );
-  }, [points, q]);
+  }, [byUf, q]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, MapPoint[]>();
