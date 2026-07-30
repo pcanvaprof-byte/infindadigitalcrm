@@ -2,6 +2,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { RequireOwnerOrAdmin } from "@/lib/auth/require-role";
 import {
   auditDispatches,
   listDispatchRows,
@@ -11,7 +12,7 @@ import {
 } from "@/lib/bi/dispatches.functions";
 
 export const Route = createFileRoute("/bi/disparos")({
-  component: DispatchesAuditPage,
+  component: DispatchesAuditRoute,
   head: () => ({
     meta: [{ title: "Auditoria de Disparos — INFINDA BI" }],
   }),
@@ -20,6 +21,14 @@ export const Route = createFileRoute("/bi/disparos")({
   ),
   notFoundComponent: () => <div className="p-6">Não encontrado.</div>,
 });
+
+function DispatchesAuditRoute() {
+  return (
+    <RequireOwnerOrAdmin>
+      <DispatchesAuditPage />
+    </RequireOwnerOrAdmin>
+  );
+}
 
 function DispatchesAuditPage() {
   const router = useRouter();
