@@ -112,9 +112,11 @@ DELETE FROM public.business_profiles WHERE user_id IS NULL;
 ALTER TABLE public.business_profiles
   ALTER COLUMN user_id SET NOT NULL;
 
-DROP INDEX IF EXISTS business_profiles_org_id_key;
+-- A unicidade antiga pode existir como CONSTRAINT (dona do índice) ou como
+-- índice solto. Remove a constraint primeiro; só então o índice, se sobrar.
 ALTER TABLE public.business_profiles
   DROP CONSTRAINT IF EXISTS business_profiles_org_id_key;
+DROP INDEX IF EXISTS public.business_profiles_org_id_key;
 
 CREATE UNIQUE INDEX IF NOT EXISTS business_profiles_org_user_uidx
   ON public.business_profiles(org_id, user_id);
