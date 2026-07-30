@@ -78,6 +78,7 @@ function MapaPage() {
   const [origin, setOrigin] = useState<LatLng | null>(null);
   const [route, setRoute] = useState<MapPoint[]>([]);
   const [routing, setRouting] = useState(false);
+  const [routedCnpjs, setRoutedCnpjs] = useState<string[]>([]);
   const [checkinPoint, setCheckinPoint] = useState<MapPoint | null>(null);
   const [online, setOnline] = useState(true);
   const [pendingQueue, setPendingQueue] = useState(0);
