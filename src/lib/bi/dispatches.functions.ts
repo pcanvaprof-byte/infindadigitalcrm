@@ -53,8 +53,8 @@ function rangeLastDays(n: number): Range {
 const OUTBOUND_TYPES = ["whatsapp", "ligacao", "email", "reuniao"] as const;
 
 /**
- * Escopo de leitura dos disparos. Member enxerga somente os próprios envios;
- * owner/admin enxerga os envios da organização ativa.
+ * Escopo de leitura dos disparos: SEMPRE por usuário. Cada pessoa (member,
+ * admin ou owner) enxerga exclusivamente os próprios envios.
  */
 export type DispatchScope = {
   userId: string;
@@ -70,9 +70,8 @@ async function resolveScope(context: unknown): Promise<DispatchScope> {
   if (!supabase || !userId) throw new Error("unauthenticated");
   const { resolveActiveOrg } = await import("@/lib/api-keys.server");
   const organizationId = await resolveActiveOrg(supabase);
-  const { data: role } = await supabase.rpc("current_org_role");
-  const privileged = role === "owner" || role === "admin";
-  return { userId, organizationId, privileged };
+  // Escopo fechado por usuário para todos os papéis.
+  return { userId, organizationId, privileged: false };
 }
 
 async function ownClient() {
@@ -127,15 +126,12 @@ async function fetchBucket(range: Range, scope: DispatchScope): Promise<{
     .lte("enviado_em", range.to)
     .in("tipo", OUTBOUND_TYPES as unknown as string[]);
 
-  if (scope.privileged) {
-    // Owner/Admin: escopo da organização ativa (nunca global).
-    const org = scope.organizationId ?? "00000000-0000-0000-0000-000000000000";
-    cadQuery = cadQuery.eq("organization_id", org);
-    tpQuery = tpQuery.eq("organization_id", org);
-  } else {
-    // Member: somente os próprios disparos.
-    cadQuery = cadQuery.eq("author_id", scope.userId);
-    tpQuery = tpQuery.eq("user_id", scope.userId);
+  // Sempre por usuário: cada pessoa vê apenas os próprios disparos.
+  cadQuery = cadQuery.eq("author_id", scope.userId);
+  tpQuery = tpQuery.eq("user_id", scope.userId);
+  if (scope.organizationId) {
+    cadQuery = cadQuery.eq("organization_id", scope.organizationId);
+    tpQuery = tpQuery.eq("organization_id", scope.organizationId);
   }
 
   // Paginação simples (limite 5k) — auditoria diária dificilmente passa disso.
@@ -219,9 +215,7 @@ export const auditDispatches = createServerFn({ method: "POST" })
     // Não há primitiva de rate-limit oficial no backend; este controle é
     // best-effort para evitar consultas repetidas. Persistência distribuída
     // exigiria uma tabela/edge dedicada, fora do escopo deste endpoint.
-    const scopeKey = scope.privileged
-      ? `org:${scope.organizationId ?? "none"}`
-      : `user:${scope.userId}`;
+    const scopeKey = `user:${scope.userId}|org:${scope.organizationId ?? "none"}`;
     const cacheKey =
       `${scopeKey}|` + (data?.from && data?.to ? `${data.from}|${data.to}` : "__default__");
     const cached = AUDIT_CACHE.get(cacheKey);
