@@ -112,6 +112,7 @@ import { convertProspectToClient, crmKeys, invalidateCrmCore } from "@/lib/crm/a
 import { TouchpointModal } from "@/components/cadence/TouchpointModal";
 import { ProspectTimeline } from "@/components/cadence/ProspectTimeline";
 import { CloseCadenceDialog } from "@/components/cadence/CloseCadenceDialog";
+import { consumeBizReturn, setBizReturn } from "@/lib/business/return-flow";
 import { TemplateLibrary } from "@/components/cadence/TemplateLibrary";
 import {
   addTouchpoint,
@@ -417,6 +418,8 @@ function ProspeccaoPage() {
       bizProfile.onboarding_status !== "completed" ||
       !String(bizProfile.initial_message ?? "").trim());
   const [showBizDialog, setShowBizDialog] = useState(false);
+  // Disparo que ficou pendente por causa do pop-up de configuração.
+  const [pendingWhatsId, setPendingWhatsId] = useState<string | null>(null);
   // Confirmação de exclusão em lote (C-1): evita perda irreversível por clique acidental.
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState<{ ids: string[] } | null>(null);
   const [bulkDeleteInput, setBulkDeleteInput] = useState("");
@@ -820,6 +823,15 @@ function ProspeccaoPage() {
     }
   };
 
+  // Fecha o pop-up sozinho assim que o perfil do negócio fica pronto
+  // (inclusive se a configuração foi concluída em outra aba/janela).
+  useEffect(() => {
+    if (showBizDialog && !bizLoading && !bizPending) {
+      setShowBizDialog(false);
+      toast.success("Perfil do negócio configurado — disparos liberados.");
+    }
+  }, [showBizDialog, bizLoading, bizPending]);
+
   const bulkAssign = async (owner: string) => {
     const ids = Array.from(selected);
     if (!ids.length) return;
@@ -886,6 +898,7 @@ function ProspeccaoPage() {
     console.log("[prosp] openWhats:click", { id: p.id, company: p.company, whatsapp: p.whatsapp });
     // Bloqueia o disparo enquanto o Member não configurar o negócio (1 clique).
     if (bizPending) {
+      setPendingWhatsId(p.id);
       setShowBizDialog(true);
       return;
     }
@@ -1095,6 +1108,25 @@ function ProspeccaoPage() {
     // A-5: mesmo racional do callPhone acima.
     setTouchpointTarget({ prospect: p, tipo: "email" });
   };
+
+  // Ao voltar de /meu-negocio com o perfil concluído, retomamos o disparo
+  // que ficou pendente — sem precisar procurar o lead de novo.
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (resumedRef.current || bizLoading || bizPending || !prospects.length) return;
+    const back = consumeBizReturn();
+    if (!back?.prospectId) return;
+    resumedRef.current = true;
+    const target = prospects.find((p) => p.id === back.prospectId);
+    if (!target) return;
+    // Não abrimos o WhatsApp sozinhos (o navegador bloquearia o pop-up):
+    // devolvemos o disparo a 1 clique, exatamente de onde o usuário parou.
+    toast.success(`Tudo pronto! Continue o disparo para ${target.company}.`, {
+      duration: 12000,
+      action: { label: "Disparar agora", onClick: () => void openWhats(target) },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bizLoading, bizPending, prospects]);
 
   const convertToLead = async (p: Prospect) => {
     try {
@@ -1491,12 +1523,19 @@ function ProspeccaoPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:justify-between">
-            <Button variant="ghost" onClick={() => setShowBizDialog(false)}>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setPendingWhatsId(null);
+                setShowBizDialog(false);
+              }}
+            >
               Agora não
             </Button>
             <Button
               className="btn-gradient"
               onClick={() => {
+                setBizReturn({ to: "/prospeccao", prospectId: pendingWhatsId ?? undefined });
                 setShowBizDialog(false);
                 void navigate({ to: "/meu-negocio" });
               }}
