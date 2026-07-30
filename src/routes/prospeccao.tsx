@@ -1480,6 +1480,34 @@ function ProspeccaoPage() {
         </div>
       }
     >
+      {/* Pop-up: perfil do negócio pendente (bloqueia o disparo) */}
+      <Dialog open={showBizDialog} onOpenChange={setShowBizDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Configure seu negócio para disparar</DialogTitle>
+            <DialogDescription>
+              A primeira mensagem de prospecção vem do seu perfil de negócio. Leva 1 minuto:
+              informe nicho, público e tom de voz — a IA gera a mensagem inicial pra você.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Button variant="ghost" onClick={() => setShowBizDialog(false)}>
+              Agora não
+            </Button>
+            <Button
+              className="btn-gradient"
+              onClick={() => {
+                setShowBizDialog(false);
+                void navigate({ to: "/meu-negocio" });
+              }}
+            >
+              Configurar agora
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Stats */}
       <section className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-5">
         <StatCard icon={Building2} label={hasActiveFilters ? "Empresas (filtro)" : "Empresas cadastradas"} value={stats.t} hint={hasActiveFilters ? `de ${stats.total} · filtro ativo` : "Base total"} />
