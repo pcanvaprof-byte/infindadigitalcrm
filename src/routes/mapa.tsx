@@ -392,8 +392,6 @@ function MapaPage() {
           <div className="rounded-md border border-border/60 p-2 text-[11px] text-muted-foreground space-y-1">
             <div className="flex justify-between"><span>No mapa</span><span className="font-semibold text-foreground">{withCoords}</span></div>
             <div className="flex justify-between"><span>Sem coordenadas</span><span className="font-semibold text-foreground">{withoutCoords}</span></div>
-            <div className="flex justify-between"><span>Sem CEP</span><span className="font-semibold text-foreground">{withoutCep}</span></div>
-            <div className="flex justify-between"><span>Sem endereço</span><span className="font-semibold text-foreground">{withoutAddress}</span></div>
           </div>
 
           <Button
@@ -402,11 +400,10 @@ function MapaPage() {
             onClick={() => enrichMut.mutate()}
           >
             {enriching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-            Enriquecer 20 (CEP + Endereço)
+            Enriquecer próximos 20
           </Button>
           <p className="text-[10px] text-muted-foreground leading-snug">
             Processa em lotes de {BATCH_SIZE} CNPJs por vez (Receita Federal → ViaCEP → OpenStreetMap).
-            {pendingCount > 0 ? ` ${pendingCount} lead(s) pendente(s).` : " Nenhum lead pendente."}
           </p>
 
           <div className="hidden flex-1 overflow-y-auto px-1 -mx-1 lg:block lg:max-h-[calc(100vh-320px)]">
