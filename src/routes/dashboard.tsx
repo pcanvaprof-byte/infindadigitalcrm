@@ -26,6 +26,7 @@ import { fetchKpiTrends, wowDelta, EMPTY_TRENDS } from "@/lib/cadence/trends";
 import { FEATURES } from "@/config/features";
 import { DispatchesPanel } from "@/components/dashboard/DispatchesPanel";
 import { BusinessSetupCard } from "@/components/dashboard/BusinessSetupCard";
+import { useOrgRole } from "@/lib/org/plans";
 
 type Period = "hoje" | "semana" | "mes" | "previsao";
 const PERIOD_LABEL: Record<Period, string> = {
