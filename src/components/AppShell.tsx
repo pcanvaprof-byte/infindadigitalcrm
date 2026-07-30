@@ -52,6 +52,7 @@ import { useAccessStatus } from "@/hooks/useAccessStatus";
 import { AccessExpiredScreen } from "@/components/access/AccessExpiredScreen";
 import { TrialBanner } from "@/components/access/TrialBanner";
 import { DemoCountdown } from "@/components/access/DemoCountdown";
+import { WelcomeOnboardingDialog } from "@/components/onboarding/WelcomeOnboardingDialog";
 
 type NavItem = {
   to: string;
@@ -270,6 +271,7 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen bg-background">
+      <WelcomeOnboardingDialog />
       {!sidebarCollapsed && (
         <div className="hidden lg:block">
           <Sidebar role={role} />

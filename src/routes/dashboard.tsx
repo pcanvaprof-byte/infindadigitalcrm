@@ -26,6 +26,7 @@ import { fetchKpiTrends, wowDelta, EMPTY_TRENDS } from "@/lib/cadence/trends";
 import { FEATURES } from "@/config/features";
 import { DispatchesPanel } from "@/components/dashboard/DispatchesPanel";
 import { BusinessSetupCard } from "@/components/dashboard/BusinessSetupCard";
+import { FirstStepsCard } from "@/components/onboarding/FirstStepsCard";
 import { useOrgRole } from "@/lib/org/plans";
 
 type Period = "hoje" | "semana" | "mes" | "previsao";
@@ -442,7 +443,8 @@ function DashboardPage() {
         </div>
       )}
 
-      <div className="mb-6">
+      <div className="mb-6 space-y-4">
+        <FirstStepsCard />
         <BusinessSetupCard />
       </div>
 
