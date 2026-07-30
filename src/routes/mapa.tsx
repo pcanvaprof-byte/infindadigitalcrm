@@ -78,6 +78,7 @@ function MapaPage() {
   const [origin, setOrigin] = useState<LatLng | null>(null);
   const [route, setRoute] = useState<MapPoint[]>([]);
   const [routing, setRouting] = useState(false);
+  const [routedCnpjs, setRoutedCnpjs] = useState<string[]>([]);
   const [checkinPoint, setCheckinPoint] = useState<MapPoint | null>(null);
   const [online, setOnline] = useState(true);
   const [pendingQueue, setPendingQueue] = useState(0);
@@ -236,9 +237,18 @@ function MapaPage() {
   const coverage = filtered.length ? Math.round((visitedCount / filtered.length) * 100) : 0;
 
   // ---- roteiro do dia ----
+  // respeita o bairro selecionado no mapa/lista
+  const scoped = useMemo(
+    () =>
+      selectedBairro
+        ? filtered.filter((p) => (p.bairro || "Sem bairro") === selectedBairro)
+        : filtered,
+    [filtered, selectedBairro],
+  );
+
   const routeCandidates = useMemo(
     () =>
-      filtered.filter((p) => {
+      scoped.filter((p) => {
         if (p.lat == null || p.lon == null) return false;
         const v = visits[digits(p.cnpj)];
         if (!v) return true;
@@ -248,32 +258,59 @@ function MapaPage() {
         }
         return false; // já visitado
       }),
-    [filtered, visits],
+    [scoped, visits],
   );
 
-  const buildRoute = async () => {
+  const remainingCandidates = useMemo(
+    () => routeCandidates.filter((p) => !routedCnpjs.includes(digits(p.cnpj))),
+    [routeCandidates, routedCnpjs],
+  );
+
+  const buildRoute = async (next = false) => {
     setRouting(true);
     try {
+      const pool = next ? remainingCandidates : routeCandidates;
+      if (!pool.length) {
+        toast.info(
+          next
+            ? "Não há mais leads pendentes nesse filtro."
+            : "Nenhum lead pendente de visita com coordenadas nesse filtro.",
+        );
+        return;
+      }
       let from = origin;
-      try {
-        from = await getCurrentPosition();
-        setOrigin(from);
-      } catch {
-        if (!from) {
-          const first = routeCandidates[0];
-          if (!first) throw new Error("Nenhum lead disponível para roteirizar.");
-          from = { lat: first.lat!, lon: first.lon! };
-          toast.info("Sem GPS: roteiro montado a partir do primeiro lead da lista.");
+      const last = next ? route[route.length - 1] : null;
+      if (last?.lat != null && last?.lon != null) {
+        from = { lat: last.lat, lon: last.lon };
+      } else {
+        try {
+          from = await getCurrentPosition();
+          setOrigin(from);
+        } catch {
+          if (!from) {
+            const first = pool[0];
+            from = { lat: first.lat!, lon: first.lon! };
+            toast.info("Sem GPS: roteiro montado a partir do primeiro lead da lista.");
+          }
         }
       }
-      const ordered = orderByNearest(routeCandidates, from).slice(0, ROUTE_SIZE);
+      const ordered = orderByNearest(pool, from).slice(0, ROUTE_SIZE);
       if (!ordered.length) {
         toast.info("Nenhum lead pendente de visita com coordenadas nesse filtro.");
         return;
       }
       setRoute(ordered);
+      setRoutedCnpjs((prev) =>
+        next
+          ? [...prev, ...ordered.map((p) => digits(p.cnpj))]
+          : ordered.map((p) => digits(p.cnpj)),
+      );
       saveRouteCache(ordered.map((p) => digits(p.cnpj)));
-      toast.success(`Roteiro com ${ordered.length} paradas montado.`);
+      toast.success(
+        `${next ? "Próximo roteiro" : "Roteiro"} com ${ordered.length} paradas montado${
+          selectedBairro ? ` em ${selectedBairro}` : ""
+        }.`,
+      );
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -617,13 +654,18 @@ function MapaPage() {
                 {route.length} paradas · {routeKm.toFixed(1)} km
               </Badge>
             )}
+            {selectedBairro && (
+              <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                {selectedBairro}
+              </Badge>
+            )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               className="h-9 text-xs"
               disabled={routing || !online}
-              onClick={buildRoute}
+              onClick={() => buildRoute(false)}
             >
               {routing ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -634,6 +676,14 @@ function MapaPage() {
             </Button>
             {route.length > 0 && (
               <>
+                <Button
+                  variant="outline"
+                  className="h-9 text-xs"
+                  disabled={routing || !online || remainingCandidates.length === 0}
+                  onClick={() => buildRoute(true)}
+                >
+                  Próximo roteiro ({Math.min(remainingCandidates.length, ROUTE_SIZE)})
+                </Button>
                 <Button asChild size="sm" className="btn-gradient h-9 text-[11px]">
                   <a href={routeUrl} target="_blank" rel="noreferrer">
                     Abrir no Maps
@@ -643,7 +693,10 @@ function MapaPage() {
                   size="sm"
                   variant="ghost"
                   className="h-9 text-[11px]"
-                  onClick={() => setRoute([])}
+                  onClick={() => {
+                    setRoute([]);
+                    setRoutedCnpjs([]);
+                  }}
                 >
                   Limpar
                 </Button>
@@ -655,7 +708,7 @@ function MapaPage() {
         {route.length === 0 ? (
           <p className="text-[11px] text-muted-foreground">
             Monte o roteiro para ordenar as próximas paradas pela menor distância a partir da sua
-            localização.
+            localização. Selecione um bairro na lista para roteirizar só aquele bairro.
           </p>
         ) : (
           <>
