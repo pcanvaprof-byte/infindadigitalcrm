@@ -1065,7 +1065,12 @@ function ProspeccaoPage() {
       url = `intent://send?phone=${phone}&text=${encoded}#Intent;scheme=whatsapp;package=${pkg};end`;
     }
     console.log("[prosp] openWhats:window.open", { url, account: acct });
-    window.open(url, "_blank");
+    if (preOpened && !preOpened.closed) {
+      preOpened.location.replace(url);
+    } else {
+      // Aba bloqueada pelo navegador (ou mobile): navega na própria aba.
+      window.location.href = url;
+    }
     } finally {
       // Cooldown curto para não permitir 2 cliques sequenciais que abram
       // 2 conversas e gerem registro duplicado de tentativa.
