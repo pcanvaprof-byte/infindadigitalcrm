@@ -18,6 +18,7 @@ import {
   useRegenerateMessage,
   useConfirmBusiness,
   useRegenerateOrgCadTemplates,
+  useSaveBusinessInputs,
 } from "@/hooks/useBusinessProfile";
 import { peekBizReturn, consumeBizReturn } from "@/lib/business/return-flow";
 
@@ -37,6 +38,7 @@ function MeuNegocioPage() {
   const regenerate = useRegenerateMessage();
   const confirm = useConfirmBusiness();
   const regenTemplates = useRegenerateOrgCadTemplates();
+  const saveInputs = useSaveBusinessInputs();
 
   const [form, setForm] = useState({
     description: "",
@@ -95,6 +97,9 @@ function MeuNegocioPage() {
       return;
     }
     try {
+      // Garante que as respostas do card 1 fiquem salvas mesmo quando o
+      // usuário escreveu a mensagem manualmente (sem rodar a IA).
+      await saveInputs.mutateAsync(form as never);
       await confirm.mutateAsync(message.trim());
       const back = consumeBizReturn();
       if (back) {
