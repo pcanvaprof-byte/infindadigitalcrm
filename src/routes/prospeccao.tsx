@@ -926,10 +926,18 @@ function ProspeccaoPage() {
       return;
     }
     setDispatchingIds((prev) => { const n = new Set(prev); n.add(p.id); return n; });
+    // O `window.open` só é permitido DENTRO do gesto do clique. Como abaixo
+    // existem awaits (trava do dia + resolução do template), abrimos a aba
+    // agora (em branco) e apenas trocamos a URL depois. No mobile navegamos
+    // na própria aba ao final.
+    const isMobileUA =
+      typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    const preOpened = isMobileUA ? null : window.open("", "_blank");
     try {
       const lock = await wasDispatchedToday({ prospectId: p.id });
       if (lock.blocked) {
         console.warn("[prosp] openWhats:blocked", { id: p.id, source: lock.source });
+        try { preOpened?.close(); } catch { /* noop */ }
         toast.error(dispatchBlockedMessage(lock.source!));
         return;
       }
