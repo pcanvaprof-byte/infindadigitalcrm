@@ -240,8 +240,7 @@ function MeuNegocioPage() {
           </Card>
         )}
 
-        {hasAnalysis && (
-          <Card className="space-y-4 p-6">
+        <Card className="space-y-4 p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold">3. Primeira mensagem de prospecção</h2>
@@ -250,10 +249,16 @@ function MeuNegocioPage() {
                   A partir do <code>followup_2</code>, os envios usam os templates de cadência da organização
                   (regenere-os no card 4 quando precisar alinhá-los ao novo perfil).
                 </p>
+                {!hasAnalysis && (
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Você pode escrever a mensagem manualmente e confirmar — a análise com IA é opcional.
+                  </p>
+                )}
               </div>
               <Button
                 variant="outline" size="sm"
-                onClick={onRegenerate} disabled={regenerate.isPending}
+                onClick={onRegenerate} disabled={regenerate.isPending || !hasAnalysis}
+                title={hasAnalysis ? undefined : "Rode a análise com IA para gerar mensagens automaticamente"}
               >
                 {regenerate.isPending
                   ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Gerando…</>
@@ -267,14 +272,13 @@ function MeuNegocioPage() {
               placeholder="Sua mensagem inicial…"
             />
             <div className="flex justify-end">
-              <Button onClick={onConfirm} disabled={confirm.isPending}>
-                {confirm.isPending
+              <Button onClick={onConfirm} disabled={confirm.isPending || saveInputs.isPending}>
+                {confirm.isPending || saveInputs.isPending
                   ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando…</>
                   : <><CheckCircle2 className="mr-2 h-4 w-4" /> Confirmar configuração</>}
               </Button>
             </div>
-          </Card>
-        )}
+        </Card>
 
         {hasAnalysis && (
           <Card className="space-y-3 p-6">
