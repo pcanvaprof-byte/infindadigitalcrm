@@ -963,7 +963,11 @@ function ProspeccaoPage() {
           : supabase.rpc("cad_resolve_template" as never, { _stage: stage } as never),
         supabase.from("cad_leads").select("responsavel").eq("prospect_id", p.id).maybeSingle(),
         isFirstOutreach
-          ? supabase.from("business_profiles").select("initial_message").maybeSingle()
+          ? supabase
+              .from("business_profiles")
+              .select("initial_message")
+              .order("updated_at", { ascending: false })
+              .limit(1)
           : Promise.resolve({ data: null }),
       ]);
       const tpl = tplRes.data;
@@ -972,7 +976,8 @@ function ProspeccaoPage() {
       // /meu-negocio (item 3), ela vira a mensagem oficial do 1º disparo.
       // Placeholders continuam suportados via renderTemplate.
       if (isFirstOutreach) {
-        const bizMsg = (bizRes.data as { initial_message?: string | null } | null)?.initial_message;
+        const bizRow = Array.isArray(bizRes.data) ? bizRes.data[0] : bizRes.data;
+        const bizMsg = (bizRow as { initial_message?: string | null } | null)?.initial_message;
         if (bizMsg && bizMsg.trim()) {
           msg = renderTemplate(bizMsg, {
             empresa: p.company || "",
