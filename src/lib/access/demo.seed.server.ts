@@ -100,7 +100,7 @@ export async function seedDemoOrganization(ctx: DemoSeedContext): Promise<void> 
         approach: "consultiva",
         initial_message:
           "Olá {{nome}}! Vi que a {{empresa}} atua no setor e ajudo empresas como a sua a organizar o comercial. Posso te mostrar como em 15 minutos?",
-        onboarding_status: "ready",
+        onboarding_status: "completed",
       },
       { onConflict: "org_id,user_id" },
     );
