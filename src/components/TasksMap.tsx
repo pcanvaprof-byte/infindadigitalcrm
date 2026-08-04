@@ -160,6 +160,8 @@ export function TasksMap({
                         color: "#0ea5e9",
                         fontSize: 10,
                         fontWeight: 600,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.025em",
                         border: "1px solid rgba(14, 165, 233, 0.2)",
                       }}
                     >

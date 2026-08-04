@@ -478,7 +478,10 @@ function MapaPage() {
                     {niches.length > 0 && (
                       <div className="flex flex-wrap gap-1 px-6 pb-1">
                         {niches.slice(0, 3).map((n, i) => (
-                          <span key={i} className="text-[9px] text-muted-foreground bg-muted/50 px-1 rounded-sm whitespace-nowrap overflow-hidden text-ellipsis max-w-[120px]">
+                          <span
+                            key={i}
+                            className="max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap rounded-sm bg-muted/50 px-1 text-[9px] font-medium tracking-tight text-muted-foreground uppercase"
+                          >
                             {n}
                           </span>
                         ))}
