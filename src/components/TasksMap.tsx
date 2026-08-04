@@ -163,7 +163,7 @@ export function TasksMap({
                         borderRadius: 4,
                         background: "rgba(14, 165, 233, 0.1)",
                         color: "#0ea5e9",
-                        fontSize: "clamp(10px, 2.8vw, 12px)",
+                        fontSize: "clamp(9px, 3.2vw, 11px)",
                         lineHeight: 1.5,
                         fontWeight: 600,
                         textTransform: "uppercase",
