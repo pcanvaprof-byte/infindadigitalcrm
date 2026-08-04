@@ -368,8 +368,19 @@ export async function runEnrichment(
         }), uid, profileId, profile.cnpj);
       }
 
-      // Também atualiza o prospect (telefone/whatsapp/email) — preenche somente
+      // 7) Sincronização Bidirecional (Mapa <-> Prospecção)
+      // Atualiza o prospect (telefone/whatsapp/email) — preenche somente
       // campos vazios para não sobrescrever dados manuais do usuário.
+      // Se enriquecido pelo mapa, garante que o prospect ID seja vinculado se existir.
+      if (!opts.prospectId) {
+        const { data: existingProsp } = await db
+          .from("prospects")
+          .select("id")
+          .eq("cnpj", clean)
+          .maybeSingle();
+        if (existingProsp) opts.prospectId = existingProsp.id;
+      }
+
       if (opts.prospectId) {
         try {
           const { data: prosp } = await db
@@ -390,6 +401,12 @@ export async function runEnrichment(
           if (prosp && !filled(prosp.email) && email) patch.email = email;
           if (prosp && !filled(prosp.city) && city) patch.city = city;
           if (prosp && !filled(prosp.state) && state) patch.state = state;
+          
+          // Bidirecional: Atualiza o nicho no prospect se o perfil da empresa tiver CNAE desc
+          if (prosp && !filled(prosp.nicho) && profile.cnae_principal_desc) {
+            patch.nicho = profile.cnae_principal_desc;
+          }
+
           if (Object.keys(patch).length) {
             await expectDb(db.from("prospects").update(patch).eq("id", opts.prospectId), "atualizar lead");
           }

@@ -20,6 +20,7 @@ export interface MapPoint {
   status?: string | null;
   potential?: string | null;
   nicho?: string | null;
+  data_abertura?: string | null;
 }
 
 type ProfileRow = {
@@ -27,6 +28,7 @@ type ProfileRow = {
   cnpj: string;
   razao_social: string | null;
   nome_fantasia: string | null;
+  data_abertura: string | null;
 };
 type AddrRow = {
   profile_id: string;
@@ -87,7 +89,7 @@ async function loadMapPointsRemote(): Promise<MapPoint[]> {
   const [profiles, prospects] = await Promise.all([
     fetchAll<ProfileRow>((from, to) =>
       db.from("company_profiles")
-        .select("id,cnpj,razao_social,nome_fantasia")
+        .select("id,cnpj,razao_social,nome_fantasia,data_abertura")
         .range(from, to),
     ),
     loadMapProspects(uid),
@@ -152,6 +154,7 @@ async function loadMapPointsRemote(): Promise<MapPoint[]> {
         status: p.status,
         potential: p.potential,
         nicho: p.nicho,
+        data_abertura: prof?.data_abertura ?? null,
       };
     });
 }
