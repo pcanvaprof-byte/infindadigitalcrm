@@ -1952,10 +1952,21 @@ function ProspeccaoPage() {
                 Nenhuma das empresas filtradas possui coordenadas geográficas registradas. 
                 Use a geocodificação para tentar localizá-las automaticamente.
               </p>
-              <Button onClick={() => geoMut.mutate()} disabled={geoMut.isPending} className="btn-gradient h-9">
-                {geoMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                Geocodificar agora
-              </Button>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button onClick={() => geoMut.mutate()} disabled={geoMut.isPending || autoEnrich.auto} className="btn-gradient h-9">
+                  {geoMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                  Geocodificar agora
+                </Button>
+                <Button
+                  variant={autoEnrich.auto ? "destructive" : "outline"}
+                  className="h-9"
+                  disabled={geoMut.isPending}
+                  onClick={autoEnrich.toggle}
+                >
+                  {autoEnrich.running ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                  {autoEnrich.auto ? `Parar automático (${autoEnrich.nextIn}s)` : "Enriquecer automático: 20 a cada 60s"}
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="relative h-full w-full">
@@ -1968,7 +1979,7 @@ function ProspeccaoPage() {
                     size="sm" 
                     variant="outline" 
                     className="h-7 text-[11px]" 
-                    disabled={geoMut.isPending} 
+                    disabled={geoMut.isPending || autoEnrich.auto}
                     onClick={() => geoMut.mutate()}
                   >
                     {geoMut.isPending ? (
@@ -1977,6 +1988,20 @@ function ProspeccaoPage() {
                       <Sparkles className="mr-1 h-3 w-3" />
                     )}
                     Geocodificar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={autoEnrich.auto ? "destructive" : "outline"}
+                    className="h-7 text-[11px]"
+                    disabled={geoMut.isPending}
+                    onClick={autoEnrich.toggle}
+                  >
+                    {autoEnrich.running ? (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-1 h-3 w-3" />
+                    )}
+                    {autoEnrich.auto ? `Parar (${autoEnrich.nextIn}s)` : "Auto 20/60s"}
                   </Button>
                 </div>
               )}
