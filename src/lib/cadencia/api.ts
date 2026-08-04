@@ -790,7 +790,10 @@ export async function syncLeadStagesFromProspects(): Promise<number> {
  * Prospects com status `nao_contatado` (ou sem status) permanecem em Prospecção
  * para serem selecionados no momento do disparo.
  */
-export async function importFromProspects(): Promise<{ imported: number; updated: number; skipped: number; cleaned: number }> {
+export async function importFromProspects(
+  opts: { includeNaoContatados?: boolean } = {},
+): Promise<{ imported: number; updated: number; skipped: number; cleaned: number }> {
+  const includeNaoContatados = opts.includeNaoContatados === true;
   const ctx = await getCadContext();
   if (!ctx.uid) throw new Error("Sessão expirada — entre novamente.");
   if (!ctx.orgId) throw new Error("Organização ativa não encontrada — recarregue e tente novamente.");
@@ -870,7 +873,7 @@ export async function importFromProspects(): Promise<{ imported: number; updated
     const hasContactSignal =
       ownContactedProspects.has(row.id) || Boolean(effectiveStatus && effectiveStatus !== "nao_contatado");
 
-    if (hasContactSignal) eligibleIds.push(row.id);
+    if (hasContactSignal || includeNaoContatados) eligibleIds.push(row.id);
     else naoContatadoIds.push(row.id);
 
     const digits = ((row.whatsapp || row.phone || "") as string).replace(/\D/g, "");
@@ -966,7 +969,7 @@ export async function importFromProspects(): Promise<{ imported: number; updated
       if (existingProspects.has(id)) continue;
       const privateStatus = privateStatusByProspect.get(id) ?? null;
       const hasPrivateContactSignal = Boolean(privateStatus && privateStatus !== "nao_contatado");
-      if (!ownContactedProspects.has(id) && !hasPrivateContactSignal && memberScoped) continue;
+      if (!includeNaoContatados && !ownContactedProspects.has(id) && !hasPrivateContactSignal && memberScoped) continue;
       const p = byId.get(id);
       if (!p) continue;
       const firstContact = new Date(lastContactByProspect.get(id) ?? p.created_at ?? Date.now());

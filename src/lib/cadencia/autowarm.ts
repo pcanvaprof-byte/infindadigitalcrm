@@ -48,6 +48,11 @@ export type AutowarmConfig = {
   dropAfterLastDays: number;
   /** Importar automaticamente novos prospectados para a régua. */
   autoImport: boolean;
+  /**
+   * Também aquecer leads que ainda estão em Prospecção sem nenhum disparo.
+   * Traz a base inteira (ex.: 9k leads) para a régua de aquecimento.
+   */
+  importNaoContatados: boolean;
   /** Quantidade de leads disparados em cada rodada do modo automático. */
   batchSize: number;
   /** Intervalo entre rodadas do modo automático (segundos). */
@@ -73,6 +78,7 @@ export const DEFAULT_AUTOWARM_CONFIG: AutowarmConfig = {
   warmDays: 3,
   dropAfterLastDays: 10,
   autoImport: true,
+  importNaoContatados: true,
   batchSize: 20,
   batchIntervalSec: 60,
 };
@@ -289,7 +295,7 @@ export async function runAutowarmEngine(cfg: AutowarmConfig): Promise<AutowarmRu
   let importados = 0;
   if (cfg.autoImport) {
     try {
-      const imp = await importFromProspects();
+      const imp = await importFromProspects({ includeNaoContatados: cfg.importNaoContatados });
       importados = imp.imported;
     } catch {
       /* importação é best-effort */
