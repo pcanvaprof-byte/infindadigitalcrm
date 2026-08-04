@@ -8,13 +8,15 @@ import type { Visit } from "@/lib/visits/api";
 import { visitColor } from "@/lib/visits/api";
 import { wazeUrl, type LatLng } from "@/lib/visits/route";
 
-function makeIcon(color: string, label?: string, highlight = false) {
+function makeIcon(color: string, label?: string, highlight = false, isBairroSelected = false) {
   const inner = label
     ? `<span style="transform:rotate(45deg);display:block;font:600 10px/1 system-ui;color:#fff;">${label}</span>`
     : "";
   
   const pulse = highlight 
     ? `animation: pin-pulse 1.5s infinite ease-in-out; outline: 3px solid ${color}; outline-offset: 2px; z-index: 1000;` 
+    : isBairroSelected
+    ? `outline: 2px solid ${color}; outline-offset: 1px; z-index: 500; scale: 1.1;`
     : "";
 
   return L.divIcon({
@@ -129,13 +131,14 @@ export function TasksMap({
         const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addr)}`;
         const isHighlighted = highlightQuery.length > 2 && 
           (p.nicho || "").toLowerCase().includes(highlightQuery.toLowerCase());
+        const isBairroSelected = selectedBairro === (p.bairro || "Sem bairro");
           
         return (
           <Marker 
             key={p.cnpj} 
             position={[p.lat!, p.lon!]} 
-            icon={makeIcon(color, order ? String(order) : undefined, isHighlighted)}
-            zIndexOffset={isHighlighted ? 1000 : 0}
+            icon={makeIcon(color, order ? String(order) : undefined, isHighlighted, isBairroSelected)}
+            zIndexOffset={isHighlighted ? 1000 : isBairroSelected ? 500 : 0}
           >
             <Popup>
               <div style={{ fontFamily: "inherit", fontSize: 12, minWidth: 200 }}>
