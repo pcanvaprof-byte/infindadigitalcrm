@@ -105,6 +105,7 @@ import { History, FileSpreadsheet } from "lucide-react";
 import { Pencil, Save as SaveIcon, XCircle } from "lucide-react";
 import { EnrichmentDrawer } from "@/components/EnrichmentDrawer";
 import { runEnrichment } from "@/lib/enrichment/api";
+import { useAutoEnrich } from "@/lib/enrichment/auto-batch";
 import { Loader2 } from "lucide-react";
 import { Smartphone } from "lucide-react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
@@ -627,6 +628,15 @@ function ProspeccaoPage() {
       return ok;
     },
     onSuccess: () => {
+      qc.invalidateQueries({ queryKey: crmKeys.tasks });
+      qc.invalidateQueries({ queryKey: crmKeys.prospects });
+    },
+  });
+
+  // ── Enriquecimento automático: 20 CNPJs a cada 60s ───────────────────
+  const autoEnrich = useAutoEnrich({
+    getPending: () => missingCoordsCnpjs,
+    onBatchDone: () => {
       qc.invalidateQueries({ queryKey: crmKeys.tasks });
       qc.invalidateQueries({ queryKey: crmKeys.prospects });
     },
@@ -1942,10 +1952,21 @@ function ProspeccaoPage() {
                 Nenhuma das empresas filtradas possui coordenadas geográficas registradas. 
                 Use a geocodificação para tentar localizá-las automaticamente.
               </p>
-              <Button onClick={() => geoMut.mutate()} disabled={geoMut.isPending} className="btn-gradient h-9">
-                {geoMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                Geocodificar agora
-              </Button>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button onClick={() => geoMut.mutate()} disabled={geoMut.isPending || autoEnrich.auto} className="btn-gradient h-9">
+                  {geoMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                  Geocodificar agora
+                </Button>
+                <Button
+                  variant={autoEnrich.auto ? "destructive" : "outline"}
+                  className="h-9"
+                  disabled={geoMut.isPending}
+                  onClick={autoEnrich.toggle}
+                >
+                  {autoEnrich.running ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                  {autoEnrich.auto ? `Parar automático (${autoEnrich.nextIn}s)` : "Enriquecer automático: 20 a cada 60s"}
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="relative h-full w-full">
@@ -1958,7 +1979,7 @@ function ProspeccaoPage() {
                     size="sm" 
                     variant="outline" 
                     className="h-7 text-[11px]" 
-                    disabled={geoMut.isPending} 
+                    disabled={geoMut.isPending || autoEnrich.auto}
                     onClick={() => geoMut.mutate()}
                   >
                     {geoMut.isPending ? (
@@ -1967,6 +1988,20 @@ function ProspeccaoPage() {
                       <Sparkles className="mr-1 h-3 w-3" />
                     )}
                     Geocodificar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={autoEnrich.auto ? "destructive" : "outline"}
+                    className="h-7 text-[11px]"
+                    disabled={geoMut.isPending}
+                    onClick={autoEnrich.toggle}
+                  >
+                    {autoEnrich.running ? (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-1 h-3 w-3" />
+                    )}
+                    {autoEnrich.auto ? `Parar (${autoEnrich.nextIn}s)` : "Auto 20/60s"}
                   </Button>
                 </div>
               )}
