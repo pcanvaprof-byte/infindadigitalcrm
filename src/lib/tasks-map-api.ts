@@ -19,6 +19,7 @@ export interface MapPoint {
   email?: string | null;
   status?: string | null;
   potential?: string | null;
+  nicho?: string | null;
 }
 
 type ProfileRow = {
@@ -38,6 +39,7 @@ type ProspectRow = {
   cnpj: string | null; company: string; whatsapp: string | null;
   phone: string | null; email: string | null; status: string | null;
   potential: string | null; city: string | null; state: string | null;
+  nicho: string | null;
 };
 
 type DbErrorLike = { code?: string; message?: string };
@@ -149,6 +151,7 @@ async function loadMapPointsRemote(): Promise<MapPoint[]> {
         email: p.email,
         status: p.status,
         potential: p.potential,
+        nicho: p.nicho,
       };
     });
 }
@@ -156,7 +159,7 @@ async function loadMapPointsRemote(): Promise<MapPoint[]> {
 async function loadMapProspects(uid: string): Promise<ProspectRow[]> {
   const rows = await fetchAll<ProspectRow & { id: string }>((from, to) =>
     db.from("prospects")
-      .select("id,cnpj,company,whatsapp,phone,email,potential,city,state")
+      .select("id,cnpj,company,whatsapp,phone,email,potential,city,state,nicho")
       .range(from, to),
   );
 
@@ -171,6 +174,7 @@ async function loadMapProspects(uid: string): Promise<ProspectRow[]> {
     potential: row.potential,
     city: row.city,
     state: row.state,
+    nicho: row.nicho,
   }));
 }
 

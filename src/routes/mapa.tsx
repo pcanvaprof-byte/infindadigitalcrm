@@ -187,7 +187,7 @@ function MapaPage() {
     const term = q.trim().toLowerCase();
     if (!term) return byUf;
     return byUf.filter((p) =>
-      [p.company, p.bairro, p.cidade, p.logradouro, p.cep, p.cnpj]
+      [p.company, p.bairro, p.cidade, p.logradouro, p.cep, p.cnpj, p.nicho]
         .filter(Boolean)
         .join(" ")
         .toLowerCase()
@@ -343,7 +343,7 @@ function MapaPage() {
             <Input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar empresa, bairro, CEP…"
+              placeholder="Buscar empresa, nicho, bairro…"
               className="h-9 pl-8 text-xs"
             />
           </div>
