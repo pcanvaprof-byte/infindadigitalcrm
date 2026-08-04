@@ -76,6 +76,7 @@ const NAV: readonly NavItem[] = [
   { to: "/prospeccao", label: "Prospecção", icon: Search, enabled: true },
   { to: "/mapa", label: "Mapa", icon: MapPin, enabled: true },
   { to: "/cadencia", label: "Cadência", icon: Repeat2, enabled: true },
+  { to: "/aquecimento", label: "Aquecimento Automático", icon: Flame, enabled: true },
   { to: "/meus-templates", label: "Meus Templates", icon: MessageSquareText, enabled: true },
   { to: "/operacoes", label: "Operações", icon: Briefcase, enabled: true, roles: ADMIN_ROLES },
   { to: "/briefings", label: "Briefings Comerciais", icon: FileText, enabled: true, roles: ADMIN_ROLES },
