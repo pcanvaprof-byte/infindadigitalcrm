@@ -346,7 +346,7 @@ function MapaPage() {
           )}
         </div>
       )}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[280px_1fr]">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[300px_1fr]">
         {/* Sidebar - Oculta em mobile por padrão ou colapsada */}
         <aside className="surface-card flex flex-col gap-3 p-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-140px)]">
           <div className="relative">
@@ -425,17 +425,19 @@ function MapaPage() {
             <div className="flex justify-between"><span>Sem coordenadas</span><span className="font-semibold text-foreground">{withoutCoords}</span></div>
           </div>
 
-          <Button
-            className="btn-gradient h-11 lg:h-9"
-            disabled={enriching}
-            onClick={() => enrichMut.mutate()}
-          >
-            {enriching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-            Enriquecer próximos 20
-          </Button>
-          <p className="text-[10px] text-muted-foreground leading-snug">
-            Processa em lotes de {BATCH_SIZE} CNPJs por vez (Receita Federal → ViaCEP → OpenStreetMap).
-          </p>
+          <div className="flex flex-col gap-1.5 mt-auto">
+            <Button
+              className="btn-gradient w-full h-11 lg:h-9"
+              disabled={enriching}
+              onClick={() => enrichMut.mutate()}
+            >
+              {enriching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+              Enriquecer próximos 20
+            </Button>
+            <p className="text-[10px] text-muted-foreground leading-tight text-center">
+              Processa em lotes de {BATCH_SIZE} CNPJs por vez.
+            </p>
+          </div>
 
           <div className="flex-1 overflow-y-auto px-1 -mx-1 max-h-[300px] lg:max-h-[calc(100vh-320px)]">
             {selectedBairro && (

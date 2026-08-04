@@ -79,7 +79,7 @@ export function VisitCheckinDialog({ point, onClose, onSaved }: Props) {
 
   return (
     <Dialog open={!!point} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-base">Check-in de visita</DialogTitle>
           <DialogDescription className="truncate">
