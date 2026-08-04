@@ -24,6 +24,7 @@ import {
   type CadTemp,
 } from "./types";
 import { listLeads, updateLead, moveStage, importFromProspects } from "./api";
+import { supabase } from "@/integrations/supabase/client";
 
 export const FOLLOWUP_STAGES = CAD_STAGES.filter((s) => s.startsWith("followup_")) as readonly CadStage[];
 
@@ -95,6 +96,24 @@ export function saveAutowarmConfig(cfg: AutowarmConfig): void {
   } catch {
     /* ignore */
   }
+}
+
+/** Disparos outbound já registrados hoje pelo usuário atual. */
+export async function countSendsToday(): Promise<number> {
+  const db = supabase as unknown as { from: (t: string) => any };
+  const { data: auth } = await supabase.auth.getUser();
+  const uid = auth?.user?.id;
+  if (!uid) return 0;
+  const inicio = new Date();
+  inicio.setHours(0, 0, 0, 0);
+  const { count, error } = await db
+    .from("cad_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("author_id", uid)
+    .eq("direction", "out")
+    .gte("created_at", inicio.toISOString());
+  if (error) return 0;
+  return count ?? 0;
 }
 
 // ============================================================
