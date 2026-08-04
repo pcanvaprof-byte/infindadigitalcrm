@@ -346,7 +346,7 @@ function MapaPage() {
           )}
         </div>
       )}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[300px_1fr]">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[320px_1fr]">
         {/* Sidebar - Oculta em mobile por padrão ou colapsada */}
         <aside className="surface-card flex flex-col gap-3 p-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-140px)]">
           <div className="relative">
@@ -483,7 +483,7 @@ function MapaPage() {
                           <span
                             key={i}
                             title={n ?? undefined}
-                            className="max-w-[45%] sm:max-w-[110px] lg:max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap rounded-sm bg-muted/50 px-1 py-[1px] font-bold tracking-wider text-muted-foreground uppercase transition-all duration-200"
+                            className="max-w-[42%] sm:max-w-[110px] lg:max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap rounded-sm bg-muted/50 px-1 py-[1px] font-bold tracking-wider text-muted-foreground uppercase transition-all duration-200"
                             style={{ 
                               fontSize: 'clamp(8px, 2.2vw, 10px)',
                               lineHeight: '1rem'

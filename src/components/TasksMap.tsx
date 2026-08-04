@@ -146,9 +146,9 @@ export function TasksMap({
             zIndexOffset={isHighlighted ? 1000 : isBairroSelected ? 500 : 0}
           >
             <Popup>
-              <div className="p-1" style={{ fontFamily: "inherit", fontSize: 13, minWidth: 220 }}>
+              <div className="p-1 max-w-[90vw] sm:max-w-none" style={{ fontFamily: "inherit", fontSize: 13, minWidth: 220 }}>
                 <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.company}</div>
-                <div style={{ color: "#666", marginBottom: 8, lineHeight: 1.4 }}>{addr || "—"}</div>
+                <div style={{ color: "#666", marginBottom: 8, lineHeight: 1.4, fontSize: 'clamp(11px, 3.2vw, 13px)' }}>{addr || "—"}</div>
                 {p.nicho && (
                   <div style={{ marginBottom: 6, maxWidth: "100%" }}>
                     <span
