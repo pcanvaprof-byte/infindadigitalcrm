@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { fetchCnpj, sanitizeCnpj } from "./cnpj";
+import { fetchCnpj, sanitizeCnpj, completeCnpj } from "./cnpj";
 import { fetchCep, mergeAddress } from "./cep";
 import { geocode } from "./geo";
 import { fetchMarketData } from "./ibge";
