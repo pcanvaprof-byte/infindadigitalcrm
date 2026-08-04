@@ -211,128 +211,6 @@ function AquecimentoPage() {
     if (mobile) window.location.href = url;
   }
 
-  // ── Modo automático: lotes de N leads a cada X segundos ──────────────
-  const [auto, setAuto] = useState(false);
-  const [autoLog, setAutoLog] = useState<string[]>([]);
-  const [nextIn, setNextIn] = useState(0);
-  const autoRef = useRef(false);
-  const busyRef = useRef(false);
-
-  function log(line: string) {
-    setAutoLog((prev) => [`${new Date().toLocaleTimeString("pt-BR")} · ${line}`, ...prev].slice(0, 40));
-  }
-
-  async function buildMsgFor(lead: CadLead): Promise<string> {
-    const tpl = await resolveTemplate(lead.stage);
-    const corpo = tpl?.corpo ?? "";
-    if (!corpo) return "";
-    const pick = chooseVariant(corpo, {
-      scope: "cadencia",
-      bucketKey: `cad:${lead.stage}`,
-      stage: lead.stage,
-      leadId: lead.id,
-      company: lead.empresa ?? null,
-    });
-    return sanitizeTemplateForSend(renderTemplate(pick.text, lead));
-  }
-
-  async function dispatchLead(lead: CadLead, win: Window | null): Promise<"ok" | "skip" | "fail"> {
-    const elig = leadElegivelParaDisparo(lead);
-    if (!elig.elegivel) {
-      log(`${lead.empresa}: ${elig.motivo || "não elegível"}`);
-      return "skip";
-    }
-    const phone = waPhone(lead.whatsapp || lead.telefone || "");
-    if (!phone) {
-      log(`${lead.empresa}: sem WhatsApp`);
-      return "skip";
-    }
-    const sendMsg = await buildMsgFor(lead);
-    if (!sendMsg) {
-      log(`${lead.empresa}: template do estágio vazio`);
-      return "skip";
-    }
-    const lock = await wasDispatchedToday({ leadId: lead.id, prospectId: lead.prospect_id ?? null });
-    if (lock.blocked) {
-      log(`${lead.empresa}: ${dispatchBlockedMessage(lock.source!)}`);
-      return "skip";
-    }
-    const url = `https://wa.me/${phone}?text=${encodeURIComponent(sendMsg)}`;
-    if (win && !win.closed) win.location.href = url;
-    else window.open(url, "_blank", "noopener,noreferrer");
-    try {
-      await registerSend({ leadId: lead.id, tipo: "whatsapp", mensagem: sendMsg, advance: true });
-      try {
-        await markProspectContactedFromLead(lead.id);
-      } catch {
-        /* sync best-effort */
-      }
-      log(`${lead.empresa}: disparo registrado`);
-      return "ok";
-    } catch (e) {
-      log(`${lead.empresa}: falha — ${(e as Error).message}`);
-      return "fail";
-    }
-  }
-
-  async function runAutoBatch() {
-    if (busyRef.current) return;
-    busyRef.current = true;
-    try {
-      const enviados = await countSendsToday();
-      const restaHoje = Math.max(0, cfg.dailyCap - enviados);
-      if (restaHoje <= 0) {
-        log("Teto diário atingido — modo automático pausado.");
-        autoRef.current = false;
-        setAuto(false);
-        return;
-      }
-      const leads = await listLeads();
-      const p = planAutowarm(leads, cfg, new Date(), enviados);
-      const lote = p.fila.slice(0, Math.min(cfg.batchSize, restaHoje));
-      if (lote.length === 0) {
-        log("Nenhum lead vencido agora — aguardando próxima rodada.");
-        return;
-      }
-      log(`Rodada iniciada: ${lote.length} lead(s).`);
-      const win = isMobile() ? null : window.open("about:blank", "infinda_autowarm");
-      let ok = 0;
-      for (const lead of lote) {
-        if (!autoRef.current) break;
-        const r = await dispatchLead(lead, win);
-        if (r === "ok") ok += 1;
-        await new Promise((res) => setTimeout(res, 1500));
-      }
-      log(`Rodada concluída: ${ok} disparo(s) registrado(s).`);
-      qc.invalidateQueries({ queryKey: ["cad-leads"] });
-      qc.invalidateQueries({ queryKey: ["autowarm-sent-today"] });
-      setCursor(0);
-    } finally {
-      busyRef.current = false;
-    }
-  }
-
-  useEffect(() => {
-    autoRef.current = auto;
-    if (!auto) {
-      setNextIn(0);
-      return;
-    }
-    void runAutoBatch();
-    setNextIn(cfg.batchIntervalSec);
-    const tick = window.setInterval(() => {
-      setNextIn((n) => {
-        if (n <= 1) {
-          if (autoRef.current) void runAutoBatch();
-          return cfg.batchIntervalSec;
-        }
-        return n - 1;
-      });
-    }, 1000);
-    return () => window.clearInterval(tick);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auto, cfg.batchIntervalSec, cfg.batchSize, cfg.dailyCap]);
-
   const restante = Math.max(0, cfg.dailyCap - (sentQ.data ?? 0));
 
   return (
@@ -343,10 +221,6 @@ function AquecimentoPage() {
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={() => setShowCfg((v) => !v)}>
             <Settings2 className="mr-2 h-4 w-4" /> Regras
-          </Button>
-          <Button variant={auto ? "destructive" : "default"} onClick={() => setAuto((v) => !v)}>
-            {auto ? <Square className="mr-2 h-4 w-4" /> : <Zap className="mr-2 h-4 w-4" />}
-            {auto ? `Parar automático (${nextIn}s)` : `Disparar ${cfg.batchSize} a cada ${cfg.batchIntervalSec}s`}
           </Button>
           <Button variant="outline" onClick={() => runMut.mutate()} disabled={runMut.isPending}>
             {runMut.isPending ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
@@ -516,27 +390,6 @@ function AquecimentoPage() {
           </div>
 
           <div className="space-y-4">
-          {auto && (
-            <div className="rounded-lg border border-primary/40 bg-primary/5 p-3">
-              <p className="text-xs font-semibold">
-                Modo automático ativo — {cfg.batchSize} leads a cada {cfg.batchIntervalSec}s (próxima rodada em {nextIn}s)
-              </p>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Mantenha esta aba aberta e permita pop-ups: cada lead abre a conversa do WhatsApp e o disparo é
-                registrado automaticamente.
-              </p>
-            </div>
-          )}
-          {autoLog.length > 0 && (
-            <div className="rounded-lg border border-border bg-card p-3">
-              <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Log</h2>
-              <ul className="max-h-40 space-y-1 overflow-y-auto text-[11px] text-muted-foreground">
-                {autoLog.map((l, i) => (
-                  <li key={i} className="truncate">{l}</li>
-                ))}
-              </ul>
-            </div>
-          )}
           <div className="rounded-lg border border-border bg-card p-4">
             <h2 className="mb-3 text-sm font-semibold">Fila do dia</h2>
             <ul className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
