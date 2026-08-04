@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Flame, Play, RefreshCw, Send, Settings2, SkipForward, Clock } from "lucide-react";
+import { Play, RefreshCw, Send, Settings2, SkipForward, Clock } from "lucide-react";
 
 import { AppShell } from "@/components/AppShell";
 import { RequireAuth } from "@/lib/auth-context";
