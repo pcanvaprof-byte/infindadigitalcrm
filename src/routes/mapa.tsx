@@ -569,6 +569,11 @@ function MapaPage() {
                       <span className="block truncate font-medium">{p.company}</span>
                       <span className="block truncate text-muted-foreground">
                         {[p.logradouro, p.numero, p.bairro].filter(Boolean).join(", ") || "—"}
+                        {p.data_abertura && (
+                          <span className="ml-2 font-normal">
+                            • Abertura: {new Date(p.data_abertura).toLocaleDateString("pt-BR")}
+                          </span>
+                        )}
                       </span>
                     </button>
                   </li>
