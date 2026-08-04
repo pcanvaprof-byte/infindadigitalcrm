@@ -605,6 +605,26 @@ function ProspeccaoPage() {
       .filter(Boolean);
   }, [filteredOrdered, filteredMapPoints]);
 
+  // Leads que precisam de enriquecimento de cadastro: sem nome de empresa
+  // (ou com o próprio número como nome) ou com CNPJ incompleto (< 14 dígitos).
+  const missingProfileCnpjs = useMemo(() => {
+    return filteredOrdered
+      .filter((p) => {
+        const digits = (p.cnpj || "").replace(/\D/g, "");
+        if (!digits) return false;
+        if (digits.length !== 14) return true;
+        const nome = (p.company || "").trim();
+        return !nome || nome.replace(/\D/g, "").length === nome.replace(/[\s./-]/g, "").length;
+      })
+      .map((p) => p.cnpj!.replace(/\D/g, ""))
+      .filter(Boolean);
+  }, [filteredOrdered]);
+
+  const pendingEnrichCnpjs = useMemo(
+    () => Array.from(new Set([...missingProfileCnpjs, ...missingCoordsCnpjs])),
+    [missingProfileCnpjs, missingCoordsCnpjs],
+  );
+
   const geoMut = useMutation({
     mutationFn: async () => {
       const missing = missingCoordsCnpjs.slice(0, 50);
@@ -633,9 +653,10 @@ function ProspeccaoPage() {
     },
   });
 
-  // ── Enriquecimento automático: 20 CNPJs a cada 60s ───────────────────
+  // ── Enriquecimento automático: 20 CNPJs a cada 60s (nome, CNPJ, endereço) ──
   const autoEnrich = useAutoEnrich({
-    getPending: () => missingCoordsCnpjs,
+    getPending: () => pendingEnrichCnpjs,
+    autoStart: true,
     onBatchDone: () => {
       qc.invalidateQueries({ queryKey: crmKeys.tasks });
       qc.invalidateQueries({ queryKey: crmKeys.prospects });
