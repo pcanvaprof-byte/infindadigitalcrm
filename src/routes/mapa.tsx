@@ -346,7 +346,7 @@ function MapaPage() {
           )}
         </div>
       )}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[300px_1fr]">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[320px_1fr]">
         {/* Sidebar - Oculta em mobile por padrão ou colapsada */}
         <aside className="surface-card flex flex-col gap-3 p-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-140px)]">
           <div className="relative">
@@ -360,7 +360,7 @@ function MapaPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-3">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-2 sm:grid sm:grid-cols-2">
               <Select
                 value={uf}
                 onValueChange={(v) => {
@@ -421,8 +421,8 @@ function MapaPage() {
           </div>
 
           <div className="rounded-md border border-border/60 p-2 text-[11px] text-muted-foreground space-y-1">
-            <div className="flex justify-between"><span>No mapa</span><span className="font-semibold text-foreground">{withCoords}</span></div>
-            <div className="flex justify-between"><span>Sem coordenadas</span><span className="font-semibold text-foreground">{withoutCoords}</span></div>
+            <div className="flex justify-between items-center"><span>No mapa</span><span className="font-semibold text-foreground bg-primary/5 px-1.5 rounded">{withCoords}</span></div>
+            <div className="flex justify-between items-center"><span>Sem coordenadas</span><span className="font-semibold text-foreground bg-muted/50 px-1.5 rounded">{withoutCoords}</span></div>
           </div>
 
           <div className="flex flex-col gap-1.5 mt-auto">
@@ -483,7 +483,7 @@ function MapaPage() {
                           <span
                             key={i}
                             title={n ?? undefined}
-                            className="max-w-[45%] sm:max-w-[110px] lg:max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap rounded-sm bg-muted/50 px-1 py-[1px] font-bold tracking-wider text-muted-foreground uppercase transition-all duration-200"
+                            className="max-w-[42%] sm:max-w-[110px] lg:max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap rounded-sm bg-muted/50 px-1 py-[1px] font-bold tracking-wider text-muted-foreground uppercase transition-all duration-200"
                             style={{ 
                               fontSize: 'clamp(8px, 2.2vw, 10px)',
                               lineHeight: '1rem'
@@ -524,7 +524,7 @@ function MapaPage() {
         </aside>
 
         {/* Map - Prioridade visual em mobile */}
-        <section className="surface-card overflow-hidden p-0 h-[70vh] min-h-[400px] lg:h-[calc(100vh-200px)] lg:min-h-[480px] order-first lg:order-none">
+        <section className="surface-card overflow-hidden p-0 h-[65vh] min-h-[380px] lg:h-[calc(100vh-200px)] lg:min-h-[480px] order-first lg:order-none">
           {loading ? (
             <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando mapa…

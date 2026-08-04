@@ -111,7 +111,13 @@ export function TasksMap({
   const mapRef = useRef<L.Map | null>(null);
 
   return (
-    <MapContainer
+    <div className="h-full w-full relative">
+      <style>{`
+        .leaflet-popup-content-wrapper { padding: 0 !important; border-radius: 12px !important; overflow: hidden !important; }
+        .leaflet-popup-content { margin: 0 !important; width: auto !important; }
+        .leaflet-container { font-family: inherit !important; }
+      `}</style>
+      <MapContainer
       center={[-14.235, -51.9253]}
       zoom={4}
       scrollWheelZoom
@@ -146,9 +152,9 @@ export function TasksMap({
             zIndexOffset={isHighlighted ? 1000 : isBairroSelected ? 500 : 0}
           >
             <Popup>
-              <div className="p-1" style={{ fontFamily: "inherit", fontSize: 13, minWidth: 220 }}>
+              <div className="p-4" style={{ fontFamily: "inherit", fontSize: 13, minWidth: 260, maxWidth: "calc(100vw - 80px)" }}>
                 <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.company}</div>
-                <div style={{ color: "#666", marginBottom: 8, lineHeight: 1.4 }}>{addr || "—"}</div>
+                <div style={{ color: "#666", marginBottom: 8, lineHeight: 1.4, fontSize: 'clamp(11px, 3.2vw, 13px)' }}>{addr || "—"}</div>
                 {p.nicho && (
                   <div style={{ marginBottom: 6, maxWidth: "100%" }}>
                     <span
@@ -163,7 +169,7 @@ export function TasksMap({
                         borderRadius: 4,
                         background: "rgba(14, 165, 233, 0.1)",
                         color: "#0ea5e9",
-                        fontSize: "clamp(9px, 3.2vw, 11px)",
+                        fontSize: "clamp(10px, 2.5vw, 11px)",
                         lineHeight: 1.5,
                         fontWeight: 600,
                         textTransform: "uppercase",
@@ -233,6 +239,7 @@ export function TasksMap({
           </Marker>
         );
       })}
-    </MapContainer>
+      </MapContainer>
+    </div>
   );
 }

@@ -289,7 +289,7 @@ export function AppShell({
             <TrialBanner daysRemaining={access.days_remaining} />
           )}
         <header
-          className="sticky top-0 z-30 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/80 px-3 py-2.5 backdrop-blur-xl sm:gap-4 sm:px-6 sm:py-3"
+          className="sticky top-0 z-[1001] grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/80 px-3 py-2.5 backdrop-blur-xl sm:gap-4 sm:px-6 sm:py-3"
           style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 0.625rem)" }}
         >
           <div className="flex items-center gap-3">
