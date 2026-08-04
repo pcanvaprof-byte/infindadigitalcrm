@@ -475,6 +475,7 @@ function MapaPage() {
                 visits={visits}
                 colorMode="status"
                 route={route}
+                highlightQuery={q}
                 origin={origin}
                 onCheckin={setCheckinPoint}
               />

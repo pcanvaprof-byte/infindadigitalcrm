@@ -8,17 +8,31 @@ import type { Visit } from "@/lib/visits/api";
 import { visitColor } from "@/lib/visits/api";
 import { wazeUrl, type LatLng } from "@/lib/visits/route";
 
-function makeIcon(color: string, label?: string) {
+function makeIcon(color: string, label?: string, highlight = false) {
   const inner = label
     ? `<span style="transform:rotate(45deg);display:block;font:600 10px/1 system-ui;color:#fff;">${label}</span>`
     : "";
+  
+  const pulse = highlight 
+    ? `animation: pin-pulse 1.5s infinite ease-in-out; outline: 3px solid ${color}; outline-offset: 2px; z-index: 1000;` 
+    : "";
+
   return L.divIcon({
     className: "",
-    html: `<div style="
-      width:22px;height:22px;border-radius:50% 50% 50% 0;
-      display:flex;align-items:center;justify-content:center;
-      background:${color};transform:rotate(-45deg);
-      border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4);">${inner}</div>`,
+    html: `
+      <style>
+        @keyframes pin-pulse {
+          0% { transform: rotate(-45deg) scale(1); box-shadow: 0 0 0 0 rgba(0,0,0,0.4); }
+          50% { transform: rotate(-45deg) scale(1.2); box-shadow: 0 0 15px 5px rgba(0,0,0,0.2); }
+          100% { transform: rotate(-45deg) scale(1); box-shadow: 0 0 0 0 rgba(0,0,0,0.4); }
+        }
+      </style>
+      <div style="
+        width:22px;height:22px;border-radius:50% 50% 50% 0;
+        display:flex;align-items:center;justify-content:center;
+        background:${color};transform:rotate(-45deg);
+        border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4);
+        ${pulse}">${inner}</div>`,
     iconSize: [22, 22],
     iconAnchor: [11, 22],
     popupAnchor: [0, -20],
@@ -57,6 +71,7 @@ interface Props {
   route?: MapPoint[];
   origin?: LatLng | null;
   onCheckin?: (p: MapPoint) => void;
+  highlightQuery?: string;
 }
 
 const digits = (v?: string | null) => (v ?? "").replace(/\D/g, "");
@@ -69,6 +84,7 @@ export function TasksMap({
   route = [],
   origin = null,
   onCheckin,
+  highlightQuery = "",
 }: Props) {
   const visible = useMemo(
     () => points.filter((p) => p.lat && p.lon && (!selectedBairro || (p.bairro || "Sem bairro") === selectedBairro)),
@@ -111,8 +127,16 @@ export function TasksMap({
         const order = routeOrder.get(digits(p.cnpj));
         const addr = [p.logradouro, p.numero, p.bairro, p.cidade, p.uf].filter(Boolean).join(", ");
         const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addr)}`;
+        const isHighlighted = highlightQuery.length > 2 && 
+          (p.nicho || "").toLowerCase().includes(highlightQuery.toLowerCase());
+          
         return (
-          <Marker key={p.cnpj} position={[p.lat!, p.lon!]} icon={makeIcon(color, order ? String(order) : undefined)}>
+          <Marker 
+            key={p.cnpj} 
+            position={[p.lat!, p.lon!]} 
+            icon={makeIcon(color, order ? String(order) : undefined, isHighlighted)}
+            zIndexOffset={isHighlighted ? 1000 : 0}
+          >
             <Popup>
               <div style={{ fontFamily: "inherit", fontSize: 12, minWidth: 200 }}>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>{p.company}</div>
