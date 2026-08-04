@@ -431,6 +431,11 @@ function MapaPage() {
                           style={{ background: color }}
                         />
                         <span className="truncate font-medium">{bairro}</span>
+                        {items[0]?.nicho && (
+                          <span className="ml-1 truncate text-[9px] text-muted-foreground opacity-70">
+                            • {items[0].nicho}
+                          </span>
+                        )}
                       </span>
                       <Badge variant="outline" className="ml-2 h-5 px-1.5 text-[10px]">
                         {items.length}
