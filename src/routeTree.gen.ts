@@ -31,6 +31,7 @@ import { Route as BriefingsRouteImport } from './routes/briefings'
 import { Route as BiRouteImport } from './routes/bi'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AssinaturaRouteImport } from './routes/assinatura'
+import { Route as AquecimentoRouteImport } from './routes/aquecimento'
 import { Route as ApiKeysRouteImport } from './routes/api-keys'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OperacoesIndexRouteImport } from './routes/operacoes.index'
@@ -177,6 +178,11 @@ const AuthRoute = AuthRouteImport.update({
 const AssinaturaRoute = AssinaturaRouteImport.update({
   id: '/assinatura',
   path: '/assinatura',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AquecimentoRoute = AquecimentoRouteImport.update({
+  id: '/aquecimento',
+  path: '/aquecimento',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiKeysRoute = ApiKeysRouteImport.update({
@@ -376,6 +382,7 @@ const ApiPublicV1ClientsIdInteractionsRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/api-keys': typeof ApiKeysRoute
+  '/aquecimento': typeof AquecimentoRoute
   '/assinatura': typeof AssinaturaRoute
   '/auth': typeof AuthRouteWithChildren
   '/bi': typeof BiRouteWithChildren
@@ -436,6 +443,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/api-keys': typeof ApiKeysRoute
+  '/aquecimento': typeof AquecimentoRoute
   '/assinatura': typeof AssinaturaRoute
   '/auth': typeof AuthRouteWithChildren
   '/bi': typeof BiRouteWithChildren
@@ -495,6 +503,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/api-keys': typeof ApiKeysRoute
+  '/aquecimento': typeof AquecimentoRoute
   '/assinatura': typeof AssinaturaRoute
   '/auth': typeof AuthRouteWithChildren
   '/bi': typeof BiRouteWithChildren
@@ -557,6 +566,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/api-keys'
+    | '/aquecimento'
     | '/assinatura'
     | '/auth'
     | '/bi'
@@ -617,6 +627,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/api-keys'
+    | '/aquecimento'
     | '/assinatura'
     | '/auth'
     | '/bi'
@@ -675,6 +686,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/api-keys'
+    | '/aquecimento'
     | '/assinatura'
     | '/auth'
     | '/bi'
@@ -736,6 +748,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApiKeysRoute: typeof ApiKeysRoute
+  AquecimentoRoute: typeof AquecimentoRoute
   AssinaturaRoute: typeof AssinaturaRoute
   AuthRoute: typeof AuthRouteWithChildren
   BiRoute: typeof BiRouteWithChildren
@@ -927,6 +940,13 @@ declare module '@tanstack/react-router' {
       path: '/assinatura'
       fullPath: '/assinatura'
       preLoaderRoute: typeof AssinaturaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/aquecimento': {
+      id: '/aquecimento'
+      path: '/aquecimento'
+      fullPath: '/aquecimento'
+      preLoaderRoute: typeof AquecimentoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api-keys': {
@@ -1322,6 +1342,7 @@ const ApiPublicV1ClientsRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApiKeysRoute: ApiKeysRoute,
+  AquecimentoRoute: AquecimentoRoute,
   AssinaturaRoute: AssinaturaRoute,
   AuthRoute: AuthRouteWithChildren,
   BiRoute: BiRouteWithChildren,
@@ -1361,13 +1382,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
