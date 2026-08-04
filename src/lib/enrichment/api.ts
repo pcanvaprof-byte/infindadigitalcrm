@@ -385,7 +385,7 @@ export async function runEnrichment(
         try {
           const { data: prosp } = await db
             .from("prospects")
-            .select("phone, whatsapp, email, city, state")
+            .select("phone, whatsapp, email, city, state, segment")
             .eq("id", opts.prospectId)
             .maybeSingle();
           const patch: Record<string, string> = {};
