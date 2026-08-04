@@ -355,11 +355,11 @@ function MapaPage() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Buscar empresa, nicho, bairro…"
-              className="h-9 pl-8 text-xs"
+              className="h-11 pl-9 text-sm lg:h-9 lg:pl-8 lg:text-xs"
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-2">
+          <div className="grid grid-cols-1 gap-3">
             <div className="grid grid-cols-2 gap-2">
               <Select
                 value={uf}
@@ -368,7 +368,7 @@ function MapaPage() {
                   setSelectedBairro(null);
                 }}
               >
-                <SelectTrigger className="h-9 text-xs">
+                <SelectTrigger className="h-11 text-sm lg:h-9 lg:text-xs">
                   <SelectValue placeholder="Estado" />
                 </SelectTrigger>
                 <SelectContent>
@@ -385,7 +385,7 @@ function MapaPage() {
                 value={selectedBairro ?? "all"}
                 onValueChange={(v) => setSelectedBairro(v === "all" ? null : v)}
               >
-                <SelectTrigger className="h-9 text-xs">
+                <SelectTrigger className="h-11 text-sm lg:h-9 lg:text-xs">
                   <SelectValue placeholder="Bairro" />
                 </SelectTrigger>
                 <SelectContent>
@@ -406,7 +406,7 @@ function MapaPage() {
                 setSelectedBairro(null);
               }}
             >
-              <SelectTrigger className="h-9 text-xs">
+              <SelectTrigger className="h-11 text-sm lg:h-9 lg:text-xs">
                 <SelectValue placeholder="Nicho" />
               </SelectTrigger>
               <SelectContent>
@@ -426,7 +426,7 @@ function MapaPage() {
           </div>
 
           <Button
-            className="btn-gradient h-9"
+            className="btn-gradient h-11 lg:h-9"
             disabled={enriching}
             onClick={() => enrichMut.mutate()}
           >

@@ -9,8 +9,13 @@ import { visitColor } from "@/lib/visits/api";
 import { wazeUrl, type LatLng } from "@/lib/visits/route";
 
 function makeIcon(color: string, label?: string, highlight = false, isBairroSelected = false) {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const size = isMobile ? 28 : 22;
+  const anchor = isMobile ? 14 : 11;
+  const popupAnchor = isMobile ? -24 : -20;
+  
   const inner = label
-    ? `<span style="transform:rotate(45deg);display:block;font:600 10px/1 system-ui;color:#fff;">${label}</span>`
+    ? `<span style="transform:rotate(45deg);display:block;font:600 ${isMobile ? '12px' : '10px'}/1 system-ui;color:#fff;">${label}</span>`
     : "";
   
   const pulse = highlight 
@@ -30,14 +35,14 @@ function makeIcon(color: string, label?: string, highlight = false, isBairroSele
         }
       </style>
       <div style="
-        width:22px;height:22px;border-radius:50% 50% 50% 0;
+        width:${size}px;height:${size}px;border-radius:50% 50% 50% 0;
         display:flex;align-items:center;justify-content:center;
         background:${color};transform:rotate(-45deg);
         border:2px solid white;box-shadow:0 1px 4px rgba(0,0,0,.4);
         ${pulse}">${inner}</div>`,
-    iconSize: [22, 22],
-    iconAnchor: [11, 22],
-    popupAnchor: [0, -20],
+    iconSize: [size, size],
+    iconAnchor: [anchor, size],
+    popupAnchor: [0, popupAnchor],
   });
 }
 
@@ -141,9 +146,9 @@ export function TasksMap({
             zIndexOffset={isHighlighted ? 1000 : isBairroSelected ? 500 : 0}
           >
             <Popup>
-              <div style={{ fontFamily: "inherit", fontSize: 12, minWidth: 200 }}>
-                <div style={{ fontWeight: 600, marginBottom: 4 }}>{p.company}</div>
-                <div style={{ color: "#666", marginBottom: 4 }}>{addr || "—"}</div>
+              <div className="p-1" style={{ fontFamily: "inherit", fontSize: 13, minWidth: 220 }}>
+                <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 14 }}>{p.company}</div>
+                <div style={{ color: "#666", marginBottom: 8, lineHeight: 1.4 }}>{addr || "—"}</div>
                 {p.nicho && (
                   <div style={{ marginBottom: 6 }}>
                     <span
@@ -187,11 +192,11 @@ export function TasksMap({
                 {p.whatsapp && <div>📱 {p.whatsapp}</div>}
                 {p.phone && <div>☎️ {p.phone}</div>}
                 {p.email && <div>✉️ {p.email}</div>}
-                <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <a href={mapsUrl} target="_blank" rel="noreferrer" style={{ color: "#2563eb" }}>
+                <div style={{ marginTop: 12, display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <a href={mapsUrl} target="_blank" rel="noreferrer" style={{ color: "#2563eb", padding: "6px 4px", minWidth: 44, textAlign: 'center' }}>
                     Rotas
                   </a>
-                  <a href={wazeUrl(p)} target="_blank" rel="noreferrer" style={{ color: "#2563eb" }}>
+                  <a href={wazeUrl(p)} target="_blank" rel="noreferrer" style={{ color: "#2563eb", padding: "6px 4px", minWidth: 44, textAlign: 'center' }}>
                     Waze
                   </a>
                   {onCheckin && (
@@ -202,10 +207,12 @@ export function TasksMap({
                         border: "none",
                         background: "#16a34a",
                         color: "#fff",
-                        borderRadius: 6,
-                        padding: "3px 8px",
+                        borderRadius: 8,
+                        padding: "6px 12px",
                         cursor: "pointer",
-                        fontSize: 11,
+                        fontSize: 12,
+                        minHeight: 36,
+                        minWidth: 80,
                       }}
                     >
                       Check-in
