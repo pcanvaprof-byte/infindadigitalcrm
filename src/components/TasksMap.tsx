@@ -111,7 +111,13 @@ export function TasksMap({
   const mapRef = useRef<L.Map | null>(null);
 
   return (
-    <MapContainer
+    <div className="h-full w-full relative">
+      <style>{`
+        .leaflet-popup-content-wrapper { padding: 0 !important; border-radius: 12px !important; overflow: hidden !important; }
+        .leaflet-popup-content { margin: 0 !important; width: auto !important; }
+        .leaflet-container { font-family: inherit !important; }
+      `}</style>
+      <MapContainer
       center={[-14.235, -51.9253]}
       zoom={4}
       scrollWheelZoom
@@ -146,7 +152,7 @@ export function TasksMap({
             zIndexOffset={isHighlighted ? 1000 : isBairroSelected ? 500 : 0}
           >
             <Popup>
-              <div className="p-1 max-w-[90vw] sm:max-w-none" style={{ fontFamily: "inherit", fontSize: 13, minWidth: 220 }}>
+              <div className="p-4" style={{ fontFamily: "inherit", fontSize: 13, minWidth: 260, maxWidth: "calc(100vw - 80px)" }}>
                 <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.company}</div>
                 <div style={{ color: "#666", marginBottom: 8, lineHeight: 1.4, fontSize: 'clamp(11px, 3.2vw, 13px)' }}>{addr || "—"}</div>
                 {p.nicho && (
@@ -233,6 +239,7 @@ export function TasksMap({
           </Marker>
         );
       })}
-    </MapContainer>
+      </MapContainer>
+    </div>
   );
 }

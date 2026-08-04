@@ -360,7 +360,7 @@ function MapaPage() {
           </div>
 
           <div className="grid grid-cols-1 gap-3">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-2 sm:grid sm:grid-cols-2">
               <Select
                 value={uf}
                 onValueChange={(v) => {
@@ -421,8 +421,8 @@ function MapaPage() {
           </div>
 
           <div className="rounded-md border border-border/60 p-2 text-[11px] text-muted-foreground space-y-1">
-            <div className="flex justify-between"><span>No mapa</span><span className="font-semibold text-foreground">{withCoords}</span></div>
-            <div className="flex justify-between"><span>Sem coordenadas</span><span className="font-semibold text-foreground">{withoutCoords}</span></div>
+            <div className="flex justify-between items-center"><span>No mapa</span><span className="font-semibold text-foreground bg-primary/5 px-1.5 rounded">{withCoords}</span></div>
+            <div className="flex justify-between items-center"><span>Sem coordenadas</span><span className="font-semibold text-foreground bg-muted/50 px-1.5 rounded">{withoutCoords}</span></div>
           </div>
 
           <div className="flex flex-col gap-1.5 mt-auto">
