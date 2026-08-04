@@ -11,6 +11,8 @@ export interface AutoEnrichOptions {
   onBatchDone?: () => void;
   batchSize?: number;
   intervalSec?: number;
+  /** Liga o modo automático sozinho na primeira vez que houver pendências. */
+  autoStart?: boolean;
 }
 
 /**
@@ -29,6 +31,7 @@ export function useAutoEnrich(opts: AutoEnrichOptions) {
 
   const autoRef = useRef(false);
   const busyRef = useRef(false);
+  const startedRef = useRef(false);
   const optsRef = useRef(opts);
   optsRef.current = opts;
 
@@ -69,6 +72,13 @@ export function useAutoEnrich(opts: AutoEnrichOptions) {
       setRunning(false);
     }
   }, [addLog, batchSize]);
+
+  useEffect(() => {
+    if (!opts.autoStart || startedRef.current) return;
+    if (!optsRef.current.getPending().length) return;
+    startedRef.current = true;
+    setAuto(true);
+  }, [opts.autoStart, opts.getPending]);
 
   useEffect(() => {
     autoRef.current = auto;
