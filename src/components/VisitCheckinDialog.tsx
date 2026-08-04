@@ -93,26 +93,26 @@ export function VisitCheckinDialog({ point, onClose, onSaved }: Props) {
           </div>
         )}
 
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Resultado da visita</Label>
+        <div className="space-y-4 py-2">
+          <div className="space-y-2">
+            <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Resultado da visita</Label>
             <div className="grid grid-cols-2 gap-2">
               {VISIT_STATUSES.map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => setStatus(s)}
-                  className={`flex items-center gap-2 rounded-md border px-2 py-2 text-xs transition ${
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-xs transition-all active:scale-[0.98] ${
                     status === s
-                      ? "border-primary bg-primary/10 font-medium"
-                      : "border-border/60 hover:bg-accent"
+                      ? "border-primary bg-primary/10 font-semibold ring-1 ring-primary/20"
+                      : "border-border/60 bg-muted/30 hover:bg-accent"
                   }`}
                 >
                   <span
-                    className="inline-block h-2.5 w-2.5 flex-none rounded-full"
+                    className="inline-block h-3 w-3 flex-none rounded-full shadow-sm"
                     style={{ background: visitColor(s) }}
                   />
-                  {s}
+                  <span className="truncate">{s}</span>
                 </button>
               ))}
             </div>
@@ -130,33 +130,33 @@ export function VisitCheckinDialog({ point, onClose, onSaved }: Props) {
             </div>
           )}
 
-          <div className="space-y-1.5">
-            <Label className="text-xs">Falei com (opcional)</Label>
+          <div className="space-y-2">
+            <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Falei com (opcional)</Label>
             <Input
               value={contato}
               onChange={(e) => setContato(e.target.value)}
               placeholder="Nome do contato / decisor"
-              className="h-9 text-xs"
+              className="h-11 text-sm lg:h-9 lg:text-xs"
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs">Observação rápida</Label>
+          <div className="space-y-2">
+            <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Observação rápida</Label>
             <Textarea
               value={obs}
               onChange={(e) => setObs(e.target.value)}
               placeholder="Ex.: dono só atende de manhã, pediu proposta por WhatsApp…"
               rows={3}
-              className="text-xs"
+              className="text-sm lg:text-xs min-h-[100px] resize-none"
             />
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={saving} className="h-9">
+        <DialogFooter className="flex flex-col gap-2 sm:flex-row pt-2">
+          <Button variant="outline" onClick={onClose} disabled={saving} className="w-full h-11 lg:h-9 order-2 sm:order-1">
             Cancelar
           </Button>
-          <Button onClick={save} disabled={saving} className="btn-gradient h-9">
+          <Button onClick={save} disabled={saving} className="btn-gradient w-full h-11 lg:h-9 order-1 sm:order-2">
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Salvar check-in
           </Button>
