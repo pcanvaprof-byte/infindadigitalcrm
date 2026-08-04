@@ -27,7 +27,7 @@ import {
   MessageSquareText,
 } from "lucide-react";
 import { BookOpen, MapPin } from "lucide-react";
-import { Briefcase } from "lucide-react";
+import { Briefcase, Flame } from "lucide-react";
 import { Logo } from "./Logo";
 import { useAuth, ROLE_LABEL } from "@/lib/auth-context";
 import { APP_VERSION_LABEL } from "@/lib/version";

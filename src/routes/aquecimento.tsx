@@ -214,28 +214,22 @@ function AquecimentoPage() {
   const restante = Math.max(0, cfg.dailyCap - (sentQ.data ?? 0));
 
   return (
-    <AppShell>
+    <AppShell
+      title="Aquecimento Automático"
+      subtitle="Régua automática por gatilhos de status e tempo: o motor mantém toda a base agendada e entrega a fila do dia pronta para disparo."
+      actions={
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setShowCfg((v) => !v)}>
+            <Settings2 className="mr-2 h-4 w-4" /> Regras
+          </Button>
+          <Button onClick={() => runMut.mutate()} disabled={runMut.isPending}>
+            {runMut.isPending ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
+            Rodar motor agora
+          </Button>
+        </div>
+      }
+    >
       <div className="space-y-6">
-        <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="flex items-center gap-2 text-2xl font-semibold">
-              <Flame className="h-6 w-6 text-primary" /> Aquecimento Automático
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Régua automática por gatilhos de <strong>status</strong> e <strong>tempo</strong>: o motor mantém toda a
-              base agendada e entrega a fila do dia pronta para disparo.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" onClick={() => setShowCfg((v) => !v)}>
-              <Settings2 className="mr-2 h-4 w-4" /> Regras
-            </Button>
-            <Button onClick={() => runMut.mutate()} disabled={runMut.isPending}>
-              {runMut.isPending ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
-              Rodar motor agora
-            </Button>
-          </div>
-        </header>
 
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <Metric label="Base na régua" value={plan.total} />
