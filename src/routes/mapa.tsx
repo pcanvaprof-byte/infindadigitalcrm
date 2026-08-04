@@ -524,7 +524,7 @@ function MapaPage() {
         </aside>
 
         {/* Map - Prioridade visual em mobile */}
-        <section className="surface-card overflow-hidden p-0 h-[70vh] min-h-[400px] lg:h-[calc(100vh-200px)] lg:min-h-[480px] order-first lg:order-none">
+        <section className="surface-card overflow-hidden p-0 h-[65vh] min-h-[380px] lg:h-[calc(100vh-200px)] lg:min-h-[480px] order-first lg:order-none">
           {loading ? (
             <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando mapa…
