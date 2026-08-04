@@ -150,20 +150,27 @@ export function TasksMap({
                 <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.company}</div>
                 <div style={{ color: "#666", marginBottom: 8, lineHeight: 1.4 }}>{addr || "—"}</div>
                 {p.nicho && (
-                  <div style={{ marginBottom: 6 }}>
+                  <div style={{ marginBottom: 6, maxWidth: "100%" }}>
                     <span
                       style={{
                         display: "inline-block",
+                        maxWidth: "100%",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                        verticalAlign: "bottom",
                         padding: "1px 8px",
                         borderRadius: 4,
                         background: "rgba(14, 165, 233, 0.1)",
                         color: "#0ea5e9",
-                        fontSize: 10,
+                        fontSize: "clamp(10px, 2.8vw, 12px)",
+                        lineHeight: 1.5,
                         fontWeight: 600,
                         textTransform: "uppercase",
                         letterSpacing: "0.025em",
                         border: "1px solid rgba(14, 165, 233, 0.2)",
                       }}
+                      title={p.nicho}
                     >
                       🏷️ {p.nicho}
                     </span>
