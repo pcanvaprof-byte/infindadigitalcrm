@@ -449,8 +449,12 @@ function MapaPage() {
               {grouped.map(([bairro, items]) => {
                 const active = selectedBairro === bairro;
                 const color = bairroColor(bairro);
+                
+                // Agrupa nichos únicos neste bairro para exibição rápida
+                const niches = Array.from(new Set(items.map(p => p.nicho).filter(Boolean)));
+                
                 return (
-                  <li key={bairro}>
+                  <li key={bairro} className="space-y-1">
                     <button
                       onClick={() => setSelectedBairro(active ? null : bairro)}
                       className={`flex w-full items-center justify-between rounded-md px-2 py-2 text-left text-xs transition ${
@@ -463,16 +467,25 @@ function MapaPage() {
                           style={{ background: color }}
                         />
                         <span className="truncate font-medium">{bairro}</span>
-                        {items[0]?.nicho && (
-                          <span className="ml-1 truncate text-[9px] text-muted-foreground opacity-70">
-                            • {items[0].nicho}
-                          </span>
-                        )}
                       </span>
                       <Badge variant="outline" className="ml-2 h-5 px-1.5 text-[10px]">
                         {items.length}
                       </Badge>
                     </button>
+                    
+                    {/* Exibição rápida dos nichos do bairro */}
+                    {niches.length > 0 && (
+                      <div className="flex flex-wrap gap-1 px-6 pb-1">
+                        {niches.slice(0, 3).map((n, i) => (
+                          <span key={i} className="text-[9px] text-muted-foreground bg-muted/50 px-1 rounded-sm truncate max-w-[80px]">
+                            {n}
+                          </span>
+                        ))}
+                        {niches.length > 3 && (
+                          <span className="text-[9px] text-muted-foreground opacity-60">+{niches.length - 3}</span>
+                        )}
+                      </div>
+                    )}
                   </li>
                 );
               })}
