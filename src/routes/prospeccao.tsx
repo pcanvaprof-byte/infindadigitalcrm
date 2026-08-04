@@ -633,6 +633,10 @@ function ProspeccaoPage() {
   });
 
   const availableSegments = useMemo(() => {
+    return availableSegmentsBase;
+  }, [availableSegmentsBase]);
+
+  const availableSegmentsBase = useMemo(() => {
     const counts = new Map<string, number>();
     // Conta os nichos aplicando os OUTROS filtros ativos (menos o próprio
     // segmentFilter) para que os números batam com a lista visível.
