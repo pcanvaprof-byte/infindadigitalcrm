@@ -326,6 +326,19 @@ function AquecimentoPage() {
                 <Switch checked={cfg.autoImport} onCheckedChange={(v) => patchCfg({ autoImport: v })} />
               </div>
               <div className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2">
+                <Label className="text-xs leading-tight">
+                  Aquecer também leads sem disparo
+                  <span className="block text-[10px] font-normal text-muted-foreground">
+                    Traz toda a base de Prospecção para a régua
+                  </span>
+                </Label>
+                <Switch
+                  checked={cfg.importNaoContatados}
+                  disabled={!cfg.autoImport}
+                  onCheckedChange={(v) => patchCfg({ importNaoContatados: v })}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2">
                 <Label className="text-xs">Motor ligado</Label>
                 <Switch checked={cfg.enabled} onCheckedChange={(v) => patchCfg({ enabled: v })} />
               </div>
