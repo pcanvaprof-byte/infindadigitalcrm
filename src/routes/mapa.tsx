@@ -426,7 +426,7 @@ function MapaPage() {
           </div>
 
           <Button
-            className="btn-gradient h-9"
+            className="btn-gradient h-11 lg:h-9"
             disabled={enriching}
             onClick={() => enrichMut.mutate()}
           >
