@@ -555,14 +555,24 @@ function ProspeccaoPage() {
       return max;
     };
     const active: Prospect[] = [];
+    const coldActive: Prospect[] = [];
     const blocked: Array<{ p: Prospect; last: number }> = [];
+    // "Não aquecido" = cadastro incompleto (sem nome de empresa real ou CNPJ < 14 dígitos)
+    const notWarmed = (p: Prospect) => {
+      const digits = (p.cnpj || "").replace(/\D/g, "");
+      if (digits && digits.length !== 14) return true;
+      const nome = (p.company || "").trim();
+      if (!nome) return true;
+      return nome.replace(/[\s./-]/g, "").replace(/\D/g, "").length === nome.replace(/[\s./-]/g, "").length;
+    };
     for (const p of filtered) {
       const last = lastOut(p);
       if (last > 0 && now - last < BLOCK_MS) blocked.push({ p, last });
+      else if (notWarmed(p)) coldActive.push(p);
       else active.push(p);
     }
     blocked.sort((a, b) => a.last - b.last);
-    return [...active, ...blocked.map((b) => b.p)];
+    return [...active, ...coldActive, ...blocked.map((b) => b.p)];
   }, [filtered]);
 
   // Paginação: 20 leads por página na visão em tabela
