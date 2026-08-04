@@ -656,6 +656,7 @@ function ProspeccaoPage() {
   // ── Enriquecimento automático: 20 CNPJs a cada 60s (nome, CNPJ, endereço) ──
   const autoEnrich = useAutoEnrich({
     getPending: () => pendingEnrichCnpjs,
+    autoStart: true,
     onBatchDone: () => {
       qc.invalidateQueries({ queryKey: crmKeys.tasks });
       qc.invalidateQueries({ queryKey: crmKeys.prospects });

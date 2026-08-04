@@ -181,6 +181,7 @@ function MapaPage() {
   );
   const autoEnrich = useAutoEnrich({
     getPending: () => pendingCnpjs,
+    autoStart: true,
     onBatchDone: refresh,
   });
 
