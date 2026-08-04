@@ -346,8 +346,8 @@ function MapaPage() {
         </div>
       )}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[280px_1fr]">
-        {/* Sidebar */}
-        <aside className="surface-card flex flex-col gap-3 p-3">
+        {/* Sidebar - Oculta em mobile por padrão ou colapsada */}
+        <aside className="surface-card flex flex-col gap-3 p-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-140px)]">
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -436,7 +436,7 @@ function MapaPage() {
             Processa em lotes de {BATCH_SIZE} CNPJs por vez (Receita Federal → ViaCEP → OpenStreetMap).
           </p>
 
-          <div className="hidden flex-1 overflow-y-auto px-1 -mx-1 lg:block lg:max-h-[calc(100vh-320px)]">
+          <div className="flex-1 overflow-y-auto px-1 -mx-1 max-h-[300px] lg:max-h-[calc(100vh-320px)]">
             {selectedBairro && (
               <button
                 className="mb-2 w-full rounded-md border border-border/60 px-2 py-1 text-left text-[11px] text-muted-foreground hover:bg-accent"
@@ -498,8 +498,8 @@ function MapaPage() {
           </div>
         </aside>
 
-        {/* Map */}
-        <section className="surface-card overflow-hidden p-0 h-[60vh] min-h-[360px] lg:h-[calc(100vh-200px)] lg:min-h-[480px]">
+        {/* Map - Prioridade visual em mobile */}
+        <section className="surface-card overflow-hidden p-0 h-[70vh] min-h-[400px] lg:h-[calc(100vh-200px)] lg:min-h-[480px] order-first lg:order-none">
           {loading ? (
             <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando mapa…
