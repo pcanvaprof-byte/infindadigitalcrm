@@ -71,6 +71,7 @@ const digits = (v?: string | null) => (v ?? "").replace(/\D/g, "");
 function MapaPage() {
   const qc = useQueryClient();
   const [selectedBairro, setSelectedBairro] = useState<string | null>(null);
+  const [selectedNicho, setSelectedNicho] = useState<string>("all");
   const [uf, setUf] = useState<string>("all");
   const [q, setQ] = useState("");
   const [origin, setOrigin] = useState<LatLng | null>(null);
