@@ -81,6 +81,7 @@ function MapaPage() {
   const [checkinPoint, setCheckinPoint] = useState<MapPoint | null>(null);
   const [online, setOnline] = useState(true);
   const [pendingQueue, setPendingQueue] = useState(0);
+  const [displayLimit, setDisplayLimit] = useState(20);
 
   const pointsQ = useQuery({
     queryKey: crmKeys.tasks,
@@ -446,7 +447,7 @@ function MapaPage() {
               </button>
             )}
             <ul className="space-y-1">
-              {grouped.map(([bairro, items]) => {
+              {grouped.slice(0, displayLimit).map(([bairro, items]) => {
                 const active = selectedBairro === bairro;
                 const color = bairroColor(bairro);
                 
@@ -489,6 +490,18 @@ function MapaPage() {
                   </li>
                 );
               })}
+              {grouped.length > displayLimit && (
+                <li className="pt-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-[10px] h-7 text-muted-foreground hover:text-foreground"
+                    onClick={() => setDisplayLimit(prev => prev + 20)}
+                  >
+                    Ver mais bairros...
+                  </Button>
+                </li>
+              )}
               {grouped.length === 0 && (
                 <li className="px-2 py-6 text-center text-[11px] text-muted-foreground">
                   Nenhum lead encontrado.
