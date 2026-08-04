@@ -467,7 +467,7 @@ function MapaPage() {
                           className="inline-block h-2.5 w-2.5 flex-none rounded-full"
                           style={{ background: color }}
                         />
-                        <span className="truncate font-medium">{bairro}</span>
+                        <span className="truncate font-medium whitespace-nowrap">{bairro}</span>
                       </span>
                       <Badge variant="outline" className="ml-2 h-5 px-1.5 text-[10px]">
                         {items.length}
@@ -478,7 +478,7 @@ function MapaPage() {
                     {niches.length > 0 && (
                       <div className="flex flex-wrap gap-1 px-6 pb-1">
                         {niches.slice(0, 3).map((n, i) => (
-                          <span key={i} className="text-[9px] text-muted-foreground bg-muted/50 px-1 rounded-sm truncate max-w-[80px]">
+                          <span key={i} className="text-[9px] text-muted-foreground bg-muted/50 px-1 rounded-sm whitespace-nowrap overflow-hidden text-ellipsis max-w-[120px]">
                             {n}
                           </span>
                         ))}
