@@ -147,7 +147,7 @@ export function TasksMap({
           >
             <Popup>
               <div className="p-1" style={{ fontFamily: "inherit", fontSize: 13, minWidth: 220 }}>
-                <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 14 }}>{p.company}</div>
+                <div style={{ fontWeight: 600, marginBottom: 6, fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.company}</div>
                 <div style={{ color: "#666", marginBottom: 8, lineHeight: 1.4 }}>{addr || "—"}</div>
                 {p.nicho && (
                   <div style={{ marginBottom: 6 }}>
