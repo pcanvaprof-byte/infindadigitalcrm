@@ -421,7 +421,20 @@ export async function runEnrichment(
           }
 
           if (Object.keys(patch).length) {
-            await expectDb(db.from("prospects").update(patch).eq("id", opts.prospectId), "atualizar lead");
+            try {
+              await expectDb(db.from("prospects").update(patch).eq("id", opts.prospectId), "atualizar lead");
+            } catch (err) {
+              // CNPJ completo pode colidir com outro lead já existente:
+              // grava o resto sem alterar o CNPJ.
+              if (patch.cnpj) {
+                const { cnpj: _drop, ...rest } = patch;
+                if (Object.keys(rest).length) {
+                  await expectDb(db.from("prospects").update(rest).eq("id", opts.prospectId), "atualizar lead");
+                }
+              } else {
+                throw err;
+              }
+            }
           }
         } catch (e) {
             await log(uid, profileId, profile.cnpj, "persist", "error",
