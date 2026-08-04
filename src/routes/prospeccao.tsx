@@ -632,6 +632,15 @@ function ProspeccaoPage() {
     },
   });
 
+  // ── Enriquecimento automático: 20 CNPJs a cada 60s ───────────────────
+  const autoEnrich = useAutoEnrich({
+    getPending: () => missingCoordsCnpjs,
+    onBatchDone: () => {
+      qc.invalidateQueries({ queryKey: crmKeys.tasks });
+      qc.invalidateQueries({ queryKey: crmKeys.prospects });
+    },
+  });
+
   const availableSegments = useMemo(() => {
     const counts = new Map<string, number>();
     // Conta os nichos aplicando os OUTROS filtros ativos (menos o próprio
