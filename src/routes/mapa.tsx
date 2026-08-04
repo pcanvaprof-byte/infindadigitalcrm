@@ -476,17 +476,20 @@ function MapaPage() {
                     
                     {/* Exibição rápida dos nichos do bairro */}
                     {niches.length > 0 && (
-                      <div className="flex flex-wrap gap-1 px-6 pb-1">
+                      <div className="flex flex-wrap gap-1 px-6 pb-1 min-w-0">
                         {niches.slice(0, 3).map((n, i) => (
                           <span
                             key={i}
-                            className="max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap rounded-sm bg-muted/50 px-1 text-[9px] font-medium tracking-tight text-muted-foreground uppercase"
+                            title={n ?? undefined}
+                            className="max-w-[45%] sm:max-w-[110px] lg:max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap rounded-sm bg-muted/50 px-1 py-[1px] text-[10px] leading-4 sm:text-[10px] lg:text-[11px] font-medium tracking-tight text-muted-foreground uppercase"
                           >
                             {n}
                           </span>
                         ))}
                         {niches.length > 3 && (
-                          <span className="text-[9px] text-muted-foreground opacity-60">+{niches.length - 3}</span>
+                          <span className="shrink-0 text-[10px] leading-4 lg:text-[11px] text-muted-foreground opacity-60">
+                            +{niches.length - 3}
+                          </span>
                         )}
                       </div>
                     )}
