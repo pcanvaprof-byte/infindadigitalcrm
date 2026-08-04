@@ -358,39 +358,61 @@ function MapaPage() {
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2">
+            <div className="grid grid-cols-2 gap-2">
+              <Select
+                value={uf}
+                onValueChange={(v) => {
+                  setUf(v);
+                  setSelectedBairro(null);
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os estados</SelectItem>
+                  {ufOptions.map(([code, count]) => (
+                    <SelectItem key={code} value={code}>
+                      {code} ({count})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={selectedBairro ?? "all"}
+                onValueChange={(v) => setSelectedBairro(v === "all" ? null : v)}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Bairro" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os bairros</SelectItem>
+                  {grouped.map(([bairro, items]) => (
+                    <SelectItem key={bairro} value={bairro}>
+                      {bairro} ({items.length})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <Select
-              value={uf}
+              value={selectedNicho}
               onValueChange={(v) => {
-                setUf(v);
+                setSelectedNicho(v);
                 setSelectedBairro(null);
               }}
             >
               <SelectTrigger className="h-9 text-xs">
-                <SelectValue placeholder="Estado" />
+                <SelectValue placeholder="Nicho" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos os estados</SelectItem>
-                {ufOptions.map(([code, count]) => (
-                  <SelectItem key={code} value={code}>
-                    {code} ({count})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={selectedBairro ?? "all"}
-              onValueChange={(v) => setSelectedBairro(v === "all" ? null : v)}
-            >
-              <SelectTrigger className="h-9 text-xs">
-                <SelectValue placeholder="Bairro" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os bairros</SelectItem>
-                {grouped.map(([bairro, items]) => (
-                  <SelectItem key={bairro} value={bairro}>
-                    {bairro} ({items.length})
+                <SelectItem value="all">Todos os nichos</SelectItem>
+                {nichoOptions.map(([label, count]) => (
+                  <SelectItem key={label} value={label}>
+                    {label} ({count})
                   </SelectItem>
                 ))}
               </SelectContent>
