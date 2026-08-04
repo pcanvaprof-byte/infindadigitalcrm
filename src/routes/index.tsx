@@ -26,5 +26,10 @@ export const Route = createFileRoute("/")({
 function IndexPage() {
   const { user, isReady } = useAuth();
   if (isReady && user) return <Navigate to="/dashboard" replace />;
-  return <SalesPage />;
+  return (
+    <>
+      oi
+      <SalesPage />
+    </>
+  );
 }
