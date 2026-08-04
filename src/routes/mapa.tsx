@@ -176,13 +176,22 @@ function MapaPage() {
     return Array.from(set.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [points]);
 
-  const byUf = useMemo(
-    () =>
-      uf === "all"
-        ? points
-        : points.filter((p) => (p.uf || "").trim().toUpperCase() === uf),
-    [points, uf],
-  );
+  const nichoOptions = useMemo(() => {
+    const set = new Map<string, number>();
+    for (const p of points) {
+      const key = (p.nicho || "Outros").trim();
+      set.set(key, (set.get(key) ?? 0) + 1);
+    }
+    return Array.from(set.entries()).sort((a, b) => b[1] - a[1]);
+  }, [points]);
+
+  const byUf = useMemo(() => {
+    let result = uf === "all" ? points : points.filter((p) => (p.uf || "").trim().toUpperCase() === uf);
+    if (selectedNicho !== "all") {
+      result = result.filter((p) => (p.nicho || "Outros").trim() === selectedNicho);
+    }
+    return result;
+  }, [points, uf, selectedNicho]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
