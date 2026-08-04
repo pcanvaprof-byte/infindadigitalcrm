@@ -140,7 +140,25 @@ export function TasksMap({
             <Popup>
               <div style={{ fontFamily: "inherit", fontSize: 12, minWidth: 200 }}>
                 <div style={{ fontWeight: 600, marginBottom: 4 }}>{p.company}</div>
-                <div style={{ color: "#666", marginBottom: 6 }}>{addr || "—"}</div>
+                <div style={{ color: "#666", marginBottom: 4 }}>{addr || "—"}</div>
+                {p.nicho && (
+                  <div style={{ marginBottom: 6 }}>
+                    <span
+                      style={{
+                        display: "inline-block",
+                        padding: "1px 8px",
+                        borderRadius: 4,
+                        background: "rgba(14, 165, 233, 0.1)",
+                        color: "#0ea5e9",
+                        fontSize: 10,
+                        fontWeight: 600,
+                        border: "1px solid rgba(14, 165, 233, 0.2)",
+                      }}
+                    >
+                      🏷️ {p.nicho}
+                    </span>
+                  </div>
+                )}
                 <div style={{ marginBottom: 6 }}>
                   <span
                     style={{
