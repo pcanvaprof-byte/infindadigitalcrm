@@ -78,6 +78,7 @@ export const DEFAULT_AUTOWARM_CONFIG: AutowarmConfig = {
   warmDays: 3,
   dropAfterLastDays: 10,
   autoImport: true,
+  importNaoContatados: true,
   batchSize: 20,
   batchIntervalSec: 60,
 };
