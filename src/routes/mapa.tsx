@@ -481,7 +481,11 @@ function MapaPage() {
                           <span
                             key={i}
                             title={n ?? undefined}
-                            className="max-w-[45%] sm:max-w-[110px] lg:max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap rounded-sm bg-muted/50 px-1 py-[1px] text-[10px] leading-4 sm:text-[10px] lg:text-[11px] font-medium tracking-tight text-muted-foreground uppercase"
+                            className="max-w-[45%] sm:max-w-[110px] lg:max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap rounded-sm bg-muted/50 px-1 py-[1px] font-bold tracking-wider text-muted-foreground uppercase transition-all duration-200"
+                            style={{ 
+                              fontSize: 'clamp(8px, 2.2vw, 10px)',
+                              lineHeight: '1rem'
+                            }}
                           >
                             {n}
                           </span>
