@@ -385,7 +385,7 @@ export async function runEnrichment(
         try {
           const { data: prosp } = await db
             .from("prospects")
-            .select("phone, whatsapp, email, city, state")
+            .select("phone, whatsapp, email, city, state, segment")
             .eq("id", opts.prospectId)
             .maybeSingle();
           const patch: Record<string, string> = {};
@@ -403,8 +403,8 @@ export async function runEnrichment(
           if (prosp && !filled(prosp.state) && state) patch.state = state;
           
           // Bidirecional: Atualiza o nicho no prospect se o perfil da empresa tiver CNAE desc
-          if (prosp && !filled(prosp.nicho) && profile.cnae_principal_desc) {
-            patch.nicho = profile.cnae_principal_desc;
+          if (prosp && !filled((prosp as any).segment) && profile.cnae_principal_desc) {
+            patch.segment = profile.cnae_principal_desc;
           }
 
           if (Object.keys(patch).length) {

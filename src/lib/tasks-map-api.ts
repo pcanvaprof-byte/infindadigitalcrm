@@ -162,7 +162,7 @@ async function loadMapPointsRemote(): Promise<MapPoint[]> {
 async function loadMapProspects(uid: string): Promise<ProspectRow[]> {
   const rows = await fetchAll<ProspectRow & { id: string }>((from, to) =>
     db.from("prospects")
-      .select("id,cnpj,company,whatsapp,phone,email,potential,city,state,nicho")
+      .select("id,cnpj,company,whatsapp,phone,email,potential,city,state,segment")
       .range(from, to),
   );
 
@@ -177,7 +177,7 @@ async function loadMapProspects(uid: string): Promise<ProspectRow[]> {
     potential: row.potential,
     city: row.city,
     state: row.state,
-    nicho: row.nicho,
+    nicho: (row as any).segment ?? null,
   }));
 }
 
