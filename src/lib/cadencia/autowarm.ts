@@ -48,6 +48,10 @@ export type AutowarmConfig = {
   dropAfterLastDays: number;
   /** Importar automaticamente novos prospectados para a régua. */
   autoImport: boolean;
+  /** Quantidade de leads disparados em cada rodada do modo automático. */
+  batchSize: number;
+  /** Intervalo entre rodadas do modo automático (segundos). */
+  batchIntervalSec: number;
 };
 
 export const DEFAULT_AUTOWARM_CONFIG: AutowarmConfig = {
@@ -69,6 +73,8 @@ export const DEFAULT_AUTOWARM_CONFIG: AutowarmConfig = {
   warmDays: 3,
   dropAfterLastDays: 10,
   autoImport: true,
+  batchSize: 20,
+  batchIntervalSec: 60,
 };
 
 const STORAGE_KEY = "autowarm_cfg_v1";
