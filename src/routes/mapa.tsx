@@ -25,6 +25,7 @@ import {
 import { toast } from "sonner";
 import { loadMapPoints, bairroColor, type MapPoint } from "@/lib/tasks-map-api";
 import { runEnrichment } from "@/lib/enrichment/api";
+import { useAutoEnrich } from "@/lib/enrichment/auto-batch";
 import { crmKeys } from "@/lib/crm/api";
 import {
   loadLatestVisitsByCnpj,
@@ -166,6 +167,20 @@ function MapaPage() {
   });
 
   const enriching = enrichMut.isPending;
+
+  // ── Modo automático: 20 CNPJs a cada 60s ─────────────────────────────
+  const pendingCnpjs = useMemo(
+    () =>
+      points
+        .filter((p) => !p.cep || !p.logradouro || !p.lat || !p.lon)
+        .map((p) => p.cnpj)
+        .filter(Boolean),
+    [points],
+  );
+  const autoEnrich = useAutoEnrich({
+    getPending: () => pendingCnpjs,
+    onBatchDone: refresh,
+  });
 
   const ufOptions = useMemo(() => {
     const set = new Map<string, number>();
