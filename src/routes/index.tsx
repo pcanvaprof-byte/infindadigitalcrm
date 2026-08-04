@@ -1,5 +1,6 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 // Preciso aquecer os 9k de leads de forma automatica
+// quando configurar o lead para de aparecer os primeiros passos
 
 import { SalesPage } from "@/components/SalesPage";
 import { useAuth } from "@/lib/auth-context";
