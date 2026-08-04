@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { fetchCnpj, sanitizeCnpj } from "./cnpj";
+import { fetchCnpj, sanitizeCnpj, completeCnpj } from "./cnpj";
 import { fetchCep, mergeAddress } from "./cep";
 import { geocode } from "./geo";
 import { fetchMarketData } from "./ibge";
@@ -239,7 +239,8 @@ export async function runEnrichment(
   cnpj: string,
   opts: RunOptions = {},
 ): Promise<EnrichmentResult> {
-  const clean = sanitizeCnpj(cnpj);
+  const raw = sanitizeCnpj(cnpj);
+  const clean = completeCnpj(cnpj);
   if (clean.length !== 14) throw new Error("CNPJ inválido (14 dígitos).");
   const uid = await currentUserId();
 
@@ -376,7 +377,8 @@ export async function runEnrichment(
         const { data: existingProsp } = await db
           .from("prospects")
           .select("id")
-          .eq("cnpj", clean)
+          .in("cnpj", Array.from(new Set([clean, raw])).filter(Boolean))
+          .limit(1)
           .maybeSingle();
         if (existingProsp) opts.prospectId = existingProsp.id;
       }
@@ -385,7 +387,7 @@ export async function runEnrichment(
         try {
           const { data: prosp } = await db
             .from("prospects")
-            .select("phone, whatsapp, email, city, state, segment")
+            .select("company, cnpj, phone, whatsapp, email, city, state, segment")
             .eq("id", opts.prospectId)
             .maybeSingle();
           const patch: Record<string, string> = {};
@@ -401,6 +403,17 @@ export async function runEnrichment(
           if (prosp && !filled(prosp.email) && email) patch.email = email;
           if (prosp && !filled(prosp.city) && city) patch.city = city;
           if (prosp && !filled(prosp.state) && state) patch.state = state;
+
+          // Nome da empresa: preenche quando vazio ou quando o "nome"
+          // salvo é só o próprio CNPJ/números da importação.
+          const nome = filled(profile.nome_fantasia) || filled(profile.razao_social);
+          const currentCompany = filled(prosp?.company);
+          const companyIsPlaceholder =
+            !currentCompany || sanitizeCnpj(currentCompany) === currentCompany.replace(/\s|[.\-/]/g, "");
+          if (prosp && nome && companyIsPlaceholder) patch.company = nome;
+
+          // Corrige CNPJ incompleto (raiz sem filial/DV) no lead.
+          if (prosp && sanitizeCnpj(prosp.cnpj ?? "") !== clean) patch.cnpj = clean;
           
           // Bidirecional: Atualiza o nicho no prospect se o perfil da empresa tiver CNAE desc
           if (prosp && !filled((prosp as any).segment) && profile.cnae_principal_desc) {
@@ -408,7 +421,20 @@ export async function runEnrichment(
           }
 
           if (Object.keys(patch).length) {
-            await expectDb(db.from("prospects").update(patch).eq("id", opts.prospectId), "atualizar lead");
+            try {
+              await expectDb(db.from("prospects").update(patch).eq("id", opts.prospectId), "atualizar lead");
+            } catch (err) {
+              // CNPJ completo pode colidir com outro lead já existente:
+              // grava o resto sem alterar o CNPJ.
+              if (patch.cnpj) {
+                const { cnpj: _drop, ...rest } = patch;
+                if (Object.keys(rest).length) {
+                  await expectDb(db.from("prospects").update(rest).eq("id", opts.prospectId), "atualizar lead");
+                }
+              } else {
+                throw err;
+              }
+            }
           }
         } catch (e) {
             await log(uid, profileId, profile.cnpj, "persist", "error",
