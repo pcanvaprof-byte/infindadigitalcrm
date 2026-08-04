@@ -443,15 +443,41 @@ function MapaPage() {
           <div className="flex flex-col gap-1.5 mt-auto">
             <Button
               className="btn-gradient w-full h-11 lg:h-9"
-              disabled={enriching}
+              disabled={enriching || autoEnrich.auto}
               onClick={() => enrichMut.mutate()}
             >
               {enriching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
               Enriquecer próximos 20
             </Button>
+            <Button
+              variant={autoEnrich.auto ? "destructive" : "outline"}
+              className="w-full h-11 lg:h-9"
+              disabled={enriching}
+              onClick={autoEnrich.toggle}
+            >
+              {autoEnrich.running ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : autoEnrich.auto ? (
+                <Square className="mr-2 h-4 w-4" />
+              ) : (
+                <Zap className="mr-2 h-4 w-4" />
+              )}
+              {autoEnrich.auto
+                ? `Parar automático (${autoEnrich.nextIn}s)`
+                : `Automático: 20 a cada 60s`}
+            </Button>
             <p className="text-[10px] text-muted-foreground leading-tight text-center">
-              Processa em lotes de {BATCH_SIZE} CNPJs por vez.
+              {autoEnrich.auto
+                ? `${autoEnrich.done} enriquecido(s) nesta sessão · ${pendingCnpjs.length} pendente(s).`
+                : `Processa em lotes de ${BATCH_SIZE} CNPJs por vez.`}
             </p>
+            {autoEnrich.auto && autoEnrich.log.length > 0 && (
+              <ul className="max-h-24 overflow-y-auto rounded-md border border-border/60 p-1.5 text-[10px] text-muted-foreground">
+                {autoEnrich.log.map((l, i) => (
+                  <li key={i} className="truncate">{l}</li>
+                ))}
+              </ul>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto px-1 -mx-1 max-h-[300px] lg:max-h-[calc(100vh-320px)]">
