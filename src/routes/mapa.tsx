@@ -71,6 +71,7 @@ const digits = (v?: string | null) => (v ?? "").replace(/\D/g, "");
 function MapaPage() {
   const qc = useQueryClient();
   const [selectedBairro, setSelectedBairro] = useState<string | null>(null);
+  const [selectedNicho, setSelectedNicho] = useState<string>("all");
   const [uf, setUf] = useState<string>("all");
   const [q, setQ] = useState("");
   const [origin, setOrigin] = useState<LatLng | null>(null);
@@ -175,13 +176,22 @@ function MapaPage() {
     return Array.from(set.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [points]);
 
-  const byUf = useMemo(
-    () =>
-      uf === "all"
-        ? points
-        : points.filter((p) => (p.uf || "").trim().toUpperCase() === uf),
-    [points, uf],
-  );
+  const nichoOptions = useMemo(() => {
+    const set = new Map<string, number>();
+    for (const p of points) {
+      const key = (p.nicho || "Outros").trim();
+      set.set(key, (set.get(key) ?? 0) + 1);
+    }
+    return Array.from(set.entries()).sort((a, b) => b[1] - a[1]);
+  }, [points]);
+
+  const byUf = useMemo(() => {
+    let result = uf === "all" ? points : points.filter((p) => (p.uf || "").trim().toUpperCase() === uf);
+    if (selectedNicho !== "all") {
+      result = result.filter((p) => (p.nicho || "Outros").trim() === selectedNicho);
+    }
+    return result;
+  }, [points, uf, selectedNicho]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -348,39 +358,61 @@ function MapaPage() {
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-2">
+            <div className="grid grid-cols-2 gap-2">
+              <Select
+                value={uf}
+                onValueChange={(v) => {
+                  setUf(v);
+                  setSelectedBairro(null);
+                }}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os estados</SelectItem>
+                  {ufOptions.map(([code, count]) => (
+                    <SelectItem key={code} value={code}>
+                      {code} ({count})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={selectedBairro ?? "all"}
+                onValueChange={(v) => setSelectedBairro(v === "all" ? null : v)}
+              >
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue placeholder="Bairro" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os bairros</SelectItem>
+                  {grouped.map(([bairro, items]) => (
+                    <SelectItem key={bairro} value={bairro}>
+                      {bairro} ({items.length})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <Select
-              value={uf}
+              value={selectedNicho}
               onValueChange={(v) => {
-                setUf(v);
+                setSelectedNicho(v);
                 setSelectedBairro(null);
               }}
             >
               <SelectTrigger className="h-9 text-xs">
-                <SelectValue placeholder="Estado" />
+                <SelectValue placeholder="Nicho" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos os estados</SelectItem>
-                {ufOptions.map(([code, count]) => (
-                  <SelectItem key={code} value={code}>
-                    {code} ({count})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={selectedBairro ?? "all"}
-              onValueChange={(v) => setSelectedBairro(v === "all" ? null : v)}
-            >
-              <SelectTrigger className="h-9 text-xs">
-                <SelectValue placeholder="Bairro" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os bairros</SelectItem>
-                {grouped.map(([bairro, items]) => (
-                  <SelectItem key={bairro} value={bairro}>
-                    {bairro} ({items.length})
+                <SelectItem value="all">Todos os nichos</SelectItem>
+                {nichoOptions.map(([label, count]) => (
+                  <SelectItem key={label} value={label}>
+                    {label} ({count})
                   </SelectItem>
                 ))}
               </SelectContent>
