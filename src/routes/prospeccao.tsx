@@ -1797,6 +1797,54 @@ function ProspeccaoPage() {
             <Button variant="ghost" onClick={clearFilters} className="h-10 text-xs">
               <X className="mr-1.5 h-4 w-4" /> Limpar filtros
             </Button>
+            <div className="col-span-full space-y-2 rounded-md border border-border/60 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Data de abertura do CNPJ
+              </p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {OPENING_RANGES.map((r) => (
+                  <Button
+                    key={r.id}
+                    size="sm"
+                    variant={opening.range === r.id ? "default" : "outline"}
+                    className="h-8 px-2.5 text-xs"
+                    onClick={() => setOpening((o) => ({ ...o, range: r.id as OpeningRange }))}
+                  >
+                    {r.label}
+                  </Button>
+                ))}
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="date"
+                    value={opening.from ?? ""}
+                    onChange={(e) => setOpening((o) => ({ ...o, from: e.target.value }))}
+                    className="h-8 w-[140px] text-xs"
+                  />
+                  <span className="text-xs text-muted-foreground">até</span>
+                  <Input
+                    type="date"
+                    value={opening.to ?? ""}
+                    onChange={(e) => setOpening((o) => ({ ...o, to: e.target.value }))}
+                    className="h-8 w-[140px] text-xs"
+                  />
+                </div>
+                {isOpeningFilterActive(opening) && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 px-2 text-xs"
+                    onClick={() => setOpening(EMPTY_OPENING_FILTER)}
+                  >
+                    Limpar data
+                  </Button>
+                )}
+              </div>
+              {isOpeningFilterActive(opening) && (
+                <p className="text-[11px] text-muted-foreground">
+                  Leads ainda sem data de abertura ficam ocultos até o enriquecimento concluir.
+                </p>
+              )}
+            </div>
             <label className="col-span-full flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
               <NativeCheckbox
                 checked={onlyWithContact}
