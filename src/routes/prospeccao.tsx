@@ -34,6 +34,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { nicheGroup } from "@/lib/niches";
+import { loadOpeningByCnpj, openingKeys } from "@/lib/enrichment/opening-map";
+import {
+  EMPTY_OPENING_FILTER,
+  OPENING_RANGES,
+  formatOpening,
+  isOpeningFilterActive,
+  marketAgeLabel,
+  matchesOpening,
+  type OpeningFilter,
+  type OpeningRange,
+} from "@/lib/opening-date";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -460,6 +472,15 @@ function ProspeccaoPage() {
     [prospectsQ.data],
   );
   const loading = prospectsQ.isLoading;
+
+  // Data de abertura do CNPJ (vem do enriquecimento compartilhado).
+  const openingQ = useQuery({
+    queryKey: openingKeys.all,
+    queryFn: loadOpeningByCnpj,
+    enabled: !!user,
+    staleTime: 5 * 60_000,
+  });
+  const openingMap = openingQ.data ?? {};
   useEffect(() => {
     if (prospectsQ.error) toast.error(`Falha ao carregar: ${(prospectsQ.error as Error).message}`);
   }, [prospectsQ.error]);
