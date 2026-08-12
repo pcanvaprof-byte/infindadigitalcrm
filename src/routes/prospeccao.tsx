@@ -1440,6 +1440,7 @@ function ProspeccaoPage() {
     setStatusFilter("all"); setSegmentFilter("all"); setStateFilter("all"); setPotentialFilter("all");
     setSearch(""); setOnlyWithContact(false); setNoWhatsapp(false); setOnlyWhatsapp(false);
     setCadenceFilter("all");
+    setOpening(EMPTY_OPENING_FILTER);
   };
 
   const bulkEnrich = async () => {
