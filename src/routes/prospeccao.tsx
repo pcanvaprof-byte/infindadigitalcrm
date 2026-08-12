@@ -369,6 +369,7 @@ function ProspeccaoPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProspectStatus | "all">("all");
   const [segmentFilter, setSegmentFilter] = useState<string>("all");
+  const [opening, setOpening] = useState<OpeningFilter>(EMPTY_OPENING_FILTER);
   const [stateFilter, setStateFilter] = useState<string>("all");
   const [potentialFilter, setPotentialFilter] = useState<ProspectPotential | "all">("all");
   const [onlyWithContact, setOnlyWithContact] = useState(false);
@@ -486,7 +487,11 @@ function ProspeccaoPage() {
       // (status privado != "nao_contatado"). Ignora se o operador escolheu
       // um status específico no filtro (aí ele quer ver aquele status).
       if (hideDispatched && statusFilter === "all" && p.status !== "nao_contatado") return false;
-      if (segmentFilter !== "all" && (p.segment || "").trim().toLowerCase() !== segmentFilter.toLowerCase()) return false;
+      if (segmentFilter !== "all" && nicheGroup(p.segment) !== segmentFilter) return false;
+      if (isOpeningFilterActive(opening)) {
+        const info = openingMap[(p.cnpj || "").replace(/\D/g, "")];
+        if (!matchesOpening(info?.data_abertura, opening)) return false;
+      }
       if (stateFilter !== "all" && p.state !== stateFilter) return false;
       if (potentialFilter !== "all" && p.potential !== potentialFilter) return false;
       if (onlyWithContact) {
@@ -536,7 +541,7 @@ function ProspeccaoPage() {
       return [p.company, p.segment, p.owner, p.email, p.whatsapp, p.phone, p.instagram, p.city, p.state, p.source]
         .join(" ").toLowerCase().includes(q);
     });
-  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter, hideDispatched]);
+  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter, hideDispatched, opening, openingMap]);
 
   // Bloqueio de 24h por disparo recente (whatsapp/ligação/email outbound).
   // Empresas com disparo nas últimas 24h são jogadas para o FINAL da lista,
@@ -690,8 +695,7 @@ function ProspeccaoPage() {
       return true;
     });
     for (const p of base) {
-      const s = (p.segment || "").trim();
-      if (!s) continue;
+      const s = nicheGroup(p.segment);
       counts.set(s, (counts.get(s) || 0) + 1);
     }
     return Array.from(counts.entries())
