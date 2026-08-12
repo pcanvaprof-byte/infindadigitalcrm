@@ -1986,6 +1986,7 @@ function ProspeccaoPage() {
           </div>
           <DesktopProspectTable
             items={pagedItems}
+            openingMap={openingMap}
             selected={selected}
             allVisibleSelected={allVisibleSelected}
             onToggleSelect={toggleSelect}
@@ -2309,6 +2310,7 @@ function DesktopProspectTable({
   onStatus,
   onRemove,
   busyWhatsIds,
+  openingMap,
 }: {
   items: Prospect[];
   selected: Set<string>;
@@ -2323,6 +2325,7 @@ function DesktopProspectTable({
   onStatus: (id: string, s: ProspectStatus) => void;
   onRemove: (id: string) => void;
   busyWhatsIds?: Set<string>;
+  openingMap?: Record<string, { data_abertura?: string | null }>;
 }) {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const virtualizer = useWindowVirtualizer({
@@ -2371,7 +2374,20 @@ function DesktopProspectTable({
                   <div className="px-4 py-3">
                     <button className="text-left" onClick={() => onOpen(p.id)}>
                       <div className="font-semibold hover:text-primary-glow">{p.company}</div>
-                      <div className="text-[11px] text-muted-foreground">{p.segment} · resp. {p.owner}</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {nicheGroup(p.segment)} · resp. {p.owner}
+                      </div>
+                      {(() => {
+                        const dt = openingMap?.[(p.cnpj || "").replace(/\D/g, "")]?.data_abertura;
+                        const fmt = formatOpening(dt);
+                        if (!fmt) return null;
+                        const age = marketAgeLabel(dt);
+                        return (
+                          <div className="text-[10px] text-muted-foreground/80">
+                            Abertura: {fmt}{age ? ` (${age})` : ""}
+                          </div>
+                        );
+                      })()}
                     </button>
                   </div>
                   <div className="px-4 py-3">
