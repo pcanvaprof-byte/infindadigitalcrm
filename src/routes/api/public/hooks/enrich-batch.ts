@@ -33,7 +33,7 @@ export const Route = createFileRoute("/api/public/hooks/enrich-batch")({
         try {
           const { enrichPendingBatch } = await import("@/lib/enrichment/pipeline.server");
           const result = await enrichPendingBatch(limit);
-          return Response.json({ ok: true, ...result });
+          return Response.json({ ...result, ok: true });
         } catch (err) {
           return new Response(
             JSON.stringify({ ok: false, error: err instanceof Error ? err.message : "unknown" }),
