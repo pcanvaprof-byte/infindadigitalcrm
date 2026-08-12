@@ -450,6 +450,47 @@ function MapaPage() {
                 ))}
               </SelectContent>
             </Select>
+
+            <div className="space-y-2 rounded-md border border-border/60 p-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Data de abertura do CNPJ
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {OPENING_RANGES.map((r) => (
+                  <Button
+                    key={r.id}
+                    size="sm"
+                    variant={opening.range === r.id ? "default" : "outline"}
+                    className="h-8 px-2 text-[11px]"
+                    onClick={() => setOpening((o) => ({ ...o, range: r.id as OpeningRange }))}
+                  >
+                    {r.label}
+                  </Button>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-1">
+                <Input
+                  type="date"
+                  value={opening.from ?? ""}
+                  onChange={(e) => setOpening((o) => ({ ...o, from: e.target.value }))}
+                  className="h-9 text-[11px]"
+                />
+                <Input
+                  type="date"
+                  value={opening.to ?? ""}
+                  onChange={(e) => setOpening((o) => ({ ...o, to: e.target.value }))}
+                  className="h-9 text-[11px]"
+                />
+              </div>
+              {isOpeningFilterActive(opening) && (
+                <button
+                  className="text-[11px] text-primary underline"
+                  onClick={() => setOpening(EMPTY_OPENING_FILTER)}
+                >
+                  Limpar filtro de data
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="rounded-md border border-border/60 p-2 text-[11px] text-muted-foreground space-y-1">
