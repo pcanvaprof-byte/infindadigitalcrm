@@ -34,6 +34,18 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { nicheGroup } from "@/lib/niches";
+import { loadOpeningByCnpj, openingKeys } from "@/lib/enrichment/opening-map";
+import {
+  EMPTY_OPENING_FILTER,
+  OPENING_RANGES,
+  formatOpening,
+  isOpeningFilterActive,
+  marketAgeLabel,
+  matchesOpening,
+  type OpeningFilter,
+  type OpeningRange,
+} from "@/lib/opening-date";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
@@ -369,6 +381,7 @@ function ProspeccaoPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProspectStatus | "all">("all");
   const [segmentFilter, setSegmentFilter] = useState<string>("all");
+  const [opening, setOpening] = useState<OpeningFilter>(EMPTY_OPENING_FILTER);
   const [stateFilter, setStateFilter] = useState<string>("all");
   const [potentialFilter, setPotentialFilter] = useState<ProspectPotential | "all">("all");
   const [onlyWithContact, setOnlyWithContact] = useState(false);
@@ -459,6 +472,15 @@ function ProspeccaoPage() {
     [prospectsQ.data],
   );
   const loading = prospectsQ.isLoading;
+
+  // Data de abertura do CNPJ (vem do enriquecimento compartilhado).
+  const openingQ = useQuery({
+    queryKey: openingKeys.all,
+    queryFn: loadOpeningByCnpj,
+    enabled: !!user,
+    staleTime: 5 * 60_000,
+  });
+  const openingMap = openingQ.data ?? {};
   useEffect(() => {
     if (prospectsQ.error) toast.error(`Falha ao carregar: ${(prospectsQ.error as Error).message}`);
   }, [prospectsQ.error]);
@@ -486,7 +508,11 @@ function ProspeccaoPage() {
       // (status privado != "nao_contatado"). Ignora se o operador escolheu
       // um status específico no filtro (aí ele quer ver aquele status).
       if (hideDispatched && statusFilter === "all" && p.status !== "nao_contatado") return false;
-      if (segmentFilter !== "all" && (p.segment || "").trim().toLowerCase() !== segmentFilter.toLowerCase()) return false;
+      if (segmentFilter !== "all" && nicheGroup(p.segment) !== segmentFilter) return false;
+      if (isOpeningFilterActive(opening)) {
+        const info = openingMap[(p.cnpj || "").replace(/\D/g, "")];
+        if (!matchesOpening(info?.data_abertura, opening)) return false;
+      }
       if (stateFilter !== "all" && p.state !== stateFilter) return false;
       if (potentialFilter !== "all" && p.potential !== potentialFilter) return false;
       if (onlyWithContact) {
@@ -536,7 +562,7 @@ function ProspeccaoPage() {
       return [p.company, p.segment, p.owner, p.email, p.whatsapp, p.phone, p.instagram, p.city, p.state, p.source]
         .join(" ").toLowerCase().includes(q);
     });
-  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter, hideDispatched]);
+  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter, hideDispatched, opening, openingMap]);
 
   // Bloqueio de 24h por disparo recente (whatsapp/ligação/email outbound).
   // Empresas com disparo nas últimas 24h são jogadas para o FINAL da lista,
@@ -690,8 +716,7 @@ function ProspeccaoPage() {
       return true;
     });
     for (const p of base) {
-      const s = (p.segment || "").trim();
-      if (!s) continue;
+      const s = nicheGroup(p.segment);
       counts.set(s, (counts.get(s) || 0) + 1);
     }
     return Array.from(counts.entries())
@@ -1415,6 +1440,7 @@ function ProspeccaoPage() {
     setStatusFilter("all"); setSegmentFilter("all"); setStateFilter("all"); setPotentialFilter("all");
     setSearch(""); setOnlyWithContact(false); setNoWhatsapp(false); setOnlyWhatsapp(false);
     setCadenceFilter("all");
+    setOpening(EMPTY_OPENING_FILTER);
   };
 
   const bulkEnrich = async () => {
@@ -1772,6 +1798,54 @@ function ProspeccaoPage() {
             <Button variant="ghost" onClick={clearFilters} className="h-10 text-xs">
               <X className="mr-1.5 h-4 w-4" /> Limpar filtros
             </Button>
+            <div className="col-span-full space-y-2 rounded-md border border-border/60 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Data de abertura do CNPJ
+              </p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {OPENING_RANGES.map((r) => (
+                  <Button
+                    key={r.id}
+                    size="sm"
+                    variant={opening.range === r.id ? "default" : "outline"}
+                    className="h-8 px-2.5 text-xs"
+                    onClick={() => setOpening((o) => ({ ...o, range: r.id as OpeningRange }))}
+                  >
+                    {r.label}
+                  </Button>
+                ))}
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="date"
+                    value={opening.from ?? ""}
+                    onChange={(e) => setOpening((o) => ({ ...o, from: e.target.value }))}
+                    className="h-8 w-[140px] text-xs"
+                  />
+                  <span className="text-xs text-muted-foreground">até</span>
+                  <Input
+                    type="date"
+                    value={opening.to ?? ""}
+                    onChange={(e) => setOpening((o) => ({ ...o, to: e.target.value }))}
+                    className="h-8 w-[140px] text-xs"
+                  />
+                </div>
+                {isOpeningFilterActive(opening) && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 px-2 text-xs"
+                    onClick={() => setOpening(EMPTY_OPENING_FILTER)}
+                  >
+                    Limpar data
+                  </Button>
+                )}
+              </div>
+              {isOpeningFilterActive(opening) && (
+                <p className="text-[11px] text-muted-foreground">
+                  Leads ainda sem data de abertura ficam ocultos até o enriquecimento concluir.
+                </p>
+              )}
+            </div>
             <label className="col-span-full flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
               <NativeCheckbox
                 checked={onlyWithContact}
@@ -1912,6 +1986,7 @@ function ProspeccaoPage() {
           </div>
           <DesktopProspectTable
             items={pagedItems}
+            openingMap={openingMap}
             selected={selected}
             allVisibleSelected={allVisibleSelected}
             onToggleSelect={toggleSelect}
@@ -2235,6 +2310,7 @@ function DesktopProspectTable({
   onStatus,
   onRemove,
   busyWhatsIds,
+  openingMap,
 }: {
   items: Prospect[];
   selected: Set<string>;
@@ -2249,6 +2325,7 @@ function DesktopProspectTable({
   onStatus: (id: string, s: ProspectStatus) => void;
   onRemove: (id: string) => void;
   busyWhatsIds?: Set<string>;
+  openingMap?: Record<string, { data_abertura?: string | null }>;
 }) {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const virtualizer = useWindowVirtualizer({
@@ -2297,7 +2374,20 @@ function DesktopProspectTable({
                   <div className="px-4 py-3">
                     <button className="text-left" onClick={() => onOpen(p.id)}>
                       <div className="font-semibold hover:text-primary-glow">{p.company}</div>
-                      <div className="text-[11px] text-muted-foreground">{p.segment} · resp. {p.owner}</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {nicheGroup(p.segment)} · resp. {p.owner}
+                      </div>
+                      {(() => {
+                        const dt = openingMap?.[(p.cnpj || "").replace(/\D/g, "")]?.data_abertura;
+                        const fmt = formatOpening(dt);
+                        if (!fmt) return null;
+                        const age = marketAgeLabel(dt);
+                        return (
+                          <div className="text-[10px] text-muted-foreground/80">
+                            Abertura: {fmt}{age ? ` (${age})` : ""}
+                          </div>
+                        );
+                      })()}
                     </button>
                   </div>
                   <div className="px-4 py-3">

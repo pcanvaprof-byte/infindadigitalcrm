@@ -47,6 +47,16 @@ import {
   type LatLng,
 } from "@/lib/visits/route";
 import { VisitCheckinDialog } from "@/components/VisitCheckinDialog";
+import { nicheGroup } from "@/lib/niches";
+import {
+  EMPTY_OPENING_FILTER,
+  OPENING_RANGES,
+  isOpeningFilterActive,
+  matchesOpening,
+  marketAgeLabel,
+  type OpeningFilter,
+  type OpeningRange,
+} from "@/lib/opening-date";
 
 const TasksMap = lazy(() => import("@/components/TasksMap").then((m) => ({ default: m.TasksMap })));
 
@@ -85,6 +95,7 @@ function MapaPage() {
   const [online, setOnline] = useState(true);
   const [pendingQueue, setPendingQueue] = useState(0);
   const [displayLimit, setDisplayLimit] = useState(20);
+  const [opening, setOpening] = useState<OpeningFilter>(EMPTY_OPENING_FILTER);
 
   const pointsQ = useQuery({
     queryKey: crmKeys.tasks,
@@ -198,7 +209,7 @@ function MapaPage() {
   const nichoOptions = useMemo(() => {
     const set = new Map<string, number>();
     for (const p of points) {
-      const key = (p.nicho || "Outros").trim();
+      const key = nicheGroup(p.nicho);
       set.set(key, (set.get(key) ?? 0) + 1);
     }
     return Array.from(set.entries()).sort((a, b) => b[1] - a[1]);
@@ -207,10 +218,13 @@ function MapaPage() {
   const byUf = useMemo(() => {
     let result = uf === "all" ? points : points.filter((p) => (p.uf || "").trim().toUpperCase() === uf);
     if (selectedNicho !== "all") {
-      result = result.filter((p) => (p.nicho || "Outros").trim() === selectedNicho);
+      result = result.filter((p) => nicheGroup(p.nicho) === selectedNicho);
+    }
+    if (isOpeningFilterActive(opening)) {
+      result = result.filter((p) => matchesOpening(p.data_abertura, opening));
     }
     return result;
-  }, [points, uf, selectedNicho]);
+  }, [points, uf, selectedNicho, opening]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -436,6 +450,53 @@ function MapaPage() {
                 ))}
               </SelectContent>
             </Select>
+
+            <div className="space-y-2 rounded-md border border-border/60 p-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Data de abertura do CNPJ
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {OPENING_RANGES.map((r) => (
+                  <Button
+                    key={r.id}
+                    size="sm"
+                    variant={opening.range === r.id ? "default" : "outline"}
+                    className="h-8 px-2 text-[11px]"
+                    onClick={() => setOpening((o) => ({ ...o, range: r.id as OpeningRange }))}
+                  >
+                    {r.label}
+                  </Button>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-1">
+                <Input
+                  type="date"
+                  value={opening.from ?? ""}
+                  onChange={(e) => setOpening((o) => ({ ...o, from: e.target.value }))}
+                  className="h-9 text-[11px]"
+                />
+                <Input
+                  type="date"
+                  value={opening.to ?? ""}
+                  onChange={(e) => setOpening((o) => ({ ...o, to: e.target.value }))}
+                  className="h-9 text-[11px]"
+                />
+              </div>
+              {isOpeningFilterActive(opening) && (
+                <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground leading-tight">
+                    {points.filter((p) => !p.data_abertura).length} lead(s) sem data de abertura
+                    ficam ocultos até serem enriquecidos.
+                  </p>
+                  <button
+                    className="text-[11px] text-primary underline"
+                    onClick={() => setOpening(EMPTY_OPENING_FILTER)}
+                  >
+                    Limpar filtro de data
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="rounded-md border border-border/60 p-2 text-[11px] text-muted-foreground space-y-1">
@@ -499,7 +560,7 @@ function MapaPage() {
                 
                 // Agrupa nichos únicos neste bairro para exibição rápida
                 const niches = Array.from(new Set(items.map(p => p.nicho).filter(Boolean)));
-                
+
                 return (
                   <li key={bairro} className="space-y-1">
                     <button
@@ -692,6 +753,7 @@ function MapaPage() {
                         {p.data_abertura && (
                           <span className="ml-2 font-normal">
                             • Abertura: {new Date(p.data_abertura).toLocaleDateString("pt-BR")}
+                            {marketAgeLabel(p.data_abertura) ? ` (${marketAgeLabel(p.data_abertura)})` : ""}
                           </span>
                         )}
                       </span>
