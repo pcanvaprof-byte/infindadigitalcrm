@@ -47,6 +47,16 @@ import {
   type LatLng,
 } from "@/lib/visits/route";
 import { VisitCheckinDialog } from "@/components/VisitCheckinDialog";
+import { nicheGroup } from "@/lib/niches";
+import {
+  EMPTY_OPENING_FILTER,
+  OPENING_RANGES,
+  isOpeningFilterActive,
+  matchesOpening,
+  marketAgeLabel,
+  type OpeningFilter,
+  type OpeningRange,
+} from "@/lib/opening-date";
 
 const TasksMap = lazy(() => import("@/components/TasksMap").then((m) => ({ default: m.TasksMap })));
 
@@ -85,6 +95,7 @@ function MapaPage() {
   const [online, setOnline] = useState(true);
   const [pendingQueue, setPendingQueue] = useState(0);
   const [displayLimit, setDisplayLimit] = useState(20);
+  const [opening, setOpening] = useState<OpeningFilter>(EMPTY_OPENING_FILTER);
 
   const pointsQ = useQuery({
     queryKey: crmKeys.tasks,
@@ -198,7 +209,7 @@ function MapaPage() {
   const nichoOptions = useMemo(() => {
     const set = new Map<string, number>();
     for (const p of points) {
-      const key = (p.nicho || "Outros").trim();
+      const key = nicheGroup(p.nicho);
       set.set(key, (set.get(key) ?? 0) + 1);
     }
     return Array.from(set.entries()).sort((a, b) => b[1] - a[1]);
@@ -207,10 +218,13 @@ function MapaPage() {
   const byUf = useMemo(() => {
     let result = uf === "all" ? points : points.filter((p) => (p.uf || "").trim().toUpperCase() === uf);
     if (selectedNicho !== "all") {
-      result = result.filter((p) => (p.nicho || "Outros").trim() === selectedNicho);
+      result = result.filter((p) => nicheGroup(p.nicho) === selectedNicho);
+    }
+    if (isOpeningFilterActive(opening)) {
+      result = result.filter((p) => matchesOpening(p.data_abertura, opening));
     }
     return result;
-  }, [points, uf, selectedNicho]);
+  }, [points, uf, selectedNicho, opening]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
