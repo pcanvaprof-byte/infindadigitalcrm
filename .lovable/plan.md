@@ -1,105 +1,38 @@
-## Objetivo
+# Enriquecimento em background + Nichos padronizados + Filtro por data de abertura
 
-Botão "Testar demo grátis (2h)" na tela de login que cria em segundos uma organização isolada, com dados fictícios já populados, que expira em 2 horas. Após expirar, o usuário vê uma tela dedicada com CTA "Assinar agora"; os dados ficam preservados por 30 dias e são limpos automaticamente depois.
+## 1. Enriquecimento automático no servidor (cron)
 
-Nenhum comportamento atual de `owner` / `admin` / `member` reais é alterado.
+Hoje o ciclo de 20 CNPJs/60s só roda enquanto alguém deixa uma aba de Prospecção ou Mapa aberta. A ideia é mover esse mesmo ciclo para o servidor.
 
----
+- Nova rota de servidor `src/routes/api/public/hooks/enrich-batch.ts` (POST), protegida pela chave pública do backend no header.
+- A rota busca até **20 leads pendentes** por execução (sem nome real, CNPJ incompleto, sem CEP/logradouro ou sem coordenadas), executa o mesmo pipeline (Receita → ViaCEP → Geo → IBGE → Score) e grava perfil, endereço, localização, indicadores e score, além de sincronizar os campos do lead (nome, CNPJ completo, telefone, cidade/UF, nicho).
+- Espaçamento de ~1,1s entre CNPJs dentro do lote, para respeitar os limites das APIs públicas.
+- Agendamento: **a cada 1 minuto**, via cron no banco chamando a rota pela URL estável do projeto.
+- Cada execução grava log de auditoria (`company_enrichment_logs`) com status/erro, para o acompanhamento que já usamos.
+- Segurança e escopo: como o enriquecimento já é compartilhado por organização, o job roda com identidade de sistema. Antes de implementar, confirmo em produção como as tabelas `company_*` aceitam a gravação do job (as colunas de dono são obrigatórias) e, se necessário, a migração adiciona um dono de sistema/coluna nula controlada — sem alterar o comportamento atual do enriquecimento feito pelo usuário.
+- O ciclo do navegador continua existindo, mas deixa de ser necessário: passa a ser complementar (não vou removê-lo agora).
 
-## Como o usuário demo vive
+## 2. Nichos principais estruturados (taxonomia fixa)
 
-- Papel na org demo: `admin` (para ver o produto completo — dashboard, prospecção, cadência, CRM, propostas).
-- Acesso registrado em `user_access` com `access_type='demo'` e `expires_at = now() + 2h`.
-- Organização é uma nova org "Demo — {timestamp}", totalmente isolada. RLS existente já impede vazamento cruzado.
-- Usuário demo consegue navegar, editar e criar registros dentro do próprio sandbox durante as 2h.
+Novo módulo `src/lib/niches.ts` com ~15 grupos principais, por exemplo: Alimentação, Saúde & Bem-estar, Beleza & Estética, Construção & Reforma, Automotivo, Varejo, Serviços B2B, Educação, Tecnologia, Imobiliário, Logística & Transporte, Turismo & Hospedagem, Pet, Financeiro & Contábil, Indústria, Outros.
 
----
+- Mapeamento automático do que já existe na base: o texto do segmento/CNAE de cada lead é normalizado (sem acento, minúsculo) e classificado por palavras-chave e prefixo de CNAE.
+- Nada é apagado: o segmento original continua salvo e visível; o grupo é derivado na exibição e nos filtros.
+- Os filtros de nicho de `/prospeccao` e `/mapa` passam a mostrar os grupos principais (com contagem), mantendo a opção de busca por texto livre para o segmento detalhado.
 
-## Dados fictícios pré-populados
+## 3. Filtro por data de abertura do CNPJ
 
-Semente rodada no `handler` de criação:
+Em `/prospeccao` e `/mapa`:
 
-- 40 prospects em 5 segmentos (Estética, Odonto, Advocacia, Educação, E-commerce), status distribuídos entre `nao_contatado` / `primeiro_contato` / `qualificado` / `fechado_ganho`.
-- 12 `cad_leads` em cadência (estágios variados: `M1`, `M2`, `FUP`), com `owner_id = demo user`.
-- 6 mensagens em `cad_messages` marcadas como enviadas.
-- 5 `clients` (2 com contrato ativo, 1 em onboarding, 2 em relacionamento).
-- 4 `deals` no CRM em estágios diferentes.
-- 6 tarefas pendentes (`cad_notifications` do próprio usuário demo).
-- 1 `business_profile` genérico já preenchido para a org demo.
+- Faixas rápidas: até 1 ano, 1–3 anos, 3–10 anos, +10 anos.
+- Intervalo personalizado: data inicial e final.
+- A data de abertura passa a aparecer também na lista/cards de Prospecção (no Mapa e no roteiro ela já aparece).
+- Leads ainda sem data de abertura (não enriquecidos) ficam fora quando um filtro de data está ativo, com aviso na tela indicando quantos foram omitidos.
 
-Todos os inserts usam `service_role` para bypassar RLS na semeadura e sempre com `user_id`/`owner_id`/`organization_id` do sandbox demo.
+## Detalhes técnicos
 
----
-
-## Fluxo de expiração
-
-1. `check_access_status` passa a **também** aplicar expiração quando `access_type='demo'`, mesmo para papéis privilegiados (owner/admin). Papéis não-demo continuam idênticos — `is_privileged=true` segue ignorando `expires_at` como hoje.
-2. Ao chamar qualquer server fn após 2h → middleware `authWithAccess` lança `access_expired` (fluxo já existente).
-3. `AppShell` já redireciona para `AccessExpiredScreen`. Só ajustamos essa tela para, quando `access_type==='demo'`, mostrar texto "Sua demonstração expirou" + botão "Assinar agora" (link `/assinatura`).
-
----
-
-## Limpeza após 30 dias
-
-- Nova coluna `organizations.is_demo boolean not null default false` (só marcada quando é criada por `startDemo`).
-- Route `POST /api/public/hooks/cleanup-demos` (bypass de auth do prefixo `/api/public/*`, autenticada por `apikey` = anon key):
-  - Acha organizações demo cujo `user_access.expires_at < now() - interval '30 days'` e apaga `organizations` (cascade já limpa filhas: `prospects`, `cad_leads`, `clients`, `deals`, `business_profiles` etc.).
-  - Apaga os usuários órfãos correspondentes via `auth.admin.deleteUser`.
-- Cron via `pg_cron` + `pg_net`, roda uma vez por dia às 04:00 UTC.
-
----
-
-## Alterações de código (frontend)
-
-- `src/routes/login.tsx`: adicionar botão secundário "Testar grátis por 2 horas". Handler chama `startDemo`, faz `supabase.auth.signInWithPassword` com as credenciais retornadas, redireciona para `/dashboard`.
-- `src/components/access/AccessExpiredScreen.tsx`: quando `access_type==='demo'` renderiza copy demo + botão "Assinar agora".
-
-## Alterações de código (backend)
-
-- `src/lib/access/demo.functions.ts` (novo):
-  - `startDemo` (createServerFn, sem middleware — endpoint público) — cria user, org, membership, `user_access` demo, dispara semeadura.
-  - Rate limit simples: máximo 3 criações por IP por hora (tabela `demo_signups_log`).
-- `src/lib/access/demo.seed.server.ts` (novo, server-only) — funções de semeadura idempotentes.
-- `src/routes/api/public/hooks/cleanup-demos.ts` (novo) — endpoint do cron.
-
-## Migração SQL
-
-```sql
--- 1. Marcador de org demo
-ALTER TABLE public.organizations ADD COLUMN IF NOT EXISTS is_demo boolean NOT NULL DEFAULT false;
-CREATE INDEX IF NOT EXISTS idx_organizations_is_demo ON public.organizations(is_demo) WHERE is_demo;
-
--- 2. Log anti-abuso de signup demo
-CREATE TABLE public.demo_signups_log (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  ip text,
-  organization_id uuid REFERENCES public.organizations(id) ON DELETE SET NULL,
-  created_at timestamptz NOT NULL DEFAULT now()
-);
-GRANT ALL ON public.demo_signups_log TO service_role;
-ALTER TABLE public.demo_signups_log ENABLE ROW LEVEL SECURITY;
--- sem policies: só service_role acessa.
-
--- 3. check_access_status passa a expirar contas demo mesmo se owner/admin
---    (owner/admin não-demo continuam sem expiração).
-CREATE OR REPLACE FUNCTION public.check_access_status() ... ;
-```
-
-Detalhe importante: o `CREATE OR REPLACE` da RPC mantém a assinatura e o shape do JSON — nenhum consumidor existente precisa mudar. A única diferença é: se `access_type='demo'` E `expires_at < now()`, retorna `status='expired'` mesmo com papel owner/admin.
-
----
-
-## Testes manuais (verifico ao final)
-
-1. Login → clico em "Testar 2h" → entro na plataforma como admin de uma org nova.
-2. Dashboard mostra leads/clientes/tarefas semeados.
-3. Forço `expires_at` para o passado no DB → recarrego → vejo `AccessExpiredScreen` com CTA demo.
-4. Owner real (`cardosovaldnei@gmail.com`) continua funcionando normal.
-5. Member real (Juliana) continua vendo só seus dados privados.
-
-## Riscos e mitigações
-
-- **Bots criando contas demo**: rate limit por IP + captcha simples (honeypot field) na primeira versão; se abusarem, dá pra plugar hCaptcha depois.
-- **Custo do DB por demos abandonados**: cron 30d + índice em `is_demo` evita bloat.
-- **Semeadura falhando parcial**: cada bloco é try/catch; se um falhar, o usuário ainda entra — só sem parte dos dados. Logamos o erro server-side.
-- **Regressão em Owner/Admin reais**: teste 4 acima; a lógica só ramifica quando `access_type='demo'`.
+- `src/lib/enrichment/pipeline.server.ts`: extrai o pipeline atual de `src/lib/enrichment/api.ts` para um módulo reutilizável no servidor (mesma normalização de endereço, `completeCnpj` e cálculo de score), evitando duplicar regra de negócio.
+- SQL em `scripts/migrations/` (padrão do projeto), aplicado ao projeto de produção: agendamento do cron (pg_cron + pg_net) e eventuais ajustes de permissão/coluna de dono para o job.
+- `src/routes/prospeccao.tsx`: adiciona `dateFilter` (faixa + intervalo) ao pipeline de filtros existente e usa o grupo de nicho no seletor.
+- `src/lib/tasks-map-api.ts` já traz `data_abertura`; `src/routes/mapa.tsx` ganha os mesmos controles de data e o seletor de nicho por grupo.
+- Painel de acompanhamento do cron (execuções, sucesso/erro, pendentes) fica restrito a Owner/Admin, reaproveitando o guard já existente.
