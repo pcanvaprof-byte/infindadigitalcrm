@@ -554,10 +554,7 @@ function MapaPage() {
                 
                 // Agrupa nichos únicos neste bairro para exibição rápida
                 const niches = Array.from(new Set(items.map(p => p.nicho).filter(Boolean)));
-                const idades = items
-                  .map((p) => marketAgeLabel(p.data_abertura))
-                  .filter(Boolean) as string[];
-                
+
                 return (
                   <li key={bairro} className="space-y-1">
                     <button
@@ -577,11 +574,6 @@ function MapaPage() {
                         {items.length}
                       </Badge>
                     </button>
-                    {idades.length > 0 && (
-                      <p className="px-6 text-[10px] text-muted-foreground whitespace-nowrap">
-                        Abertura: {idades.length} com data · mais antigo {idades[idades.length - 1]}
-                      </p>
-                    )}
                     
                     {/* Exibição rápida dos nichos do bairro */}
                     {niches.length > 0 && (
