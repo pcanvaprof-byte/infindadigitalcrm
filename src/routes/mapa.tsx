@@ -483,12 +483,18 @@ function MapaPage() {
                 />
               </div>
               {isOpeningFilterActive(opening) && (
-                <button
-                  className="text-[11px] text-primary underline"
-                  onClick={() => setOpening(EMPTY_OPENING_FILTER)}
-                >
-                  Limpar filtro de data
-                </button>
+                <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground leading-tight">
+                    {points.filter((p) => !p.data_abertura).length} lead(s) sem data de abertura
+                    ficam ocultos até serem enriquecidos.
+                  </p>
+                  <button
+                    className="text-[11px] text-primary underline"
+                    onClick={() => setOpening(EMPTY_OPENING_FILTER)}
+                  >
+                    Limpar filtro de data
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -747,6 +753,7 @@ function MapaPage() {
                         {p.data_abertura && (
                           <span className="ml-2 font-normal">
                             • Abertura: {new Date(p.data_abertura).toLocaleDateString("pt-BR")}
+                            {marketAgeLabel(p.data_abertura) ? ` (${marketAgeLabel(p.data_abertura)})` : ""}
                           </span>
                         )}
                       </span>
