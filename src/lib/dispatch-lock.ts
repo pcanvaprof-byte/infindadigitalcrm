@@ -75,16 +75,17 @@ async function cadMessageToday(leadId: string, userId?: string): Promise<boolean
 export async function wasDispatchedToday(input: {
   prospectId?: string | null;
   leadId?: string | null;
+  userId?: string | null;
 }): Promise<{ blocked: boolean; source?: DispatchSource }> {
-  let { prospectId, leadId } = input;
+  let { prospectId, leadId, userId } = input;
   try {
     if (prospectId && !leadId) leadId = await leadIdFromProspect(prospectId);
     if (leadId && !prospectId) prospectId = await prospectIdFromLead(leadId);
 
-    if (prospectId && (await touchpointToday(prospectId))) {
+    if (prospectId && (await touchpointToday(prospectId, userId || undefined))) {
       return { blocked: true, source: "Prospecção" };
     }
-    if (leadId && (await cadMessageToday(leadId))) {
+    if (leadId && (await cadMessageToday(leadId, userId || undefined))) {
       return { blocked: true, source: "Cadência" };
     }
     return { blocked: false };
