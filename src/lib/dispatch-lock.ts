@@ -54,15 +54,20 @@ async function touchpointToday(prospectId: string, userId?: string): Promise<boo
   return ((data as unknown[]) ?? []).length > 0;
 }
 
-async function cadMessageToday(leadId: string): Promise<boolean> {
+async function cadMessageToday(leadId: string, userId?: string): Promise<boolean> {
   const since = lockWindowSinceISO();
-  const { data, error } = await db
+  let query = db
     .from("cad_messages")
     .select("id")
     .eq("lead_id", leadId)
     .eq("direction", "out")
-    .gte("created_at", since)
-    .limit(1);
+    .gte("created_at", since);
+  
+  if (userId) {
+    query = query.eq("owner_id", userId);
+  }
+
+  const { data, error } = await query.limit(1);
   if (error) return false;
   return ((data as unknown[]) ?? []).length > 0;
 }
