@@ -1000,7 +1000,7 @@ function ProspeccaoPage() {
       typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
     const preOpened = isMobileUA ? null : window.open("", "_blank");
     try {
-      const lock = await wasDispatchedToday({ prospectId: p.id });
+      const lock = await wasDispatchedToday({ prospectId: p.id, userId: user?.id });
       if (lock.blocked) {
         console.warn("[prosp] openWhats:blocked", { id: p.id, source: lock.source });
         try { preOpened?.close(); } catch { /* noop */ }

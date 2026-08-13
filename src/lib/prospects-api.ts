@@ -227,9 +227,12 @@ async function loadPrivateStatesFromTouchpoints(uid: string, ids: string[], page
           if (!next.status || next.status === "nao_contatado" || next.status === "primeiro_contato") next.status = "qualificado";
         } else if (event.tipo === "status") {
           const status = normalizePrivateStatus(event.resultado) ?? normalizePrivateStatus(event.mensagem);
-          if (status && !next.status) next.status = status;
-        } else if (!next.status) {
-          next.status = "primeiro_contato";
+          if (status) next.status = status;
+        } else if (!next.status || next.status === "nao_contatado") {
+          // Se houve qualquer disparo (whatsapp, ligacao, email), o status não pode ser "nao_contatado"
+          if (["whatsapp", "ligacao", "email", "reuniao"].includes(event.tipo || "")) {
+            next.status = "primeiro_contato";
+          }
         }
         out.set(event.prospect_id, next);
       }

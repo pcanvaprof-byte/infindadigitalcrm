@@ -36,28 +36,38 @@ async function prospectIdFromLead(leadId: string): Promise<string | null> {
   return (data as { prospect_id: string | null } | null)?.prospect_id ?? null;
 }
 
-async function touchpointToday(prospectId: string): Promise<boolean> {
+async function touchpointToday(prospectId: string, userId?: string): Promise<boolean> {
   const since = lockWindowSinceISO();
-  const { data, error } = await db
+  let query = db
     .from("prospect_touchpoints")
     .select("id")
     .eq("prospect_id", prospectId)
     .in("tipo", ["whatsapp", "ligacao", "email"])
-    .gte("enviado_em", since)
-    .limit(1);
+    .gte("enviado_em", since);
+  
+  if (userId) {
+    query = query.eq("user_id", userId);
+  }
+
+  const { data, error } = await query.limit(1);
   if (error) return false;
   return ((data as unknown[]) ?? []).length > 0;
 }
 
-async function cadMessageToday(leadId: string): Promise<boolean> {
+async function cadMessageToday(leadId: string, userId?: string): Promise<boolean> {
   const since = lockWindowSinceISO();
-  const { data, error } = await db
+  let query = db
     .from("cad_messages")
     .select("id")
     .eq("lead_id", leadId)
     .eq("direction", "out")
-    .gte("created_at", since)
-    .limit(1);
+    .gte("created_at", since);
+  
+  if (userId) {
+    query = query.eq("owner_id", userId);
+  }
+
+  const { data, error } = await query.limit(1);
   if (error) return false;
   return ((data as unknown[]) ?? []).length > 0;
 }
@@ -65,16 +75,17 @@ async function cadMessageToday(leadId: string): Promise<boolean> {
 export async function wasDispatchedToday(input: {
   prospectId?: string | null;
   leadId?: string | null;
+  userId?: string | null;
 }): Promise<{ blocked: boolean; source?: DispatchSource }> {
-  let { prospectId, leadId } = input;
+  let { prospectId, leadId, userId } = input;
   try {
     if (prospectId && !leadId) leadId = await leadIdFromProspect(prospectId);
     if (leadId && !prospectId) prospectId = await prospectIdFromLead(leadId);
 
-    if (prospectId && (await touchpointToday(prospectId))) {
+    if (prospectId && (await touchpointToday(prospectId, userId || undefined))) {
       return { blocked: true, source: "Prospecção" };
     }
-    if (leadId && (await cadMessageToday(leadId))) {
+    if (leadId && (await cadMessageToday(leadId, userId || undefined))) {
       return { blocked: true, source: "Cadência" };
     }
     return { blocked: false };
