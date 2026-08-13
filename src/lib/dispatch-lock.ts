@@ -36,15 +36,20 @@ async function prospectIdFromLead(leadId: string): Promise<string | null> {
   return (data as { prospect_id: string | null } | null)?.prospect_id ?? null;
 }
 
-async function touchpointToday(prospectId: string): Promise<boolean> {
+async function touchpointToday(prospectId: string, userId?: string): Promise<boolean> {
   const since = lockWindowSinceISO();
-  const { data, error } = await db
+  let query = db
     .from("prospect_touchpoints")
     .select("id")
     .eq("prospect_id", prospectId)
     .in("tipo", ["whatsapp", "ligacao", "email"])
-    .gte("enviado_em", since)
-    .limit(1);
+    .gte("enviado_em", since);
+  
+  if (userId) {
+    query = query.eq("user_id", userId);
+  }
+
+  const { data, error } = await query.limit(1);
   if (error) return false;
   return ((data as unknown[]) ?? []).length > 0;
 }
