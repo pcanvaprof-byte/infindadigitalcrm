@@ -503,12 +503,26 @@ function ProspeccaoPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    
+    // Identidades ocultas por disparo recente
+    const dispatchedIdentities = new Set<string>();
+    if (hideDispatched && statusFilter === "all") {
+      prospects.forEach(p => {
+        if (p.status !== "nao_contatado") {
+          dispatchedIdentities.add(getProspectIdentityKey(p));
+        }
+      });
+    }
+
     return prospects.filter((p) => {
       if (statusFilter !== "all" && p.status !== statusFilter) return false;
-      // Quando ativo, esconde qualquer lead já disparado por este usuário
-      // (status privado != "nao_contatado"). Ignora se o operador escolheu
-      // um status específico no filtro (aí ele quer ver aquele status).
-      if (hideDispatched && statusFilter === "all" && p.status !== "nao_contatado") return false;
+      
+      // Filtro de ocultação baseado em identidade (CNPJ/Empresa)
+      if (hideDispatched && statusFilter === "all") {
+        const key = getProspectIdentityKey(p);
+        if (dispatchedIdentities.has(key)) return false;
+      }
+
       if (segmentFilter !== "all" && nicheGroup(p.segment) !== segmentFilter) return false;
       if (isOpeningFilterActive(opening)) {
         const info = openingMap[(p.cnpj || "").replace(/\D/g, "")];
@@ -564,6 +578,7 @@ function ProspeccaoPage() {
         .join(" ").toLowerCase().includes(q);
     });
   }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter, hideDispatched, opening, openingMap]);
+
 
   // Bloqueio de 24h por disparo recente (whatsapp/ligação/email outbound).
   // Empresas com disparo nas últimas 24h são jogadas para o FINAL da lista,
