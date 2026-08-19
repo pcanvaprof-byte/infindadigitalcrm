@@ -6,7 +6,9 @@ import type {
   ProspectStatus,
   InteractionKind,
   Interaction,
-} from "@/lib/mock-prospects";
+} from "./mock-prospects";
+import { getProspectIdentityKey } from "./prospect-identity";
+
 
 type Row = {
   id: string;
