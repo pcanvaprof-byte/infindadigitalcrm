@@ -599,13 +599,27 @@ export async function applyImport(
       continue;
     }
     const cnpj = r.data.cnpj || "";
-    if (cnpj && seenCnpjInFile.has(cnpj)) {
+    // Normalização via Identidade (raiz de 8 dígitos ou CNPJ completo)
+    const cnpjKey = cnpj.replace(/\D/g, "");
+    const cnpjRoot = cnpjKey.length >= 8 ? cnpjKey.slice(0, 8) : cnpjKey;
+    
+    if (cnpjRoot && seenCnpjInFile.has(cnpjRoot)) {
       result.skipped++;
       continue;
     }
-    if (cnpj) seenCnpjInFile.add(cnpj);
-    const match = cnpj ? byCnpj.get(cnpj) : undefined;
+    if (cnpjRoot) seenCnpjInFile.add(cnpjRoot);
+
+    // Casamento inteligente por raiz de CNPJ na base existente
+    let match = cnpj ? byCnpj.get(cnpj) : undefined;
+    if (!match && cnpjRoot) {
+      match = Array.from(byCnpj.values()).find(e => {
+        const eCnpj = (e.cnpj || "").replace(/\D/g, "");
+        return eCnpj.startsWith(cnpjRoot);
+      });
+    }
+
     if (match) {
+
       // fill-empty-only
       const patch: Record<string, unknown> = {};
       const fields: (keyof Prospect)[] = [
