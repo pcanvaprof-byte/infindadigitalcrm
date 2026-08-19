@@ -6,7 +6,9 @@ import type {
   ProspectStatus,
   InteractionKind,
   Interaction,
-} from "@/lib/mock-prospects";
+} from "./mock-prospects";
+import { getProspectIdentityKey } from "./prospect-identity";
+
 
 type Row = {
   id: string;
@@ -171,10 +173,9 @@ async function loadProspectRowsWithPrivateState(uid: string, pageSize: number): 
 async function loadProspectRowsFallback(uid: string, pageSize: number): Promise<Row[]> {
   const rows: Row[] = [];
   for (let from = 0; ; from += pageSize) {
-    // Fallback para bancos que ainda não possuem a view. Lê somente cadastro
-    // compartilhado e zera operacional para não herdar trabalho de outro usuário.
     const { data, error } = await dbExt.from("prospects")
       .select("id,company,cnpj,segment,owner_name,whatsapp,phone,email,instagram,city,state,source,potential,created_at,updated_at")
+      .is("merged_into", null) // Não carrega duplicatas arquivadas
       .order("created_at", { ascending: false })
       .range(from, from + pageSize - 1);
     if (error) {
@@ -194,20 +195,27 @@ async function loadPrivateStatesFromTouchpoints(uid: string, ids: string[], page
   const out = new Map<string, Partial<Row>>();
   if (!ids.length) return out;
   const ID_BATCH = 200;
-  for (let i = 0; i < ids.length; i += ID_BATCH) {
-    const slice = ids.slice(i, i + ID_BATCH);
+  
+  // Executa lotes em paralelo para performance e robustez
+  const slices: string[][] = [];
+  for (let i = 0; i < ids.length; i += ID_BATCH) slices.push(ids.slice(i, i + ID_BATCH));
+
+  const results = await Promise.all(slices.map(async (slice) => {
+    const sliceMap = new Map<string, Partial<Row>>();
     for (let from = 0; ; from += pageSize) {
       const { data, error } = await dbExt.from("prospect_touchpoints")
         .select("prospect_id,tipo,resultado,mensagem,enviado_em")
         .eq("user_id", uid)
         .in("prospect_id", slice)
         .in("tipo", ["whatsapp", "ligacao", "email", "reuniao", "resposta", "status"])
-        .order("enviado_em", { ascending: false })
+        .order("enviado_em", { ascending: true }) // Ordem crescente para o mais novo sobrescrever o antigo
         .range(from, from + pageSize - 1);
+      
       if (error) {
-        console.warn("loadAllProspects private touchpoints fallback error", error);
-        return out;
+        console.warn("loadPrivateStatesFromTouchpoints batch error", error);
+        throw error; // Propaga erro para o Promise.all
       }
+
       const batch = (data ?? []) as Array<{
         prospect_id: string;
         tipo: string | null;
@@ -215,13 +223,16 @@ async function loadPrivateStatesFromTouchpoints(uid: string, ids: string[], page
         mensagem: string | null;
         enviado_em: string | null;
       }>;
+
       for (const event of batch) {
-        const prev = out.get(event.prospect_id) ?? {};
+        const prev = sliceMap.get(event.prospect_id) ?? {};
         const next: Partial<Row> = { ...prev };
         const eventAt = event.enviado_em ?? null;
+        
         if (eventAt && (!next.last_contact_at || new Date(eventAt) > new Date(next.last_contact_at))) {
           next.last_contact_at = eventAt;
         }
+
         if (event.tipo === "resposta" || event.resultado === "respondido" || event.resultado === "interessado") {
           next.response_status = "respondido";
           if (!next.status || next.status === "nao_contatado" || next.status === "primeiro_contato") next.status = "qualificado";
@@ -229,18 +240,23 @@ async function loadPrivateStatesFromTouchpoints(uid: string, ids: string[], page
           const status = normalizePrivateStatus(event.resultado) ?? normalizePrivateStatus(event.mensagem);
           if (status) next.status = status;
         } else if (!next.status || next.status === "nao_contatado") {
-          // Se houve qualquer disparo (whatsapp, ligacao, email), o status não pode ser "nao_contatado"
           if (["whatsapp", "ligacao", "email", "reuniao"].includes(event.tipo || "")) {
             next.status = "primeiro_contato";
           }
         }
-        out.set(event.prospect_id, next);
+        sliceMap.set(event.prospect_id, next);
       }
       if (batch.length < pageSize) break;
     }
+    return sliceMap;
+  }));
+
+  for (const m of results) {
+    for (const [k, v] of m.entries()) out.set(k, v);
   }
   return out;
 }
+
 
 function withDefaultPrivateState(row: Partial<Row>): Row {
   return {
@@ -276,8 +292,21 @@ function normalizePrivateStatus(value: string | null | undefined): string | null
   if (!value) return null;
   const raw = value.trim();
   const stripped = raw.replace(/^status\s*:\s*/i, "");
-  return VALID_STATUSES.includes(stripped) ? stripped : null;
+  if (VALID_STATUSES.includes(stripped)) return stripped;
+
+  // Normalização de rótulos humanos (Português)
+  const lower = raw.toLowerCase();
+  if (lower.includes("perdido")) return "perdido";
+  if (lower.includes("fechado") || lower.includes("ganho") || lower.includes("cliente")) return "cliente";
+  if (lower.includes("qualificado")) return "qualificado";
+  if (lower.includes("negociação") || lower.includes("andamento")) return "em_negociacao";
+  if (lower.includes("agendado") || lower.includes("reunião")) return "agendado";
+  if (lower.includes("briefing")) return "briefing_enviada";
+  if (lower.includes("proposta")) return "proposta_enviada";
+
+  return null;
 }
+
 
 async function currentUserId(): Promise<string | null> {
   if (_cachedUid) return _cachedUid;
@@ -570,13 +599,27 @@ export async function applyImport(
       continue;
     }
     const cnpj = r.data.cnpj || "";
-    if (cnpj && seenCnpjInFile.has(cnpj)) {
+    // Normalização via Identidade (raiz de 8 dígitos ou CNPJ completo)
+    const cnpjKey = cnpj.replace(/\D/g, "");
+    const cnpjRoot = cnpjKey.length >= 8 ? cnpjKey.slice(0, 8) : cnpjKey;
+    
+    if (cnpjRoot && seenCnpjInFile.has(cnpjRoot)) {
       result.skipped++;
       continue;
     }
-    if (cnpj) seenCnpjInFile.add(cnpj);
-    const match = cnpj ? byCnpj.get(cnpj) : undefined;
+    if (cnpjRoot) seenCnpjInFile.add(cnpjRoot);
+
+    // Casamento inteligente por raiz de CNPJ na base existente
+    let match = cnpj ? byCnpj.get(cnpj) : undefined;
+    if (!match && cnpjRoot) {
+      match = Array.from(byCnpj.values()).find(e => {
+        const eCnpj = (e.cnpj || "").replace(/\D/g, "");
+        return eCnpj.startsWith(cnpjRoot);
+      });
+    }
+
     if (match) {
+
       // fill-empty-only
       const patch: Record<string, unknown> = {};
       const fields: (keyof Prospect)[] = [

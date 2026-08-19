@@ -3576,6 +3576,7 @@ export type Database = {
           imported_by: string | null
           instagram: string
           last_contact_at: string | null
+          merged_into: string | null
           next_contact_at: string | null
           organization_id: string
           owner_name: string
@@ -3606,6 +3607,7 @@ export type Database = {
           imported_by?: string | null
           instagram?: string
           last_contact_at?: string | null
+          merged_into?: string | null
           next_contact_at?: string | null
           organization_id?: string
           owner_name?: string
@@ -3636,6 +3638,7 @@ export type Database = {
           imported_by?: string | null
           instagram?: string
           last_contact_at?: string | null
+          merged_into?: string | null
           next_contact_at?: string | null
           organization_id?: string
           owner_name?: string
@@ -3656,6 +3659,41 @@ export type Database = {
             columns: ["import_id"]
             isOneToOne: false
             referencedRelation: "prospect_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospects_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospects_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_prospect_import_audit"
+            referencedColumns: ["prospect_id"]
+          },
+          {
+            foreignKeyName: "prospects_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_prospects_private_leaks"
+            referencedColumns: ["prospect_id"]
+          },
+          {
+            foreignKeyName: "prospects_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_prospects_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospects_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_prospects_with_state"
             referencedColumns: ["id"]
           },
         ]
@@ -4458,6 +4496,9 @@ export type Database = {
         Returns: undefined
       }
       _is_org_admin: { Args: never; Returns: boolean }
+      _prospect_norm_city: { Args: { c: string }; Returns: string }
+      _prospect_norm_cnpj: { Args: { c: string }; Returns: string }
+      _prospect_norm_name: { Args: { n: string }; Returns: string }
       acoes_hoje: {
         Args: { _limit?: number }
         Returns: {

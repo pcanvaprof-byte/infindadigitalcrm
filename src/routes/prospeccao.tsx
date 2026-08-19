@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { getProspectIdentityKey } from "@/lib/prospect-identity";
 import { useEffect, useMemo, useRef, useState, memo, lazy, Suspense } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 
@@ -502,12 +503,26 @@ function ProspeccaoPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    
+    // Identidades ocultas por disparo recente
+    const dispatchedIdentities = new Set<string>();
+    if (hideDispatched && statusFilter === "all") {
+      prospects.forEach(p => {
+        if (p.status !== "nao_contatado") {
+          dispatchedIdentities.add(getProspectIdentityKey(p));
+        }
+      });
+    }
+
     return prospects.filter((p) => {
       if (statusFilter !== "all" && p.status !== statusFilter) return false;
-      // Quando ativo, esconde qualquer lead já disparado por este usuário
-      // (status privado != "nao_contatado"). Ignora se o operador escolheu
-      // um status específico no filtro (aí ele quer ver aquele status).
-      if (hideDispatched && statusFilter === "all" && p.status !== "nao_contatado") return false;
+      
+      // Filtro de ocultação baseado em identidade (CNPJ/Empresa)
+      if (hideDispatched && statusFilter === "all") {
+        const key = getProspectIdentityKey(p);
+        if (dispatchedIdentities.has(key)) return false;
+      }
+
       if (segmentFilter !== "all" && nicheGroup(p.segment) !== segmentFilter) return false;
       if (isOpeningFilterActive(opening)) {
         const info = openingMap[(p.cnpj || "").replace(/\D/g, "")];
@@ -564,26 +579,34 @@ function ProspeccaoPage() {
     });
   }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter, hideDispatched, opening, openingMap]);
 
+
   // Bloqueio de 24h por disparo recente (whatsapp/ligação/email outbound).
   // Empresas com disparo nas últimas 24h são jogadas para o FINAL da lista,
   // ordenadas pelo disparo mais antigo primeiro (próximas a "destravar").
   const filteredOrdered = useMemo(() => {
     const BLOCK_MS = 24 * 60 * 60 * 1000;
     const now = Date.now();
-    const isOutbound = (k: string) => k === "whatsapp" || k === "ligacao" || k === "email";
-    const lastOut = (p: Prospect): number => {
-      let max = 0;
+    
+    // Mapeia o último disparo por identidade (CNPJ/Empresa)
+    const identityLastOut = new Map<string, number>();
+    prospects.forEach(p => {
+      const key = getProspectIdentityKey(p);
+      const isOutbound = (k: string) => k === "whatsapp" || k === "ligacao" || k === "email";
+      let pMax = 0;
       for (const ix of p.interactions ?? []) {
         if (!isOutbound(ix.kind)) continue;
         const t = ix.at ? Date.parse(ix.at) : 0;
-        if (t > max) max = t;
+        if (t > pMax) pMax = t;
       }
-      return max;
-    };
+      if (pMax > (identityLastOut.get(key) || 0)) {
+        identityLastOut.set(key, pMax);
+      }
+    });
+
     const active: Prospect[] = [];
     const coldActive: Prospect[] = [];
     const blocked: Array<{ p: Prospect; last: number }> = [];
-    // "Não aquecido" = cadastro incompleto (sem nome de empresa real ou CNPJ < 14 dígitos)
+    
     const notWarmed = (p: Prospect) => {
       const digits = (p.cnpj || "").replace(/\D/g, "");
       if (digits && digits.length !== 14) return true;
@@ -591,13 +614,16 @@ function ProspeccaoPage() {
       if (!nome) return true;
       return nome.replace(/[\s./-]/g, "").replace(/\D/g, "").length === nome.replace(/[\s./-]/g, "").length;
     };
+
     for (const p of filtered) {
-      const last = lastOut(p);
+      const key = getProspectIdentityKey(p);
+      const last = identityLastOut.get(key) || 0;
       if (last > 0 && now - last < BLOCK_MS) blocked.push({ p, last });
       else if (notWarmed(p)) coldActive.push(p);
       else active.push(p);
     }
     blocked.sort((a, b) => a.last - b.last);
+
     return [...active, ...coldActive, ...blocked.map((b) => b.p)];
   }, [filtered]);
 
