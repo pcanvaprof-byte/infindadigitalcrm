@@ -1,4 +1,4 @@
-import type { Prospect } from "./prospects-api";
+import type { Prospect } from "./mock-prospects";
 
 /**
  * Gera uma chave de identidade para o prospect baseada em dados duráveis da empresa.
