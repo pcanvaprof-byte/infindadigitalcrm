@@ -1012,6 +1012,14 @@ function ProspeccaoPage() {
       console.warn("[prosp] openWhats:abort:no-whatsapp", { id: p.id });
       return toast.error("WhatsApp não cadastrado");
     }
+
+    // Avanço de status automático para leads disparados (garante que saiam de "Não contatado")
+    if (!p.status || p.status === "nao_contatado") {
+      updateProspect(p.id, { status: "primeiro_contato" }).catch(e => 
+        console.error("[prosp] erro ao atualizar status inicial:", e)
+      );
+    }
+
     // Guard anti-duplo-clique: enquanto o disparo está em curso, ignora cliques.
     if (dispatchingIds.has(p.id)) {
       console.warn("[prosp] openWhats:already-dispatching", { id: p.id });

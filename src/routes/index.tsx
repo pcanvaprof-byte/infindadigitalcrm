@@ -1,6 +1,6 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
 // Preciso aquecer os 9k de leads de forma automatica
-// quando configurar o lead para de aparecer os primeiros passos
+// E os leads ja disparados nesse perfil que tiver qualquer alteração no card mudar para status principalmente os que ja tiveram qualquer clique
 
 import { SalesPage } from "@/components/SalesPage";
 import { useAuth } from "@/lib/auth-context";
