@@ -586,20 +586,27 @@ function ProspeccaoPage() {
   const filteredOrdered = useMemo(() => {
     const BLOCK_MS = 24 * 60 * 60 * 1000;
     const now = Date.now();
-    const isOutbound = (k: string) => k === "whatsapp" || k === "ligacao" || k === "email";
-    const lastOut = (p: Prospect): number => {
-      let max = 0;
+    
+    // Mapeia o último disparo por identidade (CNPJ/Empresa)
+    const identityLastOut = new Map<string, number>();
+    prospects.forEach(p => {
+      const key = getProspectIdentityKey(p);
+      const isOutbound = (k: string) => k === "whatsapp" || k === "ligacao" || k === "email";
+      let pMax = 0;
       for (const ix of p.interactions ?? []) {
         if (!isOutbound(ix.kind)) continue;
         const t = ix.at ? Date.parse(ix.at) : 0;
-        if (t > max) max = t;
+        if (t > pMax) pMax = t;
       }
-      return max;
-    };
+      if (pMax > (identityLastOut.get(key) || 0)) {
+        identityLastOut.set(key, pMax);
+      }
+    });
+
     const active: Prospect[] = [];
     const coldActive: Prospect[] = [];
     const blocked: Array<{ p: Prospect; last: number }> = [];
-    // "Não aquecido" = cadastro incompleto (sem nome de empresa real ou CNPJ < 14 dígitos)
+    
     const notWarmed = (p: Prospect) => {
       const digits = (p.cnpj || "").replace(/\D/g, "");
       if (digits && digits.length !== 14) return true;
@@ -607,13 +614,16 @@ function ProspeccaoPage() {
       if (!nome) return true;
       return nome.replace(/[\s./-]/g, "").replace(/\D/g, "").length === nome.replace(/[\s./-]/g, "").length;
     };
+
     for (const p of filtered) {
-      const last = lastOut(p);
+      const key = getProspectIdentityKey(p);
+      const last = identityLastOut.get(key) || 0;
       if (last > 0 && now - last < BLOCK_MS) blocked.push({ p, last });
       else if (notWarmed(p)) coldActive.push(p);
       else active.push(p);
     }
     blocked.sort((a, b) => a.last - b.last);
+
     return [...active, ...coldActive, ...blocked.map((b) => b.p)];
   }, [filtered]);
 
