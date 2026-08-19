@@ -292,8 +292,21 @@ function normalizePrivateStatus(value: string | null | undefined): string | null
   if (!value) return null;
   const raw = value.trim();
   const stripped = raw.replace(/^status\s*:\s*/i, "");
-  return VALID_STATUSES.includes(stripped) ? stripped : null;
+  if (VALID_STATUSES.includes(stripped)) return stripped;
+
+  // Normalização de rótulos humanos (Português)
+  const lower = raw.toLowerCase();
+  if (lower.includes("perdido")) return "perdido";
+  if (lower.includes("fechado") || lower.includes("ganho") || lower.includes("cliente")) return "cliente";
+  if (lower.includes("qualificado")) return "qualificado";
+  if (lower.includes("negociação") || lower.includes("andamento")) return "em_negociacao";
+  if (lower.includes("agendado") || lower.includes("reunião")) return "agendado";
+  if (lower.includes("briefing")) return "briefing_enviada";
+  if (lower.includes("proposta")) return "proposta_enviada";
+
+  return null;
 }
+
 
 async function currentUserId(): Promise<string | null> {
   if (_cachedUid) return _cachedUid;
