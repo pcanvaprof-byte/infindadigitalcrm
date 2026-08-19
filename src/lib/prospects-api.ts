@@ -171,10 +171,9 @@ async function loadProspectRowsWithPrivateState(uid: string, pageSize: number): 
 async function loadProspectRowsFallback(uid: string, pageSize: number): Promise<Row[]> {
   const rows: Row[] = [];
   for (let from = 0; ; from += pageSize) {
-    // Fallback para bancos que ainda não possuem a view. Lê somente cadastro
-    // compartilhado e zera operacional para não herdar trabalho de outro usuário.
     const { data, error } = await dbExt.from("prospects")
       .select("id,company,cnpj,segment,owner_name,whatsapp,phone,email,instagram,city,state,source,potential,created_at,updated_at")
+      .is("merged_into", null) // Não carrega duplicatas arquivadas
       .order("created_at", { ascending: false })
       .range(from, from + pageSize - 1);
     if (error) {
@@ -194,20 +193,27 @@ async function loadPrivateStatesFromTouchpoints(uid: string, ids: string[], page
   const out = new Map<string, Partial<Row>>();
   if (!ids.length) return out;
   const ID_BATCH = 200;
-  for (let i = 0; i < ids.length; i += ID_BATCH) {
-    const slice = ids.slice(i, i + ID_BATCH);
+  
+  // Executa lotes em paralelo para performance e robustez
+  const slices: string[][] = [];
+  for (let i = 0; i < ids.length; i += ID_BATCH) slices.push(ids.slice(i, i + ID_BATCH));
+
+  const results = await Promise.all(slices.map(async (slice) => {
+    const sliceMap = new Map<string, Partial<Row>>();
     for (let from = 0; ; from += pageSize) {
       const { data, error } = await dbExt.from("prospect_touchpoints")
         .select("prospect_id,tipo,resultado,mensagem,enviado_em")
         .eq("user_id", uid)
         .in("prospect_id", slice)
         .in("tipo", ["whatsapp", "ligacao", "email", "reuniao", "resposta", "status"])
-        .order("enviado_em", { ascending: false })
+        .order("enviado_em", { ascending: true }) // Ordem crescente para o mais novo sobrescrever o antigo
         .range(from, from + pageSize - 1);
+      
       if (error) {
-        console.warn("loadAllProspects private touchpoints fallback error", error);
-        return out;
+        console.warn("loadPrivateStatesFromTouchpoints batch error", error);
+        throw error; // Propaga erro para o Promise.all
       }
+
       const batch = (data ?? []) as Array<{
         prospect_id: string;
         tipo: string | null;
@@ -215,13 +221,16 @@ async function loadPrivateStatesFromTouchpoints(uid: string, ids: string[], page
         mensagem: string | null;
         enviado_em: string | null;
       }>;
+
       for (const event of batch) {
-        const prev = out.get(event.prospect_id) ?? {};
+        const prev = sliceMap.get(event.prospect_id) ?? {};
         const next: Partial<Row> = { ...prev };
         const eventAt = event.enviado_em ?? null;
+        
         if (eventAt && (!next.last_contact_at || new Date(eventAt) > new Date(next.last_contact_at))) {
           next.last_contact_at = eventAt;
         }
+
         if (event.tipo === "resposta" || event.resultado === "respondido" || event.resultado === "interessado") {
           next.response_status = "respondido";
           if (!next.status || next.status === "nao_contatado" || next.status === "primeiro_contato") next.status = "qualificado";
@@ -229,18 +238,23 @@ async function loadPrivateStatesFromTouchpoints(uid: string, ids: string[], page
           const status = normalizePrivateStatus(event.resultado) ?? normalizePrivateStatus(event.mensagem);
           if (status) next.status = status;
         } else if (!next.status || next.status === "nao_contatado") {
-          // Se houve qualquer disparo (whatsapp, ligacao, email), o status não pode ser "nao_contatado"
           if (["whatsapp", "ligacao", "email", "reuniao"].includes(event.tipo || "")) {
             next.status = "primeiro_contato";
           }
         }
-        out.set(event.prospect_id, next);
+        sliceMap.set(event.prospect_id, next);
       }
       if (batch.length < pageSize) break;
     }
+    return sliceMap;
+  }));
+
+  for (const m of results) {
+    for (const [k, v] of m.entries()) out.set(k, v);
   }
   return out;
 }
+
 
 function withDefaultPrivateState(row: Partial<Row>): Row {
   return {
