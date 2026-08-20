@@ -9,75 +9,175 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as UsuariosRouteImport } from './routes/usuarios'
-import { Route as TarefasRouteImport } from './routes/tarefas'
-import { Route as ProspeccaoTemplatesNichoRouteImport } from './routes/prospeccao-templates-nicho'
-import { Route as ProspeccaoRouteImport } from './routes/prospeccao'
-import { Route as PropostasRouteImport } from './routes/propostas'
-import { Route as MeusTemplatesRouteImport } from './routes/meus-templates'
-import { Route as MeuNegocioRouteImport } from './routes/meu-negocio'
-import { Route as MetasObjetivosRouteImport } from './routes/metas-objetivos'
-import { Route as MetasRouteImport } from './routes/metas'
-import { Route as MapaRouteImport } from './routes/mapa'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as KickoffRouteImport } from './routes/kickoff'
-import { Route as DocumentacaoRouteImport } from './routes/documentacao'
-import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as CrmRouteImport } from './routes/crm'
-import { Route as ContratosRouteImport } from './routes/contratos'
-import { Route as CatalogoRouteImport } from './routes/catalogo'
-import { Route as CadenciaRouteImport } from './routes/cadencia'
-import { Route as BriefingsRouteImport } from './routes/briefings'
-import { Route as BiRouteImport } from './routes/bi'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AssinaturaRouteImport } from './routes/assinatura'
-import { Route as AquecimentoRouteImport } from './routes/aquecimento'
-import { Route as ApiKeysRouteImport } from './routes/api-keys'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as OperacoesIndexRouteImport } from './routes/operacoes.index'
-import { Route as PropostasIdRouteImport } from './routes/propostas.$id'
-import { Route as PropostaTokenRouteImport } from './routes/proposta.$token'
-import { Route as OperacoesClientesRouteImport } from './routes/operacoes.clientes'
-import { Route as OperacoesAuditoriaLifecycleRouteImport } from './routes/operacoes.auditoria-lifecycle'
-import { Route as ContratosIdRouteImport } from './routes/contratos.$id'
-import { Route as CatalogoNovoRouteImport } from './routes/catalogo.novo'
-import { Route as CatalogoIdRouteImport } from './routes/catalogo.$id'
-import { Route as BriefingsIdRouteImport } from './routes/briefings.$id'
-import { Route as BriefingTokenRouteImport } from './routes/briefing.$token'
-import { Route as BiDisparosRouteImport } from './routes/bi.disparos'
-import { Route as BiConfiguracoesRouteImport } from './routes/bi.configuracoes'
+import { Route as ApiKeysRouteImport } from './routes/api-keys'
+import { Route as AquecimentoRouteImport } from './routes/aquecimento'
+import { Route as AssinaturaRouteImport } from './routes/assinatura'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as BiRouteImport } from './routes/bi'
+import { Route as BriefingsRouteImport } from './routes/briefings'
+import { Route as CadenciaRouteImport } from './routes/cadencia'
+import { Route as CatalogoRouteImport } from './routes/catalogo'
+import { Route as ContratosRouteImport } from './routes/contratos'
+import { Route as CrmRouteImport } from './routes/crm'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as DocumentacaoRouteImport } from './routes/documentacao'
+import { Route as KickoffRouteImport } from './routes/kickoff'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as MapaRouteImport } from './routes/mapa'
+import { Route as MetasRouteImport } from './routes/metas'
+import { Route as MetasObjetivosRouteImport } from './routes/metas-objetivos'
+import { Route as MeuNegocioRouteImport } from './routes/meu-negocio'
+import { Route as MeusTemplatesRouteImport } from './routes/meus-templates'
+import { Route as PropostasRouteImport } from './routes/propostas'
+import { Route as ProspeccaoRouteImport } from './routes/prospeccao'
+import { Route as ProspeccaoTemplatesNichoRouteImport } from './routes/prospeccao-templates-nicho'
+import { Route as TarefasRouteImport } from './routes/tarefas'
+import { Route as UsuariosRouteImport } from './routes/usuarios'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as BiConfiguracoesRouteImport } from './routes/bi.configuracoes'
+import { Route as BiDisparosRouteImport } from './routes/bi.disparos'
+import { Route as BriefingTokenRouteImport } from './routes/briefing.$token'
+import { Route as BriefingsIdRouteImport } from './routes/briefings.$id'
+import { Route as CatalogoIdRouteImport } from './routes/catalogo.$id'
+import { Route as CatalogoNovoRouteImport } from './routes/catalogo.novo'
+import { Route as ContratosIdRouteImport } from './routes/contratos.$id'
+import { Route as OperacoesIndexRouteImport } from './routes/operacoes.index'
+import { Route as OperacoesAuditoriaLifecycleRouteImport } from './routes/operacoes.auditoria-lifecycle'
+import { Route as OperacoesClientesRouteImport } from './routes/operacoes.clientes'
+import { Route as PropostaTokenRouteImport } from './routes/proposta.$token'
+import { Route as PropostasIdRouteImport } from './routes/propostas.$id'
 import { Route as OperacoesClientesIndexRouteImport } from './routes/operacoes.clientes.index'
 import { Route as OperacoesClientesIdRouteImport } from './routes/operacoes.clientes.$id'
-import { Route as OperacoesClientesIdIndexRouteImport } from './routes/operacoes.clientes.$id.index'
-import { Route as OperacoesClientesIdRenovacoesRouteImport } from './routes/operacoes.clientes.$id.renovacoes'
-import { Route as OperacoesClientesIdRelacionamentoRouteImport } from './routes/operacoes.clientes.$id.relacionamento'
-import { Route as OperacoesClientesIdOnboardingRouteImport } from './routes/operacoes.clientes.$id.onboarding'
-import { Route as OperacoesClientesIdImplantacaoRouteImport } from './routes/operacoes.clientes.$id.implantacao'
-import { Route as OperacoesClientesIdHistoricoRouteImport } from './routes/operacoes.clientes.$id.historico'
-import { Route as OperacoesClientesIdFinanceiroRouteImport } from './routes/operacoes.clientes.$id.financeiro'
-import { Route as OperacoesClientesIdDocumentosRouteImport } from './routes/operacoes.clientes.$id.documentos'
-import { Route as OperacoesClientesIdCampanhasRouteImport } from './routes/operacoes.clientes.$id.campanhas'
-import { Route as ApiPublicV1TasksRouteImport } from './routes/api/public/v1/tasks'
-import { Route as ApiPublicV1ProposalsRouteImport } from './routes/api/public/v1/proposals'
-import { Route as ApiPublicV1OpenapiRouteImport } from './routes/api/public/v1/openapi'
-import { Route as ApiPublicV1MeRouteImport } from './routes/api/public/v1/me'
-import { Route as ApiPublicV1DiagAiRouteImport } from './routes/api/public/v1/diag-ai'
-import { Route as ApiPublicV1ClientsRouteImport } from './routes/api/public/v1/clients'
-import { Route as ApiPublicHooksMercadopagoRouteImport } from './routes/api/public/hooks/mercadopago'
-import { Route as ApiPublicHooksEnrichBatchRouteImport } from './routes/api/public/hooks/enrich-batch'
 import { Route as ApiPublicHooksCleanupDemosRouteImport } from './routes/api/public/hooks/cleanup-demos'
+import { Route as ApiPublicHooksEnrichBatchRouteImport } from './routes/api/public/hooks/enrich-batch'
+import { Route as ApiPublicHooksMercadopagoRouteImport } from './routes/api/public/hooks/mercadopago'
+import { Route as ApiPublicV1ClientsRouteImport } from './routes/api/public/v1/clients'
+import { Route as ApiPublicV1DiagAiRouteImport } from './routes/api/public/v1/diag-ai'
+import { Route as ApiPublicV1MeRouteImport } from './routes/api/public/v1/me'
+import { Route as ApiPublicV1OpenapiRouteImport } from './routes/api/public/v1/openapi'
+import { Route as ApiPublicV1ProposalsRouteImport } from './routes/api/public/v1/proposals'
+import { Route as ApiPublicV1TasksRouteImport } from './routes/api/public/v1/tasks'
+import { Route as OperacoesClientesIdIndexRouteImport } from './routes/operacoes.clientes.$id.index'
+import { Route as OperacoesClientesIdCampanhasRouteImport } from './routes/operacoes.clientes.$id.campanhas'
+import { Route as OperacoesClientesIdDocumentosRouteImport } from './routes/operacoes.clientes.$id.documentos'
+import { Route as OperacoesClientesIdFinanceiroRouteImport } from './routes/operacoes.clientes.$id.financeiro'
+import { Route as OperacoesClientesIdHistoricoRouteImport } from './routes/operacoes.clientes.$id.historico'
+import { Route as OperacoesClientesIdImplantacaoRouteImport } from './routes/operacoes.clientes.$id.implantacao'
+import { Route as OperacoesClientesIdOnboardingRouteImport } from './routes/operacoes.clientes.$id.onboarding'
+import { Route as OperacoesClientesIdRelacionamentoRouteImport } from './routes/operacoes.clientes.$id.relacionamento'
+import { Route as OperacoesClientesIdRenovacoesRouteImport } from './routes/operacoes.clientes.$id.renovacoes'
 import { Route as ApiPublicV1ClientsIdRouteImport } from './routes/api/public/v1/clients.$id'
 import { Route as ApiPublicV1ClientsIdInteractionsRouteImport } from './routes/api/public/v1/clients.$id.interactions'
 
-const UsuariosRoute = UsuariosRouteImport.update({
-  id: '/usuarios',
-  path: '/usuarios',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TarefasRoute = TarefasRouteImport.update({
-  id: '/tarefas',
-  path: '/tarefas',
+const ApiKeysRoute = ApiKeysRouteImport.update({
+  id: '/api-keys',
+  path: '/api-keys',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AquecimentoRoute = AquecimentoRouteImport.update({
+  id: '/aquecimento',
+  path: '/aquecimento',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AssinaturaRoute = AssinaturaRouteImport.update({
+  id: '/assinatura',
+  path: '/assinatura',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BiRoute = BiRouteImport.update({
+  id: '/bi',
+  path: '/bi',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BriefingsRoute = BriefingsRouteImport.update({
+  id: '/briefings',
+  path: '/briefings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CadenciaRoute = CadenciaRouteImport.update({
+  id: '/cadencia',
+  path: '/cadencia',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CatalogoRoute = CatalogoRouteImport.update({
+  id: '/catalogo',
+  path: '/catalogo',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContratosRoute = ContratosRouteImport.update({
+  id: '/contratos',
+  path: '/contratos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CrmRoute = CrmRouteImport.update({
+  id: '/crm',
+  path: '/crm',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentacaoRoute = DocumentacaoRouteImport.update({
+  id: '/documentacao',
+  path: '/documentacao',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KickoffRoute = KickoffRouteImport.update({
+  id: '/kickoff',
+  path: '/kickoff',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MapaRoute = MapaRouteImport.update({
+  id: '/mapa',
+  path: '/mapa',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MetasRoute = MetasRouteImport.update({
+  id: '/metas',
+  path: '/metas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MetasObjetivosRoute = MetasObjetivosRouteImport.update({
+  id: '/metas-objetivos',
+  path: '/metas-objetivos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MeuNegocioRoute = MeuNegocioRouteImport.update({
+  id: '/meu-negocio',
+  path: '/meu-negocio',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MeusTemplatesRoute = MeusTemplatesRouteImport.update({
+  id: '/meus-templates',
+  path: '/meus-templates',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PropostasRoute = PropostasRouteImport.update({
+  id: '/propostas',
+  path: '/propostas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProspeccaoRoute = ProspeccaoRouteImport.update({
+  id: '/prospeccao',
+  path: '/prospeccao',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProspeccaoTemplatesNichoRoute =
@@ -86,134 +186,59 @@ const ProspeccaoTemplatesNichoRoute =
     path: '/prospeccao-templates-nicho',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ProspeccaoRoute = ProspeccaoRouteImport.update({
-  id: '/prospeccao',
-  path: '/prospeccao',
+const TarefasRoute = TarefasRouteImport.update({
+  id: '/tarefas',
+  path: '/tarefas',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PropostasRoute = PropostasRouteImport.update({
-  id: '/propostas',
-  path: '/propostas',
+const UsuariosRoute = UsuariosRouteImport.update({
+  id: '/usuarios',
+  path: '/usuarios',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MeusTemplatesRoute = MeusTemplatesRouteImport.update({
-  id: '/meus-templates',
-  path: '/meus-templates',
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/callback',
+  path: '/callback',
+  getParentRoute: () => AuthRoute,
+} as any)
+const BiConfiguracoesRoute = BiConfiguracoesRouteImport.update({
+  id: '/configuracoes',
+  path: '/configuracoes',
+  getParentRoute: () => BiRoute,
+} as any)
+const BiDisparosRoute = BiDisparosRouteImport.update({
+  id: '/disparos',
+  path: '/disparos',
+  getParentRoute: () => BiRoute,
+} as any)
+const BriefingTokenRoute = BriefingTokenRouteImport.update({
+  id: '/briefing/$token',
+  path: '/briefing/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
-const MeuNegocioRoute = MeuNegocioRouteImport.update({
-  id: '/meu-negocio',
-  path: '/meu-negocio',
-  getParentRoute: () => rootRouteImport,
+const BriefingsIdRoute = BriefingsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => BriefingsRoute,
 } as any)
-const MetasObjetivosRoute = MetasObjetivosRouteImport.update({
-  id: '/metas-objetivos',
-  path: '/metas-objetivos',
-  getParentRoute: () => rootRouteImport,
+const CatalogoIdRoute = CatalogoIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => CatalogoRoute,
 } as any)
-const MetasRoute = MetasRouteImport.update({
-  id: '/metas',
-  path: '/metas',
-  getParentRoute: () => rootRouteImport,
+const CatalogoNovoRoute = CatalogoNovoRouteImport.update({
+  id: '/novo',
+  path: '/novo',
+  getParentRoute: () => CatalogoRoute,
 } as any)
-const MapaRoute = MapaRouteImport.update({
-  id: '/mapa',
-  path: '/mapa',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const KickoffRoute = KickoffRouteImport.update({
-  id: '/kickoff',
-  path: '/kickoff',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DocumentacaoRoute = DocumentacaoRouteImport.update({
-  id: '/documentacao',
-  path: '/documentacao',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CrmRoute = CrmRouteImport.update({
-  id: '/crm',
-  path: '/crm',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ContratosRoute = ContratosRouteImport.update({
-  id: '/contratos',
-  path: '/contratos',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CatalogoRoute = CatalogoRouteImport.update({
-  id: '/catalogo',
-  path: '/catalogo',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CadenciaRoute = CadenciaRouteImport.update({
-  id: '/cadencia',
-  path: '/cadencia',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BriefingsRoute = BriefingsRouteImport.update({
-  id: '/briefings',
-  path: '/briefings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BiRoute = BiRouteImport.update({
-  id: '/bi',
-  path: '/bi',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AssinaturaRoute = AssinaturaRouteImport.update({
-  id: '/assinatura',
-  path: '/assinatura',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AquecimentoRoute = AquecimentoRouteImport.update({
-  id: '/aquecimento',
-  path: '/aquecimento',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiKeysRoute = ApiKeysRouteImport.update({
-  id: '/api-keys',
-  path: '/api-keys',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
+const ContratosIdRoute = ContratosIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ContratosRoute,
 } as any)
 const OperacoesIndexRoute = OperacoesIndexRouteImport.update({
   id: '/operacoes/',
   path: '/operacoes/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PropostasIdRoute = PropostasIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => PropostasRoute,
-} as any)
-const PropostaTokenRoute = PropostaTokenRouteImport.update({
-  id: '/proposta/$token',
-  path: '/proposta/$token',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OperacoesClientesRoute = OperacoesClientesRouteImport.update({
-  id: '/operacoes/clientes',
-  path: '/operacoes/clientes',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OperacoesAuditoriaLifecycleRoute =
@@ -222,45 +247,20 @@ const OperacoesAuditoriaLifecycleRoute =
     path: '/operacoes/auditoria-lifecycle',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ContratosIdRoute = ContratosIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => ContratosRoute,
-} as any)
-const CatalogoNovoRoute = CatalogoNovoRouteImport.update({
-  id: '/novo',
-  path: '/novo',
-  getParentRoute: () => CatalogoRoute,
-} as any)
-const CatalogoIdRoute = CatalogoIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => CatalogoRoute,
-} as any)
-const BriefingsIdRoute = BriefingsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => BriefingsRoute,
-} as any)
-const BriefingTokenRoute = BriefingTokenRouteImport.update({
-  id: '/briefing/$token',
-  path: '/briefing/$token',
+const OperacoesClientesRoute = OperacoesClientesRouteImport.update({
+  id: '/operacoes/clientes',
+  path: '/operacoes/clientes',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BiDisparosRoute = BiDisparosRouteImport.update({
-  id: '/disparos',
-  path: '/disparos',
-  getParentRoute: () => BiRoute,
+const PropostaTokenRoute = PropostaTokenRouteImport.update({
+  id: '/proposta/$token',
+  path: '/proposta/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
-const BiConfiguracoesRoute = BiConfiguracoesRouteImport.update({
-  id: '/configuracoes',
-  path: '/configuracoes',
-  getParentRoute: () => BiRoute,
-} as any)
-const AuthCallbackRoute = AuthCallbackRouteImport.update({
-  id: '/callback',
-  path: '/callback',
-  getParentRoute: () => AuthRoute,
+const PropostasIdRoute = PropostasIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => PropostasRoute,
 } as any)
 const OperacoesClientesIndexRoute = OperacoesClientesIndexRouteImport.update({
   id: '/',
@@ -272,94 +272,10 @@ const OperacoesClientesIdRoute = OperacoesClientesIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => OperacoesClientesRoute,
 } as any)
-const OperacoesClientesIdIndexRoute =
-  OperacoesClientesIdIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => OperacoesClientesIdRoute,
-  } as any)
-const OperacoesClientesIdRenovacoesRoute =
-  OperacoesClientesIdRenovacoesRouteImport.update({
-    id: '/renovacoes',
-    path: '/renovacoes',
-    getParentRoute: () => OperacoesClientesIdRoute,
-  } as any)
-const OperacoesClientesIdRelacionamentoRoute =
-  OperacoesClientesIdRelacionamentoRouteImport.update({
-    id: '/relacionamento',
-    path: '/relacionamento',
-    getParentRoute: () => OperacoesClientesIdRoute,
-  } as any)
-const OperacoesClientesIdOnboardingRoute =
-  OperacoesClientesIdOnboardingRouteImport.update({
-    id: '/onboarding',
-    path: '/onboarding',
-    getParentRoute: () => OperacoesClientesIdRoute,
-  } as any)
-const OperacoesClientesIdImplantacaoRoute =
-  OperacoesClientesIdImplantacaoRouteImport.update({
-    id: '/implantacao',
-    path: '/implantacao',
-    getParentRoute: () => OperacoesClientesIdRoute,
-  } as any)
-const OperacoesClientesIdHistoricoRoute =
-  OperacoesClientesIdHistoricoRouteImport.update({
-    id: '/historico',
-    path: '/historico',
-    getParentRoute: () => OperacoesClientesIdRoute,
-  } as any)
-const OperacoesClientesIdFinanceiroRoute =
-  OperacoesClientesIdFinanceiroRouteImport.update({
-    id: '/financeiro',
-    path: '/financeiro',
-    getParentRoute: () => OperacoesClientesIdRoute,
-  } as any)
-const OperacoesClientesIdDocumentosRoute =
-  OperacoesClientesIdDocumentosRouteImport.update({
-    id: '/documentos',
-    path: '/documentos',
-    getParentRoute: () => OperacoesClientesIdRoute,
-  } as any)
-const OperacoesClientesIdCampanhasRoute =
-  OperacoesClientesIdCampanhasRouteImport.update({
-    id: '/campanhas',
-    path: '/campanhas',
-    getParentRoute: () => OperacoesClientesIdRoute,
-  } as any)
-const ApiPublicV1TasksRoute = ApiPublicV1TasksRouteImport.update({
-  id: '/api/public/v1/tasks',
-  path: '/api/public/v1/tasks',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicV1ProposalsRoute = ApiPublicV1ProposalsRouteImport.update({
-  id: '/api/public/v1/proposals',
-  path: '/api/public/v1/proposals',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicV1OpenapiRoute = ApiPublicV1OpenapiRouteImport.update({
-  id: '/api/public/v1/openapi',
-  path: '/api/public/v1/openapi',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicV1MeRoute = ApiPublicV1MeRouteImport.update({
-  id: '/api/public/v1/me',
-  path: '/api/public/v1/me',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicV1DiagAiRoute = ApiPublicV1DiagAiRouteImport.update({
-  id: '/api/public/v1/diag-ai',
-  path: '/api/public/v1/diag-ai',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicV1ClientsRoute = ApiPublicV1ClientsRouteImport.update({
-  id: '/api/public/v1/clients',
-  path: '/api/public/v1/clients',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicHooksMercadopagoRoute =
-  ApiPublicHooksMercadopagoRouteImport.update({
-    id: '/api/public/hooks/mercadopago',
-    path: '/api/public/hooks/mercadopago',
+const ApiPublicHooksCleanupDemosRoute =
+  ApiPublicHooksCleanupDemosRouteImport.update({
+    id: '/api/public/hooks/cleanup-demos',
+    path: '/api/public/hooks/cleanup-demos',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicHooksEnrichBatchRoute =
@@ -368,11 +284,95 @@ const ApiPublicHooksEnrichBatchRoute =
     path: '/api/public/hooks/enrich-batch',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicHooksCleanupDemosRoute =
-  ApiPublicHooksCleanupDemosRouteImport.update({
-    id: '/api/public/hooks/cleanup-demos',
-    path: '/api/public/hooks/cleanup-demos',
+const ApiPublicHooksMercadopagoRoute =
+  ApiPublicHooksMercadopagoRouteImport.update({
+    id: '/api/public/hooks/mercadopago',
+    path: '/api/public/hooks/mercadopago',
     getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicV1ClientsRoute = ApiPublicV1ClientsRouteImport.update({
+  id: '/api/public/v1/clients',
+  path: '/api/public/v1/clients',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicV1DiagAiRoute = ApiPublicV1DiagAiRouteImport.update({
+  id: '/api/public/v1/diag-ai',
+  path: '/api/public/v1/diag-ai',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicV1MeRoute = ApiPublicV1MeRouteImport.update({
+  id: '/api/public/v1/me',
+  path: '/api/public/v1/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicV1OpenapiRoute = ApiPublicV1OpenapiRouteImport.update({
+  id: '/api/public/v1/openapi',
+  path: '/api/public/v1/openapi',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicV1ProposalsRoute = ApiPublicV1ProposalsRouteImport.update({
+  id: '/api/public/v1/proposals',
+  path: '/api/public/v1/proposals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicV1TasksRoute = ApiPublicV1TasksRouteImport.update({
+  id: '/api/public/v1/tasks',
+  path: '/api/public/v1/tasks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OperacoesClientesIdIndexRoute =
+  OperacoesClientesIdIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => OperacoesClientesIdRoute,
+  } as any)
+const OperacoesClientesIdCampanhasRoute =
+  OperacoesClientesIdCampanhasRouteImport.update({
+    id: '/campanhas',
+    path: '/campanhas',
+    getParentRoute: () => OperacoesClientesIdRoute,
+  } as any)
+const OperacoesClientesIdDocumentosRoute =
+  OperacoesClientesIdDocumentosRouteImport.update({
+    id: '/documentos',
+    path: '/documentos',
+    getParentRoute: () => OperacoesClientesIdRoute,
+  } as any)
+const OperacoesClientesIdFinanceiroRoute =
+  OperacoesClientesIdFinanceiroRouteImport.update({
+    id: '/financeiro',
+    path: '/financeiro',
+    getParentRoute: () => OperacoesClientesIdRoute,
+  } as any)
+const OperacoesClientesIdHistoricoRoute =
+  OperacoesClientesIdHistoricoRouteImport.update({
+    id: '/historico',
+    path: '/historico',
+    getParentRoute: () => OperacoesClientesIdRoute,
+  } as any)
+const OperacoesClientesIdImplantacaoRoute =
+  OperacoesClientesIdImplantacaoRouteImport.update({
+    id: '/implantacao',
+    path: '/implantacao',
+    getParentRoute: () => OperacoesClientesIdRoute,
+  } as any)
+const OperacoesClientesIdOnboardingRoute =
+  OperacoesClientesIdOnboardingRouteImport.update({
+    id: '/onboarding',
+    path: '/onboarding',
+    getParentRoute: () => OperacoesClientesIdRoute,
+  } as any)
+const OperacoesClientesIdRelacionamentoRoute =
+  OperacoesClientesIdRelacionamentoRouteImport.update({
+    id: '/relacionamento',
+    path: '/relacionamento',
+    getParentRoute: () => OperacoesClientesIdRoute,
+  } as any)
+const OperacoesClientesIdRenovacoesRoute =
+  OperacoesClientesIdRenovacoesRouteImport.update({
+    id: '/renovacoes',
+    path: '/renovacoes',
+    getParentRoute: () => OperacoesClientesIdRoute,
   } as any)
 const ApiPublicV1ClientsIdRoute = ApiPublicV1ClientsIdRouteImport.update({
   id: '/$id',
@@ -802,165 +802,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/usuarios': {
-      id: '/usuarios'
-      path: '/usuarios'
-      fullPath: '/usuarios'
-      preLoaderRoute: typeof UsuariosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/tarefas': {
-      id: '/tarefas'
-      path: '/tarefas'
-      fullPath: '/tarefas'
-      preLoaderRoute: typeof TarefasRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/prospeccao-templates-nicho': {
-      id: '/prospeccao-templates-nicho'
-      path: '/prospeccao-templates-nicho'
-      fullPath: '/prospeccao-templates-nicho'
-      preLoaderRoute: typeof ProspeccaoTemplatesNichoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/prospeccao': {
-      id: '/prospeccao'
-      path: '/prospeccao'
-      fullPath: '/prospeccao'
-      preLoaderRoute: typeof ProspeccaoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/propostas': {
-      id: '/propostas'
-      path: '/propostas'
-      fullPath: '/propostas'
-      preLoaderRoute: typeof PropostasRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/meus-templates': {
-      id: '/meus-templates'
-      path: '/meus-templates'
-      fullPath: '/meus-templates'
-      preLoaderRoute: typeof MeusTemplatesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/meu-negocio': {
-      id: '/meu-negocio'
-      path: '/meu-negocio'
-      fullPath: '/meu-negocio'
-      preLoaderRoute: typeof MeuNegocioRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/metas-objetivos': {
-      id: '/metas-objetivos'
-      path: '/metas-objetivos'
-      fullPath: '/metas-objetivos'
-      preLoaderRoute: typeof MetasObjetivosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/metas': {
-      id: '/metas'
-      path: '/metas'
-      fullPath: '/metas'
-      preLoaderRoute: typeof MetasRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/mapa': {
-      id: '/mapa'
-      path: '/mapa'
-      fullPath: '/mapa'
-      preLoaderRoute: typeof MapaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/kickoff': {
-      id: '/kickoff'
-      path: '/kickoff'
-      fullPath: '/kickoff'
-      preLoaderRoute: typeof KickoffRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/documentacao': {
-      id: '/documentacao'
-      path: '/documentacao'
-      fullPath: '/documentacao'
-      preLoaderRoute: typeof DocumentacaoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/crm': {
-      id: '/crm'
-      path: '/crm'
-      fullPath: '/crm'
-      preLoaderRoute: typeof CrmRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/contratos': {
-      id: '/contratos'
-      path: '/contratos'
-      fullPath: '/contratos'
-      preLoaderRoute: typeof ContratosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/catalogo': {
-      id: '/catalogo'
-      path: '/catalogo'
-      fullPath: '/catalogo'
-      preLoaderRoute: typeof CatalogoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/cadencia': {
-      id: '/cadencia'
-      path: '/cadencia'
-      fullPath: '/cadencia'
-      preLoaderRoute: typeof CadenciaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/briefings': {
-      id: '/briefings'
-      path: '/briefings'
-      fullPath: '/briefings'
-      preLoaderRoute: typeof BriefingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/bi': {
-      id: '/bi'
-      path: '/bi'
-      fullPath: '/bi'
-      preLoaderRoute: typeof BiRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/assinatura': {
-      id: '/assinatura'
-      path: '/assinatura'
-      fullPath: '/assinatura'
-      preLoaderRoute: typeof AssinaturaRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/aquecimento': {
-      id: '/aquecimento'
-      path: '/aquecimento'
-      fullPath: '/aquecimento'
-      preLoaderRoute: typeof AquecimentoRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api-keys': {
@@ -970,39 +816,228 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiKeysRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/aquecimento': {
+      id: '/aquecimento'
+      path: '/aquecimento'
+      fullPath: '/aquecimento'
+      preLoaderRoute: typeof AquecimentoRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/assinatura': {
+      id: '/assinatura'
+      path: '/assinatura'
+      fullPath: '/assinatura'
+      preLoaderRoute: typeof AssinaturaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bi': {
+      id: '/bi'
+      path: '/bi'
+      fullPath: '/bi'
+      preLoaderRoute: typeof BiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/briefings': {
+      id: '/briefings'
+      path: '/briefings'
+      fullPath: '/briefings'
+      preLoaderRoute: typeof BriefingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/cadencia': {
+      id: '/cadencia'
+      path: '/cadencia'
+      fullPath: '/cadencia'
+      preLoaderRoute: typeof CadenciaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/catalogo': {
+      id: '/catalogo'
+      path: '/catalogo'
+      fullPath: '/catalogo'
+      preLoaderRoute: typeof CatalogoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contratos': {
+      id: '/contratos'
+      path: '/contratos'
+      fullPath: '/contratos'
+      preLoaderRoute: typeof ContratosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/crm': {
+      id: '/crm'
+      path: '/crm'
+      fullPath: '/crm'
+      preLoaderRoute: typeof CrmRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documentacao': {
+      id: '/documentacao'
+      path: '/documentacao'
+      fullPath: '/documentacao'
+      preLoaderRoute: typeof DocumentacaoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kickoff': {
+      id: '/kickoff'
+      path: '/kickoff'
+      fullPath: '/kickoff'
+      preLoaderRoute: typeof KickoffRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mapa': {
+      id: '/mapa'
+      path: '/mapa'
+      fullPath: '/mapa'
+      preLoaderRoute: typeof MapaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/metas': {
+      id: '/metas'
+      path: '/metas'
+      fullPath: '/metas'
+      preLoaderRoute: typeof MetasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/metas-objetivos': {
+      id: '/metas-objetivos'
+      path: '/metas-objetivos'
+      fullPath: '/metas-objetivos'
+      preLoaderRoute: typeof MetasObjetivosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/meu-negocio': {
+      id: '/meu-negocio'
+      path: '/meu-negocio'
+      fullPath: '/meu-negocio'
+      preLoaderRoute: typeof MeuNegocioRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/meus-templates': {
+      id: '/meus-templates'
+      path: '/meus-templates'
+      fullPath: '/meus-templates'
+      preLoaderRoute: typeof MeusTemplatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/propostas': {
+      id: '/propostas'
+      path: '/propostas'
+      fullPath: '/propostas'
+      preLoaderRoute: typeof PropostasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/prospeccao': {
+      id: '/prospeccao'
+      path: '/prospeccao'
+      fullPath: '/prospeccao'
+      preLoaderRoute: typeof ProspeccaoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/prospeccao-templates-nicho': {
+      id: '/prospeccao-templates-nicho'
+      path: '/prospeccao-templates-nicho'
+      fullPath: '/prospeccao-templates-nicho'
+      preLoaderRoute: typeof ProspeccaoTemplatesNichoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tarefas': {
+      id: '/tarefas'
+      path: '/tarefas'
+      fullPath: '/tarefas'
+      preLoaderRoute: typeof TarefasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/usuarios': {
+      id: '/usuarios'
+      path: '/usuarios'
+      fullPath: '/usuarios'
+      preLoaderRoute: typeof UsuariosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/bi/configuracoes': {
+      id: '/bi/configuracoes'
+      path: '/configuracoes'
+      fullPath: '/bi/configuracoes'
+      preLoaderRoute: typeof BiConfiguracoesRouteImport
+      parentRoute: typeof BiRoute
+    }
+    '/bi/disparos': {
+      id: '/bi/disparos'
+      path: '/disparos'
+      fullPath: '/bi/disparos'
+      preLoaderRoute: typeof BiDisparosRouteImport
+      parentRoute: typeof BiRoute
+    }
+    '/briefing/$token': {
+      id: '/briefing/$token'
+      path: '/briefing/$token'
+      fullPath: '/briefing/$token'
+      preLoaderRoute: typeof BriefingTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/briefings/$id': {
+      id: '/briefings/$id'
+      path: '/$id'
+      fullPath: '/briefings/$id'
+      preLoaderRoute: typeof BriefingsIdRouteImport
+      parentRoute: typeof BriefingsRoute
+    }
+    '/catalogo/$id': {
+      id: '/catalogo/$id'
+      path: '/$id'
+      fullPath: '/catalogo/$id'
+      preLoaderRoute: typeof CatalogoIdRouteImport
+      parentRoute: typeof CatalogoRoute
+    }
+    '/catalogo/novo': {
+      id: '/catalogo/novo'
+      path: '/novo'
+      fullPath: '/catalogo/novo'
+      preLoaderRoute: typeof CatalogoNovoRouteImport
+      parentRoute: typeof CatalogoRoute
+    }
+    '/contratos/$id': {
+      id: '/contratos/$id'
+      path: '/$id'
+      fullPath: '/contratos/$id'
+      preLoaderRoute: typeof ContratosIdRouteImport
+      parentRoute: typeof ContratosRoute
     }
     '/operacoes/': {
       id: '/operacoes/'
       path: '/operacoes'
       fullPath: '/operacoes/'
       preLoaderRoute: typeof OperacoesIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/propostas/$id': {
-      id: '/propostas/$id'
-      path: '/$id'
-      fullPath: '/propostas/$id'
-      preLoaderRoute: typeof PropostasIdRouteImport
-      parentRoute: typeof PropostasRoute
-    }
-    '/proposta/$token': {
-      id: '/proposta/$token'
-      path: '/proposta/$token'
-      fullPath: '/proposta/$token'
-      preLoaderRoute: typeof PropostaTokenRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/operacoes/clientes': {
-      id: '/operacoes/clientes'
-      path: '/operacoes/clientes'
-      fullPath: '/operacoes/clientes'
-      preLoaderRoute: typeof OperacoesClientesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/operacoes/auditoria-lifecycle': {
@@ -1012,61 +1047,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OperacoesAuditoriaLifecycleRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/contratos/$id': {
-      id: '/contratos/$id'
-      path: '/$id'
-      fullPath: '/contratos/$id'
-      preLoaderRoute: typeof ContratosIdRouteImport
-      parentRoute: typeof ContratosRoute
-    }
-    '/catalogo/novo': {
-      id: '/catalogo/novo'
-      path: '/novo'
-      fullPath: '/catalogo/novo'
-      preLoaderRoute: typeof CatalogoNovoRouteImport
-      parentRoute: typeof CatalogoRoute
-    }
-    '/catalogo/$id': {
-      id: '/catalogo/$id'
-      path: '/$id'
-      fullPath: '/catalogo/$id'
-      preLoaderRoute: typeof CatalogoIdRouteImport
-      parentRoute: typeof CatalogoRoute
-    }
-    '/briefings/$id': {
-      id: '/briefings/$id'
-      path: '/$id'
-      fullPath: '/briefings/$id'
-      preLoaderRoute: typeof BriefingsIdRouteImport
-      parentRoute: typeof BriefingsRoute
-    }
-    '/briefing/$token': {
-      id: '/briefing/$token'
-      path: '/briefing/$token'
-      fullPath: '/briefing/$token'
-      preLoaderRoute: typeof BriefingTokenRouteImport
+    '/operacoes/clientes': {
+      id: '/operacoes/clientes'
+      path: '/operacoes/clientes'
+      fullPath: '/operacoes/clientes'
+      preLoaderRoute: typeof OperacoesClientesRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/bi/disparos': {
-      id: '/bi/disparos'
-      path: '/disparos'
-      fullPath: '/bi/disparos'
-      preLoaderRoute: typeof BiDisparosRouteImport
-      parentRoute: typeof BiRoute
+    '/proposta/$token': {
+      id: '/proposta/$token'
+      path: '/proposta/$token'
+      fullPath: '/proposta/$token'
+      preLoaderRoute: typeof PropostaTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
-    '/bi/configuracoes': {
-      id: '/bi/configuracoes'
-      path: '/configuracoes'
-      fullPath: '/bi/configuracoes'
-      preLoaderRoute: typeof BiConfiguracoesRouteImport
-      parentRoute: typeof BiRoute
-    }
-    '/auth/callback': {
-      id: '/auth/callback'
-      path: '/callback'
-      fullPath: '/auth/callback'
-      preLoaderRoute: typeof AuthCallbackRouteImport
-      parentRoute: typeof AuthRoute
+    '/propostas/$id': {
+      id: '/propostas/$id'
+      path: '/$id'
+      fullPath: '/propostas/$id'
+      preLoaderRoute: typeof PropostasIdRouteImport
+      parentRoute: typeof PropostasRoute
     }
     '/operacoes/clientes/': {
       id: '/operacoes/clientes/'
@@ -1082,116 +1082,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OperacoesClientesIdRouteImport
       parentRoute: typeof OperacoesClientesRoute
     }
-    '/operacoes/clientes/$id/': {
-      id: '/operacoes/clientes/$id/'
-      path: '/'
-      fullPath: '/operacoes/clientes/$id/'
-      preLoaderRoute: typeof OperacoesClientesIdIndexRouteImport
-      parentRoute: typeof OperacoesClientesIdRoute
-    }
-    '/operacoes/clientes/$id/renovacoes': {
-      id: '/operacoes/clientes/$id/renovacoes'
-      path: '/renovacoes'
-      fullPath: '/operacoes/clientes/$id/renovacoes'
-      preLoaderRoute: typeof OperacoesClientesIdRenovacoesRouteImport
-      parentRoute: typeof OperacoesClientesIdRoute
-    }
-    '/operacoes/clientes/$id/relacionamento': {
-      id: '/operacoes/clientes/$id/relacionamento'
-      path: '/relacionamento'
-      fullPath: '/operacoes/clientes/$id/relacionamento'
-      preLoaderRoute: typeof OperacoesClientesIdRelacionamentoRouteImport
-      parentRoute: typeof OperacoesClientesIdRoute
-    }
-    '/operacoes/clientes/$id/onboarding': {
-      id: '/operacoes/clientes/$id/onboarding'
-      path: '/onboarding'
-      fullPath: '/operacoes/clientes/$id/onboarding'
-      preLoaderRoute: typeof OperacoesClientesIdOnboardingRouteImport
-      parentRoute: typeof OperacoesClientesIdRoute
-    }
-    '/operacoes/clientes/$id/implantacao': {
-      id: '/operacoes/clientes/$id/implantacao'
-      path: '/implantacao'
-      fullPath: '/operacoes/clientes/$id/implantacao'
-      preLoaderRoute: typeof OperacoesClientesIdImplantacaoRouteImport
-      parentRoute: typeof OperacoesClientesIdRoute
-    }
-    '/operacoes/clientes/$id/historico': {
-      id: '/operacoes/clientes/$id/historico'
-      path: '/historico'
-      fullPath: '/operacoes/clientes/$id/historico'
-      preLoaderRoute: typeof OperacoesClientesIdHistoricoRouteImport
-      parentRoute: typeof OperacoesClientesIdRoute
-    }
-    '/operacoes/clientes/$id/financeiro': {
-      id: '/operacoes/clientes/$id/financeiro'
-      path: '/financeiro'
-      fullPath: '/operacoes/clientes/$id/financeiro'
-      preLoaderRoute: typeof OperacoesClientesIdFinanceiroRouteImport
-      parentRoute: typeof OperacoesClientesIdRoute
-    }
-    '/operacoes/clientes/$id/documentos': {
-      id: '/operacoes/clientes/$id/documentos'
-      path: '/documentos'
-      fullPath: '/operacoes/clientes/$id/documentos'
-      preLoaderRoute: typeof OperacoesClientesIdDocumentosRouteImport
-      parentRoute: typeof OperacoesClientesIdRoute
-    }
-    '/operacoes/clientes/$id/campanhas': {
-      id: '/operacoes/clientes/$id/campanhas'
-      path: '/campanhas'
-      fullPath: '/operacoes/clientes/$id/campanhas'
-      preLoaderRoute: typeof OperacoesClientesIdCampanhasRouteImport
-      parentRoute: typeof OperacoesClientesIdRoute
-    }
-    '/api/public/v1/tasks': {
-      id: '/api/public/v1/tasks'
-      path: '/api/public/v1/tasks'
-      fullPath: '/api/public/v1/tasks'
-      preLoaderRoute: typeof ApiPublicV1TasksRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/v1/proposals': {
-      id: '/api/public/v1/proposals'
-      path: '/api/public/v1/proposals'
-      fullPath: '/api/public/v1/proposals'
-      preLoaderRoute: typeof ApiPublicV1ProposalsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/v1/openapi': {
-      id: '/api/public/v1/openapi'
-      path: '/api/public/v1/openapi'
-      fullPath: '/api/public/v1/openapi'
-      preLoaderRoute: typeof ApiPublicV1OpenapiRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/v1/me': {
-      id: '/api/public/v1/me'
-      path: '/api/public/v1/me'
-      fullPath: '/api/public/v1/me'
-      preLoaderRoute: typeof ApiPublicV1MeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/v1/diag-ai': {
-      id: '/api/public/v1/diag-ai'
-      path: '/api/public/v1/diag-ai'
-      fullPath: '/api/public/v1/diag-ai'
-      preLoaderRoute: typeof ApiPublicV1DiagAiRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/v1/clients': {
-      id: '/api/public/v1/clients'
-      path: '/api/public/v1/clients'
-      fullPath: '/api/public/v1/clients'
-      preLoaderRoute: typeof ApiPublicV1ClientsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/public/hooks/mercadopago': {
-      id: '/api/public/hooks/mercadopago'
-      path: '/api/public/hooks/mercadopago'
-      fullPath: '/api/public/hooks/mercadopago'
-      preLoaderRoute: typeof ApiPublicHooksMercadopagoRouteImport
+    '/api/public/hooks/cleanup-demos': {
+      id: '/api/public/hooks/cleanup-demos'
+      path: '/api/public/hooks/cleanup-demos'
+      fullPath: '/api/public/hooks/cleanup-demos'
+      preLoaderRoute: typeof ApiPublicHooksCleanupDemosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/hooks/enrich-batch': {
@@ -1201,12 +1096,117 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksEnrichBatchRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/hooks/cleanup-demos': {
-      id: '/api/public/hooks/cleanup-demos'
-      path: '/api/public/hooks/cleanup-demos'
-      fullPath: '/api/public/hooks/cleanup-demos'
-      preLoaderRoute: typeof ApiPublicHooksCleanupDemosRouteImport
+    '/api/public/hooks/mercadopago': {
+      id: '/api/public/hooks/mercadopago'
+      path: '/api/public/hooks/mercadopago'
+      fullPath: '/api/public/hooks/mercadopago'
+      preLoaderRoute: typeof ApiPublicHooksMercadopagoRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/public/v1/clients': {
+      id: '/api/public/v1/clients'
+      path: '/api/public/v1/clients'
+      fullPath: '/api/public/v1/clients'
+      preLoaderRoute: typeof ApiPublicV1ClientsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/v1/diag-ai': {
+      id: '/api/public/v1/diag-ai'
+      path: '/api/public/v1/diag-ai'
+      fullPath: '/api/public/v1/diag-ai'
+      preLoaderRoute: typeof ApiPublicV1DiagAiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/v1/me': {
+      id: '/api/public/v1/me'
+      path: '/api/public/v1/me'
+      fullPath: '/api/public/v1/me'
+      preLoaderRoute: typeof ApiPublicV1MeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/v1/openapi': {
+      id: '/api/public/v1/openapi'
+      path: '/api/public/v1/openapi'
+      fullPath: '/api/public/v1/openapi'
+      preLoaderRoute: typeof ApiPublicV1OpenapiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/v1/proposals': {
+      id: '/api/public/v1/proposals'
+      path: '/api/public/v1/proposals'
+      fullPath: '/api/public/v1/proposals'
+      preLoaderRoute: typeof ApiPublicV1ProposalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/v1/tasks': {
+      id: '/api/public/v1/tasks'
+      path: '/api/public/v1/tasks'
+      fullPath: '/api/public/v1/tasks'
+      preLoaderRoute: typeof ApiPublicV1TasksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/operacoes/clientes/$id/': {
+      id: '/operacoes/clientes/$id/'
+      path: '/'
+      fullPath: '/operacoes/clientes/$id/'
+      preLoaderRoute: typeof OperacoesClientesIdIndexRouteImport
+      parentRoute: typeof OperacoesClientesIdRoute
+    }
+    '/operacoes/clientes/$id/campanhas': {
+      id: '/operacoes/clientes/$id/campanhas'
+      path: '/campanhas'
+      fullPath: '/operacoes/clientes/$id/campanhas'
+      preLoaderRoute: typeof OperacoesClientesIdCampanhasRouteImport
+      parentRoute: typeof OperacoesClientesIdRoute
+    }
+    '/operacoes/clientes/$id/documentos': {
+      id: '/operacoes/clientes/$id/documentos'
+      path: '/documentos'
+      fullPath: '/operacoes/clientes/$id/documentos'
+      preLoaderRoute: typeof OperacoesClientesIdDocumentosRouteImport
+      parentRoute: typeof OperacoesClientesIdRoute
+    }
+    '/operacoes/clientes/$id/financeiro': {
+      id: '/operacoes/clientes/$id/financeiro'
+      path: '/financeiro'
+      fullPath: '/operacoes/clientes/$id/financeiro'
+      preLoaderRoute: typeof OperacoesClientesIdFinanceiroRouteImport
+      parentRoute: typeof OperacoesClientesIdRoute
+    }
+    '/operacoes/clientes/$id/historico': {
+      id: '/operacoes/clientes/$id/historico'
+      path: '/historico'
+      fullPath: '/operacoes/clientes/$id/historico'
+      preLoaderRoute: typeof OperacoesClientesIdHistoricoRouteImport
+      parentRoute: typeof OperacoesClientesIdRoute
+    }
+    '/operacoes/clientes/$id/implantacao': {
+      id: '/operacoes/clientes/$id/implantacao'
+      path: '/implantacao'
+      fullPath: '/operacoes/clientes/$id/implantacao'
+      preLoaderRoute: typeof OperacoesClientesIdImplantacaoRouteImport
+      parentRoute: typeof OperacoesClientesIdRoute
+    }
+    '/operacoes/clientes/$id/onboarding': {
+      id: '/operacoes/clientes/$id/onboarding'
+      path: '/onboarding'
+      fullPath: '/operacoes/clientes/$id/onboarding'
+      preLoaderRoute: typeof OperacoesClientesIdOnboardingRouteImport
+      parentRoute: typeof OperacoesClientesIdRoute
+    }
+    '/operacoes/clientes/$id/relacionamento': {
+      id: '/operacoes/clientes/$id/relacionamento'
+      path: '/relacionamento'
+      fullPath: '/operacoes/clientes/$id/relacionamento'
+      preLoaderRoute: typeof OperacoesClientesIdRelacionamentoRouteImport
+      parentRoute: typeof OperacoesClientesIdRoute
+    }
+    '/operacoes/clientes/$id/renovacoes': {
+      id: '/operacoes/clientes/$id/renovacoes'
+      path: '/renovacoes'
+      fullPath: '/operacoes/clientes/$id/renovacoes'
+      preLoaderRoute: typeof OperacoesClientesIdRenovacoesRouteImport
+      parentRoute: typeof OperacoesClientesIdRoute
     }
     '/api/public/v1/clients/$id': {
       id: '/api/public/v1/clients/$id'
