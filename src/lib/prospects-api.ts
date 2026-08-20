@@ -170,14 +170,45 @@ async function loadProspectRowsWithPrivateState(uid: string, pageSize: number): 
   return loadProspectRowsFallback(uid, pageSize);
 }
 
+// Cache por sessão: evita testar a existência da coluna em cada página
+// da paginação (a listagem pagina de 1000 em 1000).
+let mergedIntoSupported = true;
+let mergedIntoWarned = false;
+
+const PROSPECT_COLUMNS =
+  "id,company,cnpj,segment,owner_name,whatsapp,phone,email,instagram,city,state,source,potential,created_at,updated_at";
+
+function selectProspectsPage(from: number, pageSize: number, filterMerged: boolean) {
+  let query = dbExt.from("prospects").select(PROSPECT_COLUMNS);
+  // Não carrega duplicatas arquivadas quando a coluna existe.
+  if (filterMerged) query = query.is("merged_into", null);
+  return query.order("created_at", { ascending: false }).range(from, from + pageSize - 1);
+}
+
+function warnMergedIntoUnavailable() {
+  if (mergedIntoWarned) return;
+  mergedIntoWarned = true;
+  console.warn(
+    "prospects.merged_into indisponível neste banco — listando sem deduplicação de duplicatas arquivadas.",
+  );
+  void import("sonner").then(({ toast }) =>
+    toast.warning("Deduplicação indisponível", {
+      description: "Este banco ainda não tem a migração de duplicatas; empresas repetidas podem aparecer na fila.",
+    }),
+  ).catch(() => {});
+}
+
 async function loadProspectRowsFallback(uid: string, pageSize: number): Promise<Row[]> {
   const rows: Row[] = [];
   for (let from = 0; ; from += pageSize) {
-    const { data, error } = await dbExt.from("prospects")
-      .select("id,company,cnpj,segment,owner_name,whatsapp,phone,email,instagram,city,state,source,potential,created_at,updated_at")
-      .is("merged_into", null) // Não carrega duplicatas arquivadas
-      .order("created_at", { ascending: false })
-      .range(from, from + pageSize - 1);
+    let { data, error } = await selectProspectsPage(from, pageSize, mergedIntoSupported);
+    // Bancos sem a migração de deduplicação: o filtro opcional não deve
+    // derrubar a tela inteira (erro 42703 = coluna inexistente).
+    if (error && (error as DbErrorLike).code === "42703" && mergedIntoSupported) {
+      mergedIntoSupported = false;
+      warnMergedIntoUnavailable();
+      ({ data, error } = await selectProspectsPage(from, pageSize, false));
+    }
     if (error) {
       console.error("loadAllProspects fallback prospects error", error);
       throw new Error(`Falha ao carregar prospects: ${error.message}`);
