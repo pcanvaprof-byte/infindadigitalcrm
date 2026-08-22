@@ -145,7 +145,10 @@ async function hydrateMapPoints(prospects: ProspectRow[], uid: string): Promise<
     const addr = prof ? addrByProf.get(prof.id) : undefined;
     const loc = prof ? locByProf.get(prof.id) : undefined;
 
-    if (!loc?.lat && !loc?.lon && !addr?.logradouro && !p.city) continue;
+    // Se não tiver localização E nem endereço E nem cidade no prospect, não conseguimos mostrar no mapa
+    if (!loc?.lat && !loc?.lon && !addr?.logradouro && !p.city) {
+      continue;
+    }
 
     out.push({
       cnpj: clean || `no-cnpj-${p.id}`,
@@ -162,7 +165,7 @@ async function hydrateMapPoints(prospects: ProspectRow[], uid: string): Promise<
       whatsapp: p.whatsapp,
       phone: p.phone,
       email: p.email,
-      status: states.get(p.id) ?? "nao_contatado",
+      status: leadStatuses.get(p.id) ?? "nao_contatado",
       potential: p.potential,
       nicho: p.nicho,
       data_abertura: prof?.data_abertura ?? null,
