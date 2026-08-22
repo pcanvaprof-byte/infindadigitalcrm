@@ -261,6 +261,8 @@ export async function* loadMapPointsProgressive(): AsyncGenerator<{ points: MapP
 
     if (prospects.length < PROSPECTS_BATCH) break;
   }
+}
+
 
 async function fetchUserLeadStatuses(uid: string, ids: string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>();
