@@ -195,7 +195,7 @@ function MapaPage() {
   );
   const autoEnrich = useAutoEnrich({
     getPending: () => pendingCnpjs,
-    autoStart: true,
+    autoStart: false, // Desliga por padrão para favorecer o cron do servidor
     onBatchDone: refresh,
   });
 
