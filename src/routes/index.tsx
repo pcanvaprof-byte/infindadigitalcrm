@@ -1,5 +1,5 @@
 import { createFileRoute, Navigate } from "@tanstack/react-router";
-// Preciso aquecer os 9k de leads de forma automatica
+// acelerar o carregamento do mapa, ou fracisonar de 100 em 100
 // E os leads ja disparados nesse perfil que tiver qualquer alteração no card mudar para status principalmente os que ja tiveram qualquer clique
 
 import { SalesPage } from "@/components/SalesPage";
