@@ -261,39 +261,6 @@ export async function* loadMapPointsProgressive(): AsyncGenerator<{ points: MapP
 
     if (prospects.length < PROSPECTS_BATCH) break;
   }
-}
-    const rows = prospects as ProspectRow[];
-    
-    // Filter out locally
-    const uniqueRows = rows.filter(r => {
-      const clean = (r.cnpj || "").replace(/\D/g, "");
-      if (clean && seenCnpjs.has(clean)) return false;
-      if (clean) seenCnpjs.add(clean);
-      return true;
-    });
-
-    console.log(`[MAPA] Prospects únicos no lote: ${uniqueRows.length}`);
-
-    if (uniqueRows.length > 0) {
-      console.log(`[MAPA] Hidratando ${uniqueRows.length} prospects...`);
-      try {
-        const hydrated = await hydrateMapPoints(uniqueRows, uid);
-        console.log(`[MAPA] Hidratação concluída: ${hydrated.length} pontos válidos`);
-        yield { points: hydrated, totalExpected: total };
-      } catch (hydrationError) {
-        console.error("[MAPA] Erro durante a hidratação do lote:", hydrationError);
-        // Não deixamos o erro de um lote quebrar a sequência
-      }
-    } else {
-      console.log("[MAPA] Nenhuma linha única no lote, pulando hidratação");
-    }
-
-    if (prospects.length < PROSPECTS_BATCH) {
-      console.log("[MAPA] Fim da base alcançado.");
-      break;
-    }
-  }
-}
 
 async function fetchUserLeadStatuses(uid: string, ids: string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>();
