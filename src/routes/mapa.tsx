@@ -433,7 +433,7 @@ function MapaPage() {
       )}
       <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[320px_1fr]">
         {/* Sidebar - Filtros e Lista */}
-        <aside className="surface-card flex flex-col gap-3 p-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-140px)] order-2 lg:order-1">
+        <aside className="surface-card flex flex-col gap-3 p-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-140px)] order-2 lg:order-1 z-10">
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
