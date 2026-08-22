@@ -170,11 +170,13 @@ export function AppShell({
   title,
   subtitle,
   actions,
+  className,
 }: {
   children: ReactNode;
   title: string;
   subtitle?: string;
   actions?: ReactNode;
+  className?: string;
 }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
