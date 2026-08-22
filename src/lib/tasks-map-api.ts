@@ -82,7 +82,8 @@ async function hydrateMapPoints(prospects: ProspectRow[], uid: string): Promise<
   const cnpjList = Array.from(prospectCnpjs);
   if (cnpjList.length === 0) return [];
 
-  const [profiles, states] = await Promise.all([
+  console.log(`[MAPA] Buscando perfis e status para ${cnpjList.length} CNPJs`);
+  const [profilesResult, states] = await Promise.allSettled([
     fetchByIds<ProfileRow>(cnpjList, (slice, from, to) =>
       db.from("company_profiles")
         .select("id,cnpj,razao_social,nome_fantasia,data_abertura")
@@ -91,6 +92,18 @@ async function hydrateMapPoints(prospects: ProspectRow[], uid: string): Promise<
     ),
     fetchUserLeadStatuses(uid, prospects.map(p => p.id))
   ]);
+
+  const profiles = profilesResult.status === 'fulfilled' ? profilesResult.value : [];
+  if (profilesResult.status === 'rejected') {
+    console.error("[MAPA] Erro ao buscar perfis:", profilesResult.reason);
+  }
+  
+  const leadStatuses = states.status === 'fulfilled' ? states.value : new Map<string, string>();
+  if (states.status === 'rejected') {
+    console.error("[MAPA] Erro ao buscar status:", states.reason);
+  }
+
+  console.log(`[MAPA] ${profiles.length} perfis encontrados`);
 
   const profileIds = profiles.map((p) => p.id);
   const [addrs, locs] = profileIds.length
