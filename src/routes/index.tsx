@@ -34,7 +34,6 @@ function IndexPage() {
       <div className="mx-auto max-w-4xl p-8 prose prose-invert">
         Auditoria concluída com sucesso. O mapa agora possui layout responsivo, ocupando altura dinâmica no mobile e priorizando a visualização geográfica acima dos filtros. Os dropdowns foram protegidos com z-index e o mapa recalcula sua área automaticamente ao interagir com a interface.
       </div>
-      </div>
     </div>
   );
 }
