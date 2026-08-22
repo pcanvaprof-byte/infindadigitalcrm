@@ -55,7 +55,7 @@ function meIcon() {
   });
 }
 
-function FitBounds({ points }: { points: MapPoint[] }) {
+function FitBounds({ points, fitKey }: { points: MapPoint[], fitKey?: number }) {
   const map = useMap();
   useEffect(() => {
     const coords = points.filter((p) => p.lat && p.lon).map((p) => [p.lat!, p.lon!] as [number, number]);
@@ -65,7 +65,7 @@ function FitBounds({ points }: { points: MapPoint[] }) {
     } else {
       map.fitBounds(L.latLngBounds(coords), { padding: [40, 40] });
     }
-  }, [points, map]);
+  }, [fitKey, map]); // Só re-enquadra quando fitKey mudar ou no mount
   return null;
 }
 
@@ -79,6 +79,7 @@ interface Props {
   origin?: LatLng | null;
   onCheckin?: (p: MapPoint) => void;
   highlightQuery?: string;
+  fitKey?: number;
 }
 
 const digits = (v?: string | null) => (v ?? "").replace(/\D/g, "");
@@ -92,6 +93,7 @@ export function TasksMap({
   origin = null,
   onCheckin,
   highlightQuery = "",
+  fitKey = 0,
 }: Props) {
   const visible = useMemo(
     () => points.filter((p) => p.lat && p.lon && (!selectedBairro || (p.bairro || "Sem bairro") === selectedBairro)),
@@ -128,7 +130,7 @@ export function TasksMap({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <FitBounds points={route.length ? route : visible} />
+      <FitBounds points={route.length ? route : visible} fitKey={fitKey} />
       {routeLine.length > 1 && (
         <Polyline positions={routeLine} pathOptions={{ color: "#0ea5e9", weight: 3, opacity: 0.7, dashArray: "6 6" }} />
       )}
@@ -146,8 +148,9 @@ export function TasksMap({
           
         return (
           <Marker 
-            key={p.cnpj} 
+            key={`${p.cnpj}-${visible.indexOf(p)}`} 
             position={[p.lat!, p.lon!]} 
+
             icon={makeIcon(color, order ? String(order) : undefined, isHighlighted, isBairroSelected)}
             zIndexOffset={isHighlighted ? 1000 : isBairroSelected ? 500 : 0}
           >

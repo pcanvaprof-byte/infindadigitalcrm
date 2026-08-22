@@ -25,7 +25,7 @@ import {
   Square,
 } from "lucide-react";
 import { toast } from "sonner";
-import { loadMapPoints, bairroColor, type MapPoint } from "@/lib/tasks-map-api";
+import { loadMapPoints, bairroColor, type MapPoint, readMapCacheInfo } from "@/lib/tasks-map-api";
 import { runEnrichment } from "@/lib/enrichment/api";
 import { useAutoEnrich } from "@/lib/enrichment/auto-batch";
 import { crmKeys } from "@/lib/crm/api";
@@ -96,14 +96,17 @@ function MapaPage() {
   const [pendingQueue, setPendingQueue] = useState(0);
   const [displayLimit, setDisplayLimit] = useState(20);
   const [opening, setOpening] = useState<OpeningFilter>(EMPTY_OPENING_FILTER);
+  const [fitKey, setFitKey] = useState(0);
 
   const pointsQ = useQuery({
     queryKey: crmKeys.tasks,
     queryFn: loadMapPoints,
-    staleTime: 15_000,
+    staleTime: 60_000,
+    retry: 2,
   });
   const points: MapPoint[] = pointsQ.data ?? [];
   const loading = pointsQ.isLoading;
+  const error = pointsQ.error;
 
   const visitsQ = useQuery({
     queryKey: visitKeys.all,
@@ -192,7 +195,7 @@ function MapaPage() {
   );
   const autoEnrich = useAutoEnrich({
     getPending: () => pendingCnpjs,
-    autoStart: true,
+    autoStart: false, // Desliga por padrão para favorecer o cron do servidor
     onBatchDone: refresh,
   });
 
@@ -225,6 +228,11 @@ function MapaPage() {
     }
     return result;
   }, [points, uf, selectedNicho, opening]);
+
+  // Atualiza fitKey quando os filtros principais mudam
+  useEffect(() => {
+    setFitKey(prev => prev + 1);
+  }, [uf, selectedNicho, opening]);
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
@@ -348,8 +356,14 @@ function MapaPage() {
 
   return (
     <AppShell title="Mapa" subtitle="Todos os leads prospectados com endereço completo e CEP">
-      {(!online || pendingQueue > 0) && (
+      {( (!online || pendingQueue > 0) || (readMapCacheInfo().isTruncated) ) && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+          {readMapCacheInfo().isTruncated && (
+            <div className="w-full mb-1 flex items-center gap-2 border-b border-amber-500/20 pb-1">
+              <Badge variant="outline" className="text-[9px] h-4 px-1 bg-amber-500/20 border-amber-500/40 text-amber-800">Offline</Badge>
+              <span>{readMapCacheInfo().count} de {points.length || "?"} leads disponíveis offline.</span>
+            </div>
+          )}
           {!online ? (
             <>
               <WifiOff className="h-4 w-4" />
@@ -634,6 +648,16 @@ function MapaPage() {
             <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando mapa…
             </div>
+          ) : error ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+              <WifiOff className="h-8 w-8 text-destructive/60" />
+              <p className="max-w-md text-sm text-muted-foreground">
+                Falha ao carregar os dados do mapa.
+              </p>
+              <Button onClick={() => pointsQ.refetch()} variant="outline" size="sm">
+                Tentar novamente
+              </Button>
+            </div>
           ) : withCoords === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
               <MapPin className="h-8 w-8 text-muted-foreground" />
@@ -658,6 +682,7 @@ function MapaPage() {
                 highlightQuery={q}
                 origin={origin}
                 onCheckin={setCheckinPoint}
+                fitKey={fitKey}
               />
             </Suspense>
           )}
