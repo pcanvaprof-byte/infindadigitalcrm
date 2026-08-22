@@ -201,16 +201,11 @@ export interface MapLoaderState {
  * Returns batches of MapPoints to be merged by the caller.
  */
 export async function* loadMapPointsProgressive(): AsyncGenerator<{ points: MapPoint[], totalExpected: number }> {
-  console.log("[MAPA] Iniciando loadMapPointsProgressive");
   const { data: userData } = await supabase.auth.getUser();
   const uid = userData.user?.id;
-  if (!uid) {
-    console.error("[MAPA] Usuário não autenticado");
-    return;
-  }
+  if (!uid) return;
 
-  // 1. Get total count
-  console.log("[MAPA] Buscando total de prospects");
+  // 1. Get total count (não fatal)
   let total = 0;
   try {
     const { count, error: countError } = await db.from("prospects")
@@ -218,20 +213,15 @@ export async function* loadMapPointsProgressive(): AsyncGenerator<{ points: MapP
       .is("merged_into", null);
     
     total = count ?? 0;
-    if (countError && (countError as any).code !== "42703") {
-      console.warn("[MAPA] Erro ao buscar contagem (não fatal):", countError);
-    }
   } catch (e) {
-    console.warn("[MAPA] Exceção ao buscar contagem (não fatal):", e);
+    console.warn("[MAPA] Falha silenciosa ao buscar contagem");
   }
-  console.log(`[MAPA] Total esperado: ${total}`);
 
   // 2. Fetch in batches
   const seenCnpjs = new Set<string>();
 
   for (let from = 0; ; from += PROSPECTS_BATCH) {
     const to = from + PROSPECTS_BATCH - 1;
-    console.log(`[MAPA] Buscando lote de prospects: ${from} a ${to}`);
     
     // Fetch prospects
     let { data: prospects, error } = await db.from("prospects")
@@ -240,7 +230,6 @@ export async function* loadMapPointsProgressive(): AsyncGenerator<{ points: MapP
       .range(from, to);
 
     if (error && (error as any).code === "42703") {
-      console.warn("[MAPA] Coluna merged_into ausente, tentando sem ela");
       const res = await db.from("prospects")
         .select("id,cnpj,company,whatsapp,phone,email,potential,city,state,segment")
         .range(from, to);
@@ -248,17 +237,31 @@ export async function* loadMapPointsProgressive(): AsyncGenerator<{ points: MapP
       error = res.error;
     }
 
-    if (error) {
-      console.error(`[MAPA] Erro ao buscar lote ${from}-${to}:`, error);
-      throw error;
-    }
+    if (error) throw error;
+    if (!prospects || prospects.length === 0) break;
+
+    const rows = prospects as ProspectRow[];
     
-    if (!prospects || prospects.length === 0) {
-      console.log(`[MAPA] Nenhum prospect retornado no lote ${from}-${to}. Encerrando.`);
-      break;
+    // Filter out locally
+    const uniqueRows = rows.filter(r => {
+      const clean = (r.cnpj || "").replace(/\D/g, "");
+      if (clean && seenCnpjs.has(clean)) return false;
+      if (clean) seenCnpjs.add(clean);
+      return true;
+    });
+
+    if (uniqueRows.length > 0) {
+      try {
+        const hydrated = await hydrateMapPoints(uniqueRows, uid);
+        yield { points: hydrated, totalExpected: total };
+      } catch (hydrationError) {
+        console.error("[MAPA] Erro na hidratação do lote, pulando...", hydrationError);
+      }
     }
 
-    console.log(`[MAPA] Lote ${from}-${to} recebido: ${prospects.length} prospects`);
+    if (prospects.length < PROSPECTS_BATCH) break;
+  }
+}
     const rows = prospects as ProspectRow[];
     
     // Filter out locally
