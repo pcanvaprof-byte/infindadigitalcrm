@@ -93,6 +93,7 @@ export function TasksMap({
   origin = null,
   onCheckin,
   highlightQuery = "",
+  fitKey = 0,
 }: Props) {
   const visible = useMemo(
     () => points.filter((p) => p.lat && p.lon && (!selectedBairro || (p.bairro || "Sem bairro") === selectedBairro)),
