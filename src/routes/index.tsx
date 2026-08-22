@@ -66,7 +66,7 @@ function IndexPage() {
 
         <ul>
           <li><code>src/lib/tasks-map-api.ts</code>: filtro <code>merged_into</code>, <code>in("cnpj", …)</code> restrito aos CNPJs dos prospects, <code>Promise.all</code> nos lotes de ids, dedupe final por CNPJ, cache com metadados de truncamento.</li>
-          <li><code>src/routes/mapa.tsx</code>: bloco de erro/refetch, <code>useAutoEnrich({ autoStart: false })</code>, chave de enquadramento controlada.</li>
+          <li><code>src/routes/mapa.tsx</code>: bloco de erro/refetch, <code>useAutoEnrich({"{"} autoStart: false {"}"})</code>, chave de enquadramento controlada.</li>
           <li><code>src/components/TasksMap.tsx</code>: key única do <code>Marker</code> e <code>FitBounds</code> com dependência de "fitKey" em vez de <code>points</code>.</li>
           <li>Nenhuma migração de banco necessária.</li>
         </ul>
