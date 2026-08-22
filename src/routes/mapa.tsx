@@ -106,15 +106,33 @@ function MapaPage() {
   const [error, setError] = useState<Error | null>(null);
 
   const loadProgressively = async () => {
+    // Usamos um ref ou um id local para cancelar execuções antigas
+    const currentLoadId = Math.random();
+    (window as any)._lastMapLoadId = currentLoadId;
+    
+    console.log(`[MAPA] Iniciando carregamento progressivo (ID: ${currentLoadId})`);
+    
     try {
       setError(null);
       setLoadingFirstBatch(true);
       setPoints([]);
       
       let isFirst = true;
-      for await (const batch of loadMapPointsProgressive()) {
+      const generator = loadMapPointsProgressive();
+      
+      while (true) {
+        if ((window as any)._lastMapLoadId !== currentLoadId) {
+          console.log(`[MAPA] Cancelando carregamento antigo (ID: ${currentLoadId})`);
+          break;
+        }
+        
+        const { value, done } = await generator.next();
+        if (done) break;
+        
+        const batch = value;
+        console.log(`[MAPA] Recebendo lote para o componente: ${batch.points.length} pontos`);
+        
         setPoints(prev => {
-          // Evita duplicatas se o loop rodar de novo
           const existing = new Set(prev.map((p: MapPoint) => p.cnpj));
           const filtered = batch.points.filter((p: MapPoint) => !existing.has(p.cnpj));
           return [...prev, ...filtered];
@@ -128,11 +146,14 @@ function MapaPage() {
         }
       }
     } catch (e) {
-      console.error("Progressive load error:", e);
+      console.error("[MAPA] Erro fatal no componente:", e);
       setError(e as Error);
     } finally {
-      setLoadingFirstBatch(false);
-      setLoadingProgressive(false);
+      if ((window as any)._lastMapLoadId === currentLoadId) {
+        setLoadingFirstBatch(false);
+        setLoadingProgressive(false);
+        console.log(`[MAPA] Carregamento progressivo finalizado (ID: ${currentLoadId})`);
+      }
     }
   };
 
