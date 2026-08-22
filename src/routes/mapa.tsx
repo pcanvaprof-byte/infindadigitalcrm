@@ -682,7 +682,7 @@ function MapaPage() {
         </aside>
 
         {/* Map - Container com altura dinâmica no mobile */}
-        <section className="surface-card overflow-hidden p-0 h-[45vh] sm:h-[60vh] lg:h-[calc(100vh-200px)] order-1 lg:order-2 flex flex-col relative z-0">
+        <section className="surface-card overflow-hidden p-0 h-[380px] sm:h-[60vh] lg:h-[calc(100vh-200px)] order-1 lg:order-2 flex flex-col relative z-0">
           {loading ? (
             <div className="flex h-full items-center justify-center text-xs text-muted-foreground gap-2">
               <Loader2 className="h-4 w-4 animate-spin" />
