@@ -179,11 +179,21 @@ async function loadMapPointsRemote(): Promise<MapPoint[]> {
 }
 
 async function loadMapProspects(uid: string): Promise<ProspectRow[]> {
-  const rows = await fetchAll<ProspectRow & { id: string }>((from, to) =>
-    db.from("prospects")
-      .select("id,cnpj,company,whatsapp,phone,email,potential,city,state,segment")
-      .range(from, to),
-  );
+  const query = db.from("prospects")
+    .select("id,cnpj,company,whatsapp,phone,email,potential,city,state,segment,merged_into");
+
+  const rows = await fetchAll<ProspectRow & { id: string, merged_into: string | null }>((from, to) => {
+    // Tenta filtrar por merged_into null se a coluna existir
+    return query.is("merged_into", null).range(from, to).then(res => {
+      if (res.error && (res.error as any).code === "42703") {
+        // Fallback se a coluna não existir (projeto antigo/desatualizado)
+        return db.from("prospects")
+          .select("id,cnpj,company,whatsapp,phone,email,potential,city,state,segment")
+          .range(from, to);
+      }
+      return res;
+    });
+  });
 
   const states = await fetchUserLeadStatuses(uid, rows.map((r) => r.id));
   return rows.map((row) => ({
