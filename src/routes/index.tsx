@@ -39,7 +39,7 @@ function IndexPage() {
 {`Error: aborted
 
 {
-  "timestamp": 1787416315938,
+  "timestamp": 1787416383672,
   "error_type": "RUNTIME_ERROR",
   "filename": "Unknown file",
   "lineno": 0,
