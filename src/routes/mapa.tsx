@@ -410,6 +410,18 @@ function MapaPage() {
 
   return (
     <AppShell title="Mapa" subtitle="Todos os leads prospectados com endereço completo e CEP">
+      {error && (
+        <div className="mb-3 rounded-md border border-destructive/50 bg-destructive/10 p-4 text-destructive">
+          <h4 className="font-semibold flex items-center gap-2 mb-1">
+            <WifiOff className="h-4 w-4" />
+            Falha ao carregar os dados do mapa
+          </h4>
+          <p className="text-xs mb-3">{error.message}</p>
+          <Button size="sm" variant="outline" onClick={refresh}>
+            Tentar novamente
+          </Button>
+        </div>
+      )}
       {( (!online || pendingQueue > 0) || (readMapCacheInfo().isTruncated) ) && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
           {readMapCacheInfo().isTruncated && (
@@ -446,11 +458,11 @@ function MapaPage() {
           )}
         </div>
       )}
-      {loadingProgressive && (
+      {(loadingFirstBatch || loadingProgressive) && (
         <div className="mb-3 flex items-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-[11px] text-primary-foreground animate-in fade-in duration-300">
           <Loader2 className="h-3 w-3 animate-spin" />
           <span>
-            Carregando outros lotes progressivamente: <strong>{points.length}</strong> 
+            {loadingFirstBatch ? "Carregando primeiro lote..." : "Carregando outros lotes progressivamente:"} <strong>{points.length}</strong> 
             {totalExpected ? ` de ${totalExpected}` : ""} empresas já no mapa.
           </span>
         </div>
