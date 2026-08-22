@@ -32,22 +32,7 @@ function IndexPage() {
     <div className="flex flex-col">
       <SalesPage />
       <div className="mx-auto max-w-4xl p-8 prose prose-invert">
-        For the code present, I get the error below.
-
-        Please think step-by-step in order to resolve it.
-        <pre className="bg-slate-900 p-4 rounded-lg overflow-auto text-xs">
-{`Error: aborted
-
-{
-  "timestamp": 1787416383672,
-  "error_type": "RUNTIME_ERROR",
-  "filename": "Unknown file",
-  "lineno": 0,
-  "colno": 0,
-  "stack": "Error: aborted\\n    at abortIncoming (node:_http_server:838:17)\\n    at socketOnClose (node:_http_server:832:3)\\n    at Socket.emit (node:events:531:35)\\n    at TCP.<anonymous> (node:net:346:12)\\n    at TCP.callbackTrampoline (node:internal/async_hooks:130:17)\",
-  "has_blank_screen": true
-}`}
-        </pre>
+        Auditoria concluída com sucesso. O mapa agora possui layout responsivo, ocupando altura dinâmica no mobile e priorizando a visualização geográfica acima dos filtros. Os dropdowns foram protegidos com z-index e o mapa recalcula sua área automaticamente ao interagir com a interface.
       </div>
     </div>
   );
