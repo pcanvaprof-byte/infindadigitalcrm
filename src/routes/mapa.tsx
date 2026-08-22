@@ -642,6 +642,16 @@ function MapaPage() {
             <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando mapa…
             </div>
+          ) : error ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+              <WifiOff className="h-8 w-8 text-destructive/60" />
+              <p className="max-w-md text-sm text-muted-foreground">
+                Falha ao carregar os dados do mapa.
+              </p>
+              <Button onClick={() => pointsQ.refetch()} variant="outline" size="sm">
+                Tentar novamente
+              </Button>
+            </div>
           ) : withCoords === 0 ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
               <MapPin className="h-8 w-8 text-muted-foreground" />
@@ -666,6 +676,7 @@ function MapaPage() {
                 highlightQuery={q}
                 origin={origin}
                 onCheckin={setCheckinPoint}
+                fitKey={fitKey}
               />
             </Suspense>
           )}
