@@ -25,7 +25,7 @@ import {
   Square,
 } from "lucide-react";
 import { toast } from "sonner";
-import { loadMapPoints, bairroColor, type MapPoint, readMapCacheInfo } from "@/lib/tasks-map-api";
+import { loadMapPointsProgressive, bairroColor, type MapPoint, readMapCacheInfo } from "@/lib/tasks-map-api";
 import { runEnrichment } from "@/lib/enrichment/api";
 import { useAutoEnrich } from "@/lib/enrichment/auto-batch";
 import { crmKeys } from "@/lib/crm/api";
