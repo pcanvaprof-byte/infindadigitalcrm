@@ -59,13 +59,16 @@ async function fetchByIds<T>(
   const ID_BATCH = 200;
   for (let i = 0; i < ids.length; i += ID_BATCH) {
     const slice = ids.slice(i, i + ID_BATCH);
-    for (let from = 0; ; from += PAGE) {
-      const { data, error } = await build(slice, from, from + PAGE - 1);
-      if (error) throw error;
-      const batch = (data ?? []) as T[];
-      out.push(...batch);
-      if (batch.length < PAGE) break;
+    // Removemos o loop interno de range/PAGE porque fetchByIds deve ser simples
+    // para o lote atual de 100 prospects. O fetchByIds é chamado com CNPJs 
+    // ou profile_ids derivados de apenas 100 prospects.
+    const { data, error } = await build(slice, 0, 999); 
+    if (error) {
+      console.error("[MAPA] fetchByIds error:", error);
+      throw error;
     }
+    const batch = (data ?? []) as T[];
+    out.push(...batch);
   }
   return out;
 }
