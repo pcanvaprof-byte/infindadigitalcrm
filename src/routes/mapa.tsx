@@ -687,7 +687,7 @@ function MapaPage() {
               <p className="max-w-md text-sm text-muted-foreground">
                 Falha ao carregar os dados do mapa.
               </p>
-              <Button onClick={() => pointsQ.refetch()} variant="outline" size="sm">
+              <Button onClick={() => loadProgressively()} variant="outline" size="sm">
                 Tentar novamente
               </Button>
             </div>
