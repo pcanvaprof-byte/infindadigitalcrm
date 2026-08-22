@@ -106,15 +106,33 @@ function MapaPage() {
   const [error, setError] = useState<Error | null>(null);
 
   const loadProgressively = async () => {
+    // Usamos um ref ou um id local para cancelar execuções antigas
+    const currentLoadId = Math.random();
+    (window as any)._lastMapLoadId = currentLoadId;
+    
+    console.log(`[MAPA] Iniciando carregamento progressivo (ID: ${currentLoadId})`);
+    
     try {
       setError(null);
       setLoadingFirstBatch(true);
       setPoints([]);
       
       let isFirst = true;
-      for await (const batch of loadMapPointsProgressive()) {
+      const generator = loadMapPointsProgressive();
+      
+      while (true) {
+        if ((window as any)._lastMapLoadId !== currentLoadId) {
+          console.log(`[MAPA] Cancelando carregamento antigo (ID: ${currentLoadId})`);
+          break;
+        }
+        
+        const { value, done } = await generator.next();
+        if (done) break;
+        
+        const batch = value;
+        console.log(`[MAPA] Recebendo lote para o componente: ${batch.points.length} pontos`);
+        
         setPoints(prev => {
-          // Evita duplicatas se o loop rodar de novo
           const existing = new Set(prev.map((p: MapPoint) => p.cnpj));
           const filtered = batch.points.filter((p: MapPoint) => !existing.has(p.cnpj));
           return [...prev, ...filtered];
@@ -128,11 +146,14 @@ function MapaPage() {
         }
       }
     } catch (e) {
-      console.error("Progressive load error:", e);
+      console.error("[MAPA] Erro fatal no componente:", e);
       setError(e as Error);
     } finally {
-      setLoadingFirstBatch(false);
-      setLoadingProgressive(false);
+      if ((window as any)._lastMapLoadId === currentLoadId) {
+        setLoadingFirstBatch(false);
+        setLoadingProgressive(false);
+        console.log(`[MAPA] Carregamento progressivo finalizado (ID: ${currentLoadId})`);
+      }
     }
   };
 
@@ -389,6 +410,18 @@ function MapaPage() {
 
   return (
     <AppShell title="Mapa" subtitle="Todos os leads prospectados com endereço completo e CEP">
+      {error && (
+        <div className="mb-3 rounded-md border border-destructive/50 bg-destructive/10 p-4 text-destructive">
+          <h4 className="font-semibold flex items-center gap-2 mb-1">
+            <WifiOff className="h-4 w-4" />
+            Falha ao carregar os dados do mapa
+          </h4>
+          <p className="text-xs mb-3">{error.message}</p>
+          <Button size="sm" variant="outline" onClick={refresh}>
+            Tentar novamente
+          </Button>
+        </div>
+      )}
       {( (!online || pendingQueue > 0) || (readMapCacheInfo().isTruncated) ) && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
           {readMapCacheInfo().isTruncated && (
@@ -425,11 +458,11 @@ function MapaPage() {
           )}
         </div>
       )}
-      {loadingProgressive && (
+      {(loadingFirstBatch || loadingProgressive) && (
         <div className="mb-3 flex items-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-[11px] text-primary-foreground animate-in fade-in duration-300">
           <Loader2 className="h-3 w-3 animate-spin" />
           <span>
-            Carregando outros lotes progressivamente: <strong>{points.length}</strong> 
+            {loadingFirstBatch ? "Carregando primeiro lote..." : "Carregando outros lotes progressivamente:"} <strong>{points.length}</strong> 
             {totalExpected ? ` de ${totalExpected}` : ""} empresas já no mapa.
           </span>
         </div>

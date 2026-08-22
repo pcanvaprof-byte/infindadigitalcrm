@@ -59,13 +59,16 @@ async function fetchByIds<T>(
   const ID_BATCH = 200;
   for (let i = 0; i < ids.length; i += ID_BATCH) {
     const slice = ids.slice(i, i + ID_BATCH);
-    for (let from = 0; ; from += PAGE) {
-      const { data, error } = await build(slice, from, from + PAGE - 1);
-      if (error) throw error;
-      const batch = (data ?? []) as T[];
-      out.push(...batch);
-      if (batch.length < PAGE) break;
+    // Removemos o loop interno de range/PAGE porque fetchByIds deve ser simples
+    // para o lote atual de 100 prospects. O fetchByIds é chamado com CNPJs 
+    // ou profile_ids derivados de apenas 100 prospects.
+    const { data, error } = await build(slice, 0, 999); 
+    if (error) {
+      console.error("[MAPA] fetchByIds error:", error);
+      throw error;
     }
+    const batch = (data ?? []) as T[];
+    out.push(...batch);
   }
   return out;
 }
@@ -82,7 +85,8 @@ async function hydrateMapPoints(prospects: ProspectRow[], uid: string): Promise<
   const cnpjList = Array.from(prospectCnpjs);
   if (cnpjList.length === 0) return [];
 
-  const [profiles, states] = await Promise.all([
+  console.log(`[MAPA] Buscando perfis e status para ${cnpjList.length} CNPJs`);
+  const [profilesResult, states] = await Promise.allSettled([
     fetchByIds<ProfileRow>(cnpjList, (slice, from, to) =>
       db.from("company_profiles")
         .select("id,cnpj,razao_social,nome_fantasia,data_abertura")
@@ -92,9 +96,23 @@ async function hydrateMapPoints(prospects: ProspectRow[], uid: string): Promise<
     fetchUserLeadStatuses(uid, prospects.map(p => p.id))
   ]);
 
+  const profiles = profilesResult.status === 'fulfilled' ? profilesResult.value : [];
+  if (profilesResult.status === 'rejected') {
+    console.error("[MAPA] Erro ao buscar perfis:", profilesResult.reason);
+  }
+  
+  const leadStatuses = states.status === 'fulfilled' ? states.value : new Map<string, string>();
+  if (states.status === 'rejected') {
+    console.error("[MAPA] Erro ao buscar status:", states.reason);
+  }
+
+  console.log(`[MAPA] ${profiles.length} perfis encontrados`);
+
   const profileIds = profiles.map((p) => p.id);
-  const [addrs, locs] = profileIds.length
-    ? await Promise.all([
+  console.log(`[MAPA] Buscando endereços e locais para ${profileIds.length} perfis`);
+  
+  const [addrsResult, locsResult] = profileIds.length
+    ? await Promise.allSettled([
         fetchByIds<AddrRow>(profileIds, (slice, from, to) =>
           db.from("company_addresses")
             .select("profile_id,logradouro,numero,bairro,cidade,uf,cep")
@@ -108,7 +126,15 @@ async function hydrateMapPoints(prospects: ProspectRow[], uid: string): Promise<
             .range(from, to),
         ),
       ])
-    : [[], []];
+    : [{ status: 'fulfilled', value: [] } as PromiseSettledResult<AddrRow[]>, { status: 'fulfilled', value: [] } as PromiseSettledResult<LocRow[]>];
+
+  const addrs = addrsResult.status === 'fulfilled' ? addrsResult.value : [];
+  const locs = locsResult.status === 'fulfilled' ? locsResult.value : [];
+  
+  if (addrsResult.status === 'rejected') console.error("[MAPA] Erro ao buscar endereços:", addrsResult.reason);
+  if (locsResult.status === 'rejected') console.error("[MAPA] Erro ao buscar localizações:", locsResult.reason);
+
+  console.log(`[MAPA] ${addrs.length} endereços e ${locs.length} locais encontrados`);
 
   const addrByProf = new Map<string, AddrRow>();
   for (const a of addrs) addrByProf.set(a.profile_id, a);
@@ -132,7 +158,10 @@ async function hydrateMapPoints(prospects: ProspectRow[], uid: string): Promise<
     const addr = prof ? addrByProf.get(prof.id) : undefined;
     const loc = prof ? locByProf.get(prof.id) : undefined;
 
-    if (!loc?.lat && !loc?.lon && !addr?.logradouro && !p.city) continue;
+    // Se não tiver localização E nem endereço E nem cidade no prospect, não conseguimos mostrar no mapa
+    if (!loc?.lat && !loc?.lon && !addr?.logradouro && !p.city) {
+      continue;
+    }
 
     out.push({
       cnpj: clean || `no-cnpj-${p.id}`,
@@ -149,7 +178,7 @@ async function hydrateMapPoints(prospects: ProspectRow[], uid: string): Promise<
       whatsapp: p.whatsapp,
       phone: p.phone,
       email: p.email,
-      status: states.get(p.id) ?? "nao_contatado",
+      status: leadStatuses.get(p.id) ?? "nao_contatado",
       potential: p.potential,
       nicho: p.nicho,
       data_abertura: prof?.data_abertura ?? null,
@@ -176,13 +205,17 @@ export async function* loadMapPointsProgressive(): AsyncGenerator<{ points: MapP
   const uid = userData.user?.id;
   if (!uid) return;
 
-  // 1. Get total count
-  const { count, error: countError } = await db.from("prospects")
-    .select("*", { count: "exact", head: true })
-    .is("merged_into", null);
-  
-  const total = count ?? 0;
-  if (countError && (countError as any).code !== "42703") throw countError;
+  // 1. Get total count (não fatal)
+  let total = 0;
+  try {
+    const { count, error: countError } = await db.from("prospects")
+      .select("*", { count: "exact", head: true })
+      .is("merged_into", null);
+    
+    total = count ?? 0;
+  } catch (e) {
+    console.warn("[MAPA] Falha silenciosa ao buscar contagem");
+  }
 
   // 2. Fetch in batches
   const seenCnpjs = new Set<string>();
@@ -209,7 +242,7 @@ export async function* loadMapPointsProgressive(): AsyncGenerator<{ points: MapP
 
     const rows = prospects as ProspectRow[];
     
-    // Filter out locally (though merged_into handles most)
+    // Filter out locally
     const uniqueRows = rows.filter(r => {
       const clean = (r.cnpj || "").replace(/\D/g, "");
       if (clean && seenCnpjs.has(clean)) return false;
@@ -218,13 +251,18 @@ export async function* loadMapPointsProgressive(): AsyncGenerator<{ points: MapP
     });
 
     if (uniqueRows.length > 0) {
-      const hydrated = await hydrateMapPoints(uniqueRows, uid);
-      yield { points: hydrated, totalExpected: total };
+      try {
+        const hydrated = await hydrateMapPoints(uniqueRows, uid);
+        yield { points: hydrated, totalExpected: total };
+      } catch (hydrationError) {
+        console.error("[MAPA] Erro na hidratação do lote, pulando...", hydrationError);
+      }
     }
 
     if (prospects.length < PROSPECTS_BATCH) break;
   }
 }
+
 
 async function fetchUserLeadStatuses(uid: string, ids: string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>();
