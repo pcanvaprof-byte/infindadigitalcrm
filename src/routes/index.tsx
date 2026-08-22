@@ -40,7 +40,7 @@ function IndexPage() {
 
         <ol>
           <li><strong>Duplicatas voltam para o mapa.</strong> <code>loadMapPoints</code> lê <code>prospects</code> sem filtrar <code>merged_into is null</code> (a Prospecção filtra). Leads mesclados na deduplicação reaparecem como pinos e inflam contagens, roteiro e "pendentes de enriquecimento".</li>
-          <li><strong>Pinos podem desaparecer.</strong> Em <code>TasksMap</code>, cada marcador usa <code>key={p.cnpj}</code>; com CNPJs repetidos o React descarta marcadores irmãos.</li>
+          <li><strong>Pinos podem desaparecer.</strong> Em <code>TasksMap</code>, cada marcador usa <code>key={"{"}p.cnpj{"}"}</code>; com CNPJs repetidos o React descarta marcadores irmãos.</li>
           <li><strong>Carregamento muito pesado e sequencial.</strong> Antes de aparecer o primeiro pino o app baixa: todos os <code>prospects</code> (páginas de 1000), todos os <code>company_profiles</code>, e depois endereços e localizações em lotes de 200 ids — dezenas de requisições em série. Os status privados (<code>prospect_touchpoints</code>) somam mais um lote por 200 ids. Em 9k leads isso são muitas viagens ao servidor.</li>
           <li><strong>Falha silenciosa.</strong> A página só trata <code>isLoading</code>; se a consulta falhar, mostra mapa vazio / "0 leads" sem erro nem botão de tentar novamente.</li>
           <li><strong>Cache offline corta dados sem avisar.</strong> O cache guarda apenas os 3000 primeiros pontos; em campo o usuário vê um subconjunto sem saber.</li>
