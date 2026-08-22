@@ -285,7 +285,7 @@ function readPointsCache(): MapPoint[] {
 
 function writePointsCache(points: MapPoint[]) {
   try {
-    localStorage.setItem(POINTS_CACHE, JSON.stringify(points.slice(0, 3000)));
+    localStorage.setItem(POINTS_CACHE, JSON.stringify(points.slice(0, 5000)));
   } catch {
     /* quota — ignora */
   }
