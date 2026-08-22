@@ -425,6 +425,15 @@ function MapaPage() {
           )}
         </div>
       )}
+      {loadingProgressive && (
+        <div className="mb-3 flex items-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-[11px] text-primary-foreground animate-in fade-in duration-300">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          <span>
+            Carregando outros lotes progressivamente: <strong>{points.length}</strong> 
+            {totalExpected ? ` de ${totalExpected}` : ""} empresas já no mapa.
+          </span>
+        </div>
+      )}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[320px_1fr]">
         {/* Sidebar - Oculta em mobile por padrão ou colapsada */}
         <aside className="surface-card flex flex-col gap-3 p-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-140px)]">
