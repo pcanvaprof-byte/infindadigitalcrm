@@ -98,15 +98,49 @@ function MapaPage() {
   const [opening, setOpening] = useState<OpeningFilter>(EMPTY_OPENING_FILTER);
   const [fitKey, setFitKey] = useState(0);
 
-  const pointsQ = useQuery({
-    queryKey: crmKeys.tasks,
-    queryFn: loadMapPoints,
-    staleTime: 60_000,
-    retry: 2,
-  });
-  const points: MapPoint[] = pointsQ.data ?? [];
-  const loading = pointsQ.isLoading;
-  const error = pointsQ.error;
+  // Progressive loading state
+  const [points, setPoints] = useState<MapPoint[]>([]);
+  const [loadingFirstBatch, setLoadingFirstBatch] = useState(true);
+  const [loadingProgressive, setLoadingProgressive] = useState(false);
+  const [totalExpected, setTotalExpected] = useState<number | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+
+  const loadProgressively = async () => {
+    try {
+      setError(null);
+      setLoadingFirstBatch(true);
+      setPoints([]);
+      
+      let isFirst = true;
+      for await (const batch of loadMapPointsProgressive()) {
+        setPoints(prev => {
+          // Evita duplicatas se o loop rodar de novo
+          const existing = new Set(prev.map(p => p.cnpj));
+          const filtered = batch.points.filter(p => !existing.has(p.cnpj));
+          return [...prev, ...filtered];
+        });
+        setTotalExpected(batch.totalExpected);
+        
+        if (isFirst) {
+          setLoadingFirstBatch(false);
+          setLoadingProgressive(true);
+          isFirst = false;
+        }
+      }
+    } catch (e) {
+      console.error("Progressive load error:", e);
+      setError(e as Error);
+    } finally {
+      setLoadingFirstBatch(false);
+      setLoadingProgressive(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProgressively();
+  }, []);
+
+  const loading = loadingFirstBatch;
 
   const visitsQ = useQuery({
     queryKey: visitKeys.all,
@@ -144,8 +178,7 @@ function MapaPage() {
   }, [qc]);
 
   const refresh = () => {
-    qc.invalidateQueries({ queryKey: crmKeys.tasks });
-    qc.invalidateQueries({ queryKey: crmKeys.prospects });
+    loadProgressively();
     qc.invalidateQueries({ queryKey: visitKeys.all });
   };
 
