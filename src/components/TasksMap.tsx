@@ -148,8 +148,9 @@ export function TasksMap({
           
         return (
           <Marker 
-            key={p.cnpj} 
+            key={`${p.cnpj}-${visible.indexOf(p)}`} 
             position={[p.lat!, p.lon!]} 
+
             icon={makeIcon(color, order ? String(order) : undefined, isHighlighted, isBairroSelected)}
             zIndexOffset={isHighlighted ? 1000 : isBairroSelected ? 500 : 0}
           >
