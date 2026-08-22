@@ -409,7 +409,7 @@ function MapaPage() {
   const routeUrl = useMemo(() => googleMapsRouteUrl(route, origin), [route, origin]);
 
   return (
-    <AppShell title="Mapa" subtitle="Todos os leads prospectados com endereço completo e CEP">
+    <AppShell title="Mapa" subtitle="Todos os leads prospectados com endereço completo e CEP" className="overflow-x-hidden">
       {error && (
         <div className="mb-3 rounded-md border border-destructive/50 bg-destructive/10 p-4 text-destructive">
           <h4 className="font-semibold flex items-center gap-2 mb-1">
