@@ -211,14 +211,18 @@ export async function* loadMapPointsProgressive(): AsyncGenerator<{ points: MapP
 
   // 1. Get total count
   console.log("[MAPA] Buscando total de prospects");
-  const { count, error: countError } = await db.from("prospects")
-    .select("*", { count: "exact", head: true })
-    .is("merged_into", null);
-  
-  const total = count ?? 0;
-  if (countError && (countError as any).code !== "42703") {
-    console.error("[MAPA] Erro ao buscar contagem:", countError);
-    throw countError;
+  let total = 0;
+  try {
+    const { count, error: countError } = await db.from("prospects")
+      .select("*", { count: "exact", head: true })
+      .is("merged_into", null);
+    
+    total = count ?? 0;
+    if (countError && (countError as any).code !== "42703") {
+      console.warn("[MAPA] Erro ao buscar contagem (não fatal):", countError);
+    }
+  } catch (e) {
+    console.warn("[MAPA] Exceção ao buscar contagem (não fatal):", e);
   }
   console.log(`[MAPA] Total esperado: ${total}`);
 
