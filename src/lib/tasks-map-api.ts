@@ -86,16 +86,26 @@ async function loadMapPointsRemote(): Promise<MapPoint[]> {
   const uid = userData.user?.id;
   if (!uid) return [];
 
-  const [profiles, prospects] = await Promise.all([
-    fetchAll<ProfileRow>((from, to) =>
-      db.from("company_profiles")
-        .select("id,cnpj,razao_social,nome_fantasia,data_abertura")
-        .range(from, to),
-    ),
-    loadMapProspects(uid),
-  ]);
-  const profileIds = profiles.map((p) => p.id);
+  // Carrega prospects primeiro para saber quais CNPJs buscar
+  const prospects = await loadMapProspects(uid);
+  const prospectCnpjs = new Set<string>();
+  for (const p of prospects) {
+    if (p.cnpj) prospectCnpjs.add(p.cnpj.replace(/\D/g, ""));
+  }
 
+  // Carrega perfis, endereços e localizações apenas para os CNPJs que temos
+  const cnpjList = Array.from(prospectCnpjs);
+  if (cnpjList.length === 0) return [];
+
+  // Perfis em lotes
+  const profiles = await fetchByIds<ProfileRow>(cnpjList, (slice, from, to) =>
+    db.from("company_profiles")
+      .select("id,cnpj,razao_social,nome_fantasia,data_abertura")
+      .in("cnpj", slice)
+      .range(from, to),
+  );
+
+  const profileIds = profiles.map((p) => p.id);
   const [addrs, locs] = profileIds.length
     ? await Promise.all([
         fetchByIds<AddrRow>(profileIds, (slice, from, to) =>
@@ -111,7 +121,8 @@ async function loadMapPointsRemote(): Promise<MapPoint[]> {
             .range(from, to),
         ),
       ])
-    : [[] as AddrRow[], [] as LocRow[]];
+    : [[], []];
+
   const addrByProf = new Map<string, AddrRow>();
   for (const a of addrs) addrByProf.set(a.profile_id, a);
   const locByProf = new Map<string, LocRow>();
@@ -124,39 +135,47 @@ async function loadMapPointsRemote(): Promise<MapPoint[]> {
     if (!p.cnpj) continue;
     const key = p.cnpj.replace(/\D/g, "");
     const current = profByCnpj.get(key);
-    // com dados compartilhados podem existir varios perfis do mesmo CNPJ:
-    // mantem o mais completo (com localizacao/endereco)
     if (!current || richness(p) > richness(current)) profByCnpj.set(key, p);
   }
 
-  return prospects
-    .filter((p) => p.cnpj && p.cnpj.replace(/\D/g, "").length === 14)
-    .map((p): MapPoint => {
-      const clean = p.cnpj!.replace(/\D/g, "");
-      const prof = profByCnpj.get(clean);
-      const addr = prof ? addrByProf.get(prof.id) : undefined;
-      const loc = prof ? locByProf.get(prof.id) : undefined;
-      return {
-        cnpj: clean,
-        company: prof?.nome_fantasia || prof?.razao_social || p.company,
-        fantasia: prof?.nome_fantasia ?? null,
-        bairro: addr?.bairro ?? null,
-        cidade: addr?.cidade ?? p.city ?? null,
-        uf: addr?.uf ?? p.state ?? null,
-        logradouro: addr?.logradouro ?? null,
-        numero: addr?.numero ?? null,
-        cep: addr?.cep ?? null,
-        lat: loc?.lat ?? null,
-        lon: loc?.lon ?? null,
-        whatsapp: p.whatsapp,
-        phone: p.phone,
-        email: p.email,
-        status: p.status,
-        potential: p.potential,
-        nicho: p.nicho,
-        data_abertura: prof?.data_abertura ?? null,
-      };
+  const out: MapPoint[] = [];
+  const seenCnpjs = new Set<string>();
+
+  for (const p of prospects) {
+    const clean = (p.cnpj || "").replace(/\D/g, "");
+    // Se tiver CNPJ, deduplica para não poluir o mapa
+    if (clean && seenCnpjs.has(clean)) continue;
+    if (clean) seenCnpjs.add(clean);
+
+    const prof = clean ? profByCnpj.get(clean) : undefined;
+    const addr = prof ? addrByProf.get(prof.id) : undefined;
+    const loc = prof ? locByProf.get(prof.id) : undefined;
+
+    // Só adiciona ao mapa se tiver localização ou endereço mínimo
+    if (!loc?.lat && !loc?.lon && !addr?.logradouro && !p.city) continue;
+
+    out.push({
+      cnpj: clean || `no-cnpj-${Math.random()}`,
+      company: prof?.nome_fantasia || prof?.razao_social || p.company,
+      fantasia: prof?.nome_fantasia ?? null,
+      bairro: addr?.bairro ?? null,
+      cidade: addr?.cidade ?? p.city ?? null,
+      uf: addr?.uf ?? p.state ?? null,
+      logradouro: addr?.logradouro ?? null,
+      numero: addr?.numero ?? null,
+      cep: addr?.cep ?? null,
+      lat: loc?.lat ?? null,
+      lon: loc?.lon ?? null,
+      whatsapp: p.whatsapp,
+      phone: p.phone,
+      email: p.email,
+      status: p.status,
+      potential: p.potential,
+      nicho: p.nicho,
+      data_abertura: prof?.data_abertura ?? null,
     });
+  }
+  return out;
 }
 
 async function loadMapProspects(uid: string): Promise<ProspectRow[]> {
