@@ -130,7 +130,7 @@ export function TasksMap({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <FitBounds points={route.length ? route : visible} />
+      <FitBounds points={route.length ? route : visible} fitKey={fitKey} />
       {routeLine.length > 1 && (
         <Polyline positions={routeLine} pathOptions={{ color: "#0ea5e9", weight: 3, opacity: 0.7, dashArray: "6 6" }} />
       )}
