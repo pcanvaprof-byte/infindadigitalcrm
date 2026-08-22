@@ -57,6 +57,15 @@ function meIcon() {
 
 function FitBounds({ points, fitKey }: { points: MapPoint[], fitKey?: number }) {
   const map = useMap();
+  
+  useEffect(() => {
+    // Recalcula o tamanho do mapa quando a janela muda ou filtros são aplicados
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [map, fitKey]);
+
   useEffect(() => {
     const coords = points.filter((p) => p.lat && p.lon).map((p) => [p.lat!, p.lon!] as [number, number]);
     if (coords.length === 0) return;
@@ -65,7 +74,7 @@ function FitBounds({ points, fitKey }: { points: MapPoint[], fitKey?: number }) 
     } else {
       map.fitBounds(L.latLngBounds(coords), { padding: [40, 40] });
     }
-  }, [fitKey, map]); // Só re-enquadra quando fitKey mudar ou no mount
+  }, [fitKey, map]); 
   return null;
 }
 

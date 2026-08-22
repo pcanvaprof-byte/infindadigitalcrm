@@ -431,9 +431,9 @@ function MapaPage() {
           </span>
         </div>
       )}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-[320px_1fr]">
-        {/* Sidebar - Oculta em mobile por padrão ou colapsada */}
-        <aside className="surface-card flex flex-col gap-3 p-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-140px)]">
+      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[320px_1fr]">
+        {/* Sidebar - Filtros e Lista */}
+        <aside className="surface-card flex flex-col gap-3 p-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-140px)] order-2 lg:order-1">
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -681,8 +681,8 @@ function MapaPage() {
           </div>
         </aside>
 
-        {/* Map - Prioridade visual em mobile */}
-        <section className="surface-card overflow-hidden p-0 h-[65vh] min-h-[380px] lg:h-[calc(100vh-200px)] lg:min-h-[480px] order-first lg:order-none">
+        {/* Map - Container com altura dinâmica no mobile */}
+        <section className="surface-card overflow-hidden p-0 h-[50vh] sm:h-[60vh] lg:h-[calc(100vh-200px)] order-1 lg:order-2">
           {loading ? (
             <div className="flex h-full items-center justify-center text-xs text-muted-foreground gap-2">
               <Loader2 className="h-4 w-4 animate-spin" />
