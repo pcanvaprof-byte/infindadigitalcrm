@@ -96,14 +96,17 @@ function MapaPage() {
   const [pendingQueue, setPendingQueue] = useState(0);
   const [displayLimit, setDisplayLimit] = useState(20);
   const [opening, setOpening] = useState<OpeningFilter>(EMPTY_OPENING_FILTER);
+  const [fitKey, setFitKey] = useState(0);
 
   const pointsQ = useQuery({
     queryKey: crmKeys.tasks,
     queryFn: loadMapPoints,
-    staleTime: 15_000,
+    staleTime: 60_000,
+    retry: 2,
   });
   const points: MapPoint[] = pointsQ.data ?? [];
   const loading = pointsQ.isLoading;
+  const error = pointsQ.error;
 
   const visitsQ = useQuery({
     queryKey: visitKeys.all,
