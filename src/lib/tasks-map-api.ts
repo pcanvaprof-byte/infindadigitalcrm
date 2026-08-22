@@ -184,7 +184,7 @@ async function loadMapProspects(uid: string): Promise<ProspectRow[]> {
 
   const rows = await fetchAll<ProspectRow & { id: string, merged_into: string | null }>((from, to) => {
     // Tenta filtrar por merged_into null se a coluna existir
-    return query.is("merged_into", null).range(from, to).then(res => {
+    return query.is("merged_into", null).range(from, to).then((res: any) => {
       if (res.error && (res.error as any).code === "42703") {
         // Fallback se a coluna não existir (projeto antigo/desatualizado)
         return db.from("prospects")
