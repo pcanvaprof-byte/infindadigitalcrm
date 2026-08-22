@@ -229,6 +229,11 @@ function MapaPage() {
     return result;
   }, [points, uf, selectedNicho, opening]);
 
+  // Atualiza fitKey quando os filtros principais mudam
+  useEffect(() => {
+    setFitKey(prev => prev + 1);
+  }, [uf, selectedNicho, opening]);
+
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
     if (!term) return byUf;
