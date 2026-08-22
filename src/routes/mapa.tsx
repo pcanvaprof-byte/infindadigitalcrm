@@ -422,42 +422,6 @@ function MapaPage() {
           </Button>
         </div>
       )}
-      {( (!online || pendingQueue > 0) || (readMapCacheInfo().isTruncated) ) && (
-        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
-          {readMapCacheInfo().isTruncated && (
-            <div className="w-full mb-1 flex items-center gap-2 border-b border-amber-500/20 pb-1">
-              <Badge variant="outline" className="text-[9px] h-4 px-1 bg-amber-500/20 border-amber-500/40 text-amber-800">Offline</Badge>
-              <span>{readMapCacheInfo().count} de {points.length || "?"} leads disponíveis offline.</span>
-            </div>
-          )}
-          {!online ? (
-            <>
-              <WifiOff className="h-4 w-4" />
-              Você está offline. O roteiro do dia continua disponível e os check-ins ficam salvos no aparelho.
-            </>
-          ) : (
-            <>
-              <CloudUpload className="h-4 w-4" />
-              {pendingQueue} check-in(s) aguardando envio.
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-[11px]"
-                onClick={async () => {
-                  const sent = await flushVisitQueue();
-                  setPendingQueue(queueSize());
-                  if (sent) {
-                    toast.success(`${sent} check-in(s) enviados.`);
-                    refresh();
-                  } else toast.error("Ainda não foi possível enviar. Tente novamente.");
-                }}
-              >
-                Enviar agora
-              </Button>
-            </>
-          )}
-        </div>
-      )}
       {(loadingFirstBatch || loadingProgressive) && (
         <div className="mb-3 flex items-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-[11px] text-primary-foreground animate-in fade-in duration-300">
           <Loader2 className="h-3 w-3 animate-spin" />
