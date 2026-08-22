@@ -38,29 +38,18 @@ type AddrRow = {
 type LocRow = { profile_id: string; lat: number | null; lon: number | null };
 
 type ProspectRow = {
+  id: string;
   cnpj: string | null; company: string; whatsapp: string | null;
   phone: string | null; email: string | null; status: string | null;
   potential: string | null; city: string | null; state: string | null;
   nicho: string | null;
+  merged_into: string | null;
 };
 
 type DbErrorLike = { code?: string; message?: string };
 
+const PROSPECTS_BATCH = 100;
 const PAGE = 1000;
-
-async function fetchAll<T>(
-  build: (from: number, to: number) => Promise<{ data: unknown; error: unknown }>,
-): Promise<T[]> {
-  const out: T[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await build(from, from + PAGE - 1);
-    if (error) throw error;
-    const batch = (data ?? []) as T[];
-    out.push(...batch);
-    if (batch.length < PAGE) break;
-  }
-  return out;
-}
 
 async function fetchByIds<T>(
   ids: string[],
@@ -81,29 +70,27 @@ async function fetchByIds<T>(
   return out;
 }
 
-async function loadMapPointsRemote(): Promise<MapPoint[]> {
-  const { data: userData } = await supabase.auth.getUser();
-  const uid = userData.user?.id;
-  if (!uid) return [];
-
-  // Carrega prospects primeiro para saber quais CNPJs buscar
-  const prospects = await loadMapProspects(uid);
+/**
+ * Carrega metadados (perfis, endereços, locais) para uma lista de prospects.
+ */
+async function hydrateMapPoints(prospects: ProspectRow[], uid: string): Promise<MapPoint[]> {
   const prospectCnpjs = new Set<string>();
   for (const p of prospects) {
     if (p.cnpj) prospectCnpjs.add(p.cnpj.replace(/\D/g, ""));
   }
 
-  // Carrega perfis, endereços e localizações apenas para os CNPJs que temos
   const cnpjList = Array.from(prospectCnpjs);
   if (cnpjList.length === 0) return [];
 
-  // Perfis em lotes
-  const profiles = await fetchByIds<ProfileRow>(cnpjList, (slice, from, to) =>
-    db.from("company_profiles")
-      .select("id,cnpj,razao_social,nome_fantasia,data_abertura")
-      .in("cnpj", slice)
-      .range(from, to),
-  );
+  const [profiles, states] = await Promise.all([
+    fetchByIds<ProfileRow>(cnpjList, (slice, from, to) =>
+      db.from("company_profiles")
+        .select("id,cnpj,razao_social,nome_fantasia,data_abertura")
+        .in("cnpj", slice)
+        .range(from, to),
+    ),
+    fetchUserLeadStatuses(uid, prospects.map(p => p.id))
+  ]);
 
   const profileIds = profiles.map((p) => p.id);
   const [addrs, locs] = profileIds.length
@@ -139,23 +126,16 @@ async function loadMapPointsRemote(): Promise<MapPoint[]> {
   }
 
   const out: MapPoint[] = [];
-  const seenCnpjs = new Set<string>();
-
   for (const p of prospects) {
     const clean = (p.cnpj || "").replace(/\D/g, "");
-    // Se tiver CNPJ, deduplica para não poluir o mapa
-    if (clean && seenCnpjs.has(clean)) continue;
-    if (clean) seenCnpjs.add(clean);
-
     const prof = clean ? profByCnpj.get(clean) : undefined;
     const addr = prof ? addrByProf.get(prof.id) : undefined;
     const loc = prof ? locByProf.get(prof.id) : undefined;
 
-    // Só adiciona ao mapa se tiver localização ou endereço mínimo
     if (!loc?.lat && !loc?.lon && !addr?.logradouro && !p.city) continue;
 
     out.push({
-      cnpj: clean || `no-cnpj-${Math.random()}`,
+      cnpj: clean || `no-cnpj-${p.id}`,
       company: prof?.nome_fantasia || prof?.razao_social || p.company,
       fantasia: prof?.nome_fantasia ?? null,
       bairro: addr?.bairro ?? null,
@@ -169,7 +149,7 @@ async function loadMapPointsRemote(): Promise<MapPoint[]> {
       whatsapp: p.whatsapp,
       phone: p.phone,
       email: p.email,
-      status: p.status,
+      status: states.get(p.id) ?? "nao_contatado",
       potential: p.potential,
       nicho: p.nicho,
       data_abertura: prof?.data_abertura ?? null,
@@ -178,36 +158,72 @@ async function loadMapPointsRemote(): Promise<MapPoint[]> {
   return out;
 }
 
-async function loadMapProspects(uid: string): Promise<ProspectRow[]> {
-  const query = db.from("prospects")
-    .select("id,cnpj,company,whatsapp,phone,email,potential,city,state,segment,merged_into");
+export interface MapLoaderState {
+  points: MapPoint[];
+  loading: boolean;
+  totalLoaded: number;
+  totalExpected: number | null;
+  error: Error | null;
+  isComplete: boolean;
+}
 
-  const rows = await fetchAll<ProspectRow & { id: string, merged_into: string | null }>((from, to) => {
-    // Tenta filtrar por merged_into null se a coluna existir
-    return query.is("merged_into", null).range(from, to).then((res: any) => {
-      if (res.error && (res.error as any).code === "42703") {
-        // Fallback se a coluna não existir (projeto antigo/desatualizado)
-        return db.from("prospects")
-          .select("id,cnpj,company,whatsapp,phone,email,potential,city,state,segment")
-          .range(from, to);
-      }
-      return res;
+/**
+ * Hook or generator for progressive map loading.
+ * Returns batches of MapPoints to be merged by the caller.
+ */
+export async function* loadMapPointsProgressive(): AsyncGenerator<{ points: MapPoint[], totalExpected: number }> {
+  const { data: userData } = await supabase.auth.getUser();
+  const uid = userData.user?.id;
+  if (!uid) return;
+
+  // 1. Get total count
+  const { count, error: countError } = await db.from("prospects")
+    .select("*", { count: "exact", head: true })
+    .is("merged_into", null);
+  
+  const total = count ?? 0;
+  if (countError && (countError as any).code !== "42703") throw countError;
+
+  // 2. Fetch in batches
+  const seenCnpjs = new Set<string>();
+
+  for (let from = 0; ; from += PROSPECTS_BATCH) {
+    const to = from + PROSPECTS_BATCH - 1;
+    
+    // Fetch prospects
+    let { data: prospects, error } = await db.from("prospects")
+      .select("id,cnpj,company,whatsapp,phone,email,potential,city,state,segment,merged_into")
+      .is("merged_into", null)
+      .range(from, to);
+
+    if (error && (error as any).code === "42703") {
+      const res = await db.from("prospects")
+        .select("id,cnpj,company,whatsapp,phone,email,potential,city,state,segment")
+        .range(from, to);
+      prospects = res.data;
+      error = res.error;
+    }
+
+    if (error) throw error;
+    if (!prospects || prospects.length === 0) break;
+
+    const rows = prospects as ProspectRow[];
+    
+    // Filter out locally (though merged_into handles most)
+    const uniqueRows = rows.filter(r => {
+      const clean = (r.cnpj || "").replace(/\D/g, "");
+      if (clean && seenCnpjs.has(clean)) return false;
+      if (clean) seenCnpjs.add(clean);
+      return true;
     });
-  });
 
-  const states = await fetchUserLeadStatuses(uid, rows.map((r) => r.id));
-  return rows.map((row) => ({
-    cnpj: row.cnpj,
-    company: row.company,
-    whatsapp: row.whatsapp,
-    phone: row.phone,
-    email: row.email,
-    status: states.get(row.id) ?? "nao_contatado",
-    potential: row.potential,
-    city: row.city,
-    state: row.state,
-    nicho: (row as any).segment ?? null,
-  }));
+    if (uniqueRows.length > 0) {
+      const hydrated = await hydrateMapPoints(uniqueRows, uid);
+      yield { points: hydrated, totalExpected: total };
+    }
+
+    if (prospects.length < PROSPECTS_BATCH) break;
+  }
 }
 
 async function fetchUserLeadStatuses(uid: string, ids: string[]): Promise<Map<string, string>> {
@@ -292,8 +308,8 @@ function writePointsCache(points: MapPoint[]) {
 }
 
 /**
- * Carrega os pontos do mapa. Sem conexão (ou em caso de falha),
- * devolve a última lista salva no aparelho.
+ * Versão legada para compatibilidade se necessário, mas deve ser evitada
+ * para grandes volumes em favor da carga progressiva.
  */
 export async function loadMapPoints(): Promise<MapPoint[]> {
   const offline = typeof navigator !== "undefined" && navigator.onLine === false;
@@ -301,10 +317,14 @@ export async function loadMapPoints(): Promise<MapPoint[]> {
     const cached = readPointsCache();
     if (cached.length) return cached;
   }
+  
+  const all: MapPoint[] = [];
   try {
-    const points = await loadMapPointsRemote();
-    writePointsCache(points);
-    return points;
+    for await (const batch of loadMapPointsProgressive()) {
+      all.push(...batch.points);
+    }
+    writePointsCache(all);
+    return all;
   } catch (e) {
     const cached = readPointsCache();
     if (cached.length) return cached;

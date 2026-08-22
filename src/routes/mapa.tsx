@@ -25,7 +25,7 @@ import {
   Square,
 } from "lucide-react";
 import { toast } from "sonner";
-import { loadMapPoints, bairroColor, type MapPoint, readMapCacheInfo } from "@/lib/tasks-map-api";
+import { loadMapPointsProgressive, bairroColor, type MapPoint, readMapCacheInfo } from "@/lib/tasks-map-api";
 import { runEnrichment } from "@/lib/enrichment/api";
 import { useAutoEnrich } from "@/lib/enrichment/auto-batch";
 import { crmKeys } from "@/lib/crm/api";
@@ -98,15 +98,49 @@ function MapaPage() {
   const [opening, setOpening] = useState<OpeningFilter>(EMPTY_OPENING_FILTER);
   const [fitKey, setFitKey] = useState(0);
 
-  const pointsQ = useQuery({
-    queryKey: crmKeys.tasks,
-    queryFn: loadMapPoints,
-    staleTime: 60_000,
-    retry: 2,
-  });
-  const points: MapPoint[] = pointsQ.data ?? [];
-  const loading = pointsQ.isLoading;
-  const error = pointsQ.error;
+  // Progressive loading state
+  const [points, setPoints] = useState<MapPoint[]>([]);
+  const [loadingFirstBatch, setLoadingFirstBatch] = useState(true);
+  const [loadingProgressive, setLoadingProgressive] = useState(false);
+  const [totalExpected, setTotalExpected] = useState<number | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+
+  const loadProgressively = async () => {
+    try {
+      setError(null);
+      setLoadingFirstBatch(true);
+      setPoints([]);
+      
+      let isFirst = true;
+      for await (const batch of loadMapPointsProgressive()) {
+        setPoints(prev => {
+          // Evita duplicatas se o loop rodar de novo
+          const existing = new Set(prev.map((p: MapPoint) => p.cnpj));
+          const filtered = batch.points.filter((p: MapPoint) => !existing.has(p.cnpj));
+          return [...prev, ...filtered];
+        });
+        setTotalExpected(batch.totalExpected);
+        
+        if (isFirst) {
+          setLoadingFirstBatch(false);
+          setLoadingProgressive(true);
+          isFirst = false;
+        }
+      }
+    } catch (e) {
+      console.error("Progressive load error:", e);
+      setError(e as Error);
+    } finally {
+      setLoadingFirstBatch(false);
+      setLoadingProgressive(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProgressively();
+  }, []);
+
+  const loading = loadingFirstBatch;
 
   const visitsQ = useQuery({
     queryKey: visitKeys.all,
@@ -144,8 +178,7 @@ function MapaPage() {
   }, [qc]);
 
   const refresh = () => {
-    qc.invalidateQueries({ queryKey: crmKeys.tasks });
-    qc.invalidateQueries({ queryKey: crmKeys.prospects });
+    loadProgressively();
     qc.invalidateQueries({ queryKey: visitKeys.all });
   };
 
@@ -390,6 +423,15 @@ function MapaPage() {
               </Button>
             </>
           )}
+        </div>
+      )}
+      {loadingProgressive && (
+        <div className="mb-3 flex items-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-[11px] text-primary-foreground animate-in fade-in duration-300">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          <span>
+            Carregando outros lotes progressivamente: <strong>{points.length}</strong> 
+            {totalExpected ? ` de ${totalExpected}` : ""} empresas já no mapa.
+          </span>
         </div>
       )}
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[320px_1fr]">
@@ -645,8 +687,9 @@ function MapaPage() {
         {/* Map - Prioridade visual em mobile */}
         <section className="surface-card overflow-hidden p-0 h-[65vh] min-h-[380px] lg:h-[calc(100vh-200px)] lg:min-h-[480px] order-first lg:order-none">
           {loading ? (
-            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Carregando mapa…
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Carregando primeiro lote...</span>
             </div>
           ) : error ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
@@ -654,7 +697,7 @@ function MapaPage() {
               <p className="max-w-md text-sm text-muted-foreground">
                 Falha ao carregar os dados do mapa.
               </p>
-              <Button onClick={() => pointsQ.refetch()} variant="outline" size="sm">
+              <Button onClick={() => loadProgressively()} variant="outline" size="sm">
                 Tentar novamente
               </Button>
             </div>
