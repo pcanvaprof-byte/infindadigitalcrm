@@ -55,7 +55,7 @@ function meIcon() {
   });
 }
 
-function FitBounds({ points }: { points: MapPoint[] }) {
+function FitBounds({ points, fitKey }: { points: MapPoint[], fitKey?: number }) {
   const map = useMap();
   useEffect(() => {
     const coords = points.filter((p) => p.lat && p.lon).map((p) => [p.lat!, p.lon!] as [number, number]);
@@ -65,7 +65,7 @@ function FitBounds({ points }: { points: MapPoint[] }) {
     } else {
       map.fitBounds(L.latLngBounds(coords), { padding: [40, 40] });
     }
-  }, [points, map]);
+  }, [fitKey, map]); // Só re-enquadra quando fitKey mudar ou no mount
   return null;
 }
 
@@ -79,6 +79,7 @@ interface Props {
   origin?: LatLng | null;
   onCheckin?: (p: MapPoint) => void;
   highlightQuery?: string;
+  fitKey?: number;
 }
 
 const digits = (v?: string | null) => (v ?? "").replace(/\D/g, "");
