@@ -266,6 +266,15 @@ export function bairroColor(bairro?: string | null): string {
 
 const POINTS_CACHE = "pap.map.points.v1";
 
+export function readMapCacheInfo() {
+  const cached = readPointsCache();
+  return {
+    count: cached.length,
+    limit: 5000,
+    isTruncated: cached.length >= 5000
+  };
+}
+
 function readPointsCache(): MapPoint[] {
   try {
     return JSON.parse(localStorage.getItem(POINTS_CACHE) || "[]") as MapPoint[];
