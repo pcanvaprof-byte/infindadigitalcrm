@@ -109,8 +109,10 @@ async function hydrateMapPoints(prospects: ProspectRow[], uid: string): Promise<
   console.log(`[MAPA] ${profiles.length} perfis encontrados`);
 
   const profileIds = profiles.map((p) => p.id);
-  const [addrs, locs] = profileIds.length
-    ? await Promise.all([
+  console.log(`[MAPA] Buscando endereços e locais para ${profileIds.length} perfis`);
+  
+  const [addrsResult, locsResult] = profileIds.length
+    ? await Promise.allSettled([
         fetchByIds<AddrRow>(profileIds, (slice, from, to) =>
           db.from("company_addresses")
             .select("profile_id,logradouro,numero,bairro,cidade,uf,cep")
@@ -124,7 +126,15 @@ async function hydrateMapPoints(prospects: ProspectRow[], uid: string): Promise<
             .range(from, to),
         ),
       ])
-    : [[], []];
+    : [{ status: 'fulfilled', value: [] } as PromiseSettledResult<AddrRow[]>, { status: 'fulfilled', value: [] } as PromiseSettledResult<LocRow[]>];
+
+  const addrs = addrsResult.status === 'fulfilled' ? addrsResult.value : [];
+  const locs = locsResult.status === 'fulfilled' ? locsResult.value : [];
+  
+  if (addrsResult.status === 'rejected') console.error("[MAPA] Erro ao buscar endereços:", addrsResult.reason);
+  if (locsResult.status === 'rejected') console.error("[MAPA] Erro ao buscar localizações:", locsResult.reason);
+
+  console.log(`[MAPA] ${addrs.length} endereços e ${locs.length} locais encontrados`);
 
   const addrByProf = new Map<string, AddrRow>();
   for (const a of addrs) addrByProf.set(a.profile_id, a);
