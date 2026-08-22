@@ -115,8 +115,8 @@ function MapaPage() {
       for await (const batch of loadMapPointsProgressive()) {
         setPoints(prev => {
           // Evita duplicatas se o loop rodar de novo
-          const existing = new Set(prev.map(p => p.cnpj));
-          const filtered = batch.points.filter(p => !existing.has(p.cnpj));
+          const existing = new Set(prev.map((p: MapPoint) => p.cnpj));
+          const filtered = batch.points.filter((p: MapPoint) => !existing.has(p.cnpj));
           return [...prev, ...filtered];
         });
         setTotalExpected(batch.totalExpected);
