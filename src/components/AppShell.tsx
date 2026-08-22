@@ -394,7 +394,7 @@ export function AppShell({
           </div>
         )}
 
-        <main className="flex-1 px-3 py-4 pb-mobile-nav sm:px-6 sm:py-6 lg:px-8">{children}</main>
+        <main className={`flex-1 px-3 py-4 pb-mobile-nav sm:px-6 sm:py-6 lg:px-8 ${className || ""}`}>{children}</main>
       </div>
 
       <MobileNav onOpenMenu={() => setMobileMenuOpen(true)} />
