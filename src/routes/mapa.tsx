@@ -356,8 +356,14 @@ function MapaPage() {
 
   return (
     <AppShell title="Mapa" subtitle="Todos os leads prospectados com endereço completo e CEP">
-      {(!online || pendingQueue > 0) && (
+      {( (!online || pendingQueue > 0) || (readMapCacheInfo().isTruncated) ) && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+          {readMapCacheInfo().isTruncated && (
+            <div className="w-full mb-1 flex items-center gap-2 border-b border-amber-500/20 pb-1">
+              <Badge variant="outline" className="text-[9px] h-4 px-1 bg-amber-500/20 border-amber-500/40 text-amber-800">Offline</Badge>
+              <span>{readMapCacheInfo().count} de {points.length || "?"} leads disponíveis offline.</span>
+            </div>
+          )}
           {!online ? (
             <>
               <WifiOff className="h-4 w-4" />
