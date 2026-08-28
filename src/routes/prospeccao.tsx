@@ -402,6 +402,92 @@ function ProspeccaoPage() {
     if (typeof window === "undefined") return;
     try { window.localStorage.setItem("prosp_hide_dispatched", hideDispatched ? "1" : "0"); } catch { /* ignore */ }
   }, [hideDispatched]);
+
+  // ── Memória local de disparos: persiste IDs disparados no localStorage
+  // com TTL de 25h. Garante que o lead não volte à fila mesmo se o banco
+  // demorar a confirmar o touchpoint ou o cache for invalidado.
+  const DISPATCH_MEMORY_KEY = `prosp_dispatched_${user?.id ?? "anon"}`;
+  const DISPATCH_TTL_MS = 25 * 60 * 60 * 1000; // 25h
+
+  const [localDispatchedIds, setLocalDispatchedIds] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = window.localStorage.getItem(DISPATCH_MEMORY_KEY);
+      if (!raw) return new Set();
+      const entries: Array<[string, number]> = JSON.parse(raw);
+      const now = Date.now();
+      const valid = entries.filter(([, at]) => now - at < DISPATCH_TTL_MS);
+      return new Set(valid.map(([id]) => id));
+    } catch { return new Set(); }
+  });
+
+  const markLocalDispatched = (prospectId: string) => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(DISPATCH_MEMORY_KEY);
+      // [id, timestamp, confirmado]
+      const entries: Array<[string, number, boolean]> = raw ? JSON.parse(raw) : [];
+      const now = Date.now();
+      const fresh = entries.filter(([, at]) => now - at < DISPATCH_TTL_MS);
+      fresh.push([prospectId, now, false]); // false = pendente banco
+      window.localStorage.setItem(DISPATCH_MEMORY_KEY, JSON.stringify(fresh));
+      setLocalDispatchedIds(new Set(fresh.map(([id]) => id)));
+    } catch { /* ignore */ }
+  };
+
+  const confirmLocalDispatched = (prospectId: string) => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(DISPATCH_MEMORY_KEY);
+      if (!raw) return;
+      const entries: Array<[string, number, boolean]> = JSON.parse(raw);
+      const updated = entries.map(([id, at, ok]) =>
+        id === prospectId ? [id, at, true] as [string, number, boolean] : [id, at, ok] as [string, number, boolean]
+      );
+      window.localStorage.setItem(DISPATCH_MEMORY_KEY, JSON.stringify(updated));
+    } catch { /* ignore */ }
+  };
+
+  const isPendingLocalDispatch = (prospectId: string): boolean => {
+    if (typeof window === "undefined") return false;
+    try {
+      const raw = window.localStorage.getItem(DISPATCH_MEMORY_KEY);
+      if (!raw) return false;
+      const entries: Array<[string, number, boolean]> = JSON.parse(raw);
+      const entry = entries.find(([id]) => id === prospectId);
+      return !!entry && !entry[2]; // existe mas banco ainda não confirmou
+    } catch { return false; }
+  };
+
+  // Retry automático ao montar: tenta regravar touchpoints que falharam
+  // por rede/sessão instável na sessão anterior.
+  useEffect(() => {
+    if (!user?.id || !prospects.length) return;
+    try {
+      const raw = window.localStorage.getItem(DISPATCH_MEMORY_KEY);
+      if (!raw) return;
+      const entries: Array<[string, number, boolean]> = JSON.parse(raw);
+      const pending = entries.filter(([, , ok]) => !ok);
+      if (!pending.length) return;
+      for (const [prospectId] of pending) {
+        const found = prospects.find((x) => x.id === prospectId);
+        if (!found) continue;
+        addTouchpoint({
+          prospect_id: prospectId,
+          tipo: "whatsapp",
+          resultado: "enviado",
+          mensagem: "retry: disparo pendente",
+        })
+          .then(() => {
+            confirmLocalDispatched(prospectId);
+            updateProspect(prospectId, { status: "primeiro_contato" }).catch(() => {});
+          })
+          .catch(() => {}); // tenta de novo na próxima sessão
+      }
+    } catch { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, prospects.length]);
+
   type CadenceChip = "all" | "hoje" | "atrasados" | "sem_resposta" | "responderam" | "interessados" | "clientes";
   const [cadenceFilter, setCadenceFilter] = useState<CadenceChip>("all");
   const [touchpointTarget, setTouchpointTarget] = useState<{ prospect: Prospect; tipo: TouchpointTipo } | null>(null);
@@ -466,7 +552,7 @@ function ProspeccaoPage() {
     queryKey: crmKeys.prospects,
     queryFn: loadAllProspects,
     enabled: !!user,
-    staleTime: 5_000,
+    staleTime: 60_000,
   });
   const prospects = useMemo(
     () => (Array.isArray(prospectsQ.data) ? prospectsQ.data : []) as Prospect[],
@@ -517,6 +603,9 @@ function ProspeccaoPage() {
     return prospects.filter((p) => {
       if (statusFilter !== "all" && p.status !== statusFilter) return false;
       
+      // Oculta leads disparados localmente (localStorage) — não depende do banco
+      if (hideDispatched && statusFilter === "all" && localDispatchedIds.has(p.id)) return false;
+
       // Filtro de ocultação baseado em identidade (CNPJ/Empresa)
       if (hideDispatched && statusFilter === "all") {
         const key = getProspectIdentityKey(p);
@@ -577,7 +666,7 @@ function ProspeccaoPage() {
       return [p.company, p.segment, p.owner, p.email, p.whatsapp, p.phone, p.instagram, p.city, p.state, p.source]
         .join(" ").toLowerCase().includes(q);
     });
-  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter, hideDispatched, opening, openingMap]);
+  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter, hideDispatched, opening, openingMap, localDispatchedIds]);
 
 
   // Bloqueio de 24h por disparo recente (whatsapp/ligação/email outbound).
@@ -983,8 +1072,8 @@ function ProspeccaoPage() {
         mensagem: "auto: clique na ação",
       });
       console.log("[prosp] logAttempt:ok", { prospectId: prospect.id, tipo });
-      // Fonte única: addTouchpoint já gravou em prospect_touchpoints, que agora
-      // alimenta também o contador "Conversas iniciadas" e a timeline do card.
+      // Banco confirmou — marca como confirmado no localStorage
+      confirmLocalDispatched(prospect.id);
       qc.invalidateQueries({ queryKey: cadenceKeys.dashboard });
       qc.invalidateQueries({ queryKey: cadenceKeys.timeline(prospect.id) });
     } catch (e) {
@@ -992,6 +1081,7 @@ function ProspeccaoPage() {
       const msg = e instanceof Error ? e.message : String(e);
       // Erros de sessão expirada não devem mostrar aviso técnico ao operador
       // nem causar logout — o WhatsApp já abriu, o disparo ocorreu.
+      // O retry automático vai tentar regravar na próxima sessão.
       if (/sess(ã|a)o|jwt|token|login|unauthorized/i.test(msg)) return;
       toast.warning(
         `Contato aberto, mas o registro na cadência falhou: ${msg}. O passo pode não ter avançado — registre manualmente.`,
@@ -1148,14 +1238,18 @@ function ProspeccaoPage() {
     // Registra o touchpoint IMEDIATAMENTE — no mobile o operador sai pro
     // app do WhatsApp e raramente volta pra confirmar no diálogo, o que
     // deixava o lead como "não disparado" mesmo depois do envio.
-    void logAttempt(p, "whatsapp");
-    // Avança o STATUS para `primeiro_contato` na mesma ação, para o lead
-    // sair da fila de "não contatado" e não reaparecer como pendente após
-    // recarregar a página. Só sobrescreve o estado inicial — status mais
-    // avançados (qualificado, agendado, cliente) são preservados.
+    // Optimistic update imediato no cache — garante que o lead saia da fila
+    // mesmo se logAttempt falhar por rede/sessão instável no celular.
     if (p.status === "nao_contatado") {
+      setCache((prev) =>
+        prev.map((x) => x.id === p.id ? { ...x, status: "primeiro_contato" as const } : x)
+      );
       updateStatus(p.id, "primeiro_contato");
     }
+    // Grava no localStorage com TTL de 25h — impede que o lead volte à fila
+    // mesmo após reload, invalidação de cache ou falha de rede.
+    markLocalDispatched(p.id);
+    void logAttempt(p, "whatsapp");
     // Honra a conta de WhatsApp escolhida (Normal/Business). No Android
     // forçamos o app correto via intent://; no iPhone/desktop o link abre
     // o app definido como padrão do sistema.
@@ -2018,6 +2112,8 @@ function ProspeccaoPage() {
               onEnrich={(p) => quickEnrich(p)}
               busyIds={quickEnrichingIds}
               busyWhatsIds={dispatchingIds}
+              localDispatchedIds={localDispatchedIds}
+              pendingDispatchIds={new Set(pagedItems.filter(p => isPendingLocalDispatch(p.id)).map(p => p.id))}
             />
           </div>
           <DesktopProspectTable
@@ -3196,12 +3292,14 @@ function InlineEditProspect({ p, onCancel, onSaved }: {
 }
 
 const MobileProspectRow = memo(function MobileProspectRow({
-  p, isSelected, busy, busyWhats, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
+  p, isSelected, busy, busyWhats, localDispatched, pendingDispatch, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
 }: {
   p: Prospect;
   isSelected: boolean;
   busy?: boolean;
   busyWhats?: boolean;
+  localDispatched?: boolean;
+  pendingDispatch?: boolean;
   onToggleSelect: (id: string) => void;
   onOpen: (id: string) => void;
   onWhats: (p: Prospect, account?: "default" | "personal" | "business") => void;
@@ -3241,6 +3339,16 @@ const MobileProspectRow = memo(function MobileProspectRow({
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <PotentialBadge p={p.potential} />
           <StatusBadge status={p.status} />
+          {pendingDispatch && (
+            <span className="inline-flex items-center rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+              ⏳ Disparo pendente
+            </span>
+          )}
+          {localDispatched && !pendingDispatch && (
+            <span className="inline-flex items-center rounded border border-sky-500/40 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-300">
+              ✅ Disparado
+            </span>
+          )}
         </div>
         <div className="mt-1 truncate text-[11px] text-muted-foreground">
           {p.whatsapp || p.phone || p.email || p.instagram || "—"}
@@ -3285,12 +3393,14 @@ const MobileProspectRow = memo(function MobileProspectRow({
 });
 
 function MobileProspectList({
-  items, selected, busyIds, busyWhatsIds, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
+  items, selected, busyIds, busyWhatsIds, localDispatchedIds, pendingDispatchIds, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
 }: {
   items: Prospect[];
   selected: Set<string>;
   busyIds?: Set<string>;
   busyWhatsIds?: Set<string>;
+  localDispatchedIds?: Set<string>;
+  pendingDispatchIds?: Set<string>;
   onToggleSelect: (id: string) => void;
   onOpen: (id: string) => void;
   onWhats: (p: Prospect, account?: "default" | "personal" | "business") => void;
@@ -3328,6 +3438,8 @@ function MobileProspectList({
             isSelected={selected.has(p.id)}
             busy={busyIds?.has(p.id)}
             busyWhats={busyWhatsIds?.has(p.id)}
+            localDispatched={localDispatchedIds?.has(p.id)}
+            pendingDispatch={pendingDispatchIds?.has(p.id)}
             onToggleSelect={onToggleSelect}
             onOpen={onOpen}
             onWhats={onWhats}
@@ -3366,6 +3478,8 @@ function MobileProspectList({
               isSelected={selected.has(p.id)}
               busy={busyIds?.has(p.id)}
               busyWhats={busyWhatsIds?.has(p.id)}
+              localDispatched={localDispatchedIds?.has(p.id)}
+              pendingDispatch={pendingDispatchIds?.has(p.id)}
               onToggleSelect={onToggleSelect}
               onOpen={onOpen}
               onWhats={onWhats}
