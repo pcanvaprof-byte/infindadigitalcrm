@@ -989,15 +989,17 @@ function ProspeccaoPage() {
       qc.invalidateQueries({ queryKey: cadenceKeys.timeline(prospect.id) });
     } catch (e) {
       console.error("[prosp] logAttempt:error", { prospectId: prospect.id, tipo, error: e });
-      // C-4: falha silenciosa antes ocultava que a cadência NÃO avançou.
-      // Agora avisamos e mantemos o deep link já aberto.
       const msg = e instanceof Error ? e.message : String(e);
+      // Erros de sessão expirada não devem mostrar aviso técnico ao operador
+      // nem causar logout — o WhatsApp já abriu, o disparo ocorreu.
+      if (/sess(ã|a)o|jwt|token|login|unauthorized/i.test(msg)) return;
       toast.warning(
         `Contato aberto, mas o registro na cadência falhou: ${msg}. O passo pode não ter avançado — registre manualmente.`,
         { duration: 8000 },
       );
     }
   };
+
 
   const openWhats = async (p: Prospect) => {
     console.log("[prosp] openWhats:click", { id: p.id, company: p.company, whatsapp: p.whatsapp });
