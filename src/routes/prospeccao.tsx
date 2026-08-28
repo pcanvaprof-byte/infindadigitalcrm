@@ -461,8 +461,9 @@ function ProspeccaoPage() {
 
   // Retry automático ao montar: tenta regravar touchpoints que falharam
   // por rede/sessão instável na sessão anterior.
-  useEffect(() => {
-    if (!user?.id || !prospects.length) return;
+  // Executa depois que os prospects carregam (via useEffect com dependência no queryClient).
+  const retryPendingDispatches = (prospectList: Prospect[]) => {
+    if (!user?.id || !prospectList.length) return;
     try {
       const raw = window.localStorage.getItem(DISPATCH_MEMORY_KEY);
       if (!raw) return;
@@ -470,7 +471,7 @@ function ProspeccaoPage() {
       const pending = entries.filter(([, , ok]) => !ok);
       if (!pending.length) return;
       for (const [prospectId] of pending) {
-        const found = prospects.find((x) => x.id === prospectId);
+        const found = prospectList.find((x: Prospect) => x.id === prospectId);
         if (!found) continue;
         addTouchpoint({
           prospect_id: prospectId,
@@ -485,8 +486,7 @@ function ProspeccaoPage() {
           .catch(() => {}); // tenta de novo na próxima sessão
       }
     } catch { /* ignore */ }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, prospects.length]);
+  };
 
   type CadenceChip = "all" | "hoje" | "atrasados" | "sem_resposta" | "responderam" | "interessados" | "clientes";
   const [cadenceFilter, setCadenceFilter] = useState<CadenceChip>("all");
@@ -575,6 +575,12 @@ function ProspeccaoPage() {
   // Helper para optimistic updates no cache do Query.
   const setCache = (update: (prev: Prospect[]) => Prospect[]) =>
     qc.setQueryData<Prospect[]>(crmKeys.prospects, (old) => update(Array.isArray(old) ? (old as Prospect[]) : []));
+
+  // Retry automático: roda uma vez quando os prospects carregam pela primeira vez.
+  useEffect(() => {
+    retryPendingDispatches(prospects);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prospects.length > 0]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1103,13 +1109,6 @@ function ProspeccaoPage() {
     if (!d) {
       console.warn("[prosp] openWhats:abort:no-whatsapp", { id: p.id });
       return toast.error("WhatsApp não cadastrado");
-    }
-
-    // Avanço de status automático para leads disparados (garante que saiam de "Não contatado")
-    if (!p.status || p.status === "nao_contatado") {
-      updateProspect(p.id, { status: "primeiro_contato" }).catch(e => 
-        console.error("[prosp] erro ao atualizar status inicial:", e)
-      );
     }
 
     // Guard anti-duplo-clique: enquanto o disparo está em curso, ignora cliques.
