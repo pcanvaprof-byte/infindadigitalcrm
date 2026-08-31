@@ -117,6 +117,7 @@ import {
 import { History, FileSpreadsheet } from "lucide-react";
 import { Pencil, Save as SaveIcon, XCircle } from "lucide-react";
 import { EnrichmentDrawer } from "@/components/EnrichmentDrawer";
+import { GmailEmailModal } from "@/components/gmail/GmailEmailModal";
 import { runEnrichment } from "@/lib/enrichment/api";
 import { useAutoEnrich } from "@/lib/enrichment/auto-batch";
 import { Loader2 } from "lucide-react";
@@ -380,14 +381,44 @@ function ProspeccaoPage() {
   );
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<ProspectStatus | "all">("all");
-  const [segmentFilter, setSegmentFilter] = useState<string>("all");
+
+  // Filtros persistidos no localStorage — sobrevivem à navegação entre rotas
+  const [statusFilter, setStatusFilter] = useState<ProspectStatus | "all">(() => {
+    try { return (window.localStorage.getItem("prosp_f_status") as ProspectStatus | "all") || "all"; } catch { return "all"; }
+  });
+  useEffect(() => { try { window.localStorage.setItem("prosp_f_status", statusFilter); } catch {} }, [statusFilter]);
+
+  const [segmentFilter, setSegmentFilter] = useState<string>(() => {
+    try { return window.localStorage.getItem("prosp_f_segment") || "all"; } catch { return "all"; }
+  });
+  useEffect(() => { try { window.localStorage.setItem("prosp_f_segment", segmentFilter); } catch {} }, [segmentFilter]);
+
   const [opening, setOpening] = useState<OpeningFilter>(EMPTY_OPENING_FILTER);
-  const [stateFilter, setStateFilter] = useState<string>("all");
-  const [potentialFilter, setPotentialFilter] = useState<ProspectPotential | "all">("all");
-  const [onlyWithContact, setOnlyWithContact] = useState(false);
-  const [noWhatsapp, setNoWhatsapp] = useState(false);
-  const [onlyWhatsapp, setOnlyWhatsapp] = useState(false);
+
+  const [stateFilter, setStateFilter] = useState<string>(() => {
+    try { return window.localStorage.getItem("prosp_f_state") || "all"; } catch { return "all"; }
+  });
+  useEffect(() => { try { window.localStorage.setItem("prosp_f_state", stateFilter); } catch {} }, [stateFilter]);
+
+  const [potentialFilter, setPotentialFilter] = useState<ProspectPotential | "all">(() => {
+    try { return (window.localStorage.getItem("prosp_f_potential") as ProspectPotential | "all") || "all"; } catch { return "all"; }
+  });
+  useEffect(() => { try { window.localStorage.setItem("prosp_f_potential", potentialFilter); } catch {} }, [potentialFilter]);
+
+  const [onlyWithContact, setOnlyWithContact] = useState(() => {
+    try { return window.localStorage.getItem("prosp_f_contact") === "1"; } catch { return false; }
+  });
+  useEffect(() => { try { window.localStorage.setItem("prosp_f_contact", onlyWithContact ? "1" : "0"); } catch {} }, [onlyWithContact]);
+
+  const [noWhatsapp, setNoWhatsapp] = useState(() => {
+    try { return window.localStorage.getItem("prosp_f_nowa") === "1"; } catch { return false; }
+  });
+  useEffect(() => { try { window.localStorage.setItem("prosp_f_nowa", noWhatsapp ? "1" : "0"); } catch {} }, [noWhatsapp]);
+
+  const [onlyWhatsapp, setOnlyWhatsapp] = useState(() => {
+    try { return window.localStorage.getItem("prosp_f_onlywa") === "1"; } catch { return false; }
+  });
+  useEffect(() => { try { window.localStorage.setItem("prosp_f_onlywa", onlyWhatsapp ? "1" : "0"); } catch {} }, [onlyWhatsapp]);
   // Oculta leads que já saíram de "não contatado" na visão privada do usuário
   // (status derivado do próprio histórico de touchpoints). Após um disparo o
   // lead avança para "primeiro contato" e some da fila de prospecção, ficando
@@ -494,7 +525,10 @@ function ProspeccaoPage() {
   const [closeCadenceTarget, setCloseCadenceTarget] = useState<Prospect | null>(null);
   const [bulkEnriching, setBulkEnriching] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [view, setView] = useState<"table" | "kanban" | "map">("table");
+  const [view, setView] = useState<"table" | "kanban" | "map">(() => {
+    try { return (window.localStorage.getItem("prosp_f_view") as "table" | "kanban" | "map") || "table"; } catch { return "table"; }
+  });
+  useEffect(() => { try { window.localStorage.setItem("prosp_f_view", view); } catch {} }, [view]);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -506,6 +540,7 @@ function ProspeccaoPage() {
   const [previewFileName, setPreviewFileName] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [enrichFor, setEnrichFor] = useState<Prospect | null>(null);
+  const [gmailTarget, setGmailTarget] = useState<Prospect | null>(null);
   const [whatsConfirm, setWhatsConfirm] = useState<{ id: string; company: string } | null>(null);
   type WaAccount = "default" | "personal" | "business";
   const [waAccount, setWaAccount] = useState<WaAccount>("default");
@@ -1317,23 +1352,40 @@ function ProspeccaoPage() {
     }
   };
   const callPhone = async (p: Prospect) => {
-    const d = onlyDigits(p.phone || p.whatsapp);
-    if (!d) return toast.error("Telefone não cadastrado");
-    const lock = await wasDispatchedToday({ prospectId: p.id });
-    if (lock.blocked) return toast.error(dispatchBlockedMessage(lock.source!));
-    window.open(`tel:+55${d}`);
-    // A-5: NÃO grava touchpoint aqui — o TouchpointModal abaixo é a fonte única
-    // do registro (evita gravar 2x e avançar cadence_step em dobro).
-    setTouchpointTarget({ prospect: p, tipo: "ligacao" });
-  };
-  const openEmail = async (p: Prospect) => {
-    if (!p.email) return toast.error("Email não cadastrado");
-    const lock = await wasDispatchedToday({ prospectId: p.id });
-    if (lock.blocked) return toast.error(dispatchBlockedMessage(lock.source!));
-    window.open(`mailto:${p.email}`);
-    // A-5: mesmo racional do callPhone acima.
-    setTouchpointTarget({ prospect: p, tipo: "email" });
-  };
+  // Prioridade: telefone fixo → se não tiver, usa WhatsApp
+  const rawD = onlyDigits(p.phone) || onlyDigits(p.whatsapp);
+  if (!rawD) return toast.error("Telefone não cadastrado");
+  // Remove DDI 55 se vier completo (12-13 dígitos)
+  const sem55 = rawD.length >= 12 && rawD.startsWith("55") ? rawD.slice(2) : rawD;
+  // Celular BR: DDD (2 dígitos) + 8 dígitos sem o 9 = 10 dígitos → insere o 9
+  const d = sem55.length === 10 && sem55[2] !== "9"
+    ? `${sem55.slice(0, 2)}9${sem55.slice(2)}`
+    : sem55;
+  const lock = await wasDispatchedToday({ prospectId: p.id, userId: user?.id });
+  if (lock.blocked) return toast.error(dispatchBlockedMessage(lock.source!));
+  // Avisa qual número está sendo usado quando usa o WhatsApp como fallback
+  if (!onlyDigits(p.phone) && onlyDigits(p.whatsapp)) {
+    toast.info("Ligando via número do WhatsApp (telefone fixo não cadastrado)");
+  }
+  window.open(`tel:+55${d}`);
+  // Marca no localStorage — garante que o lead saia da fila
+  // mesmo se o TouchpointModal for fechado sem registrar.
+  markLocalDispatched(p.id);
+  // A-5: TouchpointModal é a fonte única do registro (evita gravar 2x).
+  setTouchpointTarget({ prospect: p, tipo: "ligacao" });
+};
+
+const openEmail = async (p: Prospect) => {
+  if (!p.email) return toast.error("Email não cadastrado");
+  const lock = await wasDispatchedToday({ prospectId: p.id, userId: user?.id });
+  if (lock.blocked) return toast.error(dispatchBlockedMessage(lock.source!));
+  window.open(`mailto:${p.email}`);
+  // Marca no localStorage — garante que o lead saia da fila.
+  markLocalDispatched(p.id);
+  // A-5: mesmo racional do callPhone acima.
+  setTouchpointTarget({ prospect: p, tipo: "email" });
+};
+
 
   // Ao voltar de /meu-negocio com o perfil concluído, retomamos o disparo
   // que ficou pendente — sem precisar procurar o lead de novo.
