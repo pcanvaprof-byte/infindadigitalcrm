@@ -1503,7 +1503,7 @@ function ProspeccaoPage() {
 
   const clearFilters = () => {
     // A-4: limpar TODOS os filtros ativos, incluindo cadência e onlyWhatsapp.
-    setStatusFilter("all"); setSegmentFilter("all"); setStateFilter("all"); setPotentialFilter("all");
+    setStatusFilter("all"); setSegmentFilter("all"); setStateFilter("all"); setCityFilter("all"); setPotentialFilter("all");
     setSearch(""); setOnlyWithContact(false); setNoWhatsapp(false); setOnlyWhatsapp(false);
     setCadenceFilter("all");
     setOpening(EMPTY_OPENING_FILTER);
@@ -1847,7 +1847,55 @@ function ProspeccaoPage() {
                 </Command>
               </PopoverContent>
             </Popover>
-            <Select value={stateFilter} onValueChange={setStateFilter}>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" role="combobox" className="h-9 w-full justify-between font-normal">
+                  <span className="truncate">
+                    {cityFilter === "all"
+                      ? "Todas as cidades"
+                      : cityFilter === INVALID_CITY_KEY
+                        ? `Cidade inválida (${availableCities.invalid})`
+                        : (availableCities.list.find((c) => c.key === cityFilter)?.label ?? "Cidade")}
+                  </span>
+                  <ChevronDown className="ml-2 h-4 w-4 opacity-50 shrink-0" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Buscar cidade…" />
+                  <CommandList className="max-h-72">
+                    <CommandEmpty>Nenhuma cidade encontrada.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem value="__all__" onSelect={() => setCityFilter("all")}>
+                        <Check className={cn("mr-2 h-4 w-4", cityFilter === "all" ? "opacity-100" : "opacity-0")} />
+                        <span className="flex-1">Todas as cidades</span>
+                        <span className="text-xs text-muted-foreground">
+                          {availableCities.list.reduce((a, c) => a + c.count, 0)}
+                        </span>
+                      </CommandItem>
+                      {availableCities.list.map((c) => (
+                        <CommandItem key={c.key} value={c.label} onSelect={() => setCityFilter(c.key)}>
+                          <Check className={cn("mr-2 h-4 w-4", cityFilter === c.key ? "opacity-100" : "opacity-0")} />
+                          <span className="flex-1 truncate">{c.label}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">{c.count}</span>
+                        </CommandItem>
+                      ))}
+                      {availableCities.invalid > 0 && (
+                        <CommandItem
+                          value="cidade invalida numero"
+                          onSelect={() => setCityFilter(INVALID_CITY_KEY)}
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", cityFilter === INVALID_CITY_KEY ? "opacity-100" : "opacity-0")} />
+                          <span className="flex-1 truncate">Cidade inválida (número)</span>
+                          <span className="ml-2 text-xs text-muted-foreground">{availableCities.invalid}</span>
+                        </CommandItem>
+                      )}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <Select value={stateFilter} onValueChange={(v) => { setStateFilter(v); setCityFilter("all"); }}>
               <SelectTrigger><SelectValue placeholder="Estado" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos estados</SelectItem>
