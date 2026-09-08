@@ -2565,7 +2565,7 @@ function DesktopProspectTable({
                       })()}
                     </div>
                   </div>
-                  <div className="px-4 py-3 text-xs">{p.city ? `${p.city} - ${p.state}` : p.state || "—"}</div>
+                  <div className="px-4 py-3 text-xs">{cityDisplay(p.city) ? `${cityDisplay(p.city)}${p.city} - ${p.state}` : p.state || "—"}</div>
                   <div className="px-4 py-3 text-xs">{p.source}</div>
                   <div className="px-4 py-3"><PotentialBadge p={p.potential} /></div>
                   <div className="px-4 py-3"><StatusBadge status={p.status} /></div>
@@ -2739,7 +2739,7 @@ function KanbanView({
                     </div>
                     <p className="mt-1 text-[11px] text-muted-foreground">{p.segment}</p>
                     <p className="mt-2 text-[11px] text-muted-foreground">
-                      {p.city ? `${p.city} - ${p.state}` : p.state || "—"} · {p.owner}
+                      {cityDisplay(p.city) ? `${cityDisplay(p.city)}${p.city} - ${p.state}` : p.state || "—"} · {p.owner}
                     </p>
                   </div>
                 ))}
@@ -2812,7 +2812,7 @@ function DetailDialog({
               <li className="flex items-center gap-2"><Phone className="h-3.5 w-3.5" /> {p.phone || "—"}</li>
               <li className="flex items-center gap-2"><Mail className="h-3.5 w-3.5" /> {p.email || "—"}</li>
               <li className="flex items-center gap-2"><Instagram className="h-3.5 w-3.5" /> {p.instagram || "—"}</li>
-              <li className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5" /> {p.city ? `${p.city} - ${p.state}` : p.state || "—"}</li>
+              <li className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5" /> {cityDisplay(p.city) ? `${cityDisplay(p.city)}${p.city} - ${p.state}` : p.state || "—"}</li>
             </ul>
           </div>
 
@@ -3313,7 +3313,7 @@ const MobileProspectRow = memo(function MobileProspectRow({
         <button className="block w-full text-left" onClick={() => onOpen(p.id)}>
           <div className="truncate text-sm font-semibold">{p.company}</div>
           <div className="truncate text-[11px] text-muted-foreground">
-            {p.segment} · {p.city ? `${p.city}-${p.state}` : p.state || "—"}
+            {p.segment} · {cityDisplay(p.city) ? `${cityDisplay(p.city)}${p.city}-${p.state}` : p.state || "—"}
           </div>
         </button>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
