@@ -1,17 +1,17 @@
-# Plano: investigar e corrigir a persistência da sessão
+# Filtro por cidade na Prospecção
 
-## Objetivo
-Analisar o fluxo de autenticação relacionado ao logout inesperado durante ações da aplicação, sem transformar o texto selecionado em conteúdo da interface.
+Adicionar um seletor de **Cidade** na barra de filtros de `/prospeccao`, ao lado do filtro de Estado.
 
-## Etapas
-1. Mapear a criação, recuperação, refresh, login, logout e redirecionamentos da sessão.
-2. Auditar os handlers da ação que dispara o problema, incluindo chamadas de API, respostas 401, formulários e middleware.
-3. Identificar a causa raiz com base no código e nos sinais do preview.
-4. Corrigir somente os arquivos e funções envolvidos, preservando funcionalidades não relacionadas e sem usar signOut/signIn como contorno.
-5. Validar com typecheck/testes seletivos e reproduzir o fluxo no preview quando possível.
+## Como vai funcionar
 
-## Critérios de conclusão
-- O usuário permanece autenticado antes, durante e após a ação.
-- Logout global em outro dispositivo continua funcionando corretamente.
-- Nenhum texto da interface é alterado por esta solicitação.
-- O resumo final informa a causa, arquivos/funções alterados e validações realizadas.
+- Lista de cidades montada a partir dos próprios leads (cidade normalizada, sem duplicar por acento/caixa), em ordem alfabética e com a contagem de leads.
+- Quando um Estado estiver selecionado, a lista de cidades mostra apenas as cidades daquele Estado.
+- Como a base tem muitas cidades, o seletor é do tipo busca (mesmo padrão do filtro de Nicho), permitindo digitar para encontrar a cidade.
+- Opção "Todas as cidades" para limpar.
+- O filtro entra no botão "Limpar filtros" e na contagem de filtros ativos, e vale também para a lista, os cartões, as estatísticas e o mapa da própria página.
+- Leads sem cidade cadastrada ficam de fora quando uma cidade é escolhida.
+
+## Detalhes técnicos
+
+- `src/routes/prospeccao.tsx`: novo estado `cityFilter`; aplicado no `filtered` (comparação normalizada de `p.city`); `availableCities` derivado com `useMemo` respeitando `stateFilter`; incluído nas dependências dos memos e em `hasActiveFilters`/limpar filtros.
+- O seletor reutiliza `Command`/`Popover` já usados no filtro de nicho — nenhuma dependência nova, nenhuma mudança de banco.
