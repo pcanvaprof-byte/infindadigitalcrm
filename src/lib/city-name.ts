@@ -32,3 +32,9 @@ export function isValidCityName(raw: string | null | undefined): boolean {
 }
 
 export const INVALID_CITY_KEY = "__invalid__";
+
+/** Exibição segura: esconde cidade inválida (número/CEP) em vez de mostrar. */
+export function cityDisplay(raw: string | null | undefined): string {
+  const v = cleanCityLabel(raw);
+  return isValidCityName(v) ? v : "";
+}
