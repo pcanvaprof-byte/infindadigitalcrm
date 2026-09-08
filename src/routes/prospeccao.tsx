@@ -145,7 +145,7 @@ import {
 import { pickNicheMessage } from "@/lib/prospeccao/niche-templates";
 import { useBusinessProfile } from "@/hooks/useBusinessProfile";
 import { ArrowRight } from "lucide-react";
-import { normalizeCity, cleanCityLabel, isValidCityName, INVALID_CITY_KEY } from "@/lib/city-name";
+import { normalizeCity, cleanCityLabel, isValidCityName, cityDisplay, INVALID_CITY_KEY } from "@/lib/city-name";
 import { chooseVariant } from "@/lib/prospeccao/variant-telemetry";
 import {
   listCurrentNicheTemplates,
