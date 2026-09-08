@@ -145,6 +145,7 @@ import {
 import { pickNicheMessage } from "@/lib/prospeccao/niche-templates";
 import { useBusinessProfile } from "@/hooks/useBusinessProfile";
 import { ArrowRight } from "lucide-react";
+import { normalizeCity, cleanCityLabel, isValidCityName, INVALID_CITY_KEY } from "@/lib/city-name";
 import { chooseVariant } from "@/lib/prospeccao/variant-telemetry";
 import {
   listCurrentNicheTemplates,
@@ -583,7 +584,7 @@ function ProspeccaoPage() {
       return [p.company, p.segment, p.owner, p.email, p.whatsapp, p.phone, p.instagram, p.city, p.state, p.source]
         .join(" ").toLowerCase().includes(q);
     });
-  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter, hideDispatched, opening, openingMap]);
+  }, [prospects, search, statusFilter, segmentFilter, stateFilter, cityFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter, hideDispatched, opening, openingMap]);
 
 
   // Bloqueio de 24h por disparo recente (whatsapp/ligação/email outbound).
