@@ -384,6 +384,7 @@ function ProspeccaoPage() {
   const [segmentFilter, setSegmentFilter] = useState<string>("all");
   const [opening, setOpening] = useState<OpeningFilter>(EMPTY_OPENING_FILTER);
   const [stateFilter, setStateFilter] = useState<string>("all");
+  const [cityFilter, setCityFilter] = useState<string>("all");
   const [potentialFilter, setPotentialFilter] = useState<ProspectPotential | "all">("all");
   const [onlyWithContact, setOnlyWithContact] = useState(false);
   const [noWhatsapp, setNoWhatsapp] = useState(false);
@@ -529,6 +530,11 @@ function ProspeccaoPage() {
         if (!matchesOpening(info?.data_abertura, opening)) return false;
       }
       if (stateFilter !== "all" && p.state !== stateFilter) return false;
+      if (cityFilter !== "all") {
+        if (cityFilter === INVALID_CITY_KEY) {
+          if (isValidCityName(p.city)) return false;
+        } else if (normalizeCity(p.city) !== cityFilter) return false;
+      }
       if (potentialFilter !== "all" && p.potential !== potentialFilter) return false;
       if (onlyWithContact) {
         const hasContact = Boolean(
