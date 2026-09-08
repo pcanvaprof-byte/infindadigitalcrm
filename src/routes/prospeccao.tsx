@@ -767,6 +767,30 @@ function ProspeccaoPage() {
     return Array.from(set).sort();
   }, [prospects]);
 
+  // Cidades presentes na base (respeitando o Estado selecionado). Valores
+  // inválidos (números/CEP no lugar do nome) não entram na lista — ficam
+  // agrupados numa opção própria para facilitar a correção.
+  const availableCities = useMemo(() => {
+    const counts = new Map<string, { label: string; count: number }>();
+    let invalid = 0;
+    for (const p of prospects) {
+      if (stateFilter !== "all" && p.state !== stateFilter) continue;
+      const label = cleanCityLabel(p.city);
+      if (!isValidCityName(label)) {
+        if (label) invalid++;
+        continue;
+      }
+      const key = normalizeCity(label);
+      const cur = counts.get(key);
+      if (cur) cur.count++;
+      else counts.set(key, { label, count: 1 });
+    }
+    const list = Array.from(counts.entries())
+      .map(([key, v]) => ({ key, label: v.label, count: v.count }))
+      .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+    return { list, invalid };
+  }, [prospects, stateFilter]);
+
   // Responsáveis derivados dinamicamente de prospects.owner_name + nome do
    // usuário logado (fallback). Antes era hardcoded ["Valdinei","Danielly"].
   const availableOwners = useMemo(() => {
@@ -804,6 +828,7 @@ function ProspeccaoPage() {
     statusFilter !== "all" ||
     segmentFilter !== "all" ||
     stateFilter !== "all" ||
+    cityFilter !== "all" ||
     potentialFilter !== "all" ||
     onlyWithContact ||
     noWhatsapp ||
