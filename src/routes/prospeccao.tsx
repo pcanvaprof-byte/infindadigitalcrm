@@ -594,10 +594,9 @@ function ProspeccaoPage() {
     const BLOCK_MS = 24 * 60 * 60 * 1000;
     const now = Date.now();
     
-    // Mapeia o último disparo por identidade (CNPJ/Empresa)
+    // Mapeia o último disparo por identidade (CNPJ/Empresa) E por telefone
     const identityLastOut = new Map<string, number>();
     prospects.forEach(p => {
-      const key = getProspectIdentityKey(p);
       const isOutbound = (k: string) => k === "whatsapp" || k === "ligacao" || k === "email";
       let pMax = 0;
       for (const ix of p.interactions ?? []) {
@@ -605,8 +604,8 @@ function ProspeccaoPage() {
         const t = ix.at ? Date.parse(ix.at) : 0;
         if (t > pMax) pMax = t;
       }
-      if (pMax > (identityLastOut.get(key) || 0)) {
-        identityLastOut.set(key, pMax);
+      for (const key of getProspectBlockKeys(p)) {
+        if (pMax > (identityLastOut.get(key) || 0)) identityLastOut.set(key, pMax);
       }
     });
 
@@ -623,8 +622,10 @@ function ProspeccaoPage() {
     };
 
     for (const p of filtered) {
-      const key = getProspectIdentityKey(p);
-      const last = identityLastOut.get(key) || 0;
+      const last = getProspectBlockKeys(p).reduce(
+        (acc, key) => Math.max(acc, identityLastOut.get(key) || 0),
+        0,
+      );
       if (last > 0 && now - last < BLOCK_MS) blocked.push({ p, last });
       else if (notWarmed(p)) coldActive.push(p);
       else active.push(p);
