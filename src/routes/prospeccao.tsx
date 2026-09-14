@@ -506,12 +506,12 @@ function ProspeccaoPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     
-    // Identidades ocultas por disparo recente
+    // Identidades e telefones ocultos por disparo anterior
     const dispatchedIdentities = new Set<string>();
     if (hideDispatched && statusFilter === "all") {
       prospects.forEach(p => {
         if (p.status !== "nao_contatado") {
-          dispatchedIdentities.add(getProspectIdentityKey(p));
+          for (const key of getProspectBlockKeys(p)) dispatchedIdentities.add(key);
         }
       });
     }
@@ -519,11 +519,11 @@ function ProspeccaoPage() {
     return prospects.filter((p) => {
       if (statusFilter !== "all" && p.status !== statusFilter) return false;
       
-      // Filtro de ocultação baseado em identidade (CNPJ/Empresa)
+      // Filtro de ocultação por identidade (CNPJ/Empresa) OU telefone já disparado
       if (hideDispatched && statusFilter === "all") {
-        const key = getProspectIdentityKey(p);
-        if (dispatchedIdentities.has(key)) return false;
+        if (getProspectBlockKeys(p).some((key) => dispatchedIdentities.has(key))) return false;
       }
+
 
       if (segmentFilter !== "all" && nicheGroup(p.segment) !== segmentFilter) return false;
       if (isOpeningFilterActive(opening)) {
