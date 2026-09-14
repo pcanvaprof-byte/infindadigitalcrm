@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { getProspectIdentityKey } from "./prospect-identity";
+import { getProspectPhoneKeys } from "./prospect-identity";
 
 /**
  * Trava anti-disparo duplicado nas últimas 24h (janela deslizante).
