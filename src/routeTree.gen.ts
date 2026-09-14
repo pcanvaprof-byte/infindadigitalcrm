@@ -68,6 +68,10 @@ import { Route as OperacoesClientesIdOnboardingRouteImport } from './routes/oper
 import { Route as OperacoesClientesIdRelacionamentoRouteImport } from './routes/operacoes.clientes.$id.relacionamento'
 import { Route as OperacoesClientesIdRenovacoesRouteImport } from './routes/operacoes.clientes.$id.renovacoes'
 import { Route as ApiPublicV1ClientsIdRouteImport } from './routes/api/public/v1/clients.$id'
+import { Route as ApiPublicV1DispatchMessageRouteImport } from './routes/api/public/v1/dispatch/message'
+import { Route as ApiPublicV1DispatchQueueRouteImport } from './routes/api/public/v1/dispatch/queue'
+import { Route as ApiPublicV1DispatchReplyRouteImport } from './routes/api/public/v1/dispatch/reply'
+import { Route as ApiPublicV1DispatchSentRouteImport } from './routes/api/public/v1/dispatch/sent'
 import { Route as ApiPublicV1ClientsIdInteractionsRouteImport } from './routes/api/public/v1/clients.$id.interactions'
 
 const IndexRoute = IndexRouteImport.update({
@@ -379,6 +383,29 @@ const ApiPublicV1ClientsIdRoute = ApiPublicV1ClientsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiPublicV1ClientsRoute,
 } as any)
+const ApiPublicV1DispatchMessageRoute =
+  ApiPublicV1DispatchMessageRouteImport.update({
+    id: '/api/public/v1/dispatch/message',
+    path: '/api/public/v1/dispatch/message',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicV1DispatchQueueRoute =
+  ApiPublicV1DispatchQueueRouteImport.update({
+    id: '/api/public/v1/dispatch/queue',
+    path: '/api/public/v1/dispatch/queue',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicV1DispatchReplyRoute =
+  ApiPublicV1DispatchReplyRouteImport.update({
+    id: '/api/public/v1/dispatch/reply',
+    path: '/api/public/v1/dispatch/reply',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicV1DispatchSentRoute = ApiPublicV1DispatchSentRouteImport.update({
+  id: '/api/public/v1/dispatch/sent',
+  path: '/api/public/v1/dispatch/sent',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicV1ClientsIdInteractionsRoute =
   ApiPublicV1ClientsIdInteractionsRouteImport.update({
     id: '/interactions',
@@ -446,6 +473,10 @@ export interface FileRoutesByFullPath {
   '/operacoes/clientes/$id/renovacoes': typeof OperacoesClientesIdRenovacoesRoute
   '/operacoes/clientes/$id/': typeof OperacoesClientesIdIndexRoute
   '/api/public/v1/clients/$id': typeof ApiPublicV1ClientsIdRouteWithChildren
+  '/api/public/v1/dispatch/message': typeof ApiPublicV1DispatchMessageRoute
+  '/api/public/v1/dispatch/queue': typeof ApiPublicV1DispatchQueueRoute
+  '/api/public/v1/dispatch/reply': typeof ApiPublicV1DispatchReplyRoute
+  '/api/public/v1/dispatch/sent': typeof ApiPublicV1DispatchSentRoute
   '/api/public/v1/clients/$id/interactions': typeof ApiPublicV1ClientsIdInteractionsRoute
 }
 export interface FileRoutesByTo {
@@ -506,6 +537,10 @@ export interface FileRoutesByTo {
   '/operacoes/clientes/$id/renovacoes': typeof OperacoesClientesIdRenovacoesRoute
   '/operacoes/clientes/$id': typeof OperacoesClientesIdIndexRoute
   '/api/public/v1/clients/$id': typeof ApiPublicV1ClientsIdRouteWithChildren
+  '/api/public/v1/dispatch/message': typeof ApiPublicV1DispatchMessageRoute
+  '/api/public/v1/dispatch/queue': typeof ApiPublicV1DispatchQueueRoute
+  '/api/public/v1/dispatch/reply': typeof ApiPublicV1DispatchReplyRoute
+  '/api/public/v1/dispatch/sent': typeof ApiPublicV1DispatchSentRoute
   '/api/public/v1/clients/$id/interactions': typeof ApiPublicV1ClientsIdInteractionsRoute
 }
 export interface FileRoutesById {
@@ -569,6 +604,10 @@ export interface FileRoutesById {
   '/operacoes/clientes/$id/renovacoes': typeof OperacoesClientesIdRenovacoesRoute
   '/operacoes/clientes/$id/': typeof OperacoesClientesIdIndexRoute
   '/api/public/v1/clients/$id': typeof ApiPublicV1ClientsIdRouteWithChildren
+  '/api/public/v1/dispatch/message': typeof ApiPublicV1DispatchMessageRoute
+  '/api/public/v1/dispatch/queue': typeof ApiPublicV1DispatchQueueRoute
+  '/api/public/v1/dispatch/reply': typeof ApiPublicV1DispatchReplyRoute
+  '/api/public/v1/dispatch/sent': typeof ApiPublicV1DispatchSentRoute
   '/api/public/v1/clients/$id/interactions': typeof ApiPublicV1ClientsIdInteractionsRoute
 }
 export interface FileRouteTypes {
@@ -633,6 +672,10 @@ export interface FileRouteTypes {
     | '/operacoes/clientes/$id/renovacoes'
     | '/operacoes/clientes/$id/'
     | '/api/public/v1/clients/$id'
+    | '/api/public/v1/dispatch/message'
+    | '/api/public/v1/dispatch/queue'
+    | '/api/public/v1/dispatch/reply'
+    | '/api/public/v1/dispatch/sent'
     | '/api/public/v1/clients/$id/interactions'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -693,6 +736,10 @@ export interface FileRouteTypes {
     | '/operacoes/clientes/$id/renovacoes'
     | '/operacoes/clientes/$id'
     | '/api/public/v1/clients/$id'
+    | '/api/public/v1/dispatch/message'
+    | '/api/public/v1/dispatch/queue'
+    | '/api/public/v1/dispatch/reply'
+    | '/api/public/v1/dispatch/sent'
     | '/api/public/v1/clients/$id/interactions'
   id:
     | '__root__'
@@ -755,6 +802,10 @@ export interface FileRouteTypes {
     | '/operacoes/clientes/$id/renovacoes'
     | '/operacoes/clientes/$id/'
     | '/api/public/v1/clients/$id'
+    | '/api/public/v1/dispatch/message'
+    | '/api/public/v1/dispatch/queue'
+    | '/api/public/v1/dispatch/reply'
+    | '/api/public/v1/dispatch/sent'
     | '/api/public/v1/clients/$id/interactions'
   fileRoutesById: FileRoutesById
 }
@@ -798,6 +849,10 @@ export interface RootRouteChildren {
   ApiPublicV1OpenapiRoute: typeof ApiPublicV1OpenapiRoute
   ApiPublicV1ProposalsRoute: typeof ApiPublicV1ProposalsRoute
   ApiPublicV1TasksRoute: typeof ApiPublicV1TasksRoute
+  ApiPublicV1DispatchMessageRoute: typeof ApiPublicV1DispatchMessageRoute
+  ApiPublicV1DispatchQueueRoute: typeof ApiPublicV1DispatchQueueRoute
+  ApiPublicV1DispatchReplyRoute: typeof ApiPublicV1DispatchReplyRoute
+  ApiPublicV1DispatchSentRoute: typeof ApiPublicV1DispatchSentRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1215,6 +1270,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicV1ClientsIdRouteImport
       parentRoute: typeof ApiPublicV1ClientsRoute
     }
+    '/api/public/v1/dispatch/message': {
+      id: '/api/public/v1/dispatch/message'
+      path: '/api/public/v1/dispatch/message'
+      fullPath: '/api/public/v1/dispatch/message'
+      preLoaderRoute: typeof ApiPublicV1DispatchMessageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/v1/dispatch/queue': {
+      id: '/api/public/v1/dispatch/queue'
+      path: '/api/public/v1/dispatch/queue'
+      fullPath: '/api/public/v1/dispatch/queue'
+      preLoaderRoute: typeof ApiPublicV1DispatchQueueRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/v1/dispatch/reply': {
+      id: '/api/public/v1/dispatch/reply'
+      path: '/api/public/v1/dispatch/reply'
+      fullPath: '/api/public/v1/dispatch/reply'
+      preLoaderRoute: typeof ApiPublicV1DispatchReplyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/v1/dispatch/sent': {
+      id: '/api/public/v1/dispatch/sent'
+      path: '/api/public/v1/dispatch/sent'
+      fullPath: '/api/public/v1/dispatch/sent'
+      preLoaderRoute: typeof ApiPublicV1DispatchSentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/v1/clients/$id/interactions': {
       id: '/api/public/v1/clients/$id/interactions'
       path: '/interactions'
@@ -1400,6 +1483,10 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicV1OpenapiRoute: ApiPublicV1OpenapiRoute,
   ApiPublicV1ProposalsRoute: ApiPublicV1ProposalsRoute,
   ApiPublicV1TasksRoute: ApiPublicV1TasksRoute,
+  ApiPublicV1DispatchMessageRoute: ApiPublicV1DispatchMessageRoute,
+  ApiPublicV1DispatchQueueRoute: ApiPublicV1DispatchQueueRoute,
+  ApiPublicV1DispatchReplyRoute: ApiPublicV1DispatchReplyRoute,
+  ApiPublicV1DispatchSentRoute: ApiPublicV1DispatchSentRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
