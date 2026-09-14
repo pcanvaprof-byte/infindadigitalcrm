@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { getProspectIdentityKey } from "@/lib/prospect-identity";
+import { getProspectIdentityKey, getProspectBlockKeys } from "@/lib/prospect-identity";
 import { useEffect, useMemo, useRef, useState, memo, lazy, Suspense } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 
