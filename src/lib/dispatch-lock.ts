@@ -23,31 +23,36 @@ async function siblingProspectIds(prospectId: string): Promise<string[]> {
   // Busca o prospect atual para pegar CNPJ/WhatsApp/Nome
   const { data: p } = await db
     .from("prospects")
-    .select("id, cnpj, whatsapp, company, city, organization_id")
+    .select("id, cnpj, whatsapp, phone, company, city, organization_id")
     .eq("id", prospectId)
     .maybeSingle();
-  
+
   if (!p) return [prospectId];
 
-  const key = getProspectIdentityKey(p);
-  const [type, val] = key.split(":");
-  
-  let query = db.from("prospects").select("id").eq("organization_id", p.organization_id);
-  
-  if (type === "cnpj") {
-    // Busca por raiz de 8 dígitos
-    query = query.like("cnpj", `${val.slice(0, 8)}%`);
-  } else if (type === "wa") {
-    query = query.eq("whatsapp", p.whatsapp);
-  } else if (type === "name") {
-    const [name, city] = val.split("|");
-    query = query.eq("company", p.company).eq("city", p.city);
-  } else {
-    return [prospectId];
+  const ids = new Set<string>([prospectId]);
+  const base = () => db.from("prospects").select("id").eq("organization_id", p.organization_id);
+
+  const collect = async (q: any) => {
+    const { data } = await q;
+    for (const r of ((data as { id: string }[] | null) ?? [])) ids.add(r.id);
+  };
+
+  // 1) Mesma raiz de CNPJ (8 dígitos)
+  const cnpj = String(p.cnpj || "").replace(/\D/g, "");
+  if (cnpj.length >= 8) await collect(base().like("cnpj", `${cnpj.slice(0, 8)}%`));
+
+  // 2) Mesmo telefone — vale mesmo com CNPJ diferente (o disparo vai pro número).
+  const phones = getProspectPhoneKeys(p as Record<string, unknown>);
+  for (const tel of phones) {
+    await collect(base().or(`whatsapp.ilike.%${tel}%,phone.ilike.%${tel}%`));
   }
 
-  const { data } = await query;
-  return (data as { id: string }[] | null)?.map(r => r.id) || [prospectId];
+  // 3) Sem CNPJ e sem telefone: nome + cidade
+  if (cnpj.length < 8 && !phones.length && p.company) {
+    await collect(base().eq("company", p.company).eq("city", p.city));
+  }
+
+  return [...ids];
 }
 
 async function leadIdFromProspect(prospectId: string): Promise<string | null> {
