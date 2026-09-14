@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { getProspectIdentityKey } from "@/lib/prospect-identity";
+import { getProspectBlockKeys, isJunkPhone } from "@/lib/prospect-identity";
 import { normalizeCity, isValidCityName, cleanCityLabel } from "@/lib/city-name";
 import { renderTemplate, sanitizeTemplateForSend } from "@/lib/cadencia/types";
 import { pickNicheKey, pickNicheTemplate, NICHE_LABELS } from "@/lib/prospeccao/niche-templates";
