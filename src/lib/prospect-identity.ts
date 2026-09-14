@@ -26,3 +26,49 @@ export function getProspectIdentityKey(p: Partial<Prospect> | Record<string, any
 
   return `id:${p.id}`;
 }
+
+/**
+ * Normaliza um telefone brasileiro para uma chave estável (somente dígitos, sem o 55).
+ * Retorna null quando o número não é discável.
+ */
+export function normalizePhoneKey(raw: string | null | undefined): string | null {
+  let d = String(raw ?? "").replace(/\D/g, "");
+  if (d.startsWith("55") && d.length >= 12) d = d.slice(2);
+  if (d.length < 10 || d.length > 11) return null;
+  if (isJunkPhone(d)) return null;
+  return d;
+}
+
+/**
+ * Números placeholder / inválidos que aparecem repetidos em bases importadas
+ * (9999999999, 1111111111, 4711111111, sequências de um único dígito no assinante).
+ */
+export function isJunkPhone(raw: string | null | undefined): boolean {
+  const d = String(raw ?? "").replace(/\D/g, "");
+  if (!d) return true;
+  const local = d.startsWith("55") && d.length >= 12 ? d.slice(2) : d;
+  if (local.length < 10) return true;
+  if (/^(\d)\1+$/.test(local)) return true;
+  const subscriber = local.slice(2);
+  if (/^(\d)\1+$/.test(subscriber)) return true;
+  return false;
+}
+
+/** Telefones úteis (WhatsApp + telefone fixo) de um prospect, já normalizados. */
+export function getProspectPhoneKeys(p: Partial<Prospect> | Record<string, any>): string[] {
+  const out = new Set<string>();
+  for (const raw of [p.whatsapp, (p as Record<string, unknown>).phone]) {
+    const k = normalizePhoneKey(raw as string | null | undefined);
+    if (k) out.add(k);
+  }
+  return [...out];
+}
+
+/**
+ * Todas as chaves que caracterizam "já falei com esse contato": identidade da
+ * empresa (CNPJ/nome) MAIS cada telefone. Empresas com CNPJ diferente que
+ * compartilham o mesmo WhatsApp passam a bloquear uma à outra.
+ */
+export function getProspectBlockKeys(p: Partial<Prospect> | Record<string, any>): string[] {
+  return [getProspectIdentityKey(p), ...getProspectPhoneKeys(p).map((k) => `tel:${k}`)];
+}
