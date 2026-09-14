@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
-import { getProspectIdentityKey } from "@/lib/prospect-identity";
+import { getProspectBlockKeys, isJunkPhone } from "@/lib/prospect-identity";
 import { normalizeCity, isValidCityName, cleanCityLabel } from "@/lib/city-name";
 import { renderTemplate, sanitizeTemplateForSend } from "@/lib/cadencia/types";
 import { pickNicheKey, pickNicheTemplate, NICHE_LABELS } from "@/lib/prospeccao/niche-templates";
@@ -113,7 +113,7 @@ export async function buildQueue(
     if (!page.length) break;
 
     const prefiltered = page.filter((p) => {
-      if (!normalizeWhats(p.whatsapp)) return false;
+      if (!normalizeWhats(p.whatsapp) || isJunkPhone(p.whatsapp)) return false;
       if (wantCity && normalizeCity(p.city) !== wantCity) return false;
       if (wantNiche) {
         const key = pickNicheKey(p.company ?? "", p.segment);
@@ -126,10 +126,15 @@ export async function buildQueue(
     if (prefiltered.length) {
       const done = await dispatchedIds(admin, userId, prefiltered.map((p) => p.id));
       for (const p of prefiltered) {
-        if (done.has(p.id)) continue;
-        const key = getProspectIdentityKey(p as Record<string, any>);
-        if (seenIdentity.has(key)) continue;
-        seenIdentity.add(key);
+        const keys = getProspectBlockKeys(p as Record<string, any>);
+        // Já disparado: bloqueia também a empresa e o telefone (mesmo número,
+        // CNPJ diferente, não volta para a fila).
+        if (done.has(p.id)) {
+          for (const k of keys) seenIdentity.add(k);
+          continue;
+        }
+        if (keys.some((k) => seenIdentity.has(k))) continue;
+        for (const k of keys) seenIdentity.add(k);
         picked.push(p);
         if (picked.length >= filters.limit) break;
       }

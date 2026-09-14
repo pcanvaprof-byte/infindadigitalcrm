@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { getProspectIdentityKey } from "@/lib/prospect-identity";
+import { getProspectIdentityKey, getProspectBlockKeys } from "@/lib/prospect-identity";
 import { useEffect, useMemo, useRef, useState, memo, lazy, Suspense } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 
@@ -506,12 +506,12 @@ function ProspeccaoPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     
-    // Identidades ocultas por disparo recente
+    // Identidades e telefones ocultos por disparo anterior
     const dispatchedIdentities = new Set<string>();
     if (hideDispatched && statusFilter === "all") {
       prospects.forEach(p => {
         if (p.status !== "nao_contatado") {
-          dispatchedIdentities.add(getProspectIdentityKey(p));
+          for (const key of getProspectBlockKeys(p)) dispatchedIdentities.add(key);
         }
       });
     }
@@ -519,11 +519,11 @@ function ProspeccaoPage() {
     return prospects.filter((p) => {
       if (statusFilter !== "all" && p.status !== statusFilter) return false;
       
-      // Filtro de ocultação baseado em identidade (CNPJ/Empresa)
+      // Filtro de ocultação por identidade (CNPJ/Empresa) OU telefone já disparado
       if (hideDispatched && statusFilter === "all") {
-        const key = getProspectIdentityKey(p);
-        if (dispatchedIdentities.has(key)) return false;
+        if (getProspectBlockKeys(p).some((key) => dispatchedIdentities.has(key))) return false;
       }
+
 
       if (segmentFilter !== "all" && nicheGroup(p.segment) !== segmentFilter) return false;
       if (isOpeningFilterActive(opening)) {
@@ -594,10 +594,9 @@ function ProspeccaoPage() {
     const BLOCK_MS = 24 * 60 * 60 * 1000;
     const now = Date.now();
     
-    // Mapeia o último disparo por identidade (CNPJ/Empresa)
+    // Mapeia o último disparo por identidade (CNPJ/Empresa) E por telefone
     const identityLastOut = new Map<string, number>();
     prospects.forEach(p => {
-      const key = getProspectIdentityKey(p);
       const isOutbound = (k: string) => k === "whatsapp" || k === "ligacao" || k === "email";
       let pMax = 0;
       for (const ix of p.interactions ?? []) {
@@ -605,8 +604,8 @@ function ProspeccaoPage() {
         const t = ix.at ? Date.parse(ix.at) : 0;
         if (t > pMax) pMax = t;
       }
-      if (pMax > (identityLastOut.get(key) || 0)) {
-        identityLastOut.set(key, pMax);
+      for (const key of getProspectBlockKeys(p)) {
+        if (pMax > (identityLastOut.get(key) || 0)) identityLastOut.set(key, pMax);
       }
     });
 
@@ -623,8 +622,10 @@ function ProspeccaoPage() {
     };
 
     for (const p of filtered) {
-      const key = getProspectIdentityKey(p);
-      const last = identityLastOut.get(key) || 0;
+      const last = getProspectBlockKeys(p).reduce(
+        (acc, key) => Math.max(acc, identityLastOut.get(key) || 0),
+        0,
+      );
       if (last > 0 && now - last < BLOCK_MS) blocked.push({ p, last });
       else if (notWarmed(p)) coldActive.push(p);
       else active.push(p);
