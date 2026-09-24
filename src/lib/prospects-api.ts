@@ -107,67 +107,52 @@ function fromRow(r: Row, ixs: IxRow[] = []): Prospect {
 export async function loadAllProspects(): Promise<Prospect[]> {
   const uid = await currentUserId();
   if (!uid) return [];
-  const role = await currentOrgRole();
-  const ownOnlyTouchpoints = role !== "owner" && role !== "admin";
   // PostgREST limita 1000 linhas/consulta — paginar via range() até esgotar.
   const PAGE = 1000;
-  const rows = await loadProspectRowsWithPrivateState(uid, PAGE);
-  // Interações: também pagina e busca em lotes de ids (evita URL gigante no .in()).
-  const ids = rows.map((r) => r.id);
-  const ID_BATCH = 200;
-  // Lotes de ids buscados em PARALELO (Promise.all) — antes era sequencial,
-  // causando N round-trips quando a base passava de 1k prospects.
+  const rows = await loadProspectRows(PAGE);
+  const ids = new Set(rows.map((r) => r.id));
+
+  // O índice (user_id, enviado_em) permite buscar todo o histórico privado do
+  // usuário em poucas páginas. A versão anterior dividia os prospects em
+  // lotes de 200 e fazia dezenas de requisições simultâneas.
   type TpRow = {
     id: string; prospect_id: string; tipo: string;
-    mensagem: string | null; by_name: string | null; enviado_em: string;
+    mensagem: string | null; resultado: string | null;
+    by_name: string | null; enviado_em: string;
   };
-  const slices: string[][] = [];
-  for (let i = 0; i < ids.length; i += ID_BATCH) slices.push(ids.slice(i, i + ID_BATCH));
-  const batchResults = await Promise.all(
-    slices.map(async (slice) => {
-      const out: TpRow[] = [];
-      for (let from = 0; ; from += PAGE) {
-        let query = dbExt
-          .from("prospect_touchpoints")
-          .select("id, prospect_id, tipo, mensagem, by_name, enviado_em")
-          .in("prospect_id", slice);
-        // Defesa no cliente: Member nunca carrega disparos/interações de outro usuário.
-        // Owner/Admin mantêm visão completa para auditoria e gestão.
-        if (ownOnlyTouchpoints) query = query.eq("user_id", uid);
-        const { data, error } = await query
-          .order("enviado_em", { ascending: false })
-          .range(from, from + PAGE - 1);
-        if (error) { console.warn("loadAllProspects touchpoints error", error); break; }
-        const batch = (data ?? []) as TpRow[];
-        out.push(...batch);
-        if (batch.length < PAGE) break;
-      }
-      return out;
-    }),
-  );
-  const ixs: IxRow[] = batchResults.flat().map((row) => ({
-    id: row.id,
-    prospect_id: row.prospect_id,
-    kind: row.tipo,
-    text: row.mensagem ?? "",
-    by_name: row.by_name ?? "",
-    created_at: row.enviado_em,
-  }));
-  return rows.map((r) => fromRow(r, ixs));
-}
-
-async function currentOrgRole(): Promise<string | null> {
-  try {
-    const { data, error } = await supabase.rpc("current_org_role" as never);
-    if (error) return null;
-    return typeof data === "string" ? data : null;
-  } catch {
-    return null;
+  const touchpoints: TpRow[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await dbExt
+      .from("prospect_touchpoints")
+      .select("id,prospect_id,tipo,mensagem,resultado,by_name,enviado_em")
+      .eq("user_id", uid)
+      .order("enviado_em", { ascending: false })
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(`Falha ao carregar histórico: ${error.message}`);
+    const batch = (data ?? []) as TpRow[];
+    touchpoints.push(...batch.filter((row) => ids.has(row.prospect_id)));
+    if (batch.length < PAGE) break;
   }
-}
 
-async function loadProspectRowsWithPrivateState(uid: string, pageSize: number): Promise<Row[]> {
-  return loadProspectRowsFallback(uid, pageSize);
+  const states = privateStatesFromTouchpoints(touchpoints);
+  const interactions = new Map<string, IxRow[]>();
+  for (const row of touchpoints) {
+    const list = interactions.get(row.prospect_id) ?? [];
+    list.push({
+      id: row.id,
+      prospect_id: row.prospect_id,
+      kind: row.tipo,
+      text: row.mensagem ?? "",
+      by_name: row.by_name ?? "",
+      created_at: row.enviado_em,
+    });
+    interactions.set(row.prospect_id, list);
+  }
+
+  return rows.map((row) => {
+    const withState = { ...row, ...(states.get(row.id) ?? {}) };
+    return fromRow(withState, interactions.get(row.id) ?? []);
+  });
 }
 
 // Cache por sessão: evita testar a existência da coluna em cada página
@@ -198,7 +183,7 @@ function warnMergedIntoUnavailable() {
   ).catch(() => {});
 }
 
-async function loadProspectRowsFallback(uid: string, pageSize: number): Promise<Row[]> {
+async function loadProspectRows(pageSize: number): Promise<Row[]> {
   const rows: Row[] = [];
   for (let from = 0; ; from += pageSize) {
     let { data, error } = await selectProspectsPage(from, pageSize, mergedIntoSupported);
@@ -218,72 +203,39 @@ async function loadProspectRowsFallback(uid: string, pageSize: number): Promise<
     if (batch.length < pageSize) break;
   }
 
-  const states = await loadPrivateStatesFromTouchpoints(uid, rows.map((r) => r.id), pageSize);
-  return rows.map((row) => ({ ...row, ...(states.get(row.id) ?? {}) }));
+  return rows;
 }
 
-async function loadPrivateStatesFromTouchpoints(uid: string, ids: string[], pageSize: number): Promise<Map<string, Partial<Row>>> {
+function privateStatesFromTouchpoints(events: Array<{
+  prospect_id: string;
+  tipo: string | null;
+  resultado: string | null;
+  mensagem: string | null;
+  enviado_em: string | null;
+}>): Map<string, Partial<Row>> {
   const out = new Map<string, Partial<Row>>();
-  if (!ids.length) return out;
-  const ID_BATCH = 200;
-  
-  // Executa lotes em paralelo para performance e robustez
-  const slices: string[][] = [];
-  for (let i = 0; i < ids.length; i += ID_BATCH) slices.push(ids.slice(i, i + ID_BATCH));
-
-  const results = await Promise.all(slices.map(async (slice) => {
-    const sliceMap = new Map<string, Partial<Row>>();
-    for (let from = 0; ; from += pageSize) {
-      const { data, error } = await dbExt.from("prospect_touchpoints")
-        .select("prospect_id,tipo,resultado,mensagem,enviado_em")
-        .eq("user_id", uid)
-        .in("prospect_id", slice)
-        .in("tipo", ["whatsapp", "ligacao", "email", "reuniao", "resposta", "status"])
-        .order("enviado_em", { ascending: true }) // Ordem crescente para o mais novo sobrescrever o antigo
-        .range(from, from + pageSize - 1);
-      
-      if (error) {
-        console.warn("loadPrivateStatesFromTouchpoints batch error", error);
-        throw error; // Propaga erro para o Promise.all
-      }
-
-      const batch = (data ?? []) as Array<{
-        prospect_id: string;
-        tipo: string | null;
-        resultado: string | null;
-        mensagem: string | null;
-        enviado_em: string | null;
-      }>;
-
-      for (const event of batch) {
-        const prev = sliceMap.get(event.prospect_id) ?? {};
-        const next: Partial<Row> = { ...prev };
-        const eventAt = event.enviado_em ?? null;
-        
-        if (eventAt && (!next.last_contact_at || new Date(eventAt) > new Date(next.last_contact_at))) {
-          next.last_contact_at = eventAt;
-        }
-
-        if (event.tipo === "resposta" || event.resultado === "respondido" || event.resultado === "interessado") {
-          next.response_status = "respondido";
-          if (!next.status || next.status === "nao_contatado" || next.status === "primeiro_contato") next.status = "qualificado";
-        } else if (event.tipo === "status") {
-          const status = normalizePrivateStatus(event.resultado) ?? normalizePrivateStatus(event.mensagem);
-          if (status) next.status = status;
-        } else if (!next.status || next.status === "nao_contatado") {
-          if (["whatsapp", "ligacao", "email", "reuniao"].includes(event.tipo || "")) {
-            next.status = "primeiro_contato";
-          }
-        }
-        sliceMap.set(event.prospect_id, next);
-      }
-      if (batch.length < pageSize) break;
+  // A consulta vem em ordem decrescente. Processamos do mais antigo para o
+  // mais novo para que o último status sempre prevaleça.
+  for (let index = events.length - 1; index >= 0; index--) {
+    const event = events[index];
+    if (!event) continue;
+    const prev = out.get(event.prospect_id) ?? {};
+    const next: Partial<Row> = { ...prev };
+    const eventAt = event.enviado_em ?? null;
+    if (eventAt && (!next.last_contact_at || new Date(eventAt) > new Date(next.last_contact_at))) {
+      next.last_contact_at = eventAt;
     }
-    return sliceMap;
-  }));
 
-  for (const m of results) {
-    for (const [k, v] of m.entries()) out.set(k, v);
+    if (event.tipo === "resposta" || event.resultado === "respondido" || event.resultado === "interessado") {
+      next.response_status = "respondido";
+      if (!next.status || next.status === "nao_contatado" || next.status === "primeiro_contato") next.status = "qualificado";
+    } else if (event.tipo === "status") {
+      const status = normalizePrivateStatus(event.resultado) ?? normalizePrivateStatus(event.mensagem);
+      if (status) next.status = status;
+    } else if (!next.status || next.status === "nao_contatado") {
+      if (["whatsapp", "ligacao", "email", "reuniao"].includes(event.tipo || "")) next.status = "primeiro_contato";
+    }
+    out.set(event.prospect_id, next);
   }
   return out;
 }
