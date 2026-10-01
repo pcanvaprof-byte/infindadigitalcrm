@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { getProspectIdentityKey } from "@/lib/prospect-identity";
+import { getProspectIdentityKey, getProspectBlockKeys } from "@/lib/prospect-identity";
 import { useEffect, useMemo, useRef, useState, memo, lazy, Suspense } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 
@@ -146,6 +146,7 @@ import {
 import { pickNicheMessage } from "@/lib/prospeccao/niche-templates";
 import { useBusinessProfile } from "@/hooks/useBusinessProfile";
 import { ArrowRight } from "lucide-react";
+import { normalizeCity, cleanCityLabel, isValidCityName, cityDisplay, INVALID_CITY_KEY } from "@/lib/city-name";
 import { chooseVariant } from "@/lib/prospeccao/variant-telemetry";
 import {
   listCurrentNicheTemplates,
@@ -631,12 +632,12 @@ function ProspeccaoPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     
-    // Identidades ocultas por disparo recente
+    // Identidades e telefones ocultos por disparo anterior
     const dispatchedIdentities = new Set<string>();
     if (hideDispatched && statusFilter === "all") {
       prospects.forEach(p => {
         if (p.status !== "nao_contatado") {
-          dispatchedIdentities.add(getProspectIdentityKey(p));
+          for (const key of getProspectBlockKeys(p)) dispatchedIdentities.add(key);
         }
       });
     }
@@ -649,9 +650,9 @@ function ProspeccaoPage() {
 
       // Filtro de ocultação baseado em identidade (CNPJ/Empresa)
       if (hideDispatched && statusFilter === "all") {
-        const key = getProspectIdentityKey(p);
-        if (dispatchedIdentities.has(key)) return false;
+        if (getProspectBlockKeys(p).some((key) => dispatchedIdentities.has(key))) return false;
       }
+
 
       if (segmentFilter !== "all" && nicheGroup(p.segment) !== segmentFilter) return false;
       if (isOpeningFilterActive(opening)) {
@@ -659,6 +660,11 @@ function ProspeccaoPage() {
         if (!matchesOpening(info?.data_abertura, opening)) return false;
       }
       if (stateFilter !== "all" && p.state !== stateFilter) return false;
+      if (cityFilter !== "all") {
+        if (cityFilter === INVALID_CITY_KEY) {
+          if (isValidCityName(p.city)) return false;
+        } else if (normalizeCity(p.city) !== cityFilter) return false;
+      }
       if (potentialFilter !== "all" && p.potential !== potentialFilter) return false;
       if (onlyWithContact) {
         const hasContact = Boolean(
@@ -717,10 +723,9 @@ function ProspeccaoPage() {
     const BLOCK_MS = 24 * 60 * 60 * 1000;
     const now = Date.now();
     
-    // Mapeia o último disparo por identidade (CNPJ/Empresa)
+    // Mapeia o último disparo por identidade (CNPJ/Empresa) E por telefone
     const identityLastOut = new Map<string, number>();
     prospects.forEach(p => {
-      const key = getProspectIdentityKey(p);
       const isOutbound = (k: string) => k === "whatsapp" || k === "ligacao" || k === "email";
       let pMax = 0;
       for (const ix of p.interactions ?? []) {
@@ -728,8 +733,8 @@ function ProspeccaoPage() {
         const t = ix.at ? Date.parse(ix.at) : 0;
         if (t > pMax) pMax = t;
       }
-      if (pMax > (identityLastOut.get(key) || 0)) {
-        identityLastOut.set(key, pMax);
+      for (const key of getProspectBlockKeys(p)) {
+        if (pMax > (identityLastOut.get(key) || 0)) identityLastOut.set(key, pMax);
       }
     });
 
@@ -746,8 +751,10 @@ function ProspeccaoPage() {
     };
 
     for (const p of filtered) {
-      const key = getProspectIdentityKey(p);
-      const last = identityLastOut.get(key) || 0;
+      const last = getProspectBlockKeys(p).reduce(
+        (acc, key) => Math.max(acc, identityLastOut.get(key) || 0),
+        0,
+      );
       if (last > 0 && now - last < BLOCK_MS) blocked.push({ p, last });
       else if (notWarmed(p)) coldActive.push(p);
       else active.push(p);
@@ -890,6 +897,30 @@ function ProspeccaoPage() {
     return Array.from(set).sort();
   }, [prospects]);
 
+  // Cidades presentes na base (respeitando o Estado selecionado). Valores
+  // inválidos (números/CEP no lugar do nome) não entram na lista — ficam
+  // agrupados numa opção própria para facilitar a correção.
+  const availableCities = useMemo(() => {
+    const counts = new Map<string, { label: string; count: number }>();
+    let invalid = 0;
+    for (const p of prospects) {
+      if (stateFilter !== "all" && p.state !== stateFilter) continue;
+      const label = cleanCityLabel(p.city);
+      if (!isValidCityName(label)) {
+        if (label) invalid++;
+        continue;
+      }
+      const key = normalizeCity(label);
+      const cur = counts.get(key);
+      if (cur) cur.count++;
+      else counts.set(key, { label, count: 1 });
+    }
+    const list = Array.from(counts.entries())
+      .map(([key, v]) => ({ key, label: v.label, count: v.count }))
+      .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+    return { list, invalid };
+  }, [prospects, stateFilter]);
+
   // Responsáveis derivados dinamicamente de prospects.owner_name + nome do
    // usuário logado (fallback). Antes era hardcoded ["Valdinei","Danielly"].
   const availableOwners = useMemo(() => {
@@ -927,6 +958,7 @@ function ProspeccaoPage() {
     statusFilter !== "all" ||
     segmentFilter !== "all" ||
     stateFilter !== "all" ||
+    cityFilter !== "all" ||
     potentialFilter !== "all" ||
     onlyWithContact ||
     noWhatsapp ||
@@ -1618,7 +1650,7 @@ const openEmail = async (p: Prospect) => {
 
   const clearFilters = () => {
     // A-4: limpar TODOS os filtros ativos, incluindo cadência e onlyWhatsapp.
-    setStatusFilter("all"); setSegmentFilter("all"); setStateFilter("all"); setPotentialFilter("all");
+    setStatusFilter("all"); setSegmentFilter("all"); setStateFilter("all"); setCityFilter("all"); setPotentialFilter("all");
     setSearch(""); setOnlyWithContact(false); setNoWhatsapp(false); setOnlyWhatsapp(false);
     setCadenceFilter("all");
     setOpening(EMPTY_OPENING_FILTER);
@@ -1962,7 +1994,55 @@ const openEmail = async (p: Prospect) => {
                 </Command>
               </PopoverContent>
             </Popover>
-            <Select value={stateFilter} onValueChange={setStateFilter}>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" role="combobox" className="h-9 w-full justify-between font-normal">
+                  <span className="truncate">
+                    {cityFilter === "all"
+                      ? "Todas as cidades"
+                      : cityFilter === INVALID_CITY_KEY
+                        ? `Cidade inválida (${availableCities.invalid})`
+                        : (availableCities.list.find((c) => c.key === cityFilter)?.label ?? "Cidade")}
+                  </span>
+                  <ChevronDown className="ml-2 h-4 w-4 opacity-50 shrink-0" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Buscar cidade…" />
+                  <CommandList className="max-h-72">
+                    <CommandEmpty>Nenhuma cidade encontrada.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem value="__all__" onSelect={() => setCityFilter("all")}>
+                        <Check className={cn("mr-2 h-4 w-4", cityFilter === "all" ? "opacity-100" : "opacity-0")} />
+                        <span className="flex-1">Todas as cidades</span>
+                        <span className="text-xs text-muted-foreground">
+                          {availableCities.list.reduce((a, c) => a + c.count, 0)}
+                        </span>
+                      </CommandItem>
+                      {availableCities.list.map((c) => (
+                        <CommandItem key={c.key} value={c.label} onSelect={() => setCityFilter(c.key)}>
+                          <Check className={cn("mr-2 h-4 w-4", cityFilter === c.key ? "opacity-100" : "opacity-0")} />
+                          <span className="flex-1 truncate">{c.label}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">{c.count}</span>
+                        </CommandItem>
+                      ))}
+                      {availableCities.invalid > 0 && (
+                        <CommandItem
+                          value="cidade invalida numero"
+                          onSelect={() => setCityFilter(INVALID_CITY_KEY)}
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", cityFilter === INVALID_CITY_KEY ? "opacity-100" : "opacity-0")} />
+                          <span className="flex-1 truncate">Cidade inválida (número)</span>
+                          <span className="ml-2 text-xs text-muted-foreground">{availableCities.invalid}</span>
+                        </CommandItem>
+                      )}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <Select value={stateFilter} onValueChange={(v) => { setStateFilter(v); setCityFilter("all"); }}>
               <SelectTrigger><SelectValue placeholder="Estado" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos estados</SelectItem>
@@ -2634,7 +2714,7 @@ function DesktopProspectTable({
                       })()}
                     </div>
                   </div>
-                  <div className="px-4 py-3 text-xs">{p.city ? `${p.city} - ${p.state}` : p.state || "—"}</div>
+                  <div className="px-4 py-3 text-xs">{cityDisplay(p.city) ? `${cityDisplay(p.city)} - ${p.state}` : p.state || "—"}</div>
                   <div className="px-4 py-3 text-xs">{p.source}</div>
                   <div className="px-4 py-3"><PotentialBadge p={p.potential} /></div>
                   <div className="px-4 py-3"><StatusBadge status={p.status} /></div>
@@ -2808,7 +2888,7 @@ function KanbanView({
                     </div>
                     <p className="mt-1 text-[11px] text-muted-foreground">{p.segment}</p>
                     <p className="mt-2 text-[11px] text-muted-foreground">
-                      {p.city ? `${p.city} - ${p.state}` : p.state || "—"} · {p.owner}
+                      {cityDisplay(p.city) ? `${cityDisplay(p.city)} - ${p.state}` : p.state || "—"} · {p.owner}
                     </p>
                   </div>
                 ))}
@@ -2881,7 +2961,7 @@ function DetailDialog({
               <li className="flex items-center gap-2"><Phone className="h-3.5 w-3.5" /> {p.phone || "—"}</li>
               <li className="flex items-center gap-2"><Mail className="h-3.5 w-3.5" /> {p.email || "—"}</li>
               <li className="flex items-center gap-2"><Instagram className="h-3.5 w-3.5" /> {p.instagram || "—"}</li>
-              <li className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5" /> {p.city ? `${p.city} - ${p.state}` : p.state || "—"}</li>
+              <li className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5" /> {cityDisplay(p.city) ? `${cityDisplay(p.city)} - ${p.state}` : p.state || "—"}</li>
             </ul>
           </div>
 
@@ -3384,7 +3464,7 @@ const MobileProspectRow = memo(function MobileProspectRow({
         <button className="block w-full text-left" onClick={() => onOpen(p.id)}>
           <div className="truncate text-sm font-semibold">{p.company}</div>
           <div className="truncate text-[11px] text-muted-foreground">
-            {p.segment} · {p.city ? `${p.city}-${p.state}` : p.state || "—"}
+            {p.segment} · {cityDisplay(p.city) ? `${cityDisplay(p.city)}-${p.state}` : p.state || "—"}
           </div>
         </button>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
