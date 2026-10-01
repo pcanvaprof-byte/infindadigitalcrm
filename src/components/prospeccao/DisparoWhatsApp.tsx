@@ -173,12 +173,11 @@ export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
   }, []);
 
   const openQrDialog = useCallback(() => {
-    setQrOpen(true);
-    void fetchQr();
-    qrIntervalRef.current = setInterval(() => {
-      void fetchQr();
-    }, 10000);
-  }, [fetchQr]);
+    // O browser bloqueia chamadas HTTP vindas de HTTPS (Mixed Content).
+    // A solução é abrir o servidor local numa nova aba — lá o QR Code aparece.
+    window.open("http://localhost:3333", "_blank", "noopener,noreferrer");
+    toast.info("Escaneie o QR Code na aba que abriu. Volte aqui após conectar.");
+  }, []);
 
   const closeQrDialog = useCallback(() => {
     setQrOpen(false);
@@ -339,9 +338,15 @@ export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
         <h3 className="text-sm font-semibold mb-3">Conexão WhatsApp</h3>
         <div className="flex items-center gap-3 flex-wrap">
           {serverOffline ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <WifiOff className="h-4 w-4 text-destructive" />
-              Servidor offline — inicie o servidor para usar o disparo
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <WifiOff className="h-4 w-4 text-destructive" />
+                Servidor offline — inicie o servidor para usar o disparo
+              </div>
+              <Button size="sm" variant="outline" onClick={() => window.open("http://localhost:3333", "_blank", "noopener,noreferrer")}>
+                <Smartphone className="h-4 w-4 mr-1.5" />
+                Abrir servidor
+              </Button>
             </div>
           ) : connection.connected ? (
             <>
