@@ -402,6 +402,11 @@ function ProspeccaoPage() {
   });
   useEffect(() => { try { window.localStorage.setItem("prosp_f_state", stateFilter); } catch {} }, [stateFilter]);
 
+  const [cityFilter, setCityFilter] = useState<string>(() => {
+    try { return window.localStorage.getItem("prosp_f_city") || "all"; } catch { return "all"; }
+  });
+  useEffect(() => { try { window.localStorage.setItem("prosp_f_city", cityFilter); } catch {} }, [cityFilter]);
+
   const [potentialFilter, setPotentialFilter] = useState<ProspectPotential | "all">(() => {
     try { return (window.localStorage.getItem("prosp_f_potential") as ProspectPotential | "all") || "all"; } catch { return "all"; }
   });
