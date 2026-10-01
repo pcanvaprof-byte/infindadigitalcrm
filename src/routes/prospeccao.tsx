@@ -948,18 +948,23 @@ function ProspeccaoPage() {
     const phone = `55${d}`;
     const encoded = encodeURIComponent(msg);
     const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
-    // Conta SEMPRE vem do seletor global persistido (localStorage `wa_account`).
-    // Não há override por disparo — assim o aquecimento e os envios em sequência
-    // usam o mesmo perfil escolhido, sem trocar automaticamente entre contas.
     const acct = waAccount;
-    let url = `https://wa.me/${phone}?text=${encoded}`;
-    if (isAndroid && acct !== "default") {
-      const pkg = acct === "business" ? "com.whatsapp.w4b" : "com.whatsapp";
-      url = `intent://send?phone=${phone}&text=${encoded}#Intent;scheme=whatsapp;package=${pkg};end`;
+
+    // Se estiver no Desktop (Windows), abre o WhatsApp Web direto com a flag de auto-envio
+    let url = `https://web.whatsapp.com/send?phone=${phone}&text=${encoded}#autosend=true`;
+
+    // Se for Android, mantém o disparo nativo pelo app do celular
+    if (isAndroid) {
+      if (acct !== "default") {
+        const pkg = acct === "business" ? "com.whatsapp.w4b" : "com.whatsapp";
+        url = `intent://send?phone=${phone}&text=${encoded}#Intent;scheme=whatsapp;package=${pkg};end`;
+      } else {
+        url = `https://wa.me/${phone}?text=${encoded}`;
+      }
     }
+
     console.log("[prosp] openWhats:window.open", { url, account: acct });
-    window.open(url, "_blank");
-    } finally {
+    window.open(url, "_blank");    } finally {
       // Cooldown curto para não permitir 2 cliques sequenciais que abram
       // 2 conversas e gerem registro duplicado de tentativa.
       window.setTimeout(() => {
@@ -2127,8 +2132,8 @@ const RowActions = memo(function RowActions({
         size="icon"
         variant="ghost"
         className="h-8 w-8 text-emerald-400"
-        title={busyWhats ? "Enviando…" : "Disparar WhatsApp (usa a conta selecionada no topo)"}
-        disabled={!!busyWhats}
+        title={busyWhats ? "Enviando..." : "Disparar WhatsApp (usa a conta selecionada no topo)"}
+        disabled={!busyWhats}
         onClick={() => onWhats(p)}
       >
         {busyWhats ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
