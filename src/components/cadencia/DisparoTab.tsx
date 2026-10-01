@@ -1,91 +1,52 @@
-import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { toast } from "sonner";
-import { Copy, Download, ExternalLink, MessageSquare, Zap, X } from "lucide-react";
-
-const SCRIPT_CONTENT = `// ==UserScript==
-// @name         Auto Enviar WhatsApp MEI
-// @namespace    http://tampermonkey.net/
-// @version      1.0
-// @description  Aperta o botão de enviar e fecha a aba sozinho
-// @author       INFINDA
-// @match        https://web.whatsapp.com/send?*
-// @grant        window.close
-// ==/UserScript==
-
-(function() {
-    'use strict';
-
-    const disparar = setInterval(() => {
-        let btnEnviar = document.querySelector('span[data-icon="send"]') || document.querySelector('button[aria-label="Enviar"]');
-        
-        if (btnEnviar) {
-            btnEnviar.click();
-            console.log("Mensagem enviada! Fechando em 3 segundos...");
-            clearInterval(disparar);
-            
-            setTimeout(() => {
-                window.close();
-            }, 3000);
-        }
-    }, 1000);
-})();`;
+import { Terminal, QrCode, Zap, ArrowRight } from "lucide-react";
 
 const STEPS = [
   {
-    icon: MessageSquare,
-    title: 'Clique em "Enviar via WhatsApp" no card do lead',
-    description: "O WhatsApp Web abre em uma nova aba com a mensagem já preenchida.",
+    icon: Terminal,
+    title: "Inicie o servidor no seu computador",
+    description: (
+      <>
+        Abra a pasta <code className="rounded bg-muted px-1 py-0.5 text-xs">infinda-whatsapp-server</code> no terminal e rode{" "}
+        <code className="rounded bg-muted px-1 py-0.5 text-xs">npm install</code> (só na primeira vez) e depois{" "}
+        <code className="rounded bg-muted px-1 py-0.5 text-xs">npm start</code>. O servidor vai rodar em{" "}
+        <code className="rounded bg-muted px-1 py-0.5 text-xs">localhost:3333</code>.
+      </>
+    ),
+  },
+  {
+    icon: QrCode,
+    title: "Conecte seu WhatsApp",
+    description: (
+      <>
+        Vá em <strong>Prospecção → aba Disparo WhatsApp</strong>, clique em{" "}
+        <strong>"Conectar"</strong> e escaneie o QR Code com seu celular. Só precisa fazer isso uma vez — a sessão fica salva.
+      </>
+    ),
   },
   {
     icon: Zap,
-    title: "O script detecta o botão de enviar e clica automaticamente",
-    description: "Nenhuma ação sua necessária — o Tampermonkey cuida do resto.",
-  },
-  {
-    icon: X,
-    title: "A aba fecha sozinha após 3 segundos",
-    description: "Tempo suficiente para garantir que a mensagem foi entregue ao servidor.",
+    title: "Selecione e dispare",
+    description: (
+      <>
+        Na aba <strong>Disparo WhatsApp</strong> da Prospecção, selecione os prospects, configure o delay entre mensagens
+        (padrão 80–100s) e clique <strong>"Disparar selecionados"</strong>. O CRM envia um por um e atualiza o status
+        automaticamente.
+      </>
+    ),
   },
 ];
 
 export function DisparoTab() {
-  const [copied, setCopied] = useState<boolean>(false);
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(SCRIPT_CONTENT);
-      setCopied(true);
-      toast.success("Script copiado para o clipboard!");
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error("Não foi possível copiar. Selecione o script manualmente.");
-    }
-  };
-
-  const handleDownload = () => {
-    const blob = new Blob([SCRIPT_CONTENT], { type: "text/javascript;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "infinda-auto-enviar-whatsapp.user.js";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    toast.success("Download iniciado!");
-  };
-
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Como funciona</CardTitle>
+          <CardTitle>Como funciona o disparo</CardTitle>
         </CardHeader>
         <CardContent>
-          <ol className="space-y-4">
+          <ol className="space-y-5">
             {STEPS.map((step, index) => {
               const Icon = step.icon;
               return (
@@ -93,12 +54,12 @@ export function DisparoTab() {
                   <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
                     {index + 1}
                   </span>
-                  <div className="space-y-0.5">
+                  <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <Icon className="h-4 w-4 text-muted-foreground" />
                       <p className="font-medium text-foreground">{step.title}</p>
                     </div>
-                    <p className="text-sm text-muted-foreground">{step.description}</p>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{step.description}</p>
                   </div>
                 </li>
               );
@@ -109,57 +70,45 @@ export function DisparoTab() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Instalar o script</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Instale a extensão{" "}
-            <a
-              href="https://www.tampermonkey.net/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:opacity-80"
-            >
-              Tampermonkey
-              <ExternalLink className="h-3 w-3" />
-            </a>{" "}
-            no seu navegador, depois copie ou baixe o script abaixo e adicione-o ao Tampermonkey.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={handleCopy} variant="outline" size="sm">
-              <Copy className="mr-2 h-4 w-4" />
-              {copied ? "Copiado!" : "Copiar script"}
-            </Button>
-            <Button onClick={handleDownload} variant="outline" size="sm">
-              <Download className="mr-2 h-4 w-4" />
-              Baixar .user.js
-            </Button>
-          </div>
-          <pre className="overflow-x-auto rounded-md border border-border bg-muted p-4 text-xs leading-relaxed text-muted-foreground">
-            <code>{SCRIPT_CONTENT}</code>
-          </pre>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Observações importantes</CardTitle>
+          <CardTitle>Requisitos</CardTitle>
         </CardHeader>
         <CardContent>
           <ul className="space-y-2">
             <li className="flex flex-wrap items-start gap-2 text-sm text-muted-foreground">
-              <Badge variant="outline">Desktop</Badge>
-              O script funciona apenas no WhatsApp Web (desktop/browser), não no app mobile.
+              <Badge variant="outline">Node.js</Badge>
+              Instale o Node.js 18+ em{" "}
+              <a
+                href="https://nodejs.org"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline underline-offset-2 hover:opacity-80"
+              >
+                nodejs.org
+              </a>{" "}
+              (versão LTS recomendada).
             </li>
             <li className="flex flex-wrap items-start gap-2 text-sm text-muted-foreground">
-              <Badge variant="outline">Mobile</Badge>
-              No celular o WhatsApp abre normalmente e você envia manualmente.
+              <Badge variant="outline">Servidor local</Badge>
+              O servidor precisa estar rodando no seu computador para os disparos funcionarem.
             </li>
             <li className="flex flex-wrap items-start gap-2 text-sm text-muted-foreground">
-              <Badge variant="outline">Requisito</Badge>
-              Requer Tampermonkey instalado e ativo no navegador.
+              <Badge variant="outline">WhatsApp</Badge>
+              Use um número dedicado para disparos — evita risco de bloqueio no número pessoal.
             </li>
           </ul>
+        </CardContent>
+      </Card>
+
+      <Card className="border-primary/30 bg-primary/5">
+        <CardContent className="pt-4">
+          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+            <ArrowRight className="h-4 w-4 text-primary" />
+            O disparo em fila fica em{" "}
+            <strong>Prospecção → aba "Disparo WhatsApp"</strong>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Esta aba da Cadência mostra o guia de uso. Os controles de fila, QR Code e seleção de prospects estão na Prospecção.
+          </p>
         </CardContent>
       </Card>
     </div>
