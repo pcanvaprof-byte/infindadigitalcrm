@@ -2,13 +2,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -16,12 +9,10 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
-  Wifi,
-  WifiOff,
-  Smartphone,
   Send,
   X,
-  RefreshCw,
+  Pause,
+  Play,
 } from "lucide-react";
 import type { Prospect } from "@/lib/mock-prospects";
 import { updateProspect } from "@/lib/prospects-api";
@@ -34,380 +25,256 @@ interface DisparoWhatsAppProps {
   prospects: Prospect[];
 }
 
-interface ConnectionState {
-  connected: boolean;
-  phone?: string;
-}
-
-type QueueItemStatus = "pending" | "sending" | "sent" | "failed";
+type ItemStatus = "pending" | "sending" | "sent" | "failed";
 
 interface QueueItem {
   id: string;
   phone: string;
   company: string;
   message: string;
-  status: QueueItemStatus;
+  status: ItemStatus;
   reason?: string;
 }
-
-interface QueueState {
-  running: boolean;
-  items: QueueItem[];
-  total: number;
-  sent: number;
-  failed: number;
-}
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const SERVER_URL = "http://localhost:3333";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function sanitizePhone(raw: string): string {
-  return raw.replace(/\D/g, "");
+  const d = raw.replace(/\D/g, "");
+  // Garante DDI 55 para BR
+  if (d.startsWith("55") && d.length >= 12) return d;
+  if (d.length === 10 || d.length === 11) return "55" + d;
+  return d;
 }
 
 function isPhoneValid(raw: string): boolean {
-  return sanitizePhone(raw).length >= 10;
+  return (raw || "").replace(/\D/g, "").length >= 10;
 }
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
+// ─── Chave de comunicação Tampermonkey → CRM ──────────────────────────────────
+// O script Tampermonkey escreve nesta chave ao enviar/falhar.
+// O CRM lê a chave para saber o resultado e avança para o próximo.
+const TM_RESULT_KEY = "infinda_disparo_result";
+const TM_PENDING_KEY = "infinda_disparo_pending";
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
-  // ── Connection state ──────────────────────────────────────────────────────
-  const [connection, setConnection] = useState<ConnectionState>({
-    connected: false,
-  });
-  const [serverOffline, setServerOffline] = useState(false);
-
-  // ── QR Dialog ────────────────────────────────────────────────────────────
-  const [qrOpen, setQrOpen] = useState(false);
-  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [qrLoading, setQrLoading] = useState(false);
-
-  // ── Queue state ──────────────────────────────────────────────────────────
-  const [queueState, setQueueState] = useState<QueueState>({
-    running: false,
-    items: [],
-    total: 0,
-    sent: 0,
-    failed: 0,
-  });
-
-  // ── Selection & config ───────────────────────────────────────────────────
+  // ── Seleção ──────────────────────────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [delayMin, setDelayMin] = useState(80);
   const [delayMax, setDelayMax] = useState(100);
 
-  // Refs for intervals so cleanup is always correct
-  const statusIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const qrIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const queueIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // ── Fila ─────────────────────────────────────────────────────────────────
+  const [items, setItems] = useState<QueueItem[]>([]);
+  const [running, setRunning] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const cancelRef = useRef(false);
+  const pauseRef = useRef(false);
 
-  // Track which IDs have already been processed to avoid calling updateProspect twice
-  const processedIdsRef = useRef<Set<string>>(new Set());
-
-  // ── Filter eligible prospects ─────────────────────────────────────────────
+  // ── Prospects elegíveis ───────────────────────────────────────────────────
   const eligible = prospects.filter(
-    (p) =>
-      p.status === "nao_contatado" &&
-      isPhoneValid(p.whatsapp || ""),
+    (p) => p.status === "nao_contatado" && isPhoneValid(p.whatsapp || ""),
   );
 
-  // ── Connection polling ────────────────────────────────────────────────────
-  // O browser bloqueia fetch HTTP→HTTPS (Mixed Content). Por isso não
-  // conseguimos checar o status automaticamente. O usuário confirma manualmente.
-  const [manualConnected, setManualConnected] = useState(() => {
-    try { return window.localStorage.getItem("infinda_wa_connected") === "1"; } catch { return false; }
-  });
-
-  const confirmConnected = useCallback(() => {
-    setManualConnected(true);
-    setServerOffline(false);
-    setConnection({ connected: true });
-    try { window.localStorage.setItem("infinda_wa_connected", "1"); } catch {}
-    toast.success("WhatsApp marcado como conectado! Pode disparar.");
-  }, []);
-
-  const disconnectManual = useCallback(() => {
-    setManualConnected(false);
-    setConnection({ connected: false });
-    setServerOffline(true);
-    try { window.localStorage.removeItem("infinda_wa_connected"); } catch {}
-  }, []);
-
-  // Sync connection state with manual flag on mount
-  useEffect(() => {
-    if (manualConnected) {
-      setConnection({ connected: true });
-      setServerOffline(false);
-    } else {
-      setServerOffline(true);
-    }
-  }, [manualConnected]);
-
-  // ── QR Code fetching ──────────────────────────────────────────────────────
-  const fetchQr = useCallback(async () => {
-    setQrLoading(true);
-    try {
-      const res = await fetch(`${SERVER_URL}/qr`, { signal: AbortSignal.timeout(8000) });
-      if (!res.ok) {
-        setQrDataUrl(null);
-        return;
-      }
-      const data = await res.json() as { qr?: string | null };
-      setQrDataUrl(data.qr ?? null);
-    } catch {
-      setQrDataUrl(null);
-    } finally {
-      setQrLoading(false);
-    }
-  }, []);
-
-  const openQrDialog = useCallback(() => {
-    // O browser bloqueia chamadas HTTP vindas de HTTPS (Mixed Content).
-    // A solução é abrir o servidor local numa nova aba — lá o QR Code aparece.
-    window.open("http://localhost:3333", "_blank", "noopener,noreferrer");
-    toast.info("Escaneie o QR Code na aba que abriu. Volte aqui após conectar.");
-  }, []);
-
-  const closeQrDialog = useCallback(() => {
-    setQrOpen(false);
-    setQrDataUrl(null);
-    if (qrIntervalRef.current !== null) {
-      clearInterval(qrIntervalRef.current);
-      qrIntervalRef.current = null;
-    }
-  }, []);
-
-  // ── Selection helpers ─────────────────────────────────────────────────────
-  const allSelected =
-    eligible.length > 0 && eligible.every((p) => selectedIds.has(p.id));
+  const allSelected = eligible.length > 0 && eligible.every((p) => selectedIds.has(p.id));
   const someSelected = eligible.some((p) => selectedIds.has(p.id));
 
   const toggleAll = useCallback(() => {
-    if (allSelected) {
-      setSelectedIds(new Set());
-    } else {
-      setSelectedIds(new Set(eligible.map((p) => p.id)));
-    }
+    setSelectedIds(allSelected ? new Set() : new Set(eligible.map((p) => p.id)));
   }, [allSelected, eligible]);
 
   const toggleOne = useCallback((id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   }, []);
 
-  // ── Queue polling & side-effects ──────────────────────────────────────────
-  const pollQueue = useCallback(async () => {
-    try {
-      const res = await fetch(`${SERVER_URL}/queue`, { signal: AbortSignal.timeout(4000) });
-      if (!res.ok) return;
-      const data = await res.json() as QueueState;
-      setQueueState(data);
+  // ── Disparo via WhatsApp Web + Tampermonkey ───────────────────────────────
+  const updateItem = useCallback((idx: number, patch: Partial<QueueItem>) => {
+    setItems((prev) => prev.map((item, i) => i === idx ? { ...item, ...patch } : item));
+  }, []);
 
-      // Process newly completed items
-      for (const item of data.items) {
-        if (processedIdsRef.current.has(item.id)) continue;
-        if (item.status === "sent") {
-          processedIdsRef.current.add(item.id);
-          void updateProspect(item.id, { status: "primeiro_contato" }).catch((err: unknown) => {
-            console.error("[DisparoWhatsApp] updateProspect sent error", err);
-          });
-        } else if (item.status === "failed" && item.reason === "no_whatsapp") {
-          processedIdsRef.current.add(item.id);
-          void updateProspect(item.id, { whatsapp: "__sem_whatsapp__" }).catch((err: unknown) => {
-            console.error("[DisparoWhatsApp] updateProspect no_whatsapp error", err);
-          });
+  const waitForTampermonkey = useCallback((
+    prospectId: string,
+    timeoutMs: number,
+  ): Promise<{ success: boolean; reason?: string }> => {
+    return new Promise((resolve) => {
+      const start = Date.now();
+      // Limpa resultado anterior
+      try { localStorage.removeItem(TM_RESULT_KEY); } catch {}
+      // Escreve o ID pendente para o TM saber qual prospect está sendo disparado
+      try { localStorage.setItem(TM_PENDING_KEY, prospectId); } catch {}
+
+      const poll = setInterval(() => {
+        try {
+          const raw = localStorage.getItem(TM_RESULT_KEY);
+          if (raw) {
+            clearInterval(poll);
+            localStorage.removeItem(TM_RESULT_KEY);
+            localStorage.removeItem(TM_PENDING_KEY);
+            try {
+              const parsed = JSON.parse(raw) as { success: boolean; reason?: string };
+              resolve(parsed);
+            } catch {
+              resolve({ success: true });
+            }
+            return;
+          }
+        } catch {}
+        if (Date.now() - start > timeoutMs) {
+          clearInterval(poll);
+          localStorage.removeItem(TM_PENDING_KEY);
+          // Timeout — consideramos enviado (a aba pode ter fechado antes de gravar)
+          resolve({ success: true });
+        }
+      }, 500);
+    });
+  }, []);
+
+  const runQueue = useCallback(async (queueItems: QueueItem[]) => {
+    cancelRef.current = false;
+    pauseRef.current = false;
+    setRunning(true);
+    setPaused(false);
+
+    for (let i = 0; i < queueItems.length; i++) {
+      // Verifica cancelamento
+      if (cancelRef.current) break;
+
+      // Verifica pausa — espera até despausar
+      while (pauseRef.current) {
+        await sleep(500);
+        if (cancelRef.current) break;
+      }
+      if (cancelRef.current) break;
+
+      const item = queueItems[i];
+      setCurrentIdx(i);
+      updateItem(i, { status: "sending" });
+
+      const phone = sanitizePhone(item.phone);
+      const encoded = encodeURIComponent(item.message);
+      const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encoded}`;
+
+      // Abre o WhatsApp Web — o Tampermonkey vai clicar em enviar e fechar a aba
+      window.open(url, "_blank", "noopener");
+
+      // Aguarda o Tampermonkey gravar o resultado (timeout = 60s)
+      const result = await waitForTampermonkey(item.id, 60_000);
+
+      if (result.success) {
+        updateItem(i, { status: "sent" });
+        try {
+          await updateProspect(item.id, { status: "primeiro_contato" });
+        } catch (e) {
+          console.error("[Disparo] updateProspect erro:", e);
+        }
+      } else {
+        updateItem(i, { status: "failed", reason: result.reason });
+        if (result.reason === "no_whatsapp") {
+          try {
+            await updateProspect(item.id, { whatsapp: "__sem_whatsapp__" });
+          } catch {}
         }
       }
 
-      // Stop polling when queue is done
-      if (!data.running) {
-        if (queueIntervalRef.current !== null) {
-          clearInterval(queueIntervalRef.current);
-          queueIntervalRef.current = null;
+      // Delay entre disparos (exceto no último)
+      if (i < queueItems.length - 1 && !cancelRef.current) {
+        const ms = Math.floor(Math.random() * (delayMax - delayMin + 1) + delayMin) * 1000;
+        const steps = ms / 500;
+        for (let s = 0; s < steps; s++) {
+          if (cancelRef.current) break;
+          while (pauseRef.current) { await sleep(500); if (cancelRef.current) break; }
+          await sleep(500);
         }
-        if (data.total > 0) {
-          toast.success(`Disparo concluído: ${data.sent} enviado(s), ${data.failed} falha(s).`);
-        }
-      }
-    } catch {
-      // server may have gone offline; stop polling silently
-      if (queueIntervalRef.current !== null) {
-        clearInterval(queueIntervalRef.current);
-        queueIntervalRef.current = null;
       }
     }
-  }, []);
 
-  // Cleanup queue polling on unmount
-  useEffect(() => {
-    return () => {
-      if (queueIntervalRef.current !== null) clearInterval(queueIntervalRef.current);
-    };
-  }, []);
+    setRunning(false);
+    setPaused(false);
+    cancelRef.current = false;
+    pauseRef.current = false;
 
-  // ── Dispatch ──────────────────────────────────────────────────────────────
-  const handleDispatch = useCallback(async () => {
+    const sent = queueItems.filter((_, i) => {
+      // lê o estado final dos itens
+      return true;
+    }).length;
+    toast.success("Fila de disparo finalizada!");
+  }, [delayMin, delayMax, updateItem, waitForTampermonkey]);
+
+  const handleDispatch = useCallback(() => {
     const selected = eligible.filter((p) => selectedIds.has(p.id));
     if (selected.length === 0) return;
 
-    const items = selected.map((p) => ({
+    const queueItems: QueueItem[] = selected.map((p) => ({
       id: p.id,
-      phone: sanitizePhone(p.whatsapp),
-      company: p.company,
-      message: pickNicheMessage(
-        p.company ?? "",
-        p.segment,
-        null,
-        "disparo-tab",
-      ),
+      phone: p.whatsapp,
+      company: p.company ?? p.id,
+      message: pickNicheMessage(p.company ?? "", p.segment, null, "disparo-tab"),
+      status: "pending",
     }));
 
-    try {
-      const res = await fetch(`${SERVER_URL}/queue`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items, delayMin, delayMax }),
-        signal: AbortSignal.timeout(8000),
-      });
+    setItems(queueItems);
+    setCurrentIdx(0);
+    void runQueue(queueItems);
+  }, [eligible, selectedIds, runQueue]);
 
-      if (!res.ok) {
-        toast.error("Falha ao iniciar a fila de disparo.");
-        return;
-      }
-
-      processedIdsRef.current = new Set();
-      toast.success(`Fila iniciada com ${items.length} contato(s).`);
-
-      // Start polling queue state
-      void pollQueue();
-      queueIntervalRef.current = setInterval(() => {
-        void pollQueue();
-      }, 2000);
-    } catch {
-      toast.error("Não foi possível conectar ao servidor de disparo.");
-    }
-  }, [eligible, selectedIds, delayMin, delayMax, pollQueue]);
-
-  // ── Cancel queue ─────────────────────────────────────────────────────────
-  const handleCancel = useCallback(async () => {
-    try {
-      await fetch(`${SERVER_URL}/queue`, {
-        method: "DELETE",
-        signal: AbortSignal.timeout(4000),
-      });
-      if (queueIntervalRef.current !== null) {
-        clearInterval(queueIntervalRef.current);
-        queueIntervalRef.current = null;
-      }
-      setQueueState((prev) => ({ ...prev, running: false }));
-      toast.info("Fila de disparo cancelada.");
-    } catch {
-      toast.error("Erro ao cancelar a fila.");
-    }
+  const handlePause = useCallback(() => {
+    pauseRef.current = true;
+    setPaused(true);
+    toast.info("Disparo pausado. Clique em Retomar para continuar.");
   }, []);
 
-  // ── Progress calculation ──────────────────────────────────────────────────
-  const progressPct =
-    queueState.total > 0
-      ? Math.round(((queueState.sent + queueState.failed) / queueState.total) * 100)
-      : 0;
+  const handleResume = useCallback(() => {
+    pauseRef.current = false;
+    setPaused(false);
+    toast.info("Disparo retomado.");
+  }, []);
+
+  const handleCancel = useCallback(() => {
+    cancelRef.current = true;
+    pauseRef.current = false;
+    setRunning(false);
+    setPaused(false);
+    toast.info("Disparo cancelado.");
+  }, []);
+
+  // ── Stats ─────────────────────────────────────────────────────────────────
+  const sent = items.filter((i) => i.status === "sent").length;
+  const failed = items.filter((i) => i.status === "failed").length;
+  const processed = sent + failed;
+  const progressPct = items.length > 0 ? Math.round((processed / items.length) * 100) : 0;
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
-      {/* ── Connection section ── */}
-      <section className="surface-card p-4">
-        <h3 className="text-sm font-semibold mb-3">Conexão WhatsApp</h3>
-        <div className="flex items-center gap-3 flex-wrap">
-          {serverOffline ? (
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <WifiOff className="h-4 w-4 text-destructive" />
-                Servidor offline — inicie o servidor para usar o disparo
-              </div>
-              <Button size="sm" variant="outline" onClick={() => window.open("http://localhost:3333", "_blank", "noopener,noreferrer")}>
-                <Smartphone className="h-4 w-4 mr-1.5" />
-                Abrir servidor
-              </Button>
-              <Button size="sm" onClick={confirmConnected}>
-                <CheckCircle2 className="h-4 w-4 mr-1.5" />
-                Já conectei ✅
-              </Button>
-            </div>
-          ) : connection.connected ? (
-            <>
-              <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/40">
-                <Wifi className="h-3 w-3 mr-1" />
-                Conectado
-              </Badge>
-              <Button size="sm" variant="ghost" className="text-xs text-muted-foreground h-7" onClick={disconnectManual}>
-                <X className="h-3 w-3 mr-1" /> Desconectar
-              </Button>
-            </>
-          ) : (
-            <>
-              <Badge variant="destructive">
-                <WifiOff className="h-3 w-3 mr-1" />
-                Desconectado
-              </Badge>
-              <Button size="sm" variant="outline" onClick={openQrDialog}>
-                <Smartphone className="h-4 w-4 mr-1.5" />
-                Conectar
-              </Button>
-            </>
-          )}
-        </div>
+
+      {/* ── Aviso Tampermonkey ── */}
+      <section className="surface-card p-4 border border-primary/20 bg-primary/5">
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          <strong className="text-foreground">Requisito:</strong> instale a extensão{" "}
+          <a
+            href="https://www.tampermonkey.net/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary underline underline-offset-2"
+          >
+            Tampermonkey
+          </a>{" "}
+          e o script INFINDA (disponível em <strong>Cadência → aba Disparo</strong>).
+          Feito isso, o disparo é 100% automático — sem servidor, sem configuração extra.
+        </p>
       </section>
 
-      {/* ── QR Code Dialog ── */}
-      <Dialog open={qrOpen} onOpenChange={(open) => { if (!open) closeQrDialog(); }}>
-        <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Escanear QR Code</DialogTitle>
-            <DialogDescription>
-              Abra o WhatsApp no seu celular, vá em Dispositivos vinculados e
-              escaneie o código abaixo.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col items-center gap-4 py-2">
-            {qrLoading && !qrDataUrl ? (
-              <div className="flex items-center gap-2 text-muted-foreground text-sm py-8">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Gerando QR Code…
-              </div>
-            ) : qrDataUrl ? (
-              <img
-                src={qrDataUrl}
-                alt="QR Code WhatsApp"
-                className="w-56 h-56 rounded-md border border-border"
-              />
-            ) : (
-              <div className="flex flex-col items-center gap-3 py-6 text-muted-foreground text-sm">
-                <XCircle className="h-8 w-8 text-destructive" />
-                <span>Não foi possível gerar o QR Code.</span>
-                <Button size="sm" variant="outline" onClick={() => void fetchQr()}>
-                  <RefreshCw className="h-4 w-4 mr-1.5" />
-                  Tentar novamente
-                </Button>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Queue configuration section ── */}
-      <section className="surface-card p-4 mt-4">
+      {/* ── Fila ── */}
+      <section className="surface-card p-4">
         <h3 className="text-sm font-semibold mb-3">
           Fila de Disparo ({eligible.length} prospects elegíveis)
         </h3>
@@ -418,19 +285,18 @@ export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
           </p>
         ) : (
           <>
-            {/* Select all */}
             <div className="flex items-center gap-2 mb-3">
               <Checkbox
                 id="select-all"
                 checked={allSelected ? true : someSelected ? "indeterminate" : false}
                 onCheckedChange={toggleAll}
+                disabled={running}
               />
               <Label htmlFor="select-all" className="text-sm cursor-pointer">
                 Selecionar todos ({eligible.length})
               </Label>
             </div>
 
-            {/* Prospect list */}
             <div className="max-h-64 overflow-y-auto space-y-1.5 mb-4 pr-1">
               {eligible.map((p) => (
                 <div
@@ -438,144 +304,91 @@ export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
                   className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/40 transition-colors"
                 >
                   <Checkbox
-                    id={`prospect-${p.id}`}
+                    id={`p-${p.id}`}
                     checked={selectedIds.has(p.id)}
                     onCheckedChange={() => toggleOne(p.id)}
+                    disabled={running}
                   />
-                  <Label
-                    htmlFor={`prospect-${p.id}`}
-                    className="flex-1 flex items-center gap-2 cursor-pointer text-sm"
-                  >
+                  <Label htmlFor={`p-${p.id}`} className="flex-1 flex items-center gap-2 cursor-pointer text-sm">
                     <span className="font-medium truncate max-w-[180px]">{p.company}</span>
-                    <span className="text-muted-foreground text-xs shrink-0">
-                      {p.whatsapp || p.phone}
-                    </span>
+                    <span className="text-muted-foreground text-xs shrink-0">{p.whatsapp || p.phone}</span>
                     {p.segment && (
-                      <span className="text-muted-foreground text-xs shrink-0 hidden sm:block">
-                        · {p.segment}
-                      </span>
+                      <span className="text-muted-foreground text-xs shrink-0 hidden sm:block">· {p.segment}</span>
                     )}
                   </Label>
-                  <Badge
-                    variant="outline"
-                    className="text-xs shrink-0 bg-muted text-muted-foreground border-border"
-                  >
+                  <Badge variant="outline" className="text-xs shrink-0 bg-muted text-muted-foreground border-border">
                     Não contatado
                   </Badge>
                 </div>
               ))}
             </div>
 
-            {/* Delay config */}
+            {/* Delay */}
             <div className="flex items-end gap-4 mb-4">
               <div className="space-y-1">
-                <Label htmlFor="delay-min" className="text-xs text-muted-foreground">
-                  Delay mínimo (s)
-                </Label>
-                <Input
-                  id="delay-min"
-                  type="number"
-                  min={10}
-                  max={delayMax - 1}
-                  value={delayMin}
-                  onChange={(e) => setDelayMin(Number(e.target.value))}
-                  className="w-24"
-                />
+                <Label htmlFor="delay-min" className="text-xs text-muted-foreground">Delay mínimo (s)</Label>
+                <Input id="delay-min" type="number" min={10} max={delayMax - 1} value={delayMin}
+                  onChange={(e) => setDelayMin(Number(e.target.value))} className="w-24" disabled={running} />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="delay-max" className="text-xs text-muted-foreground">
-                  Delay máximo (s)
-                </Label>
-                <Input
-                  id="delay-max"
-                  type="number"
-                  min={delayMin + 1}
-                  max={600}
-                  value={delayMax}
-                  onChange={(e) => setDelayMax(Number(e.target.value))}
-                  className="w-24"
-                />
+                <Label htmlFor="delay-max" className="text-xs text-muted-foreground">Delay máximo (s)</Label>
+                <Input id="delay-max" type="number" min={delayMin + 1} max={600} value={delayMax}
+                  onChange={(e) => setDelayMax(Number(e.target.value))} className="w-24" disabled={running} />
               </div>
             </div>
 
-            {/* Dispatch button */}
-            <Button
-              onClick={() => void handleDispatch()}
-              disabled={selectedIds.size === 0 || !connection.connected || queueState.running}
-              className="w-full sm:w-auto"
-            >
-              {queueState.running ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                  Disparando…
-                </>
-              ) : (
-                <>
+            {/* Botões */}
+            <div className="flex flex-wrap gap-2">
+              {!running ? (
+                <Button onClick={handleDispatch} disabled={selectedIds.size === 0}>
                   <Send className="h-4 w-4 mr-1.5" />
                   Disparar selecionados ({selectedIds.size})
+                </Button>
+              ) : (
+                <>
+                  {paused ? (
+                    <Button onClick={handleResume} variant="outline">
+                      <Play className="h-4 w-4 mr-1.5" /> Retomar
+                    </Button>
+                  ) : (
+                    <Button onClick={handlePause} variant="outline">
+                      <Pause className="h-4 w-4 mr-1.5" /> Pausar
+                    </Button>
+                  )}
+                  <Button onClick={handleCancel} variant="destructive">
+                    <X className="h-4 w-4 mr-1.5" /> Cancelar
+                  </Button>
                 </>
               )}
-            </Button>
+            </div>
           </>
         )}
       </section>
 
-      {/* ── Queue status section (only when there's a queue) ── */}
-      {queueState.total > 0 && (
-        <section className="surface-card p-4 mt-4">
+      {/* ── Status da fila ── */}
+      {items.length > 0 && (
+        <section className="surface-card p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold">Status da Fila</h3>
-            {queueState.running && (
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => void handleCancel()}
-              >
-                <X className="h-4 w-4 mr-1.5" />
-                Cancelar fila
-              </Button>
-            )}
+            <span className="text-xs text-muted-foreground">
+              {processed}/{items.length} · {sent} enviado(s){failed > 0 && ` · ${failed} falha(s)`}
+              {paused && " · Pausado"}
+            </span>
           </div>
-
-          {/* Progress bar */}
-          <div className="mb-3 space-y-1.5">
-            <Progress value={progressPct} className="h-2" />
-            <p className="text-xs text-muted-foreground">
-              {queueState.sent + queueState.failed} de {queueState.total} processados
-              &nbsp;·&nbsp;
-              {queueState.sent} enviado(s)
-              {queueState.failed > 0 && (
-                <span className="text-destructive"> · {queueState.failed} falha(s)</span>
-              )}
-            </p>
-          </div>
-
-          {/* Item list */}
+          <Progress value={progressPct} className="h-2 mb-3" />
           <div className="max-h-64 overflow-y-auto space-y-1 pr-1">
-            {queueState.items.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm"
-              >
-                {item.status === "sent" && (
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
-                )}
-                {item.status === "failed" && (
-                  <XCircle className="h-4 w-4 text-destructive shrink-0" />
-                )}
-                {(item.status === "pending" || item.status === "sending") && (
-                  <Loader2
-                    className={`h-4 w-4 shrink-0 text-muted-foreground ${
-                      item.status === "sending" ? "animate-spin" : ""
-                    }`}
-                  />
-                )}
+            {items.map((item, i) => (
+              <div key={item.id} className="flex items-center gap-2.5 rounded-md px-2 py-1.5 text-sm">
+                {item.status === "sent" && <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />}
+                {item.status === "failed" && <XCircle className="h-4 w-4 text-destructive shrink-0" />}
+                {item.status === "sending" && <Loader2 className="h-4 w-4 shrink-0 text-primary animate-spin" />}
+                {item.status === "pending" && <Loader2 className="h-4 w-4 shrink-0 text-muted-foreground" />}
                 <span className="flex-1 truncate font-medium">{item.company}</span>
                 <span className="text-xs text-muted-foreground shrink-0">
                   {item.status === "sent" && "Enviado"}
                   {item.status === "failed" && (item.reason === "no_whatsapp" ? "Sem WhatsApp" : "Falha")}
+                  {item.status === "sending" && (i === currentIdx ? "Enviando…" : "Aguardando")}
                   {item.status === "pending" && "Aguardando"}
-                  {item.status === "sending" && "Enviando…"}
                 </span>
               </div>
             ))}

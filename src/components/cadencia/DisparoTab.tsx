@@ -1,148 +1,155 @@
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Terminal, QrCode, Zap, ArrowRight, Download, Smartphone, Monitor } from "lucide-react";
+import { Download, Copy, QrCode, Zap, ArrowRight, Smartphone } from "lucide-react";
 import { toast } from "sonner";
 
-// Conteúdo do .bat gerado dinamicamente para download
-const BAT_CONTENT = `@echo off
-title INFINDA - Servidor de Disparo WhatsApp
-color 0A
+// Script Tampermonkey v2 — integrado ao CRM INFINDA via localStorage
+const SCRIPT_CONTENT = `// ==UserScript==
+// @name         INFINDA - Auto Disparar WhatsApp
+// @namespace    http://tampermonkey.net/
+// @version      2.0
+// @description  Envia mensagem automaticamente no WhatsApp Web e notifica o CRM INFINDA
+// @author       INFINDA
+// @match        https://web.whatsapp.com/send?*
+// @grant        window.close
+// ==/UserScript==
 
-echo.
-echo  ==========================================
-echo   INFINDA - Servidor de Disparo WhatsApp
-echo  ==========================================
-echo.
+(function() {
+    'use strict';
 
-where node >nul 2>nul
-if %errorlevel% neq 0 (
-    echo  [ERRO] Node.js nao encontrado!
-    echo.
-    echo  Por favor, instale o Node.js em:
-    echo  https://nodejs.org  (versao LTS)
-    echo.
-    pause
-    start https://nodejs.org
-    exit /b 1
-)
+    const MAX_WAIT = 60000;
+    const start = Date.now();
 
-cd /d "%~dp0"
+    const disparar = setInterval(() => {
+        if (Date.now() - start > MAX_WAIT) {
+            clearInterval(disparar);
+            notificar(false, 'timeout');
+            fechar();
+            return;
+        }
 
-if not exist "node_modules" (
-    echo  Instalando dependencias pela primeira vez...
-    echo  Aguarde, isso pode levar alguns minutos.
-    echo.
-    call npm install
-    if %errorlevel% neq 0 (
-        echo.
-        echo  [ERRO] Falha ao instalar dependencias.
-        pause
-        exit /b 1
-    )
-    echo  Dependencias instaladas!
-    echo.
-)
+        const btn = document.querySelector('span[data-icon="send"]') ||
+                    document.querySelector('button[aria-label="Enviar"]') ||
+                    document.querySelector('button[aria-label="Send"]');
 
-echo  Iniciando servidor...
-start /B node server.js
+        if (btn) {
+            clearInterval(disparar);
+            btn.click();
+            console.log('[INFINDA] Mensagem enviada!');
+            setTimeout(() => { notificar(true); fechar(); }, 3000);
+        }
+    }, 1000);
 
-timeout /t 3 /nobreak >nul
+    function notificar(success, reason) {
+        try {
+            localStorage.setItem('infinda_disparo_result', JSON.stringify({
+                success: success,
+                reason: reason || null,
+                ts: Date.now()
+            }));
+        } catch(e) {}
+    }
 
-echo  Abrindo INFINDA no navegador...
-start https://app.lovable.app/projects/
-
-echo.
-echo  ==========================================
-echo   Servidor rodando em http://localhost:3333
-echo   Va em Prospeccao - aba Disparo WhatsApp
-echo   e escaneie o QR Code com seu celular.
-echo  ==========================================
-echo.
-echo  MANTENHA ESTA JANELA ABERTA enquanto disparar.
-echo  Para encerrar, feche esta janela.
-echo.
-
-:loop
-timeout /t 60 /nobreak >nul
-goto loop`;
+    function fechar() {
+        try { window.close(); } catch(e) {}
+    }
+})();`;
 
 const STEPS = [
   {
-    icon: Monitor,
-    title: "Baixe o servidor e dê dois cliques no .bat",
+    icon: Download,
+    title: "Instale o Tampermonkey (uma vez só)",
     description: (
       <>
-        Baixe a pasta do servidor abaixo, extraia em qualquer lugar do seu PC e dê{" "}
-        <strong>dois cliques</strong> no arquivo <code className="rounded bg-muted px-1 py-0.5 text-xs">infinda-disparar.bat</code>.
-        O servidor sobe automaticamente e o INFINDA abre no navegador.
+        Acesse{" "}
+        <a href="https://www.tampermonkey.net/" target="_blank" rel="noopener noreferrer"
+          className="text-primary underline underline-offset-2">
+          tampermonkey.net
+        </a>{" "}
+        e instale a extensão no Chrome. É gratuito e leva menos de 1 minuto.
       </>
     ),
   },
   {
     icon: QrCode,
-    title: "Escaneie o QR Code (só na primeira vez)",
+    title: "Instale o script INFINDA (uma vez só)",
     description: (
       <>
-        Vá em <strong>Prospecção → aba Disparo WhatsApp</strong>, clique em{" "}
-        <strong>"Conectar"</strong> e escaneie o QR Code com seu celular. A sessão fica salva — da próxima vez conecta sozinho.
+        Clique em <strong>"Baixar script"</strong> abaixo. O Tampermonkey vai abrir e pedir para instalar.
+        Clique em <strong>"Instalar"</strong>. Pronto — não precisa fazer mais nada.
       </>
     ),
   },
   {
     icon: Zap,
-    title: "Selecione os prospects e dispare",
+    title: "Selecione e dispare",
     description: (
       <>
-        Selecione os prospects, configure o delay (padrão 80–100s entre mensagens) e clique{" "}
-        <strong>"Disparar selecionados"</strong>. O CRM envia um por um e atualiza o status automaticamente.
-        Feche a aba para pausar o disparo.
+        Vá em <strong>Prospecção → aba Disparo WhatsApp</strong>, selecione os prospects,
+        configure o delay e clique <strong>"Disparar selecionados"</strong>.
+        O CRM abre o WhatsApp Web, o script envia automaticamente, fecha a aba e passa para o próximo.
       </>
     ),
   },
 ];
 
-function downloadBat() {
-  const blob = new Blob([BAT_CONTENT], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "infinda-disparar.bat";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-  toast.success("Download iniciado! Extraia e dê dois cliques no .bat");
-}
-
 export function DisparoTab() {
+  const [copied, setCopied] = useState(false);
+
+  const handleDownload = () => {
+    const blob = new Blob([SCRIPT_CONTENT], { type: "text/javascript;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "infinda-auto-disparar.user.js";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast.success("Script baixado! Abra o arquivo para instalar no Tampermonkey.");
+  };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(SCRIPT_CONTENT);
+      setCopied(true);
+      toast.success("Script copiado!");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error("Não foi possível copiar.");
+    }
+  };
+
   return (
     <div className="space-y-6">
 
-      {/* Card de download em destaque */}
+      {/* Download em destaque */}
       <Card className="border-primary/40 bg-primary/5">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Download className="h-5 w-5 text-primary" />
-            Baixar servidor de disparo
+            Script de disparo automático
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Baixe o servidor, extraia a pasta e dê dois cliques no <code className="rounded bg-muted px-1 py-0.5 text-xs">infinda-disparar.bat</code>.
-            Só precisa do <strong>Node.js instalado</strong> — o resto é automático.
+            Instale o Tampermonkey no Chrome e depois baixe o script abaixo.
+            Feito isso, o disparo é <strong>100% automático</strong> — sem servidor, sem configuração extra.
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={downloadBat} size="sm">
+            <Button onClick={handleDownload} size="sm">
               <Download className="mr-2 h-4 w-4" />
-              Baixar infinda-disparar.bat
+              Baixar script (.user.js)
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.open("https://nodejs.org", "_blank")}
-            >
-              Baixar Node.js (se não tiver)
+            <Button onClick={handleCopy} variant="outline" size="sm">
+              <Copy className="mr-2 h-4 w-4" />
+              {copied ? "Copiado!" : "Copiar script"}
+            </Button>
+            <Button variant="outline" size="sm"
+              onClick={() => window.open("https://www.tampermonkey.net/", "_blank")}>
+              Instalar Tampermonkey
             </Button>
           </div>
         </CardContent>
@@ -186,31 +193,29 @@ export function DisparoTab() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">
-            No celular o servidor local não roda. O disparo funciona de forma <strong>manual</strong>:{" "}
-            clique no prospect → o WhatsApp abre com a mensagem pronta → envie normalmente.
-            O status é atualizado no CRM após o envio.
+            No celular o Tampermonkey não funciona. O disparo é <strong>manual</strong>:{" "}
+            clique no prospect → WhatsApp abre com a mensagem pronta → você envia normalmente.
+            O status é atualizado no CRM automaticamente.
           </p>
         </CardContent>
       </Card>
 
       {/* Requisitos */}
       <Card>
-        <CardHeader>
-          <CardTitle>Requisitos</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Requisitos</CardTitle></CardHeader>
         <CardContent>
           <ul className="space-y-2">
             <li className="flex flex-wrap items-start gap-2 text-sm text-muted-foreground">
-              <Badge variant="outline">Node.js 18+</Badge>
-              Instale em <a href="https://nodejs.org" target="_blank" rel="noopener noreferrer" className="text-primary underline underline-offset-2">nodejs.org</a> (versão LTS). Só precisa instalar uma vez.
-            </li>
-            <li className="flex flex-wrap items-start gap-2 text-sm text-muted-foreground">
-              <Badge variant="outline">Windows</Badge>
-              O arquivo .bat funciona no Windows. Mac/Linux: rode <code className="rounded bg-muted px-1 py-0.5 text-xs">npm start</code> na pasta do servidor.
+              <Badge variant="outline">Chrome / Edge</Badge>
+              O Tampermonkey funciona no Chrome, Edge, Firefox e Opera.
             </li>
             <li className="flex flex-wrap items-start gap-2 text-sm text-muted-foreground">
               <Badge variant="outline">Número dedicado</Badge>
               Recomendamos usar um chip separado para disparos — reduz risco de bloqueio.
+            </li>
+            <li className="flex flex-wrap items-start gap-2 text-sm text-muted-foreground">
+              <Badge variant="outline">Sem servidor</Badge>
+              Não precisa instalar Node.js, servidor local ou nada extra.
             </li>
           </ul>
         </CardContent>
@@ -223,7 +228,7 @@ export function DisparoTab() {
             Os controles de fila ficam em <strong>Prospecção → aba "Disparo WhatsApp"</strong>
           </div>
           <p className="mt-1 text-xs text-muted-foreground">
-            Esta aba mostra o guia de instalação. Após iniciar o servidor, vá para a Prospecção para disparar.
+            Esta aba mostra o guia de instalação. Para disparar, vá para a Prospecção.
           </p>
         </CardContent>
       </Card>
