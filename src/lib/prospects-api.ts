@@ -6,7 +6,9 @@ import type {
   ProspectStatus,
   InteractionKind,
   Interaction,
-} from "@/lib/mock-prospects";
+} from "./mock-prospects";
+import { getProspectIdentityKey } from "./prospect-identity";
+
 
 type Row = {
   id: string;
@@ -41,6 +43,8 @@ type IxRow = {
   by_name: string;     // touchpoints.by_name (pode ser '')
   created_at: string;  // mapeado de touchpoints.enviado_em
 };
+
+type DbErrorLike = { code?: string; message?: string };
 
 const VALID_POTENTIALS = ["alto", "medio", "baixo"];
 const VALID_STATUSES = [
@@ -105,59 +109,187 @@ export async function loadAllProspects(): Promise<Prospect[]> {
   if (!uid) return [];
   // PostgREST limita 1000 linhas/consulta — paginar via range() até esgotar.
   const PAGE = 1000;
-  const rows: Row[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await dbExt.from("prospects")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .range(from, from + PAGE - 1);
-    if (error) {
-      console.error("loadAllProspects prospects error", error);
-      throw new Error(`Falha ao carregar prospects: ${error.message}`);
-    }
-    const batch = (data ?? []) as Row[];
-    rows.push(...batch);
-    if (batch.length < PAGE) break;
-  }
-  // Interações: também pagina e busca em lotes de ids (evita URL gigante no .in()).
-  const ids = rows.map((r) => r.id);
-  const ID_BATCH = 200;
-  // Lotes de ids buscados em PARALELO (Promise.all) — antes era sequencial,
-  // causando N round-trips quando a base passava de 1k prospects.
+  const rows = await loadProspectRows(PAGE);
+  const ids = new Set(rows.map((r) => r.id));
+
+  // O índice (user_id, enviado_em) permite buscar todo o histórico privado do
+  // usuário em poucas páginas. A versão anterior dividia os prospects em
+  // lotes de 200 e fazia dezenas de requisições simultâneas.
   type TpRow = {
     id: string; prospect_id: string; tipo: string;
-    mensagem: string | null; by_name: string | null; enviado_em: string;
+    mensagem: string | null; resultado: string | null;
+    by_name: string | null; enviado_em: string;
   };
-  const slices: string[][] = [];
-  for (let i = 0; i < ids.length; i += ID_BATCH) slices.push(ids.slice(i, i + ID_BATCH));
-  const batchResults = await Promise.all(
-    slices.map(async (slice) => {
-      const out: TpRow[] = [];
-      for (let from = 0; ; from += PAGE) {
-        const { data, error } = await dbExt
-          .from("prospect_touchpoints")
-          .select("id, prospect_id, tipo, mensagem, by_name, enviado_em")
-          .in("prospect_id", slice)
-          .order("enviado_em", { ascending: false })
-          .range(from, from + PAGE - 1);
-        if (error) { console.warn("loadAllProspects touchpoints error", error); break; }
-        const batch = (data ?? []) as TpRow[];
-        out.push(...batch);
-        if (batch.length < PAGE) break;
-      }
-      return out;
-    }),
-  );
-  const ixs: IxRow[] = batchResults.flat().map((row) => ({
-    id: row.id,
-    prospect_id: row.prospect_id,
-    kind: row.tipo,
-    text: row.mensagem ?? "",
-    by_name: row.by_name ?? "",
-    created_at: row.enviado_em,
-  }));
-  return rows.map((r) => fromRow(r, ixs));
+  const touchpoints: TpRow[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await dbExt
+      .from("prospect_touchpoints")
+      .select("id,prospect_id,tipo,mensagem,resultado,by_name,enviado_em")
+      .eq("user_id", uid)
+      .order("enviado_em", { ascending: false })
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(`Falha ao carregar histórico: ${error.message}`);
+    const batch = (data ?? []) as TpRow[];
+    touchpoints.push(...batch.filter((row) => ids.has(row.prospect_id)));
+    if (batch.length < PAGE) break;
+  }
+
+  const states = privateStatesFromTouchpoints(touchpoints);
+  const interactions = new Map<string, IxRow[]>();
+  for (const row of touchpoints) {
+    const list = interactions.get(row.prospect_id) ?? [];
+    list.push({
+      id: row.id,
+      prospect_id: row.prospect_id,
+      kind: row.tipo,
+      text: row.mensagem ?? "",
+      by_name: row.by_name ?? "",
+      created_at: row.enviado_em,
+    });
+    interactions.set(row.prospect_id, list);
+  }
+
+  return rows.map((row) => {
+    const withState = { ...row, ...(states.get(row.id) ?? {}) };
+    return fromRow(withState, interactions.get(row.id) ?? []);
+  });
 }
+
+// Cache por sessão: evita testar a existência da coluna em cada página
+// da paginação (a listagem pagina de 1000 em 1000).
+let mergedIntoSupported = true;
+let mergedIntoWarned = false;
+
+const PROSPECT_COLUMNS =
+  "id,company,cnpj,segment,owner_name,whatsapp,phone,email,instagram,city,state,source,potential,created_at,updated_at";
+
+function selectProspectsPage(from: number, pageSize: number, filterMerged: boolean) {
+  let query = dbExt.from("prospects").select(PROSPECT_COLUMNS);
+  // Não carrega duplicatas arquivadas quando a coluna existe.
+  if (filterMerged) query = query.is("merged_into", null);
+  return query.order("created_at", { ascending: false }).range(from, from + pageSize - 1);
+}
+
+function warnMergedIntoUnavailable() {
+  if (mergedIntoWarned) return;
+  mergedIntoWarned = true;
+  console.warn(
+    "prospects.merged_into indisponível neste banco — listando sem deduplicação de duplicatas arquivadas.",
+  );
+  void import("sonner").then(({ toast }) =>
+    toast.warning("Deduplicação indisponível", {
+      description: "Este banco ainda não tem a migração de duplicatas; empresas repetidas podem aparecer na fila.",
+    }),
+  ).catch(() => {});
+}
+
+async function loadProspectRows(pageSize: number): Promise<Row[]> {
+  const rows: Row[] = [];
+  for (let from = 0; ; from += pageSize) {
+    let { data, error } = await selectProspectsPage(from, pageSize, mergedIntoSupported);
+    // Bancos sem a migração de deduplicação: o filtro opcional não deve
+    // derrubar a tela inteira (erro 42703 = coluna inexistente).
+    if (error && (error as DbErrorLike).code === "42703" && mergedIntoSupported) {
+      mergedIntoSupported = false;
+      warnMergedIntoUnavailable();
+      ({ data, error } = await selectProspectsPage(from, pageSize, false));
+    }
+    if (error) {
+      console.error("loadAllProspects fallback prospects error", error);
+      throw new Error(`Falha ao carregar prospects: ${error.message}`);
+    }
+    const batch = ((data ?? []) as Partial<Row>[]).map(withDefaultPrivateState);
+    rows.push(...batch);
+    if (batch.length < pageSize) break;
+  }
+
+  return rows;
+}
+
+function privateStatesFromTouchpoints(events: Array<{
+  prospect_id: string;
+  tipo: string | null;
+  resultado: string | null;
+  mensagem: string | null;
+  enviado_em: string | null;
+}>): Map<string, Partial<Row>> {
+  const out = new Map<string, Partial<Row>>();
+  // A consulta vem em ordem decrescente. Processamos do mais antigo para o
+  // mais novo para que o último status sempre prevaleça.
+  for (let index = events.length - 1; index >= 0; index--) {
+    const event = events[index];
+    if (!event) continue;
+    const prev = out.get(event.prospect_id) ?? {};
+    const next: Partial<Row> = { ...prev };
+    const eventAt = event.enviado_em ?? null;
+    if (eventAt && (!next.last_contact_at || new Date(eventAt) > new Date(next.last_contact_at))) {
+      next.last_contact_at = eventAt;
+    }
+
+    if (event.tipo === "resposta" || event.resultado === "respondido" || event.resultado === "interessado") {
+      next.response_status = "respondido";
+      if (!next.status || next.status === "nao_contatado" || next.status === "primeiro_contato") next.status = "qualificado";
+    } else if (event.tipo === "status") {
+      const status = normalizePrivateStatus(event.resultado) ?? normalizePrivateStatus(event.mensagem);
+      if (status) next.status = status;
+    } else if (!next.status || next.status === "nao_contatado") {
+      if (["whatsapp", "ligacao", "email", "reuniao"].includes(event.tipo || "")) next.status = "primeiro_contato";
+    }
+    out.set(event.prospect_id, next);
+  }
+  return out;
+}
+
+
+function withDefaultPrivateState(row: Partial<Row>): Row {
+  return {
+    id: row.id || crypto.randomUUID(),
+    company: row.company || "Empresa sem nome",
+    cnpj: row.cnpj ?? null,
+    segment: row.segment || "Outros",
+    owner_name: row.owner_name || "",
+    whatsapp: row.whatsapp || "",
+    phone: row.phone || "",
+    email: row.email || "",
+    instagram: row.instagram || "",
+    city: row.city || "",
+    state: row.state || "",
+    source: row.source || "Importação",
+    potential: row.potential || "medio",
+    status: "nao_contatado",
+    created_at: row.created_at || new Date(0).toISOString(),
+    updated_at: row.updated_at || new Date(0).toISOString(),
+    cadence_step: 0,
+    cadence_status: "ativo",
+    response_status: "sem_resposta",
+    last_contact_at: null,
+    next_contact_at: null,
+  };
+}
+
+function isMissingRelation(error: DbErrorLike): boolean {
+  return error.code === "PGRST205" || /schema cache|Could not find the table|does not exist/i.test(error.message ?? "");
+}
+
+function normalizePrivateStatus(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const raw = value.trim();
+  const stripped = raw.replace(/^status\s*:\s*/i, "");
+  if (VALID_STATUSES.includes(stripped)) return stripped;
+
+  // Normalização de rótulos humanos (Português)
+  const lower = raw.toLowerCase();
+  if (lower.includes("perdido")) return "perdido";
+  if (lower.includes("fechado") || lower.includes("ganho") || lower.includes("cliente")) return "cliente";
+  if (lower.includes("qualificado")) return "qualificado";
+  if (lower.includes("negociação") || lower.includes("andamento")) return "em_negociacao";
+  if (lower.includes("agendado") || lower.includes("reunião")) return "agendado";
+  if (lower.includes("briefing")) return "briefing_enviada";
+  if (lower.includes("proposta")) return "proposta_enviada";
+
+  return null;
+}
+
 
 async function currentUserId(): Promise<string | null> {
   if (_cachedUid) return _cachedUid;
@@ -231,7 +363,9 @@ export async function insertProspect(p: Omit<Prospect, "id" | "createdAt" | "int
 
 export async function updateProspect(id: string, patch: Partial<Prospect>) {
   console.log("[prospects-api] updateProspect:start", { id, patch });
-  await requireUserId();
+  const uid = await requireUserId();
+  // Arquitetura híbrida: campos operacionais privados vão para o histórico privado.
+  // Somente cadastro compartilhado é gravado em prospects.
   const map: Record<string, unknown> = {};
   if (patch.company !== undefined) map.company = patch.company;
   if (patch.cnpj !== undefined) map.cnpj = patch.cnpj || null;
@@ -245,13 +379,22 @@ export async function updateProspect(id: string, patch: Partial<Prospect>) {
   if (patch.state !== undefined) map.state = patch.state;
   if (patch.source !== undefined) map.source = patch.source;
   if (patch.potential !== undefined) map.potential = patch.potential;
-  if (patch.status !== undefined) map.status = patch.status;
-  const { error } = await dbExt.from("prospects").update(map as never).eq("id", id);
-  if (error) {
-    console.error("[prospects-api] updateProspect:error", { id, patch, error });
-    throw error;
+  if (Object.keys(map).length > 0) {
+    const { error } = await dbExt.from("prospects").update(map as never).eq("id", id);
+    if (error) {
+      console.error("[prospects-api] updateProspect:error", { id, patch, error });
+      throw error;
+    }
   }
-  console.log("[prospects-api] updateProspect:ok", { id, fields: Object.keys(map) });
+  // Estado operacional privado (por usuário): registrado no histórico de touchpoints.
+  if (patch.status !== undefined) {
+    const err = await savePrivateStatusTouchpoint(id, uid, String(patch.status));
+    if (err) {
+      console.error("[prospects-api] updateProspect:state_error", { id, err });
+      throw new Error(err.message ?? "Falha ao salvar status privado");
+    }
+  }
+  console.log("[prospects-api] updateProspect:ok", { id, fields: Object.keys(map), status: patch.status });
 }
 
 export async function deleteProspects(ids: string[]) {
@@ -343,14 +486,56 @@ export async function bulkUpdateProspects(
   patch: Partial<Pick<Prospect, "status" | "owner" | "potential">>,
 ): Promise<void> {
   if (!ids.length) return;
-  await requireUserId();
+  const uid = await requireUserId();
   const map: Record<string, unknown> = {};
-  if (patch.status !== undefined) map.status = patch.status;
   if (patch.owner !== undefined) map.owner_name = patch.owner;
   if (patch.potential !== undefined) map.potential = patch.potential;
-  if (!Object.keys(map).length) return;
-  const { error } = await dbExt.from("prospects").update(map as never).in("id", ids);
-  if (error) throw error;
+  if (Object.keys(map).length) {
+    const { error } = await dbExt.from("prospects").update(map as never).in("id", ids);
+    if (error) throw error;
+  }
+  // Status é privado por usuário — grava em lote no histórico de touchpoints.
+  if (patch.status !== undefined) {
+    const rows = ids.map((prospect_id) => ({
+      prospect_id,
+      user_id: uid,
+      tipo: "status",
+      // `resultado` tem CHECK constraint restrito; o status privado do
+      // usuário é lido a partir de `mensagem` ("status:<X>") pelo reader.
+      resultado: "enviado",
+      mensagem: `status:${String(patch.status)}`,
+      by_name: "Sistema",
+      enviado_em: new Date().toISOString(),
+    }));
+    const { error } = await dbExt
+      .from("prospect_touchpoints")
+      .insert(rows as never);
+    if (error) throw error;
+  }
+}
+
+/**
+ * Registro do estado privado do usuário para um lead compartilhado.
+ * Usa prospect_touchpoints porque essa tabela já está exposta no backend externo
+ * e é a fonte única usada para disparos e importação para Cadência.
+ */
+async function savePrivateStatusTouchpoint(
+  prospectId: string,
+  userId: string,
+  status: string,
+): Promise<{ message?: string } | null> {
+  const { error } = await dbExt
+    .from("prospect_touchpoints")
+    .insert({
+      prospect_id: prospectId,
+      user_id: userId,
+      tipo: "status",
+      resultado: "enviado",
+      mensagem: `status:${status}`,
+      by_name: "Sistema",
+      enviado_em: new Date().toISOString(),
+    });
+  return error ? { message: error.message } : null;
 }
 
 // ============ IMPORT ============
@@ -397,13 +582,27 @@ export async function applyImport(
       continue;
     }
     const cnpj = r.data.cnpj || "";
-    if (cnpj && seenCnpjInFile.has(cnpj)) {
+    // Normalização via Identidade (raiz de 8 dígitos ou CNPJ completo)
+    const cnpjKey = cnpj.replace(/\D/g, "");
+    const cnpjRoot = cnpjKey.length >= 8 ? cnpjKey.slice(0, 8) : cnpjKey;
+    
+    if (cnpjRoot && seenCnpjInFile.has(cnpjRoot)) {
       result.skipped++;
       continue;
     }
-    if (cnpj) seenCnpjInFile.add(cnpj);
-    const match = cnpj ? byCnpj.get(cnpj) : undefined;
+    if (cnpjRoot) seenCnpjInFile.add(cnpjRoot);
+
+    // Casamento inteligente por raiz de CNPJ na base existente
+    let match = cnpj ? byCnpj.get(cnpj) : undefined;
+    if (!match && cnpjRoot) {
+      match = Array.from(byCnpj.values()).find(e => {
+        const eCnpj = (e.cnpj || "").replace(/\D/g, "");
+        return eCnpj.startsWith(cnpjRoot);
+      });
+    }
+
     if (match) {
+
       // fill-empty-only
       const patch: Record<string, unknown> = {};
       const fields: (keyof Prospect)[] = [

@@ -32,7 +32,7 @@ export function MobileNav({ onOpenMenu }: { onOpenMenu: () => void }) {
   return (
     <nav
       aria-label="Navegação principal"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 pb-safe backdrop-blur-xl lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-[1000] border-t border-border bg-background/95 pb-safe backdrop-blur-xl lg:hidden"
       style={{ paddingBottom: "max(env(safe-area-inset-bottom, 0px), 4px)" }}
     >
       <ul className="grid grid-cols-5">

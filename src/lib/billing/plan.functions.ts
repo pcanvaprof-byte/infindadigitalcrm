@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { requireSupabaseAuth } from "@/lib/app-auth-middleware";
+import { authWithAccess } from "@/lib/access/auth-with-access";
 import {
   buildImplantacaoPlan,
   buildMensalidadePlan,
@@ -166,7 +166,7 @@ function buildDraftsFromInput(input: GeneratePlanInput): {
 // ---------- Server fn ----------
 
 export const generateBillingPlan = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([authWithAccess])
   .inputValidator((data: unknown) => GeneratePlanInput.parse(data))
   .handler(async ({ data, context }) => {
     const { supabase } = context;

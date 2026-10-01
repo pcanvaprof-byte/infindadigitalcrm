@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { getProspectIdentityKey, getProspectBlockKeys } from "@/lib/prospect-identity";
 import { useEffect, useMemo, useRef, useState, memo, lazy, Suspense } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 
@@ -34,7 +35,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { nicheGroup } from "@/lib/niches";
+import { loadOpeningByCnpj, openingKeys } from "@/lib/enrichment/opening-map";
+import {
+  EMPTY_OPENING_FILTER,
+  OPENING_RANGES,
+  formatOpening,
+  isOpeningFilterActive,
+  marketAgeLabel,
+  matchesOpening,
+  type OpeningFilter,
+  type OpeningRange,
+} from "@/lib/opening-date";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Command,
   CommandEmpty,
@@ -104,6 +118,7 @@ import { History, FileSpreadsheet } from "lucide-react";
 import { Pencil, Save as SaveIcon, XCircle } from "lucide-react";
 import { EnrichmentDrawer } from "@/components/EnrichmentDrawer";
 import { runEnrichment } from "@/lib/enrichment/api";
+import { useAutoEnrich } from "@/lib/enrichment/auto-batch";
 import { Loader2 } from "lucide-react";
 import { Smartphone } from "lucide-react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
@@ -111,6 +126,7 @@ import { convertProspectToClient, crmKeys, invalidateCrmCore } from "@/lib/crm/a
 import { TouchpointModal } from "@/components/cadence/TouchpointModal";
 import { ProspectTimeline } from "@/components/cadence/ProspectTimeline";
 import { CloseCadenceDialog } from "@/components/cadence/CloseCadenceDialog";
+import { consumeBizReturn, setBizReturn, isBizGateDone, markBizGateDone } from "@/lib/business/return-flow";
 import { TemplateLibrary } from "@/components/cadence/TemplateLibrary";
 import {
   addTouchpoint,
@@ -127,6 +143,9 @@ import {
   sanitizeTemplateForSend,
 } from "@/lib/cadencia/types";
 import { pickNicheMessage } from "@/lib/prospeccao/niche-templates";
+import { useBusinessProfile } from "@/hooks/useBusinessProfile";
+import { ArrowRight } from "lucide-react";
+import { normalizeCity, cleanCityLabel, isValidCityName, cityDisplay, INVALID_CITY_KEY } from "@/lib/city-name";
 import { chooseVariant } from "@/lib/prospeccao/variant-telemetry";
 import {
   listCurrentNicheTemplates,
@@ -364,11 +383,27 @@ function ProspeccaoPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ProspectStatus | "all">("all");
   const [segmentFilter, setSegmentFilter] = useState<string>("all");
+  const [opening, setOpening] = useState<OpeningFilter>(EMPTY_OPENING_FILTER);
   const [stateFilter, setStateFilter] = useState<string>("all");
+  const [cityFilter, setCityFilter] = useState<string>("all");
   const [potentialFilter, setPotentialFilter] = useState<ProspectPotential | "all">("all");
   const [onlyWithContact, setOnlyWithContact] = useState(false);
   const [noWhatsapp, setNoWhatsapp] = useState(false);
   const [onlyWhatsapp, setOnlyWhatsapp] = useState(false);
+  // Oculta leads que já saíram de "não contatado" na visão privada do usuário
+  // (status derivado do próprio histórico de touchpoints). Após um disparo o
+  // lead avança para "primeiro contato" e some da fila de prospecção, ficando
+  // pronto pra ser trabalhado em Cadência. Persistido por usuário.
+  const [hideDispatched, setHideDispatched] = useState<boolean>(true);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const v = window.localStorage.getItem("prosp_hide_dispatched");
+    if (v === "0") setHideDispatched(false);
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try { window.localStorage.setItem("prosp_hide_dispatched", hideDispatched ? "1" : "0"); } catch { /* ignore */ }
+  }, [hideDispatched]);
   type CadenceChip = "all" | "hoje" | "atrasados" | "sem_resposta" | "responderam" | "interessados" | "clientes";
   const [cadenceFilter, setCadenceFilter] = useState<CadenceChip>("all");
   const [touchpointTarget, setTouchpointTarget] = useState<{ prospect: Prospect; tipo: TouchpointTipo } | null>(null);
@@ -392,6 +427,22 @@ function ProspeccaoPage() {
   const [waAccount, setWaAccount] = useState<WaAccount>("default");
   const [quickEnrichingIds, setQuickEnrichingIds] = useState<Set<string>>(new Set());
   const [dispatchingIds, setDispatchingIds] = useState<Set<string>>(new Set());
+  // Perfil do negócio: sem ele a 1ª mensagem de prospecção não existe.
+  const { data: bizProfile, isLoading: bizLoading } = useBusinessProfile();
+  // Flag persistida: uma vez que o perfil ficou pronto, não mostramos mais o pop-up.
+  const [bizGateDone, setBizGateDone] = useState(false);
+  useEffect(() => {
+    setBizGateDone(isBizGateDone(user?.id));
+  }, [user?.id]);
+  const bizIncomplete =
+    !bizLoading &&
+    (!bizProfile ||
+      bizProfile.onboarding_status !== "completed" ||
+      !String(bizProfile.initial_message ?? "").trim());
+  const bizPending = bizIncomplete && !bizGateDone;
+  const [showBizDialog, setShowBizDialog] = useState(false);
+  // Disparo que ficou pendente por causa do pop-up de configuração.
+  const [pendingWhatsId, setPendingWhatsId] = useState<string | null>(null);
   // Confirmação de exclusão em lote (C-1): evita perda irreversível por clique acidental.
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState<{ ids: string[] } | null>(null);
   const [bulkDeleteInput, setBulkDeleteInput] = useState("");
@@ -424,6 +475,15 @@ function ProspeccaoPage() {
     [prospectsQ.data],
   );
   const loading = prospectsQ.isLoading;
+
+  // Data de abertura do CNPJ (vem do enriquecimento compartilhado).
+  const openingQ = useQuery({
+    queryKey: openingKeys.all,
+    queryFn: loadOpeningByCnpj,
+    enabled: !!user,
+    staleTime: 5 * 60_000,
+  });
+  const openingMap = openingQ.data ?? {};
   useEffect(() => {
     if (prospectsQ.error) toast.error(`Falha ao carregar: ${(prospectsQ.error as Error).message}`);
   }, [prospectsQ.error]);
@@ -445,10 +505,37 @@ function ProspeccaoPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    
+    // Identidades e telefones ocultos por disparo anterior
+    const dispatchedIdentities = new Set<string>();
+    if (hideDispatched && statusFilter === "all") {
+      prospects.forEach(p => {
+        if (p.status !== "nao_contatado") {
+          for (const key of getProspectBlockKeys(p)) dispatchedIdentities.add(key);
+        }
+      });
+    }
+
     return prospects.filter((p) => {
       if (statusFilter !== "all" && p.status !== statusFilter) return false;
-      if (segmentFilter !== "all" && (p.segment || "").trim().toLowerCase() !== segmentFilter.toLowerCase()) return false;
+      
+      // Filtro de ocultação por identidade (CNPJ/Empresa) OU telefone já disparado
+      if (hideDispatched && statusFilter === "all") {
+        if (getProspectBlockKeys(p).some((key) => dispatchedIdentities.has(key))) return false;
+      }
+
+
+      if (segmentFilter !== "all" && nicheGroup(p.segment) !== segmentFilter) return false;
+      if (isOpeningFilterActive(opening)) {
+        const info = openingMap[(p.cnpj || "").replace(/\D/g, "")];
+        if (!matchesOpening(info?.data_abertura, opening)) return false;
+      }
       if (stateFilter !== "all" && p.state !== stateFilter) return false;
+      if (cityFilter !== "all") {
+        if (cityFilter === INVALID_CITY_KEY) {
+          if (isValidCityName(p.city)) return false;
+        } else if (normalizeCity(p.city) !== cityFilter) return false;
+      }
       if (potentialFilter !== "all" && p.potential !== potentialFilter) return false;
       if (onlyWithContact) {
         const hasContact = Boolean(
@@ -497,7 +584,8 @@ function ProspeccaoPage() {
       return [p.company, p.segment, p.owner, p.email, p.whatsapp, p.phone, p.instagram, p.city, p.state, p.source]
         .join(" ").toLowerCase().includes(q);
     });
-  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter]);
+  }, [prospects, search, statusFilter, segmentFilter, stateFilter, cityFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter, hideDispatched, opening, openingMap]);
+
 
   // Bloqueio de 24h por disparo recente (whatsapp/ligação/email outbound).
   // Empresas com disparo nas últimas 24h são jogadas para o FINAL da lista,
@@ -505,26 +593,59 @@ function ProspeccaoPage() {
   const filteredOrdered = useMemo(() => {
     const BLOCK_MS = 24 * 60 * 60 * 1000;
     const now = Date.now();
-    const isOutbound = (k: string) => k === "whatsapp" || k === "ligacao" || k === "email";
-    const lastOut = (p: Prospect): number => {
-      let max = 0;
+    
+    // Mapeia o último disparo por identidade (CNPJ/Empresa) E por telefone
+    const identityLastOut = new Map<string, number>();
+    prospects.forEach(p => {
+      const isOutbound = (k: string) => k === "whatsapp" || k === "ligacao" || k === "email";
+      let pMax = 0;
       for (const ix of p.interactions ?? []) {
         if (!isOutbound(ix.kind)) continue;
         const t = ix.at ? Date.parse(ix.at) : 0;
-        if (t > max) max = t;
+        if (t > pMax) pMax = t;
       }
-      return max;
-    };
+      for (const key of getProspectBlockKeys(p)) {
+        if (pMax > (identityLastOut.get(key) || 0)) identityLastOut.set(key, pMax);
+      }
+    });
+
     const active: Prospect[] = [];
+    const coldActive: Prospect[] = [];
     const blocked: Array<{ p: Prospect; last: number }> = [];
+    
+    const notWarmed = (p: Prospect) => {
+      const digits = (p.cnpj || "").replace(/\D/g, "");
+      if (digits && digits.length !== 14) return true;
+      const nome = (p.company || "").trim();
+      if (!nome) return true;
+      return nome.replace(/[\s./-]/g, "").replace(/\D/g, "").length === nome.replace(/[\s./-]/g, "").length;
+    };
+
     for (const p of filtered) {
-      const last = lastOut(p);
+      const last = getProspectBlockKeys(p).reduce(
+        (acc, key) => Math.max(acc, identityLastOut.get(key) || 0),
+        0,
+      );
       if (last > 0 && now - last < BLOCK_MS) blocked.push({ p, last });
+      else if (notWarmed(p)) coldActive.push(p);
       else active.push(p);
     }
     blocked.sort((a, b) => a.last - b.last);
-    return [...active, ...blocked.map((b) => b.p)];
+
+    return [...active, ...coldActive, ...blocked.map((b) => b.p)];
   }, [filtered]);
+
+  // Paginação: 20 leads por página na visão em tabela
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(filteredOrdered.length / PAGE_SIZE));
+  useEffect(() => {
+    if (page > pageCount) setPage(1);
+  }, [pageCount, page]);
+  const pagedItems = useMemo(
+    () => filteredOrdered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filteredOrdered, page],
+  );
 
   const mapPointsQ = useQuery({
     queryKey: crmKeys.tasks,
@@ -554,6 +675,26 @@ function ProspeccaoPage() {
       .filter(Boolean);
   }, [filteredOrdered, filteredMapPoints]);
 
+  // Leads que precisam de enriquecimento de cadastro: sem nome de empresa
+  // (ou com o próprio número como nome) ou com CNPJ incompleto (< 14 dígitos).
+  const missingProfileCnpjs = useMemo(() => {
+    return filteredOrdered
+      .filter((p) => {
+        const digits = (p.cnpj || "").replace(/\D/g, "");
+        if (!digits) return false;
+        if (digits.length !== 14) return true;
+        const nome = (p.company || "").trim();
+        return !nome || nome.replace(/\D/g, "").length === nome.replace(/[\s./-]/g, "").length;
+      })
+      .map((p) => p.cnpj!.replace(/\D/g, ""))
+      .filter(Boolean);
+  }, [filteredOrdered]);
+
+  const pendingEnrichCnpjs = useMemo(
+    () => Array.from(new Set([...missingProfileCnpjs, ...missingCoordsCnpjs])),
+    [missingProfileCnpjs, missingCoordsCnpjs],
+  );
+
   const geoMut = useMutation({
     mutationFn: async () => {
       const missing = missingCoordsCnpjs.slice(0, 50);
@@ -582,6 +723,16 @@ function ProspeccaoPage() {
     },
   });
 
+  // ── Enriquecimento automático: 20 CNPJs a cada 60s (nome, CNPJ, endereço) ──
+  const autoEnrich = useAutoEnrich({
+    getPending: () => pendingEnrichCnpjs,
+    autoStart: true,
+    onBatchDone: () => {
+      qc.invalidateQueries({ queryKey: crmKeys.tasks });
+      qc.invalidateQueries({ queryKey: crmKeys.prospects });
+    },
+  });
+
   const availableSegments = useMemo(() => {
     const counts = new Map<string, number>();
     // Conta os nichos aplicando os OUTROS filtros ativos (menos o próprio
@@ -599,8 +750,7 @@ function ProspeccaoPage() {
       return true;
     });
     for (const p of base) {
-      const s = (p.segment || "").trim();
-      if (!s) continue;
+      const s = nicheGroup(p.segment);
       counts.set(s, (counts.get(s) || 0) + 1);
     }
     return Array.from(counts.entries())
@@ -617,6 +767,30 @@ function ProspeccaoPage() {
     }
     return Array.from(set).sort();
   }, [prospects]);
+
+  // Cidades presentes na base (respeitando o Estado selecionado). Valores
+  // inválidos (números/CEP no lugar do nome) não entram na lista — ficam
+  // agrupados numa opção própria para facilitar a correção.
+  const availableCities = useMemo(() => {
+    const counts = new Map<string, { label: string; count: number }>();
+    let invalid = 0;
+    for (const p of prospects) {
+      if (stateFilter !== "all" && p.state !== stateFilter) continue;
+      const label = cleanCityLabel(p.city);
+      if (!isValidCityName(label)) {
+        if (label) invalid++;
+        continue;
+      }
+      const key = normalizeCity(label);
+      const cur = counts.get(key);
+      if (cur) cur.count++;
+      else counts.set(key, { label, count: 1 });
+    }
+    const list = Array.from(counts.entries())
+      .map(([key, v]) => ({ key, label: v.label, count: v.count }))
+      .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+    return { list, invalid };
+  }, [prospects, stateFilter]);
 
   // Responsáveis derivados dinamicamente de prospects.owner_name + nome do
    // usuário logado (fallback). Antes era hardcoded ["Valdinei","Danielly"].
@@ -655,6 +829,7 @@ function ProspeccaoPage() {
     statusFilter !== "all" ||
     segmentFilter !== "all" ||
     stateFilter !== "all" ||
+    cityFilter !== "all" ||
     potentialFilter !== "all" ||
     onlyWithContact ||
     noWhatsapp ||
@@ -779,6 +954,22 @@ function ProspeccaoPage() {
     }
   };
 
+  // Fecha o pop-up sozinho assim que o perfil do negócio fica pronto
+  // (inclusive se a configuração foi concluída em outra aba/janela).
+  useEffect(() => {
+    if (!bizLoading && !bizIncomplete && !bizGateDone) {
+      markBizGateDone(user?.id);
+      setBizGateDone(true);
+    }
+  }, [bizLoading, bizIncomplete, bizGateDone, user?.id]);
+
+  useEffect(() => {
+    if (showBizDialog && !bizLoading && !bizPending) {
+      setShowBizDialog(false);
+      toast.success("Perfil do negócio configurado — disparos liberados.");
+    }
+  }, [showBizDialog, bizLoading, bizPending]);
+
   const bulkAssign = async (owner: string) => {
     const ids = Array.from(selected);
     if (!ids.length) return;
@@ -802,10 +993,17 @@ function ProspeccaoPage() {
       return n;
     });
 
-  const allVisibleSelected = filteredOrdered.length > 0 && filteredOrdered.every((p) => selected.has(p.id));
+  const allVisibleSelected = pagedItems.length > 0 && pagedItems.every((p) => selected.has(p.id));
   const toggleSelectAll = () => {
-    if (allVisibleSelected) setSelected(new Set());
-    else setSelected(new Set(filteredOrdered.map((p) => p.id)));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        for (const p of pagedItems) next.delete(p.id);
+      } else {
+        for (const p of pagedItems) next.add(p.id);
+      }
+      return next;
+    });
   };
 
   const logAttempt = async (prospect: Prospect, tipo: TouchpointTipo) => {
@@ -836,21 +1034,43 @@ function ProspeccaoPage() {
 
   const openWhats = async (p: Prospect) => {
     console.log("[prosp] openWhats:click", { id: p.id, company: p.company, whatsapp: p.whatsapp });
+    // Bloqueia o disparo enquanto o Member não configurar o negócio (1 clique).
+    if (bizPending) {
+      setPendingWhatsId(p.id);
+      setShowBizDialog(true);
+      return;
+    }
     const d = onlyDigits(p.whatsapp);
     if (!d) {
       console.warn("[prosp] openWhats:abort:no-whatsapp", { id: p.id });
       return toast.error("WhatsApp não cadastrado");
     }
+
+    // Avanço de status automático para leads disparados (garante que saiam de "Não contatado")
+    if (!p.status || p.status === "nao_contatado") {
+      updateProspect(p.id, { status: "primeiro_contato" }).catch(e => 
+        console.error("[prosp] erro ao atualizar status inicial:", e)
+      );
+    }
+
     // Guard anti-duplo-clique: enquanto o disparo está em curso, ignora cliques.
     if (dispatchingIds.has(p.id)) {
       console.warn("[prosp] openWhats:already-dispatching", { id: p.id });
       return;
     }
     setDispatchingIds((prev) => { const n = new Set(prev); n.add(p.id); return n; });
+    // O `window.open` só é permitido DENTRO do gesto do clique. Como abaixo
+    // existem awaits (trava do dia + resolução do template), abrimos a aba
+    // agora (em branco) e apenas trocamos a URL depois. No mobile navegamos
+    // na própria aba ao final.
+    const isMobileUA =
+      typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    const preOpened = isMobileUA ? null : window.open("", "_blank");
     try {
-      const lock = await wasDispatchedToday({ prospectId: p.id });
+      const lock = await wasDispatchedToday({ prospectId: p.id, userId: user?.id });
       if (lock.blocked) {
         console.warn("[prosp] openWhats:blocked", { id: p.id, source: lock.source });
+        try { preOpened?.close(); } catch { /* noop */ }
         toast.error(dispatchBlockedMessage(lock.source!));
         return;
       }
@@ -870,18 +1090,39 @@ function ProspeccaoPage() {
       // Busca em paralelo o template resolvido E o nome do contato no cad_leads
       // (fonte oficial do `responsavel`). `p.owner` é o VENDEDOR interno,
       // NÃO deve ser usado como {{primeiro_nome}} no texto enviado ao cliente.
-      const [tplRes, leadRes] = await Promise.all([
+      const [tplRes, leadRes, bizRes] = await Promise.all([
         isFirstOutreach
           ? Promise.resolve({ data: null })
           : supabase.rpc("cad_resolve_template" as never, { _stage: stage } as never),
         supabase.from("cad_leads").select("responsavel").eq("prospect_id", p.id).maybeSingle(),
+        isFirstOutreach
+          ? supabase
+              .from("business_profiles")
+              .select("initial_message")
+              .order("updated_at", { ascending: false })
+              .limit(1)
+          : Promise.resolve({ data: null }),
       ]);
       const tpl = tplRes.data;
       responsavelLead = (leadRes.data as { responsavel?: string | null } | null)?.responsavel ?? "";
+      // 1a) Primeira abordagem: se o operador confirmou a mensagem em
+      // /meu-negocio (item 3), ela vira a mensagem oficial do 1º disparo.
+      // Placeholders continuam suportados via renderTemplate.
+      if (isFirstOutreach) {
+        const bizRow = Array.isArray(bizRes.data) ? bizRes.data[0] : bizRes.data;
+        const bizMsg = (bizRow as { initial_message?: string | null } | null)?.initial_message;
+        if (bizMsg && bizMsg.trim()) {
+          msg = renderTemplate(bizMsg, {
+            empresa: p.company || "",
+            responsavel: responsavelLead,
+          });
+          console.log("[prosp] openWhats:usando-mensagem-meu-negocio", { id: p.id });
+        }
+      }
       const row = Array.isArray(tpl) ? tpl[0] : null;
       const corpo = (row as { corpo?: string } | null)?.corpo;
       const packKey = (row as { pack_key?: string } | null)?.pack_key ?? "default";
-      if (corpo && corpo.trim()) {
+      if (!msg && corpo && corpo.trim()) {
         // Usa variantes explícitas (`---`) quando existem; caso contrário
         // gera 3 variações naturais (source="auto") rotacionando
         // saudação/softener pra evitar disparos idênticos. `chooseVariant`
@@ -935,13 +1176,17 @@ function ProspeccaoPage() {
     // Sanitização final antes do envio — remove qualquer placeholder
     // remanescente e colapsa espaços/linhas em branco.
     msg = sanitizeTemplateForSend(msg);
-    // Define o confirm ANTES de abrir o WhatsApp para garantir que o estado
-    // esteja commitado caso o navegador móvel saia da aba para o app.
-    console.log("[prosp] openWhats:setConfirm", { id: p.id, company: p.company });
-    setWhatsConfirm({ id: p.id, company: p.company });
-    // NÃO registra touchpoint aqui: este botão apenas prepara a mensagem e
-    // abre o WhatsApp. O registro (que avança a cadência via trigger) só
-    // acontece quando o operador confirmar o contato no diálogo pós-envio.
+    // Registra o touchpoint IMEDIATAMENTE — no mobile o operador sai pro
+    // app do WhatsApp e raramente volta pra confirmar no diálogo, o que
+    // deixava o lead como "não disparado" mesmo depois do envio.
+    void logAttempt(p, "whatsapp");
+    // Avança o STATUS para `primeiro_contato` na mesma ação, para o lead
+    // sair da fila de "não contatado" e não reaparecer como pendente após
+    // recarregar a página. Só sobrescreve o estado inicial — status mais
+    // avançados (qualificado, agendado, cliente) são preservados.
+    if (p.status === "nao_contatado") {
+      updateStatus(p.id, "primeiro_contato");
+    }
     // Honra a conta de WhatsApp escolhida (Normal/Business). No Android
     // forçamos o app correto via intent://; no iPhone/desktop o link abre
     // o app definido como padrão do sistema.
@@ -964,7 +1209,13 @@ function ProspeccaoPage() {
     }
 
     console.log("[prosp] openWhats:window.open", { url, account: acct });
-    window.open(url, "_blank");    } finally {
+    if (preOpened && !preOpened.closed) {
+      preOpened.location.replace(url);
+    } else {
+      // Aba bloqueada pelo navegador (ou mobile): navega na própria aba.
+      window.location.href = url;
+    }
+    } finally {
       // Cooldown curto para não permitir 2 cliques sequenciais que abram
       // 2 conversas e gerem registro duplicado de tentativa.
       window.setTimeout(() => {
@@ -1027,6 +1278,25 @@ function ProspeccaoPage() {
     // A-5: mesmo racional do callPhone acima.
     setTouchpointTarget({ prospect: p, tipo: "email" });
   };
+
+  // Ao voltar de /meu-negocio com o perfil concluído, retomamos o disparo
+  // que ficou pendente — sem precisar procurar o lead de novo.
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (resumedRef.current || bizLoading || bizPending || !prospects.length) return;
+    const back = consumeBizReturn();
+    if (!back?.prospectId) return;
+    resumedRef.current = true;
+    const target = prospects.find((p) => p.id === back.prospectId);
+    if (!target) return;
+    // Não abrimos o WhatsApp sozinhos (o navegador bloquearia o pop-up):
+    // devolvemos o disparo a 1 clique, exatamente de onde o usuário parou.
+    toast.success(`Tudo pronto! Continue o disparo para ${target.company}.`, {
+      duration: 12000,
+      action: { label: "Disparar agora", onClick: () => void openWhats(target) },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bizLoading, bizPending, prospects]);
 
   const convertToLead = async (p: Prospect) => {
     try {
@@ -1240,9 +1510,10 @@ function ProspeccaoPage() {
 
   const clearFilters = () => {
     // A-4: limpar TODOS os filtros ativos, incluindo cadência e onlyWhatsapp.
-    setStatusFilter("all"); setSegmentFilter("all"); setStateFilter("all"); setPotentialFilter("all");
+    setStatusFilter("all"); setSegmentFilter("all"); setStateFilter("all"); setCityFilter("all"); setPotentialFilter("all");
     setSearch(""); setOnlyWithContact(false); setNoWhatsapp(false); setOnlyWhatsapp(false);
     setCadenceFilter("all");
+    setOpening(EMPTY_OPENING_FILTER);
   };
 
   const bulkEnrich = async () => {
@@ -1412,6 +1683,41 @@ function ProspeccaoPage() {
         </div>
       }
     >
+      {/* Pop-up: perfil do negócio pendente (bloqueia o disparo) */}
+      <Dialog open={showBizDialog} onOpenChange={setShowBizDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Configure seu negócio para disparar</DialogTitle>
+            <DialogDescription>
+              A primeira mensagem de prospecção vem do seu perfil de negócio. Leva 1 minuto:
+              informe nicho, público e tom de voz — a IA gera a mensagem inicial pra você.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setPendingWhatsId(null);
+                setShowBizDialog(false);
+              }}
+            >
+              Agora não
+            </Button>
+            <Button
+              className="btn-gradient"
+              onClick={() => {
+                setBizReturn({ to: "/prospeccao", prospectId: pendingWhatsId ?? undefined });
+                setShowBizDialog(false);
+                void navigate({ to: "/meu-negocio" });
+              }}
+            >
+              Configurar agora
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Stats */}
       <section className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-5">
         <StatCard icon={Building2} label={hasActiveFilters ? "Empresas (filtro)" : "Empresas cadastradas"} value={stats.t} hint={hasActiveFilters ? `de ${stats.total} · filtro ativo` : "Base total"} />
@@ -1548,7 +1854,55 @@ function ProspeccaoPage() {
                 </Command>
               </PopoverContent>
             </Popover>
-            <Select value={stateFilter} onValueChange={setStateFilter}>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" role="combobox" className="h-9 w-full justify-between font-normal">
+                  <span className="truncate">
+                    {cityFilter === "all"
+                      ? "Todas as cidades"
+                      : cityFilter === INVALID_CITY_KEY
+                        ? `Cidade inválida (${availableCities.invalid})`
+                        : (availableCities.list.find((c) => c.key === cityFilter)?.label ?? "Cidade")}
+                  </span>
+                  <ChevronDown className="ml-2 h-4 w-4 opacity-50 shrink-0" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Buscar cidade…" />
+                  <CommandList className="max-h-72">
+                    <CommandEmpty>Nenhuma cidade encontrada.</CommandEmpty>
+                    <CommandGroup>
+                      <CommandItem value="__all__" onSelect={() => setCityFilter("all")}>
+                        <Check className={cn("mr-2 h-4 w-4", cityFilter === "all" ? "opacity-100" : "opacity-0")} />
+                        <span className="flex-1">Todas as cidades</span>
+                        <span className="text-xs text-muted-foreground">
+                          {availableCities.list.reduce((a, c) => a + c.count, 0)}
+                        </span>
+                      </CommandItem>
+                      {availableCities.list.map((c) => (
+                        <CommandItem key={c.key} value={c.label} onSelect={() => setCityFilter(c.key)}>
+                          <Check className={cn("mr-2 h-4 w-4", cityFilter === c.key ? "opacity-100" : "opacity-0")} />
+                          <span className="flex-1 truncate">{c.label}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">{c.count}</span>
+                        </CommandItem>
+                      ))}
+                      {availableCities.invalid > 0 && (
+                        <CommandItem
+                          value="cidade invalida numero"
+                          onSelect={() => setCityFilter(INVALID_CITY_KEY)}
+                        >
+                          <Check className={cn("mr-2 h-4 w-4", cityFilter === INVALID_CITY_KEY ? "opacity-100" : "opacity-0")} />
+                          <span className="flex-1 truncate">Cidade inválida (número)</span>
+                          <span className="ml-2 text-xs text-muted-foreground">{availableCities.invalid}</span>
+                        </CommandItem>
+                      )}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <Select value={stateFilter} onValueChange={(v) => { setStateFilter(v); setCityFilter("all"); }}>
               <SelectTrigger><SelectValue placeholder="Estado" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos estados</SelectItem>
@@ -1565,6 +1919,54 @@ function ProspeccaoPage() {
             <Button variant="ghost" onClick={clearFilters} className="h-10 text-xs">
               <X className="mr-1.5 h-4 w-4" /> Limpar filtros
             </Button>
+            <div className="col-span-full space-y-2 rounded-md border border-border/60 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Data de abertura do CNPJ
+              </p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {OPENING_RANGES.map((r) => (
+                  <Button
+                    key={r.id}
+                    size="sm"
+                    variant={opening.range === r.id ? "default" : "outline"}
+                    className="h-8 px-2.5 text-xs"
+                    onClick={() => setOpening((o) => ({ ...o, range: r.id as OpeningRange }))}
+                  >
+                    {r.label}
+                  </Button>
+                ))}
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="date"
+                    value={opening.from ?? ""}
+                    onChange={(e) => setOpening((o) => ({ ...o, from: e.target.value }))}
+                    className="h-8 w-[140px] text-xs"
+                  />
+                  <span className="text-xs text-muted-foreground">até</span>
+                  <Input
+                    type="date"
+                    value={opening.to ?? ""}
+                    onChange={(e) => setOpening((o) => ({ ...o, to: e.target.value }))}
+                    className="h-8 w-[140px] text-xs"
+                  />
+                </div>
+                {isOpeningFilterActive(opening) && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-8 px-2 text-xs"
+                    onClick={() => setOpening(EMPTY_OPENING_FILTER)}
+                  >
+                    Limpar data
+                  </Button>
+                )}
+              </div>
+              {isOpeningFilterActive(opening) && (
+                <p className="text-[11px] text-muted-foreground">
+                  Leads ainda sem data de abertura ficam ocultos até o enriquecimento concluir.
+                </p>
+              )}
+            </div>
             <label className="col-span-full flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
               <NativeCheckbox
                 checked={onlyWithContact}
@@ -1572,6 +1974,17 @@ function ProspeccaoPage() {
                 ariaLabel="Mostrar somente empresas com contato disponível"
               />
               Mostrar somente empresas com contato disponível (WhatsApp, telefone ou e-mail)
+            </label>
+            <label className="col-span-full flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
+              <NativeCheckbox
+                checked={hideDispatched}
+                onChange={setHideDispatched}
+                ariaLabel="Ocultar leads já disparados por mim"
+              />
+              <span>
+                Ocultar leads <strong className="text-foreground">já disparados por mim</strong>
+                {" "}(some da prospecção assim que avançam para "Primeiro contato" — cada usuário vê a própria fila)
+              </span>
             </label>
             <label className="col-span-full flex items-center gap-2 text-xs text-muted-foreground sm:col-span-2 lg:col-span-5">
               <NativeCheckbox
@@ -1677,7 +2090,7 @@ function ProspeccaoPage() {
           {/* Mobile: card list */}
           <div className="md:hidden">
             <MobileProspectList
-              items={filteredOrdered}
+              items={pagedItems}
               selected={selected}
               onToggleSelect={toggleSelect}
               onOpen={setDetailId}
@@ -1693,7 +2106,8 @@ function ProspeccaoPage() {
             />
           </div>
           <DesktopProspectTable
-            items={filteredOrdered}
+            items={pagedItems}
+            openingMap={openingMap}
             selected={selected}
             allVisibleSelected={allVisibleSelected}
             onToggleSelect={toggleSelect}
@@ -1707,9 +2121,43 @@ function ProspeccaoPage() {
             onRemove={(id) => removeProspect([id])}
             busyWhatsIds={dispatchingIds}
           />
-          <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-[11px] text-muted-foreground">
-            <span>Mostrando {filteredOrdered.length} de {prospects.length} empresas · empresas com disparo nas últimas 24h vão para o final</span>
-            <span className="hidden sm:inline">INFINDA digital — Prospecção</span>
+          <div className="flex flex-col gap-2 border-t border-border px-4 py-3 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-sm font-semibold text-foreground tabular-nums">
+              Mostrando{" "}
+              <span className="text-base font-bold text-primary">
+                {filteredOrdered.length === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}
+                –{Math.min(page * PAGE_SIZE, filteredOrdered.length)}
+              </span>{" "}
+              de{" "}
+              <span className="text-base font-bold text-primary">{filteredOrdered.length}</span>{" "}
+              empresas
+              <span className="ml-1 font-normal text-muted-foreground">
+                (filtradas de {prospects.length}) · 20 por página
+              </span>
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 px-2"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+              >
+                Anterior
+              </Button>
+              <span className="tabular-nums">Página {page} de {pageCount}</span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 px-2"
+                onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                disabled={page >= pageCount}
+              >
+                Próxima
+              </Button>
+            </div>
           </div>
         </section>
       ) : view === "kanban" ? (
@@ -1731,10 +2179,21 @@ function ProspeccaoPage() {
                 Nenhuma das empresas filtradas possui coordenadas geográficas registradas. 
                 Use a geocodificação para tentar localizá-las automaticamente.
               </p>
-              <Button onClick={() => geoMut.mutate()} disabled={geoMut.isPending} className="btn-gradient h-9">
-                {geoMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                Geocodificar agora
-              </Button>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button onClick={() => geoMut.mutate()} disabled={geoMut.isPending || autoEnrich.auto} className="btn-gradient h-9">
+                  {geoMut.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                  Geocodificar agora
+                </Button>
+                <Button
+                  variant={autoEnrich.auto ? "destructive" : "outline"}
+                  className="h-9"
+                  disabled={geoMut.isPending}
+                  onClick={autoEnrich.toggle}
+                >
+                  {autoEnrich.running ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                  {autoEnrich.auto ? `Parar automático (${autoEnrich.nextIn}s)` : "Enriquecer automático: 20 a cada 60s"}
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="relative h-full w-full">
@@ -1747,7 +2206,7 @@ function ProspeccaoPage() {
                     size="sm" 
                     variant="outline" 
                     className="h-7 text-[11px]" 
-                    disabled={geoMut.isPending} 
+                    disabled={geoMut.isPending || autoEnrich.auto}
                     onClick={() => geoMut.mutate()}
                   >
                     {geoMut.isPending ? (
@@ -1756,6 +2215,20 @@ function ProspeccaoPage() {
                       <Sparkles className="mr-1 h-3 w-3" />
                     )}
                     Geocodificar
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={autoEnrich.auto ? "destructive" : "outline"}
+                    className="h-7 text-[11px]"
+                    disabled={geoMut.isPending}
+                    onClick={autoEnrich.toggle}
+                  >
+                    {autoEnrich.running ? (
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-1 h-3 w-3" />
+                    )}
+                    {autoEnrich.auto ? `Parar (${autoEnrich.nextIn}s)` : "Auto 20/60s"}
                   </Button>
                 </div>
               )}
@@ -1834,7 +2307,8 @@ function ProspeccaoPage() {
                   // C-6: só avança status/touchpoint se o prospect ainda existe
                   // no cache atual (pode ter sido excluído em outra aba).
                   if (target) {
-                    void logAttempt(target, "whatsapp");
+                    // Touchpoint já foi registrado no clique do WhatsApp;
+                    // aqui só avançamos o status para `primeiro_contato`.
                     updateStatus(whatsConfirm.id, "primeiro_contato");
                   } else {
                     toast.error("Prospect não encontrado. Recarregue a página.");
@@ -1957,6 +2431,7 @@ function DesktopProspectTable({
   onStatus,
   onRemove,
   busyWhatsIds,
+  openingMap,
 }: {
   items: Prospect[];
   selected: Set<string>;
@@ -1971,6 +2446,7 @@ function DesktopProspectTable({
   onStatus: (id: string, s: ProspectStatus) => void;
   onRemove: (id: string) => void;
   busyWhatsIds?: Set<string>;
+  openingMap?: Record<string, { data_abertura?: string | null }>;
 }) {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const virtualizer = useWindowVirtualizer({
@@ -2019,18 +2495,65 @@ function DesktopProspectTable({
                   <div className="px-4 py-3">
                     <button className="text-left" onClick={() => onOpen(p.id)}>
                       <div className="font-semibold hover:text-primary-glow">{p.company}</div>
-                      <div className="text-[11px] text-muted-foreground">{p.segment} · resp. {p.owner}</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {nicheGroup(p.segment)} · resp. {p.owner}
+                      </div>
+                      {(() => {
+                        const dt = openingMap?.[(p.cnpj || "").replace(/\D/g, "")]?.data_abertura;
+                        const fmt = formatOpening(dt);
+                        if (!fmt) return null;
+                        const age = marketAgeLabel(dt);
+                        return (
+                          <div className="text-[10px] text-muted-foreground/80">
+                            Abertura: {fmt}{age ? ` (${age})` : ""}
+                          </div>
+                        );
+                      })()}
                     </button>
                   </div>
                   <div className="px-4 py-3">
-                    <div className="text-xs">{p.whatsapp || p.phone || "—"}</div>
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <span>{p.whatsapp || p.phone || "—"}</span>
+                      <TooltipProvider delayDuration={150}>
+                        {(((p.whatsapp || "").replace(/\D/g, "")).length >= 10) && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                className="h-6 w-6 border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/10 hover:text-emerald-200"
+                                disabled={busyWhatsIds?.has(p.id)}
+                                aria-label="Disparar no WhatsApp"
+                                onClick={(e) => { e.stopPropagation(); onWhats(p); }}
+                              >
+                                {busyWhatsIds?.has(p.id)
+                                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  : <MessageSquare className="h-3.5 w-3.5" />}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              Disparar no WhatsApp (usa a conta selecionada no topo).
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
+                      </TooltipProvider>
+                    </div>
                     <div className="text-[11px] text-muted-foreground">{p.email || p.instagram || "—"}</div>
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {(((p.whatsapp || "").replace(/\D/g, "")).length < 10) && (
-                        <span className="inline-flex items-center rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300" title="Empresa sem WhatsApp — candidata a enriquecimento">
-                          Sem WhatsApp
-                        </span>
-                      )}
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      <TooltipProvider delayDuration={150}>
+                        {(((p.whatsapp || "").replace(/\D/g, "")).length < 10) ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="inline-flex items-center rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+                                Sem WhatsApp
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">
+                              Contato sem número de WhatsApp — enriqueça o lead para liberar o disparo.
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : null}
+                      </TooltipProvider>
                       {(() => {
                         const isOut = (k: string) => k === "whatsapp" || k === "ligacao" || k === "email";
                         let max = 0;
@@ -2049,7 +2572,7 @@ function DesktopProspectTable({
                       })()}
                     </div>
                   </div>
-                  <div className="px-4 py-3 text-xs">{p.city ? `${p.city} - ${p.state}` : p.state || "—"}</div>
+                  <div className="px-4 py-3 text-xs">{cityDisplay(p.city) ? `${cityDisplay(p.city)} - ${p.state}` : p.state || "—"}</div>
                   <div className="px-4 py-3 text-xs">{p.source}</div>
                   <div className="px-4 py-3"><PotentialBadge p={p.potential} /></div>
                   <div className="px-4 py-3"><StatusBadge status={p.status} /></div>
@@ -2223,7 +2746,7 @@ function KanbanView({
                     </div>
                     <p className="mt-1 text-[11px] text-muted-foreground">{p.segment}</p>
                     <p className="mt-2 text-[11px] text-muted-foreground">
-                      {p.city ? `${p.city} - ${p.state}` : p.state || "—"} · {p.owner}
+                      {cityDisplay(p.city) ? `${cityDisplay(p.city)} - ${p.state}` : p.state || "—"} · {p.owner}
                     </p>
                   </div>
                 ))}
@@ -2296,7 +2819,7 @@ function DetailDialog({
               <li className="flex items-center gap-2"><Phone className="h-3.5 w-3.5" /> {p.phone || "—"}</li>
               <li className="flex items-center gap-2"><Mail className="h-3.5 w-3.5" /> {p.email || "—"}</li>
               <li className="flex items-center gap-2"><Instagram className="h-3.5 w-3.5" /> {p.instagram || "—"}</li>
-              <li className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5" /> {p.city ? `${p.city} - ${p.state}` : p.state || "—"}</li>
+              <li className="flex items-center gap-2"><MapPin className="h-3.5 w-3.5" /> {cityDisplay(p.city) ? `${cityDisplay(p.city)} - ${p.state}` : p.state || "—"}</li>
             </ul>
           </div>
 
@@ -2797,7 +3320,7 @@ const MobileProspectRow = memo(function MobileProspectRow({
         <button className="block w-full text-left" onClick={() => onOpen(p.id)}>
           <div className="truncate text-sm font-semibold">{p.company}</div>
           <div className="truncate text-[11px] text-muted-foreground">
-            {p.segment} · {p.city ? `${p.city}-${p.state}` : p.state || "—"}
+            {p.segment} · {cityDisplay(p.city) ? `${cityDisplay(p.city)}-${p.state}` : p.state || "—"}
           </div>
         </button>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">

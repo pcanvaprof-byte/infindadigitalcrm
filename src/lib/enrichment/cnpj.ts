@@ -10,6 +10,45 @@ export function isValidCnpj(v: string): boolean {
   return sanitizeCnpj(v).length === 14;
 }
 
+function cnpjCheckDigits(base12: string): string {
+  const calc = (nums: string, weights: number[]) => {
+    const sum = nums.split("").reduce((a, d, i) => a + Number(d) * weights[i]!, 0);
+    const r = sum % 11;
+    return r < 2 ? 0 : 11 - r;
+  };
+  const d1 = calc(base12, [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  const d2 = calc(base12 + d1, [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]);
+  return `${d1}${d2}`;
+}
+
+/**
+ * Completa CNPJs incompletos vindos de importações:
+ * - 8 dígitos (apenas a raiz) → raiz + filial 0001 + dígitos verificadores
+ * - 12 dígitos (raiz + filial) → + dígitos verificadores
+ * - 13 dígitos (zero à esquerda perdido em planilha) → padStart(14, "0")
+ */
+export function completeCnpj(v: string): string {
+  const d = sanitizeCnpj(v);
+  if (!d) return "";
+  if (d.length === 14) return d;
+  if (d.length === 13) return d.padStart(14, "0");
+  if (d.length <= 8) {
+    const base = d.padStart(8, "0") + "0001";
+    return base + cnpjCheckDigits(base);
+  }
+  if (d.length <= 12) {
+    const base = d.padStart(12, "0");
+    return base + cnpjCheckDigits(base);
+  }
+  return d;
+}
+
+export function formatCnpj(v: string): string {
+  const d = sanitizeCnpj(v);
+  if (d.length !== 14) return v;
+  return `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}/${d.slice(8, 12)}-${d.slice(12)}`;
+}
+
 interface BrasilApiResponse {
   cnpj: string;
   razao_social?: string;

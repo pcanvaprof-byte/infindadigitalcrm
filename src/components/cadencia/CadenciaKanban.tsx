@@ -3,7 +3,7 @@ import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSe
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { CAD_STAGES, CAD_STAGE_LABEL, type CadLead, type CadStage, type CadTemplate } from "@/lib/cadencia/types";
-import { listTemplates, moveStage } from "@/lib/cadencia/api";
+import { listResolvedTemplates, moveStage, type ResolvedTemplate } from "@/lib/cadencia/api";
 import { sortLeadsByDispatchDate, filterLeadsByDispatch, type DispatchFilter } from "@/lib/cadencia/sort";
 import { LeadCard } from "./LeadCard";
 
@@ -49,10 +49,19 @@ export function CadenciaKanban({
 }: { leads: CadLead[]; onOpen: (l: CadLead) => void; onSend: (l: CadLead) => void }) {
   const qc = useQueryClient();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
-  const tplQ = useQuery({ queryKey: ["cad-templates"], queryFn: listTemplates });
+  const tplQ = useQuery({ queryKey: ["cad-resolved-templates"], queryFn: listResolvedTemplates });
   const tplByStage = useMemo(() => {
     const m = new Map<CadStage, CadTemplate>();
-    for (const t of tplQ.data ?? []) m.set(t.stage, t);
+    for (const t of (tplQ.data ?? []) as ResolvedTemplate[]) {
+      m.set(t.stage, {
+        id: `${t.stage}-${t.source}`,
+        organization_id: "",
+        stage: t.stage,
+        titulo: t.titulo,
+        corpo: t.corpo,
+        updated_at: "",
+      });
+    }
     return m;
   }, [tplQ.data]);
   const [dispatchFilter, setDispatchFilter] = useState<DispatchFilter>("all");

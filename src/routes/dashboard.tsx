@@ -25,6 +25,9 @@ import { fetchDashboardMetrics, type DashboardMetrics } from "@/lib/cadence/api"
 import { fetchKpiTrends, wowDelta, EMPTY_TRENDS } from "@/lib/cadence/trends";
 import { FEATURES } from "@/config/features";
 import { DispatchesPanel } from "@/components/dashboard/DispatchesPanel";
+import { BusinessSetupCard } from "@/components/dashboard/BusinessSetupCard";
+import { FirstStepsCard } from "@/components/onboarding/FirstStepsCard";
+import { useOrgRole } from "@/lib/org/plans";
 
 type Period = "hoje" | "semana" | "mes" | "previsao";
 const PERIOD_LABEL: Record<Period, string> = {
@@ -310,11 +313,15 @@ function DashboardPage() {
   /* Auditoria oficial de disparos (mesma fonte do /bi/disparos).
    * Cacheada no backend por 30s para evitar consultas repetidas. */
   const audit = useServerFn(auditDispatches);
+  const { role: orgRole } = useOrgRole();
+  const canAudit = orgRole === "owner" || orgRole === "admin";
   const qAudit = useQuery({
     queryKey: ["dashboard", "audit-dispatches"] as const,
     queryFn: () => audit({ data: {} }),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
+    enabled: canAudit,
+    retry: false,
   });
 
   const subtitle = "Seu desempenho e cadência";
@@ -416,7 +423,6 @@ function DashboardPage() {
   if (g?.sem_proxima_acao)       actions.push({ severity: "high",   title: `${g.sem_proxima_acao} prospects sem próxima ação`, hint: "Precisam de agendamento de follow-up", cta: "Ver prospecção", route: "/prospeccao" });
   if (g?.clients_parados_15d)    actions.push({ severity: "medium", title: `${g.clients_parados_15d} clientes parados há 15+ dias`, hint: "Reativar relacionamento em Operações", cta: "Ver operações", route: "/operacoes" });
   if (g?.parados_30d)            actions.push({ severity: "medium", title: `${g.parados_30d} leads sem contato há 30+ dias`, hint: "Risco de esfriar a oportunidade", cta: "Ver lista", route: "/cadencia" });
-  if (g?.sem_responsavel)        actions.push({ severity: "info",   title: `${g.sem_responsavel} prospects sem responsável`, hint: "Atribuir owner para destravar fluxo", cta: "Atribuir", route: "/prospeccao" });
 
   return (
     <AppShell
@@ -436,6 +442,11 @@ function DashboardPage() {
           <strong>Sem organização ativa:</strong> selecione uma organização no seletor do header para ver os KPIs. O Dashboard agora exige escopo de organização (sem fallback por usuário).
         </div>
       )}
+
+      <div className="mb-6 space-y-4">
+        <FirstStepsCard />
+        <BusinessSetupCard />
+      </div>
 
       {/* 1 — Strategic Header */}
       <header className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">

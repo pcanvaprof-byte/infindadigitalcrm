@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { dbExt } from "@/integrations/supabase/types.extra";
-import { requireSupabaseAuth } from "@/lib/app-auth-middleware";
+import { authWithAccess } from "@/lib/access/auth-with-access";
 
 /**
  * Limpa owner_name de prospects do usuário atual quando o valor é
@@ -8,7 +8,7 @@ import { requireSupabaseAuth } from "@/lib/app-auth-middleware";
  * fallback do import que preenchia o responsável com o nome do importador).
  */
 export const cleanupOwnerFallback = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([authWithAccess])
   .handler(async ({ context }) => {
     const { supabase, userId, claims } = context;
 

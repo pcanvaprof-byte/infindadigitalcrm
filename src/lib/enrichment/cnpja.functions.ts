@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/lib/app-auth-middleware";
+import { authWithAccess } from "@/lib/access/auth-with-access";
 
 // CNPJá Open (free tier): 5 req/min por IP. Mantemos folga e usamos 4 req/min.
 // Janela deslizante simples em memória do worker.
@@ -19,7 +19,7 @@ function tryConsume(): { ok: boolean; retryAfterMs: number } {
 }
 
 export const fetchCnpjaCompany = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([authWithAccess])
   .inputValidator((input: { cnpj: string }) => {
     const cnpj = (input?.cnpj ?? "").replace(/\D/g, "");
     if (cnpj.length !== 14) throw new Error("CNPJ inválido");

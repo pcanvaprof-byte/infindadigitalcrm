@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/lib/app-auth-middleware";
+import { authWithAccess } from "@/lib/access/auth-with-access";
 import { z } from "zod";
 
 const Message = z.object({
@@ -20,7 +20,7 @@ const Input = z.object({
  * Mantém LOVABLE_API_KEY no servidor; cliente roda o loop de tool-calling.
  */
 export const papChat = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([authWithAccess])
   .inputValidator((data: unknown) => Input.parse(data))
   .handler(async ({ data }) => {
     const key = process.env.LOVABLE_API_KEY;

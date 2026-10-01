@@ -1,13 +1,16 @@
 import { createFileRoute, Navigate, useNavigate } from "@tanstack/react-router";
 import { FormEvent, useState } from "react";
-import { BarChart3, Loader2, Shield, Sparkles } from "lucide-react";
+import { BarChart3, Loader2, Rocket, Shield, Sparkles } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
 
 import { Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth-context";
+import { supabase } from "@/integrations/supabase/client";
 import { APP_VERSION } from "@/lib/version";
+import { startDemo } from "@/lib/access/demo.functions";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search): { redirect?: string; reason?: string } => ({
@@ -36,6 +39,13 @@ export function AuthPageContent({ redirect, reason }: { redirect?: string; reaso
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [demoOpen, setDemoOpen] = useState(false);
+  const [demoName, setDemoName] = useState("");
+  const [demoEmail, setDemoEmail] = useState("");
+  const [demoPass, setDemoPass] = useState("");
+  const [demoLoading, setDemoLoading] = useState(false);
+  const startDemoFn = useServerFn(startDemo);
 
   if (isReady && user) {
     return <Navigate to={redirect || "/dashboard"} replace />;
@@ -59,6 +69,58 @@ export function AuthPageContent({ redirect, reason }: { redirect?: string; reaso
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     void performLogin(email, password);
+  };
+
+  const handleGoogle = async () => {
+    setError("");
+    setGoogleLoading(true);
+    try {
+      const { error: oauthErr } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: { prompt: "select_account" },
+        },
+      });
+      if (oauthErr) {
+        setError(oauthErr.message);
+        setGoogleLoading(false);
+      }
+      // Em caso de sucesso o browser é redirecionado ao Google.
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível iniciar o login com Google.",
+      );
+      setGoogleLoading(false);
+    }
+  };
+
+  const handleStartDemo = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError("");
+    setDemoLoading(true);
+    try {
+      const result = await startDemoFn({
+        data: {
+          fullName: demoName.trim() || undefined,
+          email: demoEmail.trim(),
+          password: demoPass,
+        },
+      });
+      // Já provisionado — faz login automático com as credenciais retornadas.
+      const loginRes = await login(result.email, demoPass || (result as { password?: string }).password || "");
+      if (!loginRes.ok) {
+        setError(loginRes.error);
+        setDemoLoading(false);
+        return;
+      }
+      await navigate({ to: "/dashboard", replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha ao ativar demo.");
+      setDemoLoading(false);
+    }
   };
 
   return (
@@ -112,8 +174,90 @@ export function AuthPageContent({ redirect, reason }: { redirect?: string; reaso
             <div className="mb-6">
               <h1 className="text-2xl font-semibold tracking-tight">Acesse sua conta</h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                Entre com seu email e senha para continuar.
+                Entre com Google para liberar 2 horas de teste grátis, ou use seu
+                email e senha se já tiver conta.
               </p>
+            </div>
+
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full text-base"
+              onClick={handleGoogle}
+              disabled={googleLoading || submitting}
+            >
+              {googleLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <GoogleIcon className="mr-2 h-4 w-4" />
+                  Continuar com Google — 2h grátis
+                </>
+              )}
+            </Button>
+            <p className="mt-2 text-center text-[11px] text-muted-foreground">
+              Ambiente real, sua base de dados. Sem cartão de crédito.
+            </p>
+
+            <div className="mt-3 rounded-md border border-primary/30 bg-primary/5 p-3">
+              <button
+                type="button"
+                onClick={() => setDemoOpen((v) => !v)}
+                className="flex w-full items-center justify-between text-left text-xs font-medium text-primary"
+              >
+                <span className="flex items-center gap-1.5">
+                  <Rocket className="h-3.5 w-3.5" />
+                  Ou libere 2h de demo com email e senha
+                </span>
+                <span aria-hidden>{demoOpen ? "−" : "+"}</span>
+              </button>
+              {demoOpen && (
+                <form onSubmit={handleStartDemo} className="mt-3 space-y-2">
+                  <Input
+                    type="text"
+                    placeholder="Seu nome"
+                    value={demoName}
+                    onChange={(e) => setDemoName(e.target.value)}
+                    autoComplete="name"
+                    required
+                  />
+                  <Input
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={demoEmail}
+                    onChange={(e) => setDemoEmail(e.target.value)}
+                    autoComplete="email"
+                    required
+                  />
+                  <Input
+                    type="password"
+                    placeholder="Crie uma senha (mín. 8)"
+                    value={demoPass}
+                    onChange={(e) => setDemoPass(e.target.value)}
+                    minLength={8}
+                    autoComplete="new-password"
+                    required
+                  />
+                  <Button
+                    type="submit"
+                    className="btn-gradient h-10 w-full text-sm"
+                    disabled={demoLoading}
+                  >
+                    {demoLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Ativar demo de 2 horas"}
+                  </Button>
+                </form>
+              )}
+            </div>
+
+            <div className="my-5 relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-xs">
+                <span className="bg-background px-2 text-muted-foreground">
+                  ou entrar com email
+                </span>
+              </div>
             </div>
 
             <form className="space-y-4" onSubmit={handleSubmit}>
@@ -162,6 +306,7 @@ export function AuthPageContent({ redirect, reason }: { redirect?: string; reaso
                 )}
               </Button>
             </form>
+
             <p className="mt-6 text-center text-[11px] text-muted-foreground">
               {APP_VERSION}
             </p>
@@ -169,5 +314,13 @@ export function AuthPageContent({ redirect, reason }: { redirect?: string; reaso
         </section>
       </div>
     </main>
+  );
+}
+
+function GoogleIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.24 1.4-1.7 4.1-5.5 4.1-3.3 0-6-2.7-6-6.1s2.7-6.1 6-6.1c1.9 0 3.2.8 3.9 1.5l2.7-2.6C16.9 3.3 14.7 2.3 12 2.3 6.9 2.3 2.8 6.5 2.8 12S6.9 21.7 12 21.7c6.9 0 9.6-4.8 9.6-9.4 0-.6-.1-1.1-.2-1.5H12z"/>
+    </svg>
   );
 }

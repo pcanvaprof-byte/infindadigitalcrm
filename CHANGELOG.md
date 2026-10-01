@@ -3,6 +3,14 @@
 Formato baseado em [Keep a Changelog](https://keepachangelog.com/).
 Versionamento [SemVer](https://semver.org/).
 
+## [Não lançado]
+
+### Corrigido
+- **Prospecção não quebra mais sem a coluna `prospects.merged_into`** — a listagem detecta o erro `42703`, refaz a consulta sem o filtro de duplicatas e avisa uma vez por sessão.
+
+### Notas de banco
+- `scripts/migrations/20260819_prospects_dedupe_identity.sql` precisa ser aplicada (via `scripts/migrate-supabase.sh`) em qualquer projeto de backend alternativo, senão a deduplicação de duplicatas fica inativa.
+
 ## [2.1.0] — 2026-06-20
 
 ### Adicionado

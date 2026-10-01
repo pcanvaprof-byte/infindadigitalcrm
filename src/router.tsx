@@ -27,20 +27,15 @@ export const getRouter = () => {
     routeTree,
     context: { queryClient },
     scrollRestoration: true,
+    // Pré-carrega o código da rota assim que o usuário passa o mouse/toca
+    // no link do menu — a aba abre praticamente instantânea.
+    defaultPreload: "intent",
+    defaultPreloadDelay: 30,
+    // Evita flash de "carregando" em navegações rápidas.
+    defaultPendingMs: 300,
+    defaultPendingMinMs: 200,
     defaultPreloadStaleTime: 0,
   });
-
-  if (typeof window !== "undefined") {
-    router.subscribe("onBeforeNavigate", (e) => {
-      console.log("[nav] →", e.toLocation.pathname, { from: e.fromLocation?.pathname });
-    });
-    router.subscribe("onResolved", (e) => {
-      console.log("[nav] ✓ resolved", e.toLocation.pathname);
-    });
-    router.subscribe("onBeforeLoad", (e) => {
-      console.log("[nav] beforeLoad", e.toLocation.pathname);
-    });
-  }
 
   return router;
 };

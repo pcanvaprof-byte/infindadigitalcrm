@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
 import { Zap, ExternalLink } from "lucide-react";
 import { auditDispatches } from "@/lib/bi/dispatches.functions";
+import { useOrgRole, isOwnerOrAdmin } from "@/lib/org/plans";
 
 /**
  * Painel "Disparos hoje + 7d" — fonte canônica calculada no backend
@@ -11,12 +12,17 @@ import { auditDispatches } from "@/lib/bi/dispatches.functions";
  */
 export function DispatchesPanel() {
   const audit = useServerFn(auditDispatches);
+  const { role, isLoading: roleLoading } = useOrgRole();
+  const allowed = isOwnerOrAdmin(role);
   const q = useQuery({
     queryKey: ["dashboard", "dispatches-panel"],
     queryFn: () => audit({ data: {} }),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
+    enabled: allowed,
   });
+
+  if (roleLoading || !allowed) return null;
 
   if (q.isLoading) {
     return (

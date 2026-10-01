@@ -1,66 +1,36 @@
-# API para agente de IA (Claude)
+# Auditoria: leads já disparados voltando para a fila
 
-Vou criar uma **API REST autenticada por chave**, escopada por organização, que o Claude (ou qualquer agente/n8n/Zapier) pode chamar para ler e alterar dados do CRM.
+## O que a auditoria encontrou (dados reais)
 
-## Como você vai usar
+Conferi o banco de produção. Os disparos **estão sendo gravados corretamente** (4.113 registros, todos com organização e usuário certos). O problema não é perda de registro — é **repetição do mesmo número de WhatsApp por empresas diferentes**.
 
-1. Entrar no seu perfil no app → aba nova **"Chaves de API"**
-2. Clicar em **"Gerar nova chave"** → aparece uma vez `infd_live_xxxxxxxx...` (copiar e guardar)
-3. Colar no Claude/n8n como header `Authorization: Bearer infd_live_...`
-4. Todas as chamadas ficam escopadas à sua organização ativa no momento da criação da chave (RLS por org preservado)
+A regra atual de "esconder já disparado" identifica a empresa nesta ordem: CNPJ, depois WhatsApp, depois nome+cidade. Como quase toda empresa tem CNPJ, o número de telefone quase nunca é usado na comparação. Resultado: duas empresas com CNPJ diferente e **o mesmo WhatsApp** são tratadas como leads distintos, e a pessoa acaba mandando mensagem duas vezes para o mesmo número.
 
-## Endpoints (todos em `/api/public/v1/*`)
+Quanto isso pesa hoje, por usuário (leads ainda na fila cujo número já foi disparado por aquele usuário):
 
-**Clientes / Prospects**
-- `GET  /clients` — lista (filtros: `?q=`, `?status=`, `?limit=`)
-- `GET  /clients/:id` — detalhes
-- `POST /clients` — cria
-- `PATCH /clients/:id` — atualiza (inclui mudança de status/etapa do pipeline)
+```text
+usuário 1: 659 números disparados -> 701 leads repetidos na fila
+usuário 2: 102 números disparados -> 423 leads repetidos na fila
+usuário 3: 226 números disparados -> 402 leads repetidos na fila
+usuário 4:  27 números disparados -> 195 leads repetidos na fila
+```
 
-**Tarefas**
-- `GET  /tasks?due=today` — tarefas do dia
-- `POST /tasks` — cria tarefa
+Além disso há números claramente inválidos ou compartilhados servindo de "contato" para muitas empresas: 4197880145 (179 empresas), 4799999999 (72), 9999999999 (64), 4711111111 (16), 1111111111 (14). Esses são o pior caso: um único disparo "queima" dezenas de leads, e sem a correção a pessoa fica disparando para o mesmo número sem parar.
 
-**Interações / histórico**
-- `GET  /clients/:id/interactions` — histórico
-- `POST /clients/:id/interactions` — registra nota/ligação/mensagem
+## O que vou corrigir
 
-**Propostas**
-- `POST /proposals` — cria proposta comercial para um cliente
+1. **Bloqueio pelo número, não só pelo CNPJ.** Se o usuário já disparou para um número de WhatsApp, todos os leads com esse mesmo número saem da fila (e continuam bloqueados na trava de 24h e no aviso de disparo repetido). Passa a valer em Prospecção, no Mapa, na Cadência e na fila da API externa.
+2. **Números inválidos deixam de virar disparo.** Sequências repetidas e placeholders (9999999999, 1111111111, 4711111111 e similares) passam a ser tratados como "sem WhatsApp": o lead sai da fila de disparo e aparece no grupo de contato inválido, junto do que já existe para cidade inválida.
+3. **Aviso quando o número é compartilhado.** Ao abrir um lead cujo número já foi usado por outra empresa, mostro no card com quantas empresas ele é compartilhado, para a pessoa decidir com contexto.
+4. **Limpeza única dos repetidos já na fila.** Marco como "primeiro contato" os leads cujo número já foi disparado por aquele mesmo usuário, para os cerca de 1.700 casos acumulados saírem da fila sem precisar de clique manual.
 
-**Meta**
-- `GET /me` — devolve org, permissões e limites da chave (útil pro Claude se apresentar)
-
-Todos retornam JSON, com CORS habilitado, validação Zod nos payloads, códigos HTTP corretos (400/401/404/422/429), e rate limit básico por chave.
-
-## Segurança
-
-- Chave gerada com `crypto.randomBytes` — mostrada **uma única vez**; salvamos só o **hash SHA-256** no banco
-- Prefixo `infd_live_` para facilitar detecção em vazamento
-- Cada chave tem: `nome`, `org_id`, `created_by`, `last_used_at`, `revoked_at`
-- Você pode **revogar** a chave a qualquer momento no perfil
-- Toda escrita é auditada em uma tabela `api_key_audit_log` (endpoint, status, ip, user-agent)
-- Rate limit: 60 req/min por chave (defesa básica contra loop de agente)
-- RLS continua ativo: a API monta um cliente Supabase que aplica filtro `org_id = <org da chave>` em toda query — sem service role para leitura de dados de outras orgs
-
-## Documentação
-
-- Página `/api-docs` no app com exemplos `curl`, schema de cada endpoint, e um botão "Testar com sua chave"
-- Um `openapi.json` público em `/api/public/v1/openapi.json` (útil pro Claude ler e entender as tools automaticamente)
+Cada usuário continua com seu próprio histórico: o bloqueio de número é por usuário, nunca compartilhado entre membros.
 
 ## Detalhes técnicos
 
-- **Backend**: server routes TanStack em `src/routes/api/public/v1/*.ts` (bypassa auth do site publicado, faz auth própria via header)
-- **Migração**: nova tabela `api_keys` (id, org_id, name, key_hash, prefix, last_used_at, revoked_at, created_by, created_at) + `api_key_audit_log` (id, api_key_id, endpoint, method, status, ip, ua, created_at). Ambas com RLS: dono da org lê/gerencia; API valida via `key_hash` usando `supabaseAdmin` só para o lookup da chave — depois usa cliente scoped por org
-- **Handler compartilhado**: `src/lib/api-public/auth.server.ts` faz `verifyApiKey(request)` → retorna `{ orgId, keyId }` ou 401. Reusado em todos os endpoints
-- **UI**: nova rota `/perfil/api-keys` (ou aba dentro do perfil existente) com listar/criar/revogar
-
-## O que vou entregar em ordem
-
-1. Migração das tabelas `api_keys` + `api_key_audit_log` (com RLS + GRANTs)
-2. Helpers server-side: geração de chave, hash, verificação, audit log, rate limit
-3. Endpoints REST em `/api/public/v1/*` (clientes, tarefas, interações, propostas, me)
-4. Página no perfil para gerenciar chaves
-5. Página `/api-docs` com exemplos curl e um `openapi.json`
-
-Posso tocar? Se quiser, corto o escopo do MVP para só **clientes + tarefas + interações** (deixa propostas para uma segunda leva) — me diga.
+- `src/lib/prospect-identity.ts`: nova função `getProspectPhoneKeys(p)` devolvendo os números normalizados (WhatsApp e telefone, formato 55DDD…), e `isJunkPhone()` para placeholders/sequências repetidas. `getProspectIdentityKey` mantém o comportamento atual (usado na deduplicação de cadastro); o bloqueio de disparo passa a usar **união** de chave de identidade + chaves de telefone.
+- `src/routes/prospeccao.tsx`: `hideDispatched` e `filteredOrdered` passam a construir `dispatchedPhones: Set<string>` a partir dos prospects com status ≠ `nao_contatado` e a esconder/rebaixar qualquer lead cujo telefone esteja no set. Números `isJunkPhone` entram na contagem de "sem WhatsApp".
+- `src/lib/dispatch-lock.ts`: `siblingProspectIds` deixa de escolher um único critério (`cnpj` OU `wa` OU `name`) e passa a unir os ids por CNPJ-raiz **e** por telefone normalizado, em uma consulta `in()` por lote.
+- `src/lib/api-public/dispatch.server.ts`: `buildQueue` filtra por `isJunkPhone` e mantém um `Set` de telefones já disparados (derivado dos touchpoints do usuário) além do `seenIdentity` atual.
+- Migração `scripts/migrations/20260924_dispatch_phone_dedupe.sql`: backfill idempotente inserindo `prospect_touchpoints` (`tipo='status'`, `mensagem='status:primeiro_contato'`, `by_name='Sistema'`) para pares (usuário, prospect) cujo telefone normalizado já tem disparo daquele usuário e que ainda não tenham status, escopado por `organization_id`.
+- Verificação: `bunx tsgo --noEmit -p tsconfig.json` e recontagem no banco dos "leads repetidos na fila" por usuário, que deve cair a zero.

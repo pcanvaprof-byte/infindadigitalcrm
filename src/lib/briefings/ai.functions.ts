@@ -11,9 +11,6 @@ const Input = z.object({ token: z.string().min(8) });
 export const gerarResumoBriefing = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => Input.parse(data))
   .handler(async ({ data }) => {
-    const groqKey = process.env.GROQ_API_KEY;
-    if (!groqKey) throw new Error("GROQ_API_KEY ausente");
-
     // Hard-coded para o projeto Supabase externo (oxmhwwopxurwqcrwgsyf).
     const supabaseUrl = "https://oxmhwwopxurwqcrwgsyf.supabase.co";
     const serviceKey = process.env.OWN_SB_SERVICE_ROLE_KEY;
@@ -83,27 +80,15 @@ ${fence("RESPOSTAS_KICKOFF", respostasSan)}`;
         ? "Você é gestor de produção sênior. Seja conciso, prático e direto."
         : "Você é um consultor estratégico sênior. Seja conciso e direto.") + securityRule;
 
-    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${groqKey}`,
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        temperature: 0.4,
-        messages: [
-          { role: "system", content: systemMsg },
-          { role: "user", content: prompt },
-        ],
-      }),
+    const { callGroqChat } = await import("@/lib/ai/groq-client.server");
+    const resumo = await callGroqChat({
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.4,
+      messages: [
+        { role: "system", content: systemMsg },
+        { role: "user", content: prompt },
+      ],
     });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Groq ${res.status}: ${text.slice(0, 300)}`);
-    }
-    const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    const resumo = json.choices?.[0]?.message?.content?.trim() ?? "";
     if (!resumo) throw new Error("Resposta IA vazia");
 
     const { error: upErr } = await admin.rpc("set_briefing_resumo_ia", {

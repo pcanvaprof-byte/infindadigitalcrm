@@ -156,7 +156,7 @@ function CadenciaPage() {
   });
 
   const importM = useMutation({
-    mutationFn: importFromProspects,
+    mutationFn: () => importFromProspects(),
     onSuccess: ({ imported, updated, skipped, cleaned }) => {
       invalidateAll();
       toast.success(

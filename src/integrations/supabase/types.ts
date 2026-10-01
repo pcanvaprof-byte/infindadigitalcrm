@@ -284,7 +284,7 @@ export type Database = {
           empresa: string | null
           id: string
           lead_id: string | null
-          organization_id: string | null
+          organization_id: string
           respostas_json: Json
           resumo_ia: string | null
           servico: string | null
@@ -303,7 +303,7 @@ export type Database = {
           empresa?: string | null
           id?: string
           lead_id?: string | null
-          organization_id?: string | null
+          organization_id?: string
           respostas_json?: Json
           resumo_ia?: string | null
           servico?: string | null
@@ -322,7 +322,7 @@ export type Database = {
           empresa?: string | null
           id?: string
           lead_id?: string | null
-          organization_id?: string | null
+          organization_id?: string
           respostas_json?: Json
           resumo_ia?: string | null
           servico?: string | null
@@ -366,12 +366,111 @@ export type Database = {
             foreignKeyName: "briefings_lead_id_fkey"
             columns: ["lead_id"]
             isOneToOne: false
+            referencedRelation: "v_prospects_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "briefings_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
             referencedRelation: "v_prospects_with_state"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "briefings_organization_id_fkey"
             columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_profiles: {
+        Row: {
+          ai_model: string | null
+          analyzed_at: string | null
+          approach: string | null
+          audience: string | null
+          benefits: string[]
+          created_at: string
+          created_by: string | null
+          description: string | null
+          differentials: string | null
+          focus: string | null
+          id: string
+          ideal_customer: string | null
+          initial_message: string | null
+          language: string | null
+          niche: string | null
+          onboarding_status: string
+          org_id: string
+          pains: string[]
+          product: string | null
+          region: string | null
+          tone: string | null
+          triggers: string[]
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          ai_model?: string | null
+          analyzed_at?: string | null
+          approach?: string | null
+          audience?: string | null
+          benefits?: string[]
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          differentials?: string | null
+          focus?: string | null
+          id?: string
+          ideal_customer?: string | null
+          initial_message?: string | null
+          language?: string | null
+          niche?: string | null
+          onboarding_status?: string
+          org_id: string
+          pains?: string[]
+          product?: string | null
+          region?: string | null
+          tone?: string | null
+          triggers?: string[]
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          ai_model?: string | null
+          analyzed_at?: string | null
+          approach?: string | null
+          audience?: string | null
+          benefits?: string[]
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          differentials?: string | null
+          focus?: string | null
+          id?: string
+          ideal_customer?: string | null
+          initial_message?: string | null
+          language?: string | null
+          niche?: string | null
+          onboarding_status?: string
+          org_id?: string
+          pains?: string[]
+          product?: string | null
+          region?: string | null
+          tone?: string | null
+          triggers?: string[]
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_profiles_org_id_fkey"
+            columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
@@ -476,6 +575,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_prospects_private_leaks"
             referencedColumns: ["prospect_id"]
+          },
+          {
+            foreignKeyName: "cad_leads_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "v_prospects_user"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "cad_leads_prospect_id_fkey"
@@ -1240,6 +1346,13 @@ export type Database = {
             foreignKeyName: "clients_prospect_id_fkey"
             columns: ["prospect_id"]
             isOneToOne: true
+            referencedRelation: "v_prospects_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clients_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: true
             referencedRelation: "v_prospects_with_state"
             referencedColumns: ["id"]
           },
@@ -1581,6 +1694,13 @@ export type Database = {
             foreignKeyName: "company_profiles_prospect_id_fkey"
             columns: ["prospect_id"]
             isOneToOne: false
+            referencedRelation: "v_prospects_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_profiles_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
             referencedRelation: "v_prospects_with_state"
             referencedColumns: ["id"]
           },
@@ -1640,6 +1760,7 @@ export type Database = {
           profile_id: string | null
           prospect_id: string | null
           resultado: string | null
+          retornar_em: string | null
           status: string
           user_id: string
           visited_at: string
@@ -1656,6 +1777,7 @@ export type Database = {
           profile_id?: string | null
           prospect_id?: string | null
           resultado?: string | null
+          retornar_em?: string | null
           status?: string
           user_id: string
           visited_at?: string
@@ -1672,6 +1794,7 @@ export type Database = {
           profile_id?: string | null
           prospect_id?: string | null
           resultado?: string | null
+          retornar_em?: string | null
           status?: string
           user_id?: string
           visited_at?: string
@@ -1704,6 +1827,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_prospects_private_leaks"
             referencedColumns: ["prospect_id"]
+          },
+          {
+            foreignKeyName: "company_visits_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "v_prospects_user"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "company_visits_prospect_id_fkey"
@@ -2076,6 +2206,13 @@ export type Database = {
             foreignKeyName: "deals_prospect_id_fkey"
             columns: ["prospect_id"]
             isOneToOne: false
+            referencedRelation: "v_prospects_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
             referencedRelation: "v_prospects_with_state"
             referencedColumns: ["id"]
           },
@@ -2084,6 +2221,35 @@ export type Database = {
             columns: ["stage_id"]
             isOneToOne: false
             referencedRelation: "deal_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      demo_signups_log: {
+        Row: {
+          created_at: string
+          id: string
+          ip: string | null
+          organization_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip?: string | null
+          organization_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip?: string | null
+          organization_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "demo_signups_log_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
         ]
@@ -2684,6 +2850,42 @@ export type Database = {
           },
         ]
       }
+      org_switch_audit: {
+        Row: {
+          created_at: string
+          id: string
+          metadata: Json
+          new_org_id: string
+          new_score: number | null
+          previous_org_id: string | null
+          previous_score: number | null
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metadata?: Json
+          new_org_id: string
+          new_score?: number | null
+          previous_org_id?: string | null
+          previous_score?: number | null
+          reason: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metadata?: Json
+          new_org_id?: string
+          new_score?: number | null
+          previous_org_id?: string | null
+          previous_score?: number | null
+          reason?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       organization_members: {
         Row: {
           joined_at: string
@@ -2720,6 +2922,7 @@ export type Database = {
           created_by: string | null
           default_seed_pack: string | null
           id: string
+          is_demo: boolean
           name: string
           slug: string | null
         }
@@ -2729,6 +2932,7 @@ export type Database = {
           created_by?: string | null
           default_seed_pack?: string | null
           id?: string
+          is_demo?: boolean
           name: string
           slug?: string | null
         }
@@ -2738,6 +2942,7 @@ export type Database = {
           created_by?: string | null
           default_seed_pack?: string | null
           id?: string
+          is_demo?: boolean
           name?: string
           slug?: string | null
         }
@@ -2751,6 +2956,7 @@ export type Database = {
           deliveries: Json
           mensalidade: number
           name: string
+          organization_id: string | null
           updated_at: string
         }
         Insert: {
@@ -2760,6 +2966,7 @@ export type Database = {
           deliveries?: Json
           mensalidade?: number
           name: string
+          organization_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -2769,9 +2976,18 @@ export type Database = {
           deliveries?: Json
           mensalidade?: number
           name?: string
+          organization_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "plan_templates_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       proposal_adjustments: {
         Row: {
@@ -3191,6 +3407,7 @@ export type Database = {
           created_at: string
           id: string
           kind: string
+          organization_id: string
           prospect_id: string
           text: string
           user_id: string
@@ -3200,6 +3417,7 @@ export type Database = {
           created_at?: string
           id?: string
           kind: string
+          organization_id?: string
           prospect_id: string
           text?: string
           user_id: string
@@ -3209,11 +3427,19 @@ export type Database = {
           created_at?: string
           id?: string
           kind?: string
+          organization_id?: string
           prospect_id?: string
           text?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "prospect_interactions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "prospect_interactions_prospect_id_fkey"
             columns: ["prospect_id"]
@@ -3234,6 +3460,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_prospects_private_leaks"
             referencedColumns: ["prospect_id"]
+          },
+          {
+            foreignKeyName: "prospect_interactions_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "v_prospects_user"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "prospect_interactions_prospect_id_fkey"
@@ -3314,6 +3547,13 @@ export type Database = {
             foreignKeyName: "prospect_touchpoints_prospect_id_fkey"
             columns: ["prospect_id"]
             isOneToOne: false
+            referencedRelation: "v_prospects_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospect_touchpoints_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
             referencedRelation: "v_prospects_with_state"
             referencedColumns: ["id"]
           },
@@ -3336,6 +3576,7 @@ export type Database = {
           imported_by: string | null
           instagram: string
           last_contact_at: string | null
+          merged_into: string | null
           next_contact_at: string | null
           organization_id: string
           owner_name: string
@@ -3366,6 +3607,7 @@ export type Database = {
           imported_by?: string | null
           instagram?: string
           last_contact_at?: string | null
+          merged_into?: string | null
           next_contact_at?: string | null
           organization_id?: string
           owner_name?: string
@@ -3396,6 +3638,7 @@ export type Database = {
           imported_by?: string | null
           instagram?: string
           last_contact_at?: string | null
+          merged_into?: string | null
           next_contact_at?: string | null
           organization_id?: string
           owner_name?: string
@@ -3416,6 +3659,41 @@ export type Database = {
             columns: ["import_id"]
             isOneToOne: false
             referencedRelation: "prospect_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospects_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "prospects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospects_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_prospect_import_audit"
+            referencedColumns: ["prospect_id"]
+          },
+          {
+            foreignKeyName: "prospects_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_prospects_private_leaks"
+            referencedColumns: ["prospect_id"]
+          },
+          {
+            foreignKeyName: "prospects_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_prospects_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prospects_merged_into_fkey"
+            columns: ["merged_into"]
+            isOneToOne: false
+            referencedRelation: "v_prospects_with_state"
             referencedColumns: ["id"]
           },
         ]
@@ -3528,6 +3806,78 @@ export type Database = {
           },
         ]
       }
+      user_access: {
+        Row: {
+          access_type: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          must_change_password: boolean
+          organization_id: string
+          plan_name: string | null
+          renewed_at: string | null
+          starts_at: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_type?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          must_change_password?: boolean
+          organization_id: string
+          plan_name?: string | null
+          renewed_at?: string | null
+          starts_at?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_type?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          must_change_password?: boolean
+          organization_id?: string
+          plan_name?: string | null
+          renewed_at?: string | null
+          starts_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_access_events: {
+        Row: {
+          created_at: string
+          event: string
+          id: string
+          meta: Json
+          organization_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event: string
+          id?: string
+          meta?: Json
+          organization_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event?: string
+          id?: string
+          meta?: Json
+          organization_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_active_org: {
         Row: {
           organization_id: string
@@ -3627,6 +3977,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_prospects_private_leaks"
             referencedColumns: ["prospect_id"]
+          },
+          {
+            foreignKeyName: "user_lead_state_prospect_id_fkey"
+            columns: ["prospect_id"]
+            isOneToOne: false
+            referencedRelation: "v_prospects_user"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "user_lead_state_prospect_id_fkey"
@@ -3964,6 +4321,48 @@ export type Database = {
           },
         ]
       }
+      v_prospects_user: {
+        Row: {
+          cadence_status: string | null
+          cadence_step: number | null
+          city: string | null
+          closed_at: string | null
+          closed_reason: string | null
+          cnpj: string | null
+          company: string | null
+          created_at: string | null
+          email: string | null
+          has_user_state: boolean | null
+          id: string | null
+          import_id: string | null
+          imported_at: string | null
+          imported_by: string | null
+          instagram: string | null
+          last_contact_at: string | null
+          next_contact_at: string | null
+          organization_id: string | null
+          owner_name: string | null
+          phone: string | null
+          potential: string | null
+          response_status: string | null
+          segment: string | null
+          source: string | null
+          state: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string | null
+          whatsapp: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prospects_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "prospect_imports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_prospects_with_state: {
         Row: {
           cadence_status: string | null
@@ -4096,6 +4495,10 @@ export type Database = {
         Args: { p_kind: string; p_lead: string; p_text: string; p_user: string }
         Returns: undefined
       }
+      _is_org_admin: { Args: never; Returns: boolean }
+      _prospect_norm_city: { Args: { c: string }; Returns: string }
+      _prospect_norm_cnpj: { Args: { c: string }; Returns: string }
+      _prospect_norm_name: { Args: { n: string }; Returns: string }
       acoes_hoje: {
         Args: { _limit?: number }
         Returns: {
@@ -4152,6 +4555,7 @@ export type Database = {
         }[]
       }
       cad_import_from_prospects: { Args: { p_ids?: string[] }; Returns: number }
+      cad_is_org_admin: { Args: never; Returns: boolean }
       cad_list_packs: {
         Args: never
         Returns: {
@@ -4167,6 +4571,20 @@ export type Database = {
           segmento: string
           tags: string[]
           template_count: number
+        }[]
+      }
+      cad_list_resolved_templates: {
+        Args: {
+          p_organization_id: string
+          p_owner_id: string
+          p_pack_key: string
+        }
+        Returns: {
+          corpo: string
+          override_id: string
+          source: string
+          stage: Database["public"]["Enums"]["cad_stage"]
+          titulo: string
         }[]
       }
       cad_mark_all_notifications_handled: { Args: never; Returns: number }
@@ -4306,6 +4724,7 @@ export type Database = {
           realizados: number
         }[]
       }
+      check_access_status: { Args: never; Returns: Json }
       check_prospects_private_leaks: {
         Args: { _org?: string }
         Returns: {
@@ -4454,6 +4873,7 @@ export type Database = {
         Args: { p_resumo: string; p_token: string }
         Returns: undefined
       }
+      shares_org_with: { Args: { _other: string }; Returns: boolean }
       snooze_prospect: {
         Args: { _days: number; _prospect_id: string }
         Returns: string
@@ -4480,7 +4900,7 @@ export type Database = {
           empresa: string | null
           id: string
           lead_id: string | null
-          organization_id: string | null
+          organization_id: string
           respostas_json: Json
           resumo_ia: string | null
           servico: string | null
@@ -4591,12 +5011,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -4620,11 +5040,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -4645,11 +5065,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -4670,11 +5090,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -4687,11 +5107,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

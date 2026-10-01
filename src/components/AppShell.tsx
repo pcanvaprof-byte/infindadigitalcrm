@@ -23,8 +23,11 @@ import {
   KeyRound,
   PanelLeftClose,
   PanelLeftOpen,
+  Sparkles,
+  MessageSquareText,
 } from "lucide-react";
-import { Briefcase } from "lucide-react";
+import { BookOpen, MapPin } from "lucide-react";
+import { Briefcase, Flame } from "lucide-react";
 import { Logo } from "./Logo";
 import { useAuth, ROLE_LABEL } from "@/lib/auth-context";
 import { APP_VERSION_LABEL } from "@/lib/version";
@@ -45,6 +48,11 @@ import { toast } from "sonner";
 import { NotificationsBell } from "./cadencia/NotificationsBell";
 import { useOrgRole, isOwnerOrAdmin, type OrgRole } from "@/lib/org/plans";
 import { FEATURES } from "@/config/features";
+import { useAccessStatus } from "@/hooks/useAccessStatus";
+import { AccessExpiredScreen } from "@/components/access/AccessExpiredScreen";
+import { TrialBanner } from "@/components/access/TrialBanner";
+import { DemoCountdown } from "@/components/access/DemoCountdown";
+import { WelcomeOnboardingDialog } from "@/components/onboarding/WelcomeOnboardingDialog";
 
 type NavItem = {
   to: string;
@@ -60,10 +68,16 @@ const ADMIN_ROLES = ["owner", "admin"] as const;
 
 const NAV: readonly NavItem[] = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, enabled: true },
+  { to: "/meu-negocio", label: "Meu Negócio", icon: Sparkles, enabled: true },
+  { to: "/documentacao", label: "Documentação", icon: BookOpen, enabled: true },
+  { to: "/usuarios", label: "Usuários", icon: UserCog, enabled: true, roles: ADMIN_ROLES },
   { to: "/bi", label: "Business Intelligence", icon: Bot, enabled: FEATURES.businessIntelligence },
   { to: "/crm", label: "CRM Comercial", icon: Users, enabled: true },
   { to: "/prospeccao", label: "Prospecção", icon: Search, enabled: true },
+  { to: "/mapa", label: "Mapa", icon: MapPin, enabled: true },
   { to: "/cadencia", label: "Cadência", icon: Repeat2, enabled: true },
+  { to: "/aquecimento", label: "Aquecimento Automático", icon: Flame, enabled: true },
+  { to: "/meus-templates", label: "Meus Templates", icon: MessageSquareText, enabled: true },
   { to: "/operacoes", label: "Operações", icon: Briefcase, enabled: true, roles: ADMIN_ROLES },
   { to: "/briefings", label: "Briefings Comerciais", icon: FileText, enabled: true, roles: ADMIN_ROLES },
   { to: "/catalogo", label: "Catálogo Comercial", icon: Package, enabled: true, roles: ADMIN_ROLES },
@@ -156,11 +170,13 @@ export function AppShell({
   title,
   subtitle,
   actions,
+  className,
 }: {
   children: ReactNode;
   title: string;
   subtitle?: string;
   actions?: ReactNode;
+  className?: string;
 }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -172,11 +188,46 @@ export function AppShell({
   });
   const { role } = useOrgRole();
   const isAdminOrOwner = isOwnerOrAdmin(role);
+  const routerState = useRouterState();
+  const pathname = routerState.location.pathname;
+  const { data: access, isLoading: accessLoading } = useAccessStatus();
+  // Flag de debug: ?demoCountdown=1  (padrão 10 min) ou ?demoCountdown=<minutos>
+  // Também aceita localStorage: infinda:demo-countdown-debug=<minutos>
+  const debugCountdownExpiresAt = (() => {
+    if (typeof window === "undefined") return null;
+    const params = new URLSearchParams(window.location.search);
+    const raw = params.get("demoCountdown") ?? window.localStorage.getItem("infinda:demo-countdown-debug");
+    if (!raw) return null;
+    // Persistir para não perder ao navegar
+    if (params.get("demoCountdown")) {
+      window.localStorage.setItem("infinda:demo-countdown-debug", raw);
+    }
+    const minutes = raw === "1" ? 10 : Number(raw);
+    if (!Number.isFinite(minutes) || minutes <= 0) return null;
+    return new Date(Date.now() + minutes * 60 * 1000).toISOString();
+  })();
+  const shouldShowCountdown =
+    !!debugCountdownExpiresAt ||
+    (!!access?.expires_at &&
+      access.status === "active" &&
+      (access.access_type === "demo" ||
+        (access.access_type === "trial" && access.is_privileged)));
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     window.localStorage.setItem("infinda:sidebar-collapsed", sidebarCollapsed ? "1" : "0");
   }, [sidebarCollapsed]);
+
+  // Early returns AFTER all hooks (ordem estável obrigatória do React).
+  if (access && access.status !== "active" && !access.is_privileged) {
+    return <AccessExpiredScreen />;
+  }
+  // Aguarda o status carregar antes de renderizar rotas protegidas.
+  // Sem isso, componentes filhos disparam server fns com `authWithAccess`
+  // antes do gate, e o throw `access_expired` gera tela em branco.
+  if (accessLoading || !access) {
+    return null;
+  }
 
   const handleLogout = async () => {
     await queryClient.cancelQueries();
@@ -213,6 +264,7 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen bg-background">
+      <WelcomeOnboardingDialog />
       {!sidebarCollapsed && (
         <div className="hidden lg:block">
           <Sidebar role={role} />
@@ -220,8 +272,27 @@ export function AppShell({
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
+        {shouldShowCountdown && (debugCountdownExpiresAt || access?.expires_at) && (
+          <DemoCountdown
+            expiresAt={debugCountdownExpiresAt ?? (access!.expires_at as string)}
+            label={
+              debugCountdownExpiresAt
+                ? "Demo gratuita (preview)"
+                : access?.access_type === "demo"
+                ? "Demo gratuita"
+                : "Acesso de demonstração"
+            }
+          />
+        )}
+        {access &&
+          access.status === "active" &&
+          !access.is_privileged &&
+          access.access_type !== "demo" &&
+          typeof access.days_remaining === "number" && (
+            <TrialBanner daysRemaining={access.days_remaining} />
+          )}
         <header
-          className="sticky top-0 z-30 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/80 px-3 py-2.5 backdrop-blur-xl sm:gap-4 sm:px-6 sm:py-3"
+          className="sticky top-0 z-[1001] grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border bg-background/80 px-3 py-2.5 backdrop-blur-xl sm:gap-4 sm:px-6 sm:py-3"
           style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 0.625rem)" }}
         >
           <div className="flex items-center gap-3">
@@ -325,7 +396,7 @@ export function AppShell({
           </div>
         )}
 
-        <main className="flex-1 px-3 py-4 pb-mobile-nav sm:px-6 sm:py-6 lg:px-8">{children}</main>
+        <main className={`flex-1 px-3 py-4 pb-mobile-nav sm:px-6 sm:py-6 lg:px-8 ${className || ""}`}>{children}</main>
       </div>
 
       <MobileNav onOpenMenu={() => setMobileMenuOpen(true)} />

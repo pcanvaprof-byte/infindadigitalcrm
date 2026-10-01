@@ -90,6 +90,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    // Após identificar o usuário, garante que `user_active_org` aponte para a
+    // organização com dados reais (evita ficar em uma org duplicada/vazia).
+    // Executa uma vez por identidade — silencioso em caso de falha.
+    const ensuredForUserIds = new Set<string>();
+    const ensureBestOrgOnce = async (uid: string) => {
+      if (ensuredForUserIds.has(uid)) return;
+      ensuredForUserIds.add(uid);
+      try {
+        const [{ ensureBestActiveOrg }, tz] = await Promise.all([
+          import("@/lib/access/active-org.functions"),
+          import("@/lib/bi/tz"),
+        ]);
+        const res = await ensureBestActiveOrg();
+        if (res && "reason" in res && res.reason === "switched") {
+          tz.resetOrgIdCache();
+          queryClient.invalidateQueries();
+        }
+      } catch {
+        /* noop — se falhar, mantém a org ativa atual */
+      }
+    };
+
     const initializeSession = async () => {
       const { data, error } = await supabase.auth.getUser();
       if (cancelled) return;
@@ -99,6 +121,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
       await applyUser(error ? null : data.user);
+      if (!cancelled && !error && data.user) {
+        void ensureBestOrgOnce(data.user.id);
+      }
     };
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
@@ -121,9 +146,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (identityChanged) {
         void import("@/lib/bi/tz").then((m) => m.resetOrgIdCache());
         queryClient.clear();
+        // Limpa chaves conhecidas de storage do usuário anterior para evitar
+        // qualquer vazamento cross-user (config de conta, flags, pré-visualizações).
+        try {
+          if (typeof window !== "undefined") {
+            const prefixes = ["wa_account", "bonus_mode", "bi.", "bi:", "pv:", "lifecycle-audit-log", "lifecycle:audit-log"];
+            const drop = (store: Storage) => {
+              const toRemove: string[] = [];
+              for (let i = 0; i < store.length; i++) {
+                const k = store.key(i);
+                if (!k) continue;
+                if (prefixes.some((p) => k === p || k.startsWith(p))) toRemove.push(k);
+              }
+              toRemove.forEach((k) => store.removeItem(k));
+            };
+            drop(window.localStorage);
+            drop(window.sessionStorage);
+          }
+        } catch {
+          /* noop */
+        }
       }
 
       void applyUser(session?.user ?? null);
+      if (event === "SIGNED_IN" && session?.user) {
+        void ensureBestOrgOnce(session.user.id);
+      }
     });
 
     void initializeSession();

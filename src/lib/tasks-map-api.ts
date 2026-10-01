@@ -19,6 +19,8 @@ export interface MapPoint {
   email?: string | null;
   status?: string | null;
   potential?: string | null;
+  nicho?: string | null;
+  data_abertura?: string | null;
 }
 
 type ProfileRow = {
@@ -26,6 +28,7 @@ type ProfileRow = {
   cnpj: string;
   razao_social: string | null;
   nome_fantasia: string | null;
+  data_abertura: string | null;
 };
 type AddrRow = {
   profile_id: string;
@@ -35,26 +38,18 @@ type AddrRow = {
 type LocRow = { profile_id: string; lat: number | null; lon: number | null };
 
 type ProspectRow = {
+  id: string;
   cnpj: string | null; company: string; whatsapp: string | null;
   phone: string | null; email: string | null; status: string | null;
   potential: string | null; city: string | null; state: string | null;
+  nicho: string | null;
+  merged_into: string | null;
 };
 
-const PAGE = 1000;
+type DbErrorLike = { code?: string; message?: string };
 
-async function fetchAll<T>(
-  build: (from: number, to: number) => Promise<{ data: unknown; error: unknown }>,
-): Promise<T[]> {
-  const out: T[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await build(from, from + PAGE - 1);
-    if (error) throw error;
-    const batch = (data ?? []) as T[];
-    out.push(...batch);
-    if (batch.length < PAGE) break;
-  }
-  return out;
-}
+const PROSPECTS_BATCH = 100;
+const PAGE = 1000;
 
 async function fetchByIds<T>(
   ids: string[],
@@ -64,39 +59,60 @@ async function fetchByIds<T>(
   const ID_BATCH = 200;
   for (let i = 0; i < ids.length; i += ID_BATCH) {
     const slice = ids.slice(i, i + ID_BATCH);
-    for (let from = 0; ; from += PAGE) {
-      const { data, error } = await build(slice, from, from + PAGE - 1);
-      if (error) throw error;
-      const batch = (data ?? []) as T[];
-      out.push(...batch);
-      if (batch.length < PAGE) break;
+    // Removemos o loop interno de range/PAGE porque fetchByIds deve ser simples
+    // para o lote atual de 100 prospects. O fetchByIds é chamado com CNPJs 
+    // ou profile_ids derivados de apenas 100 prospects.
+    const { data, error } = await build(slice, 0, 999); 
+    if (error) {
+      console.error("[MAPA] fetchByIds error:", error);
+      throw error;
     }
+    const batch = (data ?? []) as T[];
+    out.push(...batch);
   }
   return out;
 }
 
-export async function loadMapPoints(): Promise<MapPoint[]> {
-  const { data: userData } = await supabase.auth.getUser();
-  const uid = userData.user?.id;
-  if (!uid) return [];
+/**
+ * Carrega metadados (perfis, endereços, locais) para uma lista de prospects.
+ */
+async function hydrateMapPoints(prospects: ProspectRow[], uid: string): Promise<MapPoint[]> {
+  const prospectCnpjs = new Set<string>();
+  for (const p of prospects) {
+    if (p.cnpj) prospectCnpjs.add(p.cnpj.replace(/\D/g, ""));
+  }
 
-  const [profiles, prospects] = await Promise.all([
-    fetchAll<ProfileRow>((from, to) =>
+  const cnpjList = Array.from(prospectCnpjs);
+  if (cnpjList.length === 0) return [];
+
+  console.log(`[MAPA] Buscando perfis e status para ${cnpjList.length} CNPJs`);
+  const [profilesResult, states] = await Promise.allSettled([
+    fetchByIds<ProfileRow>(cnpjList, (slice, from, to) =>
       db.from("company_profiles")
-        .select("id,cnpj,razao_social,nome_fantasia")
-        .eq("user_id", uid)
+        .select("id,cnpj,razao_social,nome_fantasia,data_abertura")
+        .in("cnpj", slice)
         .range(from, to),
     ),
-    fetchAll<ProspectRow>((from, to) =>
-      db.from("prospects")
-        .select("cnpj,company,whatsapp,phone,email,status,potential,city,state")
-        .range(from, to),
-    ),
+    fetchUserLeadStatuses(uid, prospects.map(p => p.id))
   ]);
-  const profileIds = profiles.map((p) => p.id);
 
-  const [addrs, locs] = profileIds.length
-    ? await Promise.all([
+  const profiles = profilesResult.status === 'fulfilled' ? profilesResult.value : [];
+  if (profilesResult.status === 'rejected') {
+    console.error("[MAPA] Erro ao buscar perfis:", profilesResult.reason);
+  }
+  
+  const leadStatuses = states.status === 'fulfilled' ? states.value : new Map<string, string>();
+  if (states.status === 'rejected') {
+    console.error("[MAPA] Erro ao buscar status:", states.reason);
+  }
+
+  console.log(`[MAPA] ${profiles.length} perfis encontrados`);
+
+  const profileIds = profiles.map((p) => p.id);
+  console.log(`[MAPA] Buscando endereços e locais para ${profileIds.length} perfis`);
+  
+  const [addrsResult, locsResult] = profileIds.length
+    ? await Promise.allSettled([
         fetchByIds<AddrRow>(profileIds, (slice, from, to) =>
           db.from("company_addresses")
             .select("profile_id,logradouro,numero,bairro,cidade,uf,cep")
@@ -110,41 +126,186 @@ export async function loadMapPoints(): Promise<MapPoint[]> {
             .range(from, to),
         ),
       ])
-    : [[] as AddrRow[], [] as LocRow[]];
+    : [{ status: 'fulfilled', value: [] } as PromiseSettledResult<AddrRow[]>, { status: 'fulfilled', value: [] } as PromiseSettledResult<LocRow[]>];
+
+  const addrs = addrsResult.status === 'fulfilled' ? addrsResult.value : [];
+  const locs = locsResult.status === 'fulfilled' ? locsResult.value : [];
+  
+  if (addrsResult.status === 'rejected') console.error("[MAPA] Erro ao buscar endereços:", addrsResult.reason);
+  if (locsResult.status === 'rejected') console.error("[MAPA] Erro ao buscar localizações:", locsResult.reason);
+
+  console.log(`[MAPA] ${addrs.length} endereços e ${locs.length} locais encontrados`);
+
   const addrByProf = new Map<string, AddrRow>();
   for (const a of addrs) addrByProf.set(a.profile_id, a);
   const locByProf = new Map<string, LocRow>();
   for (const l of locs) locByProf.set(l.profile_id, l);
 
   const profByCnpj = new Map<string, ProfileRow>();
-  for (const p of profiles) if (p.cnpj) profByCnpj.set(p.cnpj.replace(/\D/g, ""), p);
+  const richness = (p: ProfileRow) =>
+    (locByProf.has(p.id) ? 2 : 0) + (addrByProf.has(p.id) ? 1 : 0);
+  for (const p of profiles) {
+    if (!p.cnpj) continue;
+    const key = p.cnpj.replace(/\D/g, "");
+    const current = profByCnpj.get(key);
+    if (!current || richness(p) > richness(current)) profByCnpj.set(key, p);
+  }
 
-  return prospects
-    .filter((p) => p.cnpj && p.cnpj.replace(/\D/g, "").length === 14)
-    .map((p): MapPoint => {
-      const clean = p.cnpj!.replace(/\D/g, "");
-      const prof = profByCnpj.get(clean);
-      const addr = prof ? addrByProf.get(prof.id) : undefined;
-      const loc = prof ? locByProf.get(prof.id) : undefined;
-      return {
-        cnpj: clean,
-        company: prof?.nome_fantasia || prof?.razao_social || p.company,
-        fantasia: prof?.nome_fantasia ?? null,
-        bairro: addr?.bairro ?? null,
-        cidade: addr?.cidade ?? p.city ?? null,
-        uf: addr?.uf ?? p.state ?? null,
-        logradouro: addr?.logradouro ?? null,
-        numero: addr?.numero ?? null,
-        cep: addr?.cep ?? null,
-        lat: loc?.lat ?? null,
-        lon: loc?.lon ?? null,
-        whatsapp: p.whatsapp,
-        phone: p.phone,
-        email: p.email,
-        status: p.status,
-        potential: p.potential,
-      };
+  const out: MapPoint[] = [];
+  for (const p of prospects) {
+    const clean = (p.cnpj || "").replace(/\D/g, "");
+    const prof = clean ? profByCnpj.get(clean) : undefined;
+    const addr = prof ? addrByProf.get(prof.id) : undefined;
+    const loc = prof ? locByProf.get(prof.id) : undefined;
+
+    // Se não tiver localização E nem endereço E nem cidade no prospect, não conseguimos mostrar no mapa
+    if (!loc?.lat && !loc?.lon && !addr?.logradouro && !p.city) {
+      continue;
+    }
+
+    out.push({
+      cnpj: clean || `no-cnpj-${p.id}`,
+      company: prof?.nome_fantasia || prof?.razao_social || p.company,
+      fantasia: prof?.nome_fantasia ?? null,
+      bairro: addr?.bairro ?? null,
+      cidade: addr?.cidade ?? p.city ?? null,
+      uf: addr?.uf ?? p.state ?? null,
+      logradouro: addr?.logradouro ?? null,
+      numero: addr?.numero ?? null,
+      cep: addr?.cep ?? null,
+      lat: loc?.lat ?? null,
+      lon: loc?.lon ?? null,
+      whatsapp: p.whatsapp,
+      phone: p.phone,
+      email: p.email,
+      status: leadStatuses.get(p.id) ?? "nao_contatado",
+      potential: p.potential,
+      nicho: p.nicho,
+      data_abertura: prof?.data_abertura ?? null,
     });
+  }
+  return out;
+}
+
+export interface MapLoaderState {
+  points: MapPoint[];
+  loading: boolean;
+  totalLoaded: number;
+  totalExpected: number | null;
+  error: Error | null;
+  isComplete: boolean;
+}
+
+/**
+ * Hook or generator for progressive map loading.
+ * Returns batches of MapPoints to be merged by the caller.
+ */
+export async function* loadMapPointsProgressive(): AsyncGenerator<{ points: MapPoint[], totalExpected: number }> {
+  const { data: userData } = await supabase.auth.getUser();
+  const uid = userData.user?.id;
+  if (!uid) return;
+
+  // 1. Get total count (não fatal)
+  let total = 0;
+  try {
+    const { count, error: countError } = await db.from("prospects")
+      .select("*", { count: "exact", head: true })
+      .is("merged_into", null);
+    
+    total = count ?? 0;
+  } catch (e) {
+    console.warn("[MAPA] Falha silenciosa ao buscar contagem");
+  }
+
+  // 2. Fetch in batches
+  const seenCnpjs = new Set<string>();
+
+  for (let from = 0; ; from += PROSPECTS_BATCH) {
+    const to = from + PROSPECTS_BATCH - 1;
+    
+    // Fetch prospects
+    let { data: prospects, error } = await db.from("prospects")
+      .select("id,cnpj,company,whatsapp,phone,email,potential,city,state,segment,merged_into")
+      .is("merged_into", null)
+      .range(from, to);
+
+    if (error && (error as any).code === "42703") {
+      const res = await db.from("prospects")
+        .select("id,cnpj,company,whatsapp,phone,email,potential,city,state,segment")
+        .range(from, to);
+      prospects = res.data;
+      error = res.error;
+    }
+
+    if (error) throw error;
+    if (!prospects || prospects.length === 0) break;
+
+    const rows = prospects as ProspectRow[];
+    
+    // Filter out locally
+    const uniqueRows = rows.filter(r => {
+      const clean = (r.cnpj || "").replace(/\D/g, "");
+      if (clean && seenCnpjs.has(clean)) return false;
+      if (clean) seenCnpjs.add(clean);
+      return true;
+    });
+
+    if (uniqueRows.length > 0) {
+      try {
+        const hydrated = await hydrateMapPoints(uniqueRows, uid);
+        yield { points: hydrated, totalExpected: total };
+      } catch (hydrationError) {
+        console.error("[MAPA] Erro na hidratação do lote, pulando...", hydrationError);
+      }
+    }
+
+    if (prospects.length < PROSPECTS_BATCH) break;
+  }
+}
+
+
+async function fetchUserLeadStatuses(uid: string, ids: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (!ids.length) return out;
+  try {
+    const states = await fetchByIds<{ prospect_id: string; tipo: string | null; resultado: string | null; mensagem: string | null }>(ids, (slice, from, to) =>
+      db.from("prospect_touchpoints")
+        .select("prospect_id,tipo,resultado,mensagem,enviado_em")
+        .eq("user_id", uid)
+        .in("prospect_id", slice)
+        .in("tipo", ["status", "whatsapp", "ligacao", "email", "reuniao", "resposta"])
+        .order("enviado_em", { ascending: false })
+        .range(from, to),
+    );
+    for (const state of states) {
+      if (out.has(state.prospect_id)) continue;
+      if (state.tipo === "status") {
+        out.set(state.prospect_id, normalizeProspectStatus(state.resultado) ?? normalizeProspectStatus(state.mensagem) ?? "nao_contatado");
+      } else if (state.tipo === "resposta" || state.resultado === "respondido" || state.resultado === "interessado") {
+        out.set(state.prospect_id, "qualificado");
+      } else {
+        out.set(state.prospect_id, "primeiro_contato");
+      }
+    }
+  } catch (error) {
+    if (!isMissingRelation(error)) console.warn("loadMapPoints touchpoints status fallback error", error);
+  }
+  return out;
+}
+
+function normalizeProspectStatus(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const status = value.trim().replace(/^status\s*:\s*/i, "");
+  return [
+    "nao_contatado", "primeiro_contato", "em_negociacao", "qualificado", "agendado", "perdido",
+    "briefing_enviado", "diagnostico_pendente", "proposta_pendente", "proposta_enviada", "fechado_ganho",
+    "aguardando_kickoff", "aguardando_producao", "em_producao", "entregue", "cliente",
+  ].includes(status) ? status : null;
+}
+
+function isMissingRelation(error: unknown): boolean {
+  const err = error as DbErrorLike;
+  return err?.code === "PGRST205" || /schema cache|Could not find the table|does not exist/i.test(err?.message ?? "");
 }
 
 export function bairroColor(bairro?: string | null): string {
@@ -153,4 +314,58 @@ export function bairroColor(bairro?: string | null): string {
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
   const hue = h % 360;
   return `hsl(${hue} 75% 55%)`;
+}
+
+/* ---------- Cache offline dos pontos do mapa (uso em campo) ---------- */
+
+const POINTS_CACHE = "pap.map.points.v1";
+
+export function readMapCacheInfo() {
+  const cached = readPointsCache();
+  return {
+    count: cached.length,
+    limit: 5000,
+    isTruncated: cached.length >= 5000
+  };
+}
+
+function readPointsCache(): MapPoint[] {
+  try {
+    return JSON.parse(localStorage.getItem(POINTS_CACHE) || "[]") as MapPoint[];
+  } catch {
+    return [];
+  }
+}
+
+function writePointsCache(points: MapPoint[]) {
+  try {
+    localStorage.setItem(POINTS_CACHE, JSON.stringify(points.slice(0, 5000)));
+  } catch {
+    /* quota — ignora */
+  }
+}
+
+/**
+ * Versão legada para compatibilidade se necessário, mas deve ser evitada
+ * para grandes volumes em favor da carga progressiva.
+ */
+export async function loadMapPoints(): Promise<MapPoint[]> {
+  const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+  if (offline) {
+    const cached = readPointsCache();
+    if (cached.length) return cached;
+  }
+  
+  const all: MapPoint[] = [];
+  try {
+    for await (const batch of loadMapPointsProgressive()) {
+      all.push(...batch.points);
+    }
+    writePointsCache(all);
+    return all;
+  } catch (e) {
+    const cached = readPointsCache();
+    if (cached.length) return cached;
+    throw e;
+  }
 }

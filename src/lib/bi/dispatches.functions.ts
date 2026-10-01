@@ -1,5 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/lib/app-auth-middleware";
+import { authWithAccess } from "@/lib/access/auth-with-access";
 
 /**
  * Auditoria consistente de disparos calculada 100% no backend, lendo o banco
@@ -52,6 +52,31 @@ function rangeLastDays(n: number): Range {
 
 const OUTBOUND_TYPES = ["whatsapp", "ligacao", "email", "reuniao"] as const;
 
+/**
+ * Escopo de leitura dos disparos: SEMPRE por usuário. Cada pessoa (member,
+ * admin ou owner) enxerga exclusivamente os próprios envios.
+ */
+export type DispatchScope = {
+  userId: string;
+  organizationId: string | null;
+  privileged: boolean;
+};
+
+async function resolveScope(context: unknown): Promise<DispatchScope> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ctx = context as any;
+  const supabase = ctx?.supabase;
+  const userId: string | undefined = ctx?.userId;
+  if (!supabase || !userId) throw new Error("unauthenticated");
+  const { resolveActiveOrg } = await import("@/lib/api-keys.server");
+  const organizationId = await resolveActiveOrg(supabase);
+  // Auditoria de disparos é restrita a owner/admin da organização.
+  const { data: role } = await supabase.rpc("current_org_role");
+  if (role !== "owner" && role !== "admin") throw new Error("forbidden");
+  // Escopo fechado por usuário: cada admin vê apenas os próprios envios.
+  return { userId, organizationId, privileged: false };
+}
+
 async function ownClient() {
   // Lazy import para não vazar o módulo server-only no bundle do client.
   // Usa OWN_SB (banco canônico do INFINDA) com service role para garantir
@@ -87,28 +112,35 @@ export interface DispatchAuditResult {
 type CadRow = { id: string; created_at: string; lead_id: string | null; tipo: string | null; direction: string | null };
 type TpRow = { id: string; enviado_em: string; tipo: string; prospect_id: string | null };
 
-async function fetchBucket(range: Range): Promise<{
+async function fetchBucket(range: Range, scope: DispatchScope): Promise<{
   bucket: DispatchBucket;
   cadRows: CadRow[];
   tpRows: TpRow[];
 }> {
   const sb = await ownClient();
+  let cadQuery = sb.from("cad_messages")
+    .select("id, created_at, lead_id, tipo, direction")
+    .gte("created_at", range.from)
+    .lte("created_at", range.to)
+    .neq("tipo", "sistema");
+  let tpQuery = sb.from("prospect_touchpoints")
+    .select("id, enviado_em, tipo, prospect_id")
+    .gte("enviado_em", range.from)
+    .lte("enviado_em", range.to)
+    .in("tipo", OUTBOUND_TYPES as unknown as string[]);
+
+  // Sempre por usuário: cada pessoa vê apenas os próprios disparos.
+  cadQuery = cadQuery.eq("author_id", scope.userId);
+  tpQuery = tpQuery.eq("user_id", scope.userId);
+  if (scope.organizationId) {
+    cadQuery = cadQuery.eq("organization_id", scope.organizationId);
+    tpQuery = tpQuery.eq("organization_id", scope.organizationId);
+  }
+
   // Paginação simples (limite 5k) — auditoria diária dificilmente passa disso.
   const [cadRes, tpRes] = await Promise.all([
-    sb.from("cad_messages")
-      .select("id, created_at, lead_id, tipo, direction")
-      .gte("created_at", range.from)
-      .lte("created_at", range.to)
-      .neq("tipo", "sistema")
-      .order("created_at", { ascending: true })
-      .limit(5000),
-    sb.from("prospect_touchpoints")
-      .select("id, enviado_em, tipo, prospect_id")
-      .gte("enviado_em", range.from)
-      .lte("enviado_em", range.to)
-      .in("tipo", OUTBOUND_TYPES as unknown as string[])
-      .order("enviado_em", { ascending: true })
-      .limit(5000),
+    cadQuery.order("created_at", { ascending: true }).limit(5000),
+    tpQuery.order("enviado_em", { ascending: true }).limit(5000),
   ]);
   if (cadRes.error) throw cadRes.error;
   if (tpRes.error) throw tpRes.error;
@@ -178,14 +210,17 @@ function spDateKey(iso: string): string {
 }
 
 export const auditDispatches = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([authWithAccess])
   .inputValidator((input: { from?: string; to?: string } | undefined) => input ?? {})
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const scope = await resolveScope(context);
     // ----- Cache + rate-limit (in-memory, por instância do worker) -----
     // Não há primitiva de rate-limit oficial no backend; este controle é
     // best-effort para evitar consultas repetidas. Persistência distribuída
     // exigiria uma tabela/edge dedicada, fora do escopo deste endpoint.
-    const cacheKey = data?.from && data?.to ? `${data.from}|${data.to}` : "__default__";
+    const scopeKey = `user:${scope.userId}|org:${scope.organizationId ?? "none"}`;
+    const cacheKey =
+      `${scopeKey}|` + (data?.from && data?.to ? `${data.from}|${data.to}` : "__default__");
     const cached = AUDIT_CACHE.get(cacheKey);
     const nowMs = Date.now();
     if (cached && nowMs - cached.at < AUDIT_TTL_MS) {
@@ -203,9 +238,9 @@ export const auditDispatches = createServerFn({ method: "POST" })
     const last7d = rangeLastDays(7);
 
     const [t, ye, w] = await Promise.all([
-      fetchBucket(today),
-      fetchBucket(yesterday),
-      fetchBucket(last7d),
+      fetchBucket(today, scope),
+      fetchBucket(yesterday, scope),
+      fetchBucket(last7d, scope),
     ]);
 
     // Série diária a partir do bucket de 7d (sem rodar query extra).
@@ -235,7 +270,7 @@ export const auditDispatches = createServerFn({ method: "POST" })
       const a = new Date(data.from);
       const b = new Date(data.to);
       const range: Range = { from: localTs(a), to: localTs(b), label: "custom" };
-      custom = (await fetchBucket(range)).bucket;
+      custom = (await fetchBucket(range, scope)).bucket;
     }
 
     const result: DispatchAuditResult = {
@@ -283,18 +318,19 @@ export interface DispatchRow {
 }
 
 export const listDispatchRows = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([authWithAccess])
   .inputValidator((input: { from: string; to: string }) => {
     if (!input?.from || !input?.to) throw new Error("from/to obrigatórios");
     return input;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data, context }) => {
+    const scope = await resolveScope(context);
     const range: Range = {
       from: localTs(new Date(data.from)),
       to: localTs(new Date(data.to)),
       label: "csv",
     };
-    const { cadRows, tpRows } = await fetchBucket(range);
+    const { cadRows, tpRows } = await fetchBucket(range, scope);
     const sb = await ownClient();
 
     const leadIds = [...new Set(cadRows.map((r) => r.lead_id).filter(Boolean))] as string[];

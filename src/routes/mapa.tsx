@@ -1,0 +1,849 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useMemo, useState, lazy, Suspense } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AppShell } from "@/components/AppShell";
+import { RequireAuth } from "@/lib/auth-context";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  MapPin,
+  Loader2,
+  Sparkles,
+  Search,
+  Navigation,
+  WifiOff,
+  CloudUpload,
+  Zap,
+  Square,
+} from "lucide-react";
+import { toast } from "sonner";
+import { loadMapPointsProgressive, bairroColor, type MapPoint, readMapCacheInfo } from "@/lib/tasks-map-api";
+import { runEnrichment } from "@/lib/enrichment/api";
+import { useAutoEnrich } from "@/lib/enrichment/auto-batch";
+import { crmKeys } from "@/lib/crm/api";
+import {
+  loadLatestVisitsByCnpj,
+  visitKeys,
+  visitColor,
+  flushVisitQueue,
+} from "@/lib/visits/api";
+import { isOnline, queueSize } from "@/lib/visits/offline";
+import {
+  getCurrentPosition,
+  googleMapsRouteUrl,
+  orderByNearest,
+  routeDistanceKm,
+  saveRouteCache,
+  readRouteCache,
+  MAX_WAYPOINTS,
+  type LatLng,
+} from "@/lib/visits/route";
+import { VisitCheckinDialog } from "@/components/VisitCheckinDialog";
+import { nicheGroup } from "@/lib/niches";
+import {
+  EMPTY_OPENING_FILTER,
+  OPENING_RANGES,
+  isOpeningFilterActive,
+  matchesOpening,
+  marketAgeLabel,
+  type OpeningFilter,
+  type OpeningRange,
+} from "@/lib/opening-date";
+
+const TasksMap = lazy(() => import("@/components/TasksMap").then((m) => ({ default: m.TasksMap })));
+
+export const Route = createFileRoute("/mapa")({
+  ssr: false,
+  head: () => ({
+    meta: [
+      { title: "Mapa de Leads — INFINDA" },
+      { name: "description", content: "Mapa geográfico dos leads prospectados com endereço completo e CEP." },
+      { property: "og:title", content: "Mapa de Leads — INFINDA" },
+      { property: "og:description", content: "Visualize seus leads prospectados no mapa por bairro e cidade." },
+    ],
+  }),
+  component: () => (
+    <RequireAuth>
+      <MapaPage />
+    </RequireAuth>
+  ),
+});
+
+const BATCH_SIZE = 20;
+const ROUTE_SIZE = 15;
+const digits = (v?: string | null) => (v ?? "").replace(/\D/g, "");
+
+function MapaPage() {
+  const qc = useQueryClient();
+  const [selectedBairro, setSelectedBairro] = useState<string | null>(null);
+  const [selectedNicho, setSelectedNicho] = useState<string>("all");
+  const [uf, setUf] = useState<string>("all");
+  const [q, setQ] = useState("");
+  const [origin, setOrigin] = useState<LatLng | null>(null);
+  const [route, setRoute] = useState<MapPoint[]>([]);
+  const [routing, setRouting] = useState(false);
+  const [routedCnpjs, setRoutedCnpjs] = useState<string[]>([]);
+  const [checkinPoint, setCheckinPoint] = useState<MapPoint | null>(null);
+  const [online, setOnline] = useState(true);
+  const [pendingQueue, setPendingQueue] = useState(0);
+  const [displayLimit, setDisplayLimit] = useState(20);
+  const [opening, setOpening] = useState<OpeningFilter>(EMPTY_OPENING_FILTER);
+  const [fitKey, setFitKey] = useState(0);
+
+  // Progressive loading state
+  const [points, setPoints] = useState<MapPoint[]>([]);
+  const [loadingFirstBatch, setLoadingFirstBatch] = useState(true);
+  const [loadingProgressive, setLoadingProgressive] = useState(false);
+  const [totalExpected, setTotalExpected] = useState<number | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+
+  const loadProgressively = async () => {
+    // Usamos um ref ou um id local para cancelar execuções antigas
+    const currentLoadId = Math.random();
+    (window as any)._lastMapLoadId = currentLoadId;
+    
+    console.log(`[MAPA] Iniciando carregamento progressivo (ID: ${currentLoadId})`);
+    
+    try {
+      setError(null);
+      setLoadingFirstBatch(true);
+      setPoints([]);
+      
+      let isFirst = true;
+      const generator = loadMapPointsProgressive();
+      
+      while (true) {
+        if ((window as any)._lastMapLoadId !== currentLoadId) {
+          console.log(`[MAPA] Cancelando carregamento antigo (ID: ${currentLoadId})`);
+          break;
+        }
+        
+        const { value, done } = await generator.next();
+        if (done) break;
+        
+        const batch = value;
+        console.log(`[MAPA] Recebendo lote para o componente: ${batch.points.length} pontos`);
+        
+        setPoints(prev => {
+          const existing = new Set(prev.map((p: MapPoint) => p.cnpj));
+          const filtered = batch.points.filter((p: MapPoint) => !existing.has(p.cnpj));
+          return [...prev, ...filtered];
+        });
+        setTotalExpected(batch.totalExpected);
+        
+        if (isFirst) {
+          setLoadingFirstBatch(false);
+          setLoadingProgressive(true);
+          isFirst = false;
+        }
+      }
+    } catch (e) {
+      console.error("[MAPA] Erro fatal no componente:", e);
+      setError(e as Error);
+    } finally {
+      if ((window as any)._lastMapLoadId === currentLoadId) {
+        setLoadingFirstBatch(false);
+        setLoadingProgressive(false);
+        console.log(`[MAPA] Carregamento progressivo finalizado (ID: ${currentLoadId})`);
+      }
+    }
+  };
+
+  useEffect(() => {
+    loadProgressively();
+  }, []);
+
+  const loading = loadingFirstBatch;
+
+  const visitsQ = useQuery({
+    queryKey: visitKeys.all,
+    queryFn: loadLatestVisitsByCnpj,
+    staleTime: 15_000,
+  });
+  const visits = visitsQ.data ?? {};
+
+  // ---- estado de conexão + fila offline ----
+  useEffect(() => {
+    const sync = () => {
+      setOnline(isOnline());
+      setPendingQueue(queueSize());
+    };
+    sync();
+    const onQueue = () => setPendingQueue(queueSize());
+    const goOnline = async () => {
+      setOnline(true);
+      const sent = await flushVisitQueue();
+      setPendingQueue(queueSize());
+      if (sent > 0) {
+        toast.success(`${sent} check-in(s) offline enviados.`);
+        qc.invalidateQueries({ queryKey: visitKeys.all });
+      }
+    };
+    window.addEventListener("online", goOnline);
+    window.addEventListener("offline", sync);
+    window.addEventListener("pap-visits-queue:changed", onQueue);
+    void goOnline();
+    return () => {
+      window.removeEventListener("online", goOnline);
+      window.removeEventListener("offline", sync);
+      window.removeEventListener("pap-visits-queue:changed", onQueue);
+    };
+  }, [qc]);
+
+  const refresh = () => {
+    loadProgressively();
+    qc.invalidateQueries({ queryKey: visitKeys.all });
+  };
+
+  const enrichMut = useMutation({
+    mutationFn: async () => {
+      const pending = points.filter((p) => !p.cep || !p.logradouro || !p.lat || !p.lon);
+      if (!pending.length) {
+        toast.info("Todos os leads já possuem endereço completo e coordenadas.");
+        return 0;
+      }
+      // processa em lotes de 20 por execução
+      const batch = pending.slice(0, BATCH_SIZE);
+      const restante = pending.length - batch.length;
+      const tid = toast.loading(`Enriquecendo 0/${batch.length}…`);
+      let ok = 0;
+      for (let i = 0; i < batch.length; i++) {
+        try {
+          await runEnrichment(batch[i].cnpj);
+          ok++;
+        } catch {
+          /* segue para o próximo */
+        }
+        toast.loading(`Enriquecendo ${i + 1}/${batch.length}…`, { id: tid });
+        await new Promise((r) => setTimeout(r, 1100));
+      }
+      toast.success(
+        restante > 0
+          ? `Lote concluído: ${ok}/${batch.length} · ${restante} pendente(s). Clique novamente para o próximo lote.`
+          : `Concluído: ${ok}/${batch.length}`,
+        { id: tid },
+      );
+      return ok;
+    },
+    onSuccess: refresh,
+  });
+
+  const enriching = enrichMut.isPending;
+
+  // ── Modo automático: 20 CNPJs a cada 60s ─────────────────────────────
+  const pendingCnpjs = useMemo(
+    () =>
+      points
+        .filter((p) => !p.cep || !p.logradouro || !p.lat || !p.lon)
+        .map((p) => p.cnpj)
+        .filter(Boolean),
+    [points],
+  );
+  const autoEnrich = useAutoEnrich({
+    getPending: () => pendingCnpjs,
+    autoStart: false, // Desliga por padrão para favorecer o cron do servidor
+    onBatchDone: refresh,
+  });
+
+  const ufOptions = useMemo(() => {
+    const set = new Map<string, number>();
+    for (const p of points) {
+      const key = (p.uf || "").trim().toUpperCase();
+      if (!key) continue;
+      set.set(key, (set.get(key) ?? 0) + 1);
+    }
+    return Array.from(set.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [points]);
+
+  const nichoOptions = useMemo(() => {
+    const set = new Map<string, number>();
+    for (const p of points) {
+      const key = nicheGroup(p.nicho);
+      set.set(key, (set.get(key) ?? 0) + 1);
+    }
+    return Array.from(set.entries()).sort((a, b) => b[1] - a[1]);
+  }, [points]);
+
+  const byUf = useMemo(() => {
+    let result = uf === "all" ? points : points.filter((p) => (p.uf || "").trim().toUpperCase() === uf);
+    if (selectedNicho !== "all") {
+      result = result.filter((p) => nicheGroup(p.nicho) === selectedNicho);
+    }
+    if (isOpeningFilterActive(opening)) {
+      result = result.filter((p) => matchesOpening(p.data_abertura, opening));
+    }
+    return result;
+  }, [points, uf, selectedNicho, opening]);
+
+  // Atualiza fitKey quando os filtros principais mudam
+  useEffect(() => {
+    setFitKey(prev => prev + 1);
+  }, [uf, selectedNicho, opening]);
+
+  const filtered = useMemo(() => {
+    const term = q.trim().toLowerCase();
+    if (!term) return byUf;
+    return byUf.filter((p) =>
+      [p.company, p.bairro, p.cidade, p.logradouro, p.cep, p.cnpj, p.nicho]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(term),
+    );
+  }, [byUf, q]);
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, MapPoint[]>();
+    for (const p of filtered) {
+      const key = p.bairro || "Sem bairro";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(p);
+    }
+    return Array.from(map.entries()).sort((a, b) => b[1].length - a[1].length);
+  }, [filtered]);
+
+  const withCoords = filtered.filter((p) => p.lat && p.lon).length;
+  const withoutCoords = filtered.length - withCoords;
+
+  // ---- roteiro do dia ----
+  // respeita o bairro selecionado no mapa/lista
+  const scoped = useMemo(
+    () =>
+      selectedBairro
+        ? filtered.filter((p) => (p.bairro || "Sem bairro") === selectedBairro)
+        : filtered,
+    [filtered, selectedBairro],
+  );
+
+  const routeCandidates = useMemo(
+    () =>
+      scoped.filter((p) => {
+        if (p.lat == null || p.lon == null) return false;
+        const v = visits[digits(p.cnpj)];
+        if (!v) return true;
+        if (v.status === "Fechado" || v.status === "Sem sucesso") return false;
+        if (v.status === "Reagendar") {
+          return !v.retornar_em || v.retornar_em <= new Date().toISOString().slice(0, 10);
+        }
+        return false; // já visitado
+      }),
+    [scoped, visits],
+  );
+
+  const remainingCandidates = useMemo(
+    () => routeCandidates.filter((p) => !routedCnpjs.includes(digits(p.cnpj))),
+    [routeCandidates, routedCnpjs],
+  );
+
+  const buildRoute = async (next = false) => {
+    setRouting(true);
+    try {
+      const pool = next ? remainingCandidates : routeCandidates;
+      if (!pool.length) {
+        toast.info(
+          next
+            ? "Não há mais leads pendentes nesse filtro."
+            : "Nenhum lead pendente de visita com coordenadas nesse filtro.",
+        );
+        return;
+      }
+      let from = origin;
+      const last = next ? route[route.length - 1] : null;
+      if (last?.lat != null && last?.lon != null) {
+        from = { lat: last.lat, lon: last.lon };
+      } else {
+        try {
+          from = await getCurrentPosition();
+          setOrigin(from);
+        } catch {
+          if (!from) {
+            const first = pool[0];
+            from = { lat: first.lat!, lon: first.lon! };
+            toast.info("Sem GPS: roteiro montado a partir do primeiro lead da lista.");
+          }
+        }
+      }
+      const ordered = orderByNearest(pool, from).slice(0, ROUTE_SIZE);
+      if (!ordered.length) {
+        toast.info("Nenhum lead pendente de visita com coordenadas nesse filtro.");
+        return;
+      }
+      setRoute(ordered);
+      setRoutedCnpjs((prev) =>
+        next
+          ? [...prev, ...ordered.map((p) => digits(p.cnpj))]
+          : ordered.map((p) => digits(p.cnpj)),
+      );
+      saveRouteCache(ordered.map((p) => digits(p.cnpj)));
+      toast.success(
+        `${next ? "Próximo roteiro" : "Roteiro"} com ${ordered.length} paradas montado${
+          selectedBairro ? ` em ${selectedBairro}` : ""
+        }.`,
+      );
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setRouting(false);
+    }
+  };
+
+  // restaura roteiro do dia (funciona offline)
+  useEffect(() => {
+    if (route.length || !points.length) return;
+    const cached = readRouteCache();
+    if (!cached.length) return;
+    const byCnpj = new Map(points.map((p) => [digits(p.cnpj), p]));
+    const restored = cached.map((c) => byCnpj.get(c)).filter(Boolean) as MapPoint[];
+    if (restored.length) setRoute(restored);
+  }, [points, route.length]);
+
+  const routeKm = useMemo(() => routeDistanceKm(route, origin), [route, origin]);
+  const routeUrl = useMemo(() => googleMapsRouteUrl(route, origin), [route, origin]);
+
+  return (
+    <AppShell title="Mapa" subtitle="Todos os leads prospectados com endereço completo e CEP" className="overflow-x-hidden">
+      {error && (
+        <div className="mb-3 rounded-md border border-destructive/50 bg-destructive/10 p-4 text-destructive">
+          <h4 className="font-semibold flex items-center gap-2 mb-1">
+            <WifiOff className="h-4 w-4" />
+            Falha ao carregar os dados do mapa
+          </h4>
+          <p className="text-xs mb-3">{error.message}</p>
+          <Button size="sm" variant="outline" onClick={refresh}>
+            Tentar novamente
+          </Button>
+        </div>
+      )}
+      {(loadingFirstBatch || loadingProgressive) && (
+        <div className="mb-3 flex items-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-[11px] text-primary-foreground animate-in fade-in duration-300">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          <span>
+            {loadingFirstBatch ? "Carregando primeiro lote..." : "Carregando outros lotes progressivamente:"} <strong>{points.length}</strong> 
+            {totalExpected ? ` de ${totalExpected}` : ""} empresas já no mapa.
+          </span>
+        </div>
+      )}
+      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-[320px_1fr]">
+        {/* Sidebar - Filtros e Lista */}
+        <aside className="surface-card flex flex-col gap-3 p-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-140px)] order-2 lg:order-1 z-10">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Buscar empresa, nicho, bairro…"
+              className="h-11 pl-9 text-sm lg:h-9 lg:pl-8 lg:text-xs"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-3">
+            <div className="flex flex-col gap-2 sm:grid sm:grid-cols-2">
+              <Select
+                value={uf}
+                onValueChange={(v) => {
+                  setUf(v);
+                  setSelectedBairro(null);
+                }}
+              >
+                <SelectTrigger className="h-11 text-sm lg:h-9 lg:text-xs">
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os estados</SelectItem>
+                  {ufOptions.map(([code, count]) => (
+                    <SelectItem key={code} value={code}>
+                      {code} ({count})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={selectedBairro ?? "all"}
+                onValueChange={(v) => setSelectedBairro(v === "all" ? null : v)}
+              >
+                <SelectTrigger className="h-11 text-sm lg:h-9 lg:text-xs">
+                  <SelectValue placeholder="Bairro" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os bairros</SelectItem>
+                  {grouped.map(([bairro, items]) => (
+                    <SelectItem key={bairro} value={bairro}>
+                      {bairro} ({items.length})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Select
+              value={selectedNicho}
+              onValueChange={(v) => {
+                setSelectedNicho(v);
+                setSelectedBairro(null);
+              }}
+            >
+              <SelectTrigger className="h-11 text-sm lg:h-9 lg:text-xs">
+                <SelectValue placeholder="Nicho" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os nichos</SelectItem>
+                {nichoOptions.map(([label, count]) => (
+                  <SelectItem key={label} value={label}>
+                    {label} ({count})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <div className="space-y-2 rounded-md border border-border/60 p-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Data de abertura do CNPJ
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {OPENING_RANGES.map((r) => (
+                  <Button
+                    key={r.id}
+                    size="sm"
+                    variant={opening.range === r.id ? "default" : "outline"}
+                    className="h-8 px-2 text-[11px]"
+                    onClick={() => setOpening((o) => ({ ...o, range: r.id as OpeningRange }))}
+                  >
+                    {r.label}
+                  </Button>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-1">
+                <Input
+                  type="date"
+                  value={opening.from ?? ""}
+                  onChange={(e) => setOpening((o) => ({ ...o, from: e.target.value }))}
+                  className="h-9 text-[11px]"
+                />
+                <Input
+                  type="date"
+                  value={opening.to ?? ""}
+                  onChange={(e) => setOpening((o) => ({ ...o, to: e.target.value }))}
+                  className="h-9 text-[11px]"
+                />
+              </div>
+              {isOpeningFilterActive(opening) && (
+                <div className="space-y-1">
+                  <p className="text-[10px] text-muted-foreground leading-tight">
+                    {points.filter((p) => !p.data_abertura).length} lead(s) sem data de abertura
+                    ficam ocultos até serem enriquecidos.
+                  </p>
+                  <button
+                    className="text-[11px] text-primary underline"
+                    onClick={() => setOpening(EMPTY_OPENING_FILTER)}
+                  >
+                    Limpar filtro de data
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-md border border-border/60 p-2 text-[11px] text-muted-foreground space-y-1">
+            <div className="flex justify-between items-center"><span>No mapa</span><span className="font-semibold text-foreground bg-primary/5 px-1.5 rounded">{withCoords}</span></div>
+            <div className="flex justify-between items-center"><span>Sem coordenadas</span><span className="font-semibold text-foreground bg-muted/50 px-1.5 rounded">{withoutCoords}</span></div>
+          </div>
+
+          <div className="flex flex-col gap-1.5 mt-auto">
+            <Button
+              className="btn-gradient w-full h-11 lg:h-9"
+              disabled={enriching || autoEnrich.auto}
+              onClick={() => enrichMut.mutate()}
+            >
+              {enriching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+              Enriquecer próximos 20
+            </Button>
+            <Button
+              variant={autoEnrich.auto ? "destructive" : "outline"}
+              className="w-full h-11 lg:h-9"
+              disabled={enriching}
+              onClick={autoEnrich.toggle}
+            >
+              {autoEnrich.running ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : autoEnrich.auto ? (
+                <Square className="mr-2 h-4 w-4" />
+              ) : (
+                <Zap className="mr-2 h-4 w-4" />
+              )}
+              {autoEnrich.auto
+                ? `Parar automático (${autoEnrich.nextIn}s)`
+                : `Automático: 20 a cada 60s`}
+            </Button>
+            <p className="text-[10px] text-muted-foreground leading-tight text-center">
+              {autoEnrich.auto
+                ? `${autoEnrich.done} enriquecido(s) nesta sessão · ${pendingCnpjs.length} pendente(s).`
+                : `Processa em lotes de ${BATCH_SIZE} CNPJs por vez.`}
+            </p>
+            {autoEnrich.auto && autoEnrich.log.length > 0 && (
+              <ul className="max-h-24 overflow-y-auto rounded-md border border-border/60 p-1.5 text-[10px] text-muted-foreground">
+                {autoEnrich.log.map((l, i) => (
+                  <li key={i} className="truncate">{l}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-1 -mx-1 max-h-[300px] lg:max-h-[calc(100vh-320px)]">
+            {selectedBairro && (
+              <button
+                className="mb-2 w-full rounded-md border border-border/60 px-2 py-1 text-left text-[11px] text-muted-foreground hover:bg-accent"
+                onClick={() => setSelectedBairro(null)}
+              >
+                ← Mostrar todos os bairros
+              </button>
+            )}
+            <ul className="space-y-1">
+              {grouped.slice(0, displayLimit).map(([bairro, items]) => {
+                const active = selectedBairro === bairro;
+                const color = bairroColor(bairro);
+                
+                // Agrupa nichos únicos neste bairro para exibição rápida
+                const niches = Array.from(new Set(items.map(p => p.nicho).filter(Boolean)));
+
+                return (
+                  <li key={bairro} className="space-y-1">
+                    <button
+                      onClick={() => setSelectedBairro(active ? null : bairro)}
+                      className={`flex w-full items-center justify-between rounded-md px-2 py-2 text-left text-xs transition ${
+                        active ? "bg-primary/10 ring-1 ring-primary/30" : "hover:bg-accent"
+                      }`}
+                    >
+                      <span className="flex items-center gap-2 truncate">
+                        <span
+                          className="inline-block h-2.5 w-2.5 flex-none rounded-full"
+                          style={{ background: color }}
+                        />
+                        <span className="truncate font-medium whitespace-nowrap">{bairro}</span>
+                      </span>
+                      <Badge variant="outline" className="ml-2 h-5 px-1.5 text-[10px]">
+                        {items.length}
+                      </Badge>
+                    </button>
+                    
+                    {/* Exibição rápida dos nichos do bairro */}
+                    {niches.length > 0 && (
+                      <div className="flex flex-wrap gap-1 px-6 pb-1 min-w-0">
+                        {niches.slice(0, 3).map((n, i) => (
+                          <span
+                            key={i}
+                            title={n ?? undefined}
+                            className="max-w-[42%] sm:max-w-[110px] lg:max-w-[140px] overflow-hidden text-ellipsis whitespace-nowrap rounded-sm bg-muted/50 px-1 py-[1px] font-bold tracking-wider text-muted-foreground uppercase transition-all duration-200"
+                            style={{ 
+                              fontSize: 'clamp(8px, 2.2vw, 10px)',
+                              lineHeight: '1rem'
+                            }}
+                          >
+                            {n}
+                          </span>
+                        ))}
+                        {niches.length > 3 && (
+                          <span className="shrink-0 text-[10px] leading-4 lg:text-[11px] text-muted-foreground opacity-60">
+                            +{niches.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+              {grouped.length > displayLimit && (
+                <li className="pt-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-[10px] h-7 text-muted-foreground hover:text-foreground"
+                    onClick={() => setDisplayLimit(prev => prev + 20)}
+                  >
+                    Ver mais bairros...
+                  </Button>
+                </li>
+              )}
+              {grouped.length === 0 && (
+                <li className="px-2 py-6 text-center text-[11px] text-muted-foreground">
+                  Nenhum lead encontrado.
+                </li>
+              )}
+            </ul>
+          </div>
+        </aside>
+
+        {/* Map - Container com altura dinâmica no mobile */}
+        <section className="surface-card overflow-hidden p-0 h-[50dvh] sm:h-[60vh] lg:h-[calc(100vh-200px)] order-1 lg:order-2 flex flex-col relative z-0">
+          {loading ? (
+            <div className="flex h-full items-center justify-center text-xs text-muted-foreground gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Carregando primeiro lote...</span>
+            </div>
+          ) : error ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+              <WifiOff className="h-8 w-8 text-destructive/60" />
+              <p className="max-w-md text-sm text-muted-foreground">
+                Falha ao carregar os dados do mapa.
+              </p>
+              <Button onClick={() => loadProgressively()} variant="outline" size="sm">
+                Tentar novamente
+              </Button>
+            </div>
+          ) : withCoords === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+              <MapPin className="h-8 w-8 text-muted-foreground" />
+              <p className="max-w-md text-sm text-muted-foreground">
+                Nenhum lead possui coordenadas ainda. Use <strong>Enriquecer 20</strong> para
+                buscar endereço completo, CEP e geolocalização automaticamente.
+              </p>
+              <Button onClick={() => enrichMut.mutate()} disabled={enriching} className="btn-gradient h-9">
+                {enriching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                Enriquecer próximos 20
+              </Button>
+            </div>
+          ) : (
+            <Suspense fallback={<div className="flex h-full items-center justify-center text-xs text-muted-foreground">Carregando mapa…</div>}>
+              <TasksMap
+                points={filtered}
+                selectedBairro={selectedBairro}
+                onSelectBairro={setSelectedBairro}
+                visits={visits}
+                colorMode="status"
+                route={route}
+                highlightQuery={q}
+                origin={origin}
+                onCheckin={setCheckinPoint}
+                fitKey={fitKey}
+              />
+            </Suspense>
+          )}
+        </section>
+
+      </div>
+
+      {/* Roteiro do dia — abaixo do mapa */}
+      <section className="surface-card mt-3 space-y-3 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Roteiro do dia
+            </h3>
+            {route.length > 0 && (
+              <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                {route.length} paradas · {routeKm.toFixed(1)} km
+              </Badge>
+            )}
+            {selectedBairro && (
+              <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                {selectedBairro}
+              </Badge>
+            )}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              className="h-9 text-xs"
+              disabled={routing || !online}
+              onClick={() => buildRoute(false)}
+            >
+              {routing ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Navigation className="mr-2 h-4 w-4" />
+              )}
+              Montar roteiro ({Math.min(routeCandidates.length, ROUTE_SIZE)})
+            </Button>
+            {route.length > 0 && (
+              <>
+                <Button
+                  variant="outline"
+                  className="h-9 text-xs"
+                  disabled={routing || !online || remainingCandidates.length === 0}
+                  onClick={() => buildRoute(true)}
+                >
+                  Próximo roteiro ({Math.min(remainingCandidates.length, ROUTE_SIZE)})
+                </Button>
+                <Button asChild size="sm" className="btn-gradient h-9 text-[11px]">
+                  <a href={routeUrl} target="_blank" rel="noreferrer">
+                    Abrir no Maps
+                  </a>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-9 text-[11px]"
+                  onClick={() => {
+                    setRoute([]);
+                    setRoutedCnpjs([]);
+                  }}
+                >
+                  Limpar
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {route.length === 0 ? (
+          <p className="text-[11px] text-muted-foreground">
+            Monte o roteiro para ordenar as próximas paradas pela menor distância a partir da sua
+            localização. Selecione um bairro na lista para roteirizar só aquele bairro.
+          </p>
+        ) : (
+          <>
+            <ol className="grid grid-cols-1 gap-1 text-[11px] sm:grid-cols-2 xl:grid-cols-3">
+              {route.map((p, i) => {
+                const v = visits[digits(p.cnpj)];
+                return (
+                  <li key={p.cnpj} className="flex items-start gap-2 rounded px-1 py-1 hover:bg-accent/40">
+                    <span
+                      className="mt-0.5 inline-flex h-4 w-4 flex-none items-center justify-center rounded-full text-[9px] font-semibold text-white"
+                      style={{ background: visitColor(v?.status) }}
+                    >
+                      {i + 1}
+                    </span>
+                    <button className="min-w-0 flex-1 text-left" onClick={() => setCheckinPoint(p)}>
+                      <span className="block truncate font-medium">{p.company}</span>
+                      <span className="block truncate text-muted-foreground">
+                        {[p.logradouro, p.numero, p.bairro].filter(Boolean).join(", ") || "—"}
+                        {p.data_abertura && (
+                          <span className="ml-2 font-normal">
+                            • Abertura: {new Date(p.data_abertura).toLocaleDateString("pt-BR")}
+                            {marketAgeLabel(p.data_abertura) ? ` (${marketAgeLabel(p.data_abertura)})` : ""}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+            {route.length > MAX_WAYPOINTS && (
+              <p className="text-[10px] text-muted-foreground">
+                O Google Maps aceita até {MAX_WAYPOINTS} paradas por rota.
+              </p>
+            )}
+          </>
+        )}
+      </section>
+
+      <VisitCheckinDialog
+        point={checkinPoint}
+        onClose={() => setCheckinPoint(null)}
+        onSaved={() => {
+          setPendingQueue(queueSize());
+          qc.invalidateQueries({ queryKey: visitKeys.all });
+        }}
+      />
+    </AppShell>
+  );
+}
