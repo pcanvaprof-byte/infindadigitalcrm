@@ -35,6 +35,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DisparoWhatsApp } from "@/components/prospeccao/DisparoWhatsApp";
 import { nicheGroup } from "@/lib/niches";
 import { loadOpeningByCnpj, openingKeys } from "@/lib/enrichment/opening-map";
 import {
@@ -566,6 +567,7 @@ function ProspeccaoPage() {
   // Confirmação de exclusão em lote (C-1): evita perda irreversível por clique acidental.
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState<{ ids: string[] } | null>(null);
   const [bulkDeleteInput, setBulkDeleteInput] = useState("");
+  const [mainTab, setMainTab] = useState<"lista" | "disparo">("lista");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1858,6 +1860,36 @@ const openEmail = async (p: Prospect) => {
         </DialogContent>
       </Dialog>
 
+      {/* Navegação principal: Lista de Prospects | Disparo WhatsApp */}
+      <div className="mb-4 border-b border-border">
+        <div className="flex gap-1">
+          <button
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              mainTab === "lista"
+                ? "border-primary text-primary-glow"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setMainTab("lista")}
+          >
+            Prospects
+          </button>
+          <button
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              mainTab === "disparo"
+                ? "border-primary text-primary-glow"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setMainTab("disparo")}
+          >
+            Disparo WhatsApp
+          </button>
+        </div>
+      </div>
+
+      {mainTab === "disparo" && <DisparoWhatsApp prospects={prospects} />}
+
+      {mainTab === "lista" && <>
+
       {/* Stats */}
       <section className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-5">
         <StatCard icon={Building2} label={hasActiveFilters ? "Empresas (filtro)" : "Empresas cadastradas"} value={stats.t} hint={hasActiveFilters ? `de ${stats.total} · filtro ativo` : "Base total"} />
@@ -2554,6 +2586,8 @@ const openEmail = async (p: Prospect) => {
           company={closeCadenceTarget.company}
         />
       )}
+
+      </>}
     </AppShell>
 
   );
