@@ -116,43 +116,36 @@ export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
   );
 
   // ── Connection polling ────────────────────────────────────────────────────
-  const fetchStatus = useCallback(async () => {
-    try {
-      const res = await fetch(`${SERVER_URL}/status`, { signal: AbortSignal.timeout(4000) });
-      if (!res.ok) {
-        setConnection({ connected: false });
-        setServerOffline(false);
-        return;
-      }
-      const data = await res.json() as { connected?: boolean; phone?: string };
-      setServerOffline(false);
-      setConnection({
-        connected: !!data.connected,
-        phone: data.phone,
-      });
-    } catch {
-      setConnection({ connected: false });
-      setServerOffline(true);
-    }
+  // O browser bloqueia fetch HTTP→HTTPS (Mixed Content). Por isso não
+  // conseguimos checar o status automaticamente. O usuário confirma manualmente.
+  const [manualConnected, setManualConnected] = useState(() => {
+    try { return window.localStorage.getItem("infinda_wa_connected") === "1"; } catch { return false; }
+  });
+
+  const confirmConnected = useCallback(() => {
+    setManualConnected(true);
+    setServerOffline(false);
+    setConnection({ connected: true });
+    try { window.localStorage.setItem("infinda_wa_connected", "1"); } catch {}
+    toast.success("WhatsApp marcado como conectado! Pode disparar.");
   }, []);
 
-  useEffect(() => {
-    void fetchStatus();
-    statusIntervalRef.current = setInterval(() => {
-      void fetchStatus();
-    }, 5000);
-    return () => {
-      if (statusIntervalRef.current !== null) clearInterval(statusIntervalRef.current);
-    };
-  }, [fetchStatus]);
+  const disconnectManual = useCallback(() => {
+    setManualConnected(false);
+    setConnection({ connected: false });
+    setServerOffline(true);
+    try { window.localStorage.removeItem("infinda_wa_connected"); } catch {}
+  }, []);
 
-  // Auto-close QR dialog when connected
+  // Sync connection state with manual flag on mount
   useEffect(() => {
-    if (connection.connected && qrOpen) {
-      setQrOpen(false);
-      setQrDataUrl(null);
+    if (manualConnected) {
+      setConnection({ connected: true });
+      setServerOffline(false);
+    } else {
+      setServerOffline(true);
     }
-  }, [connection.connected, qrOpen]);
+  }, [manualConnected]);
 
   // ── QR Code fetching ──────────────────────────────────────────────────────
   const fetchQr = useCallback(async () => {
@@ -347,6 +340,10 @@ export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
                 <Smartphone className="h-4 w-4 mr-1.5" />
                 Abrir servidor
               </Button>
+              <Button size="sm" onClick={confirmConnected}>
+                <CheckCircle2 className="h-4 w-4 mr-1.5" />
+                Já conectei ✅
+              </Button>
             </div>
           ) : connection.connected ? (
             <>
@@ -354,12 +351,9 @@ export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
                 <Wifi className="h-3 w-3 mr-1" />
                 Conectado
               </Badge>
-              {connection.phone && (
-                <span className="text-sm text-muted-foreground flex items-center gap-1">
-                  <Smartphone className="h-3 w-3" />
-                  {connection.phone}
-                </span>
-              )}
+              <Button size="sm" variant="ghost" className="text-xs text-muted-foreground h-7" onClick={disconnectManual}>
+                <X className="h-3 w-3 mr-1" /> Desconectar
+              </Button>
             </>
           ) : (
             <>
