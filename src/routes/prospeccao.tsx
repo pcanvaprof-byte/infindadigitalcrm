@@ -65,6 +65,7 @@ import {
   CalendarPlus,
   CheckCircle2,
   Download,
+  FileDown,
   Filter,
   Instagram,
   KanbanSquare,
@@ -145,6 +146,10 @@ import {
   sanitizeTemplateForSend,
 } from "@/lib/cadencia/types";
 import { pickNicheMessage } from "@/lib/prospeccao/niche-templates";
+import {
+  exportContactsForDispatch,
+  countExportableContacts,
+} from "@/lib/prospeccao/export-contacts";
 import { useBusinessProfile } from "@/hooks/useBusinessProfile";
 import { ArrowRight } from "lucide-react";
 import { normalizeCity, cleanCityLabel, isValidCityName, cityDisplay, INVALID_CITY_KEY } from "@/lib/city-name";
@@ -1505,6 +1510,35 @@ const openEmail = async (p: Prospect) => {
     toast.success(`${rows.length} linha(s) exportada(s)`);
   };
 
+  /**
+   * Exporta contatos para disparo externo (WhatsApp bulk senders).
+   * - Com leads selecionados: exporta apenas os marcados na tabela.
+   * - Sem seleção: exporta toda a lista filtrada (filteredOrdered).
+   * Deduplica por WhatsApp, normaliza para formato internacional e
+   * personaliza a mensagem com o perfil do negócio ou template de nicho.
+   */
+  const handleExportDispatch = () => {
+    const leadsToExport =
+      selected.size > 0
+        ? filteredOrdered.filter((p) => selected.has(p.id))
+        : filteredOrdered;
+
+    const { exported, skipped } = exportContactsForDispatch(
+      leadsToExport,
+      bizProfile?.initial_message ?? null,
+      nicheOverrides,
+    );
+
+    if (exported === 0) {
+      toast.warning("Nenhum contato com WhatsApp válido encontrado para exportar.");
+    } else {
+      toast.success(
+        `${exported} contato${exported !== 1 ? "s" : ""} exportado${exported !== 1 ? "s" : ""} com sucesso` +
+          (skipped > 0 ? ` (${skipped} duplicado${skipped !== 1 ? "s" : ""}/inválido${skipped !== 1 ? "s" : ""} ignorado${skipped !== 1 ? "s" : ""})` : ""),
+      );
+    }
+  };
+
   const handleImport = async (file: File) => {
     const ext = file.name.toLowerCase().split(".").pop() || "";
     let rows: string[][] = [];
@@ -1972,6 +2006,30 @@ const openEmail = async (p: Prospect) => {
                 <TabsTrigger value="map" className="text-xs"><MapPin className="mr-1.5 h-3.5 w-3.5" />Mapa</TabsTrigger>
               </TabsList>
             </Tabs>
+            {(() => {
+              const leadsForCount =
+                selected.size > 0
+                  ? filteredOrdered.filter((p) => selected.has(p.id))
+                  : filteredOrdered;
+              const exportCount = countExportableContacts(leadsForCount);
+              return (
+                <Button
+                  variant="outline"
+                  className="h-10 text-xs"
+                  onClick={handleExportDispatch}
+                  disabled={exportCount === 0}
+                  title="Exportar lista de contatos para disparo externo (WhatsApp)"
+                >
+                  <FileDown className="mr-1.5 h-4 w-4" />
+                  Exportar contatos
+                  {exportCount > 0 && (
+                    <span className="ml-1.5 rounded-full bg-primary/15 px-1.5 text-[10px] text-primary-glow">
+                      {exportCount}
+                    </span>
+                  )}
+                </Button>
+              );
+            })()}
             <Button variant="outline" className="h-10 text-xs" onClick={() => setShowFilters((s) => !s)}>
               <Filter className="mr-1.5 h-4 w-4" /> Filtros
               {hasActiveFilters && (
