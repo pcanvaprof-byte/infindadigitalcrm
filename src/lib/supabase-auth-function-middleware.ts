@@ -30,12 +30,21 @@ function isUsableToken(token: string) {
   if (payload.exp && payload.exp * 1000 <= Date.now()) return false;
   return true;
 }
+async function tryRefreshSession(): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.auth.refreshSession();
+    return !error && !!data.session;
+  } catch {
+    return false;
+  }
+}
 
 function resetInvalidSession(): never {
   clearStoredAuthSession();
   redirectToAuthForFreshSession();
   throw new Error("Sessão expirada. Faça login novamente.");
 }
+
 
 async function getValidatedAccessToken(): Promise<string | null> {
   const { data } = await supabase.auth.getSession();
@@ -49,7 +58,14 @@ async function getValidatedAccessToken(): Promise<string | null> {
   // so an old browser session is cleared locally instead of being sent to the
   // server and crashing the preview with "Unauthorized: Invalid token".
   const { data: userData, error } = await supabase.auth.getUser();
-  if (error || !userData.user) return resetInvalidSession();
+if (error || !userData.user) {
+  const refreshed = await tryRefreshSession();
+  if (!refreshed) return resetInvalidSession();
+  // Tenta pegar o token renovado
+  const { data: retried } = await supabase.auth.getSession();
+  return retried.session?.access_token ?? null;
+}
+
 
   const { data: refreshed } = await supabase.auth.getSession();
   const refreshedToken = refreshed.session?.access_token ?? token;

@@ -35,6 +35,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DisparoWhatsApp } from "@/components/prospeccao/DisparoWhatsApp";
 import { nicheGroup } from "@/lib/niches";
 import { loadOpeningByCnpj, openingKeys } from "@/lib/enrichment/opening-map";
 import {
@@ -117,6 +118,7 @@ import {
 import { History, FileSpreadsheet } from "lucide-react";
 import { Pencil, Save as SaveIcon, XCircle } from "lucide-react";
 import { EnrichmentDrawer } from "@/components/EnrichmentDrawer";
+import { GmailEmailModal } from "@/components/gmail/GmailEmailModal";
 import { runEnrichment } from "@/lib/enrichment/api";
 import { useAutoEnrich } from "@/lib/enrichment/auto-batch";
 import { Loader2 } from "lucide-react";
@@ -381,15 +383,49 @@ function ProspeccaoPage() {
   );
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<ProspectStatus | "all">("all");
-  const [segmentFilter, setSegmentFilter] = useState<string>("all");
+
+  // Filtros persistidos no localStorage — sobrevivem à navegação entre rotas
+  const [statusFilter, setStatusFilter] = useState<ProspectStatus | "all">(() => {
+    try { return (window.localStorage.getItem("prosp_f_status") as ProspectStatus | "all") || "all"; } catch { return "all"; }
+  });
+  useEffect(() => { try { window.localStorage.setItem("prosp_f_status", statusFilter); } catch {} }, [statusFilter]);
+
+  const [segmentFilter, setSegmentFilter] = useState<string>(() => {
+    try { return window.localStorage.getItem("prosp_f_segment") || "all"; } catch { return "all"; }
+  });
+  useEffect(() => { try { window.localStorage.setItem("prosp_f_segment", segmentFilter); } catch {} }, [segmentFilter]);
+
   const [opening, setOpening] = useState<OpeningFilter>(EMPTY_OPENING_FILTER);
-  const [stateFilter, setStateFilter] = useState<string>("all");
-  const [cityFilter, setCityFilter] = useState<string>("all");
-  const [potentialFilter, setPotentialFilter] = useState<ProspectPotential | "all">("all");
-  const [onlyWithContact, setOnlyWithContact] = useState(false);
-  const [noWhatsapp, setNoWhatsapp] = useState(false);
-  const [onlyWhatsapp, setOnlyWhatsapp] = useState(false);
+
+  const [stateFilter, setStateFilter] = useState<string>(() => {
+    try { return window.localStorage.getItem("prosp_f_state") || "all"; } catch { return "all"; }
+  });
+  useEffect(() => { try { window.localStorage.setItem("prosp_f_state", stateFilter); } catch {} }, [stateFilter]);
+
+  const [cityFilter, setCityFilter] = useState<string>(() => {
+    try { return window.localStorage.getItem("prosp_f_city") || "all"; } catch { return "all"; }
+  });
+  useEffect(() => { try { window.localStorage.setItem("prosp_f_city", cityFilter); } catch {} }, [cityFilter]);
+
+  const [potentialFilter, setPotentialFilter] = useState<ProspectPotential | "all">(() => {
+    try { return (window.localStorage.getItem("prosp_f_potential") as ProspectPotential | "all") || "all"; } catch { return "all"; }
+  });
+  useEffect(() => { try { window.localStorage.setItem("prosp_f_potential", potentialFilter); } catch {} }, [potentialFilter]);
+
+  const [onlyWithContact, setOnlyWithContact] = useState(() => {
+    try { return window.localStorage.getItem("prosp_f_contact") === "1"; } catch { return false; }
+  });
+  useEffect(() => { try { window.localStorage.setItem("prosp_f_contact", onlyWithContact ? "1" : "0"); } catch {} }, [onlyWithContact]);
+
+  const [noWhatsapp, setNoWhatsapp] = useState(() => {
+    try { return window.localStorage.getItem("prosp_f_nowa") === "1"; } catch { return false; }
+  });
+  useEffect(() => { try { window.localStorage.setItem("prosp_f_nowa", noWhatsapp ? "1" : "0"); } catch {} }, [noWhatsapp]);
+
+  const [onlyWhatsapp, setOnlyWhatsapp] = useState(() => {
+    try { return window.localStorage.getItem("prosp_f_onlywa") === "1"; } catch { return false; }
+  });
+  useEffect(() => { try { window.localStorage.setItem("prosp_f_onlywa", onlyWhatsapp ? "1" : "0"); } catch {} }, [onlyWhatsapp]);
   // Oculta leads que já saíram de "não contatado" na visão privada do usuário
   // (status derivado do próprio histórico de touchpoints). Após um disparo o
   // lead avança para "primeiro contato" e some da fila de prospecção, ficando
@@ -404,13 +440,102 @@ function ProspeccaoPage() {
     if (typeof window === "undefined") return;
     try { window.localStorage.setItem("prosp_hide_dispatched", hideDispatched ? "1" : "0"); } catch { /* ignore */ }
   }, [hideDispatched]);
+
+  // ── Memória local de disparos: persiste IDs disparados no localStorage
+  // com TTL de 25h. Garante que o lead não volte à fila mesmo se o banco
+  // demorar a confirmar o touchpoint ou o cache for invalidado.
+  const DISPATCH_MEMORY_KEY = `prosp_dispatched_${user?.id ?? "anon"}`;
+  const DISPATCH_TTL_MS = 25 * 60 * 60 * 1000; // 25h
+
+  const [localDispatchedIds, setLocalDispatchedIds] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = window.localStorage.getItem(DISPATCH_MEMORY_KEY);
+      if (!raw) return new Set();
+      const entries: Array<[string, number]> = JSON.parse(raw);
+      const now = Date.now();
+      const valid = entries.filter(([, at]) => now - at < DISPATCH_TTL_MS);
+      return new Set(valid.map(([id]) => id));
+    } catch { return new Set(); }
+  });
+
+  const markLocalDispatched = (prospectId: string) => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(DISPATCH_MEMORY_KEY);
+      // [id, timestamp, confirmado]
+      const entries: Array<[string, number, boolean]> = raw ? JSON.parse(raw) : [];
+      const now = Date.now();
+      const fresh = entries.filter(([, at]) => now - at < DISPATCH_TTL_MS);
+      fresh.push([prospectId, now, false]); // false = pendente banco
+      window.localStorage.setItem(DISPATCH_MEMORY_KEY, JSON.stringify(fresh));
+      setLocalDispatchedIds(new Set(fresh.map(([id]) => id)));
+    } catch { /* ignore */ }
+  };
+
+  const confirmLocalDispatched = (prospectId: string) => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(DISPATCH_MEMORY_KEY);
+      if (!raw) return;
+      const entries: Array<[string, number, boolean]> = JSON.parse(raw);
+      const updated = entries.map(([id, at, ok]) =>
+        id === prospectId ? [id, at, true] as [string, number, boolean] : [id, at, ok] as [string, number, boolean]
+      );
+      window.localStorage.setItem(DISPATCH_MEMORY_KEY, JSON.stringify(updated));
+    } catch { /* ignore */ }
+  };
+
+  const isPendingLocalDispatch = (prospectId: string): boolean => {
+    if (typeof window === "undefined") return false;
+    try {
+      const raw = window.localStorage.getItem(DISPATCH_MEMORY_KEY);
+      if (!raw) return false;
+      const entries: Array<[string, number, boolean]> = JSON.parse(raw);
+      const entry = entries.find(([id]) => id === prospectId);
+      return !!entry && !entry[2]; // existe mas banco ainda não confirmou
+    } catch { return false; }
+  };
+
+  // Retry automático ao montar: tenta regravar touchpoints que falharam
+  // por rede/sessão instável na sessão anterior.
+  // Executa depois que os prospects carregam (via useEffect com dependência no queryClient).
+  const retryPendingDispatches = (prospectList: Prospect[]) => {
+    if (!user?.id || !prospectList.length) return;
+    try {
+      const raw = window.localStorage.getItem(DISPATCH_MEMORY_KEY);
+      if (!raw) return;
+      const entries: Array<[string, number, boolean]> = JSON.parse(raw);
+      const pending = entries.filter(([, , ok]) => !ok);
+      if (!pending.length) return;
+      for (const [prospectId] of pending) {
+        const found = prospectList.find((x: Prospect) => x.id === prospectId);
+        if (!found) continue;
+        addTouchpoint({
+          prospect_id: prospectId,
+          tipo: "whatsapp",
+          resultado: "enviado",
+          mensagem: "retry: disparo pendente",
+        })
+          .then(() => {
+            confirmLocalDispatched(prospectId);
+            updateProspect(prospectId, { status: "primeiro_contato" }).catch(() => {});
+          })
+          .catch(() => {}); // tenta de novo na próxima sessão
+      }
+    } catch { /* ignore */ }
+  };
+
   type CadenceChip = "all" | "hoje" | "atrasados" | "sem_resposta" | "responderam" | "interessados" | "clientes";
   const [cadenceFilter, setCadenceFilter] = useState<CadenceChip>("all");
   const [touchpointTarget, setTouchpointTarget] = useState<{ prospect: Prospect; tipo: TouchpointTipo } | null>(null);
   const [closeCadenceTarget, setCloseCadenceTarget] = useState<Prospect | null>(null);
   const [bulkEnriching, setBulkEnriching] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [view, setView] = useState<"table" | "kanban" | "map">("table");
+  const [view, setView] = useState<"table" | "kanban" | "map">(() => {
+    try { return (window.localStorage.getItem("prosp_f_view") as "table" | "kanban" | "map") || "table"; } catch { return "table"; }
+  });
+  useEffect(() => { try { window.localStorage.setItem("prosp_f_view", view); } catch {} }, [view]);
 
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -422,6 +547,7 @@ function ProspeccaoPage() {
   const [previewFileName, setPreviewFileName] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [enrichFor, setEnrichFor] = useState<Prospect | null>(null);
+  const [gmailTarget, setGmailTarget] = useState<Prospect | null>(null);
   const [whatsConfirm, setWhatsConfirm] = useState<{ id: string; company: string } | null>(null);
   type WaAccount = "default" | "personal" | "business";
   const [waAccount, setWaAccount] = useState<WaAccount>("default");
@@ -446,6 +572,7 @@ function ProspeccaoPage() {
   // Confirmação de exclusão em lote (C-1): evita perda irreversível por clique acidental.
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState<{ ids: string[] } | null>(null);
   const [bulkDeleteInput, setBulkDeleteInput] = useState("");
+  const [mainTab, setMainTab] = useState<"lista" | "disparo">("lista");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -468,7 +595,7 @@ function ProspeccaoPage() {
     queryKey: crmKeys.prospects,
     queryFn: loadAllProspects,
     enabled: !!user,
-    staleTime: 5_000,
+    staleTime: 60_000,
   });
   const prospects = useMemo(
     () => (Array.isArray(prospectsQ.data) ? prospectsQ.data : []) as Prospect[],
@@ -491,6 +618,12 @@ function ProspeccaoPage() {
   // Helper para optimistic updates no cache do Query.
   const setCache = (update: (prev: Prospect[]) => Prospect[]) =>
     qc.setQueryData<Prospect[]>(crmKeys.prospects, (old) => update(Array.isArray(old) ? (old as Prospect[]) : []));
+
+  // Retry automático: roda uma vez quando os prospects carregam pela primeira vez.
+  useEffect(() => {
+    retryPendingDispatches(prospects);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prospects.length > 0]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -519,7 +652,10 @@ function ProspeccaoPage() {
     return prospects.filter((p) => {
       if (statusFilter !== "all" && p.status !== statusFilter) return false;
       
-      // Filtro de ocultação por identidade (CNPJ/Empresa) OU telefone já disparado
+      // Oculta leads disparados localmente (localStorage) — não depende do banco
+      if (hideDispatched && statusFilter === "all" && localDispatchedIds.has(p.id)) return false;
+
+      // Filtro de ocultação baseado em identidade (CNPJ/Empresa)
       if (hideDispatched && statusFilter === "all") {
         if (getProspectBlockKeys(p).some((key) => dispatchedIdentities.has(key))) return false;
       }
@@ -584,7 +720,7 @@ function ProspeccaoPage() {
       return [p.company, p.segment, p.owner, p.email, p.whatsapp, p.phone, p.instagram, p.city, p.state, p.source]
         .join(" ").toLowerCase().includes(q);
     });
-  }, [prospects, search, statusFilter, segmentFilter, stateFilter, cityFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter, hideDispatched, opening, openingMap]);
+  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter, hideDispatched, opening, openingMap, localDispatchedIds]);
 
 
   // Bloqueio de 24h por disparo recente (whatsapp/ligação/email outbound).
@@ -1016,21 +1152,24 @@ function ProspeccaoPage() {
         mensagem: "auto: clique na ação",
       });
       console.log("[prosp] logAttempt:ok", { prospectId: prospect.id, tipo });
-      // Fonte única: addTouchpoint já gravou em prospect_touchpoints, que agora
-      // alimenta também o contador "Conversas iniciadas" e a timeline do card.
+      // Banco confirmou — marca como confirmado no localStorage
+      confirmLocalDispatched(prospect.id);
       qc.invalidateQueries({ queryKey: cadenceKeys.dashboard });
       qc.invalidateQueries({ queryKey: cadenceKeys.timeline(prospect.id) });
     } catch (e) {
       console.error("[prosp] logAttempt:error", { prospectId: prospect.id, tipo, error: e });
-      // C-4: falha silenciosa antes ocultava que a cadência NÃO avançou.
-      // Agora avisamos e mantemos o deep link já aberto.
       const msg = e instanceof Error ? e.message : String(e);
+      // Erros de sessão expirada não devem mostrar aviso técnico ao operador
+      // nem causar logout — o WhatsApp já abriu, o disparo ocorreu.
+      // O retry automático vai tentar regravar na próxima sessão.
+      if (/sess(ã|a)o|jwt|token|login|unauthorized/i.test(msg)) return;
       toast.warning(
         `Contato aberto, mas o registro na cadência falhou: ${msg}. O passo pode não ter avançado — registre manualmente.`,
         { duration: 8000 },
       );
     }
   };
+
 
   const openWhats = async (p: Prospect) => {
     console.log("[prosp] openWhats:click", { id: p.id, company: p.company, whatsapp: p.whatsapp });
@@ -1044,13 +1183,6 @@ function ProspeccaoPage() {
     if (!d) {
       console.warn("[prosp] openWhats:abort:no-whatsapp", { id: p.id });
       return toast.error("WhatsApp não cadastrado");
-    }
-
-    // Avanço de status automático para leads disparados (garante que saiam de "Não contatado")
-    if (!p.status || p.status === "nao_contatado") {
-      updateProspect(p.id, { status: "primeiro_contato" }).catch(e => 
-        console.error("[prosp] erro ao atualizar status inicial:", e)
-      );
     }
 
     // Guard anti-duplo-clique: enquanto o disparo está em curso, ignora cliques.
@@ -1179,14 +1311,18 @@ function ProspeccaoPage() {
     // Registra o touchpoint IMEDIATAMENTE — no mobile o operador sai pro
     // app do WhatsApp e raramente volta pra confirmar no diálogo, o que
     // deixava o lead como "não disparado" mesmo depois do envio.
-    void logAttempt(p, "whatsapp");
-    // Avança o STATUS para `primeiro_contato` na mesma ação, para o lead
-    // sair da fila de "não contatado" e não reaparecer como pendente após
-    // recarregar a página. Só sobrescreve o estado inicial — status mais
-    // avançados (qualificado, agendado, cliente) são preservados.
+    // Optimistic update imediato no cache — garante que o lead saia da fila
+    // mesmo se logAttempt falhar por rede/sessão instável no celular.
     if (p.status === "nao_contatado") {
+      setCache((prev) =>
+        prev.map((x) => x.id === p.id ? { ...x, status: "primeiro_contato" as const } : x)
+      );
       updateStatus(p.id, "primeiro_contato");
     }
+    // Grava no localStorage com TTL de 25h — impede que o lead volte à fila
+    // mesmo após reload, invalidação de cache ou falha de rede.
+    markLocalDispatched(p.id);
+    void logAttempt(p, "whatsapp");
     // Honra a conta de WhatsApp escolhida (Normal/Business). No Android
     // forçamos o app correto via intent://; no iPhone/desktop o link abre
     // o app definido como padrão do sistema.
@@ -1261,23 +1397,40 @@ function ProspeccaoPage() {
     }
   };
   const callPhone = async (p: Prospect) => {
-    const d = onlyDigits(p.phone || p.whatsapp);
-    if (!d) return toast.error("Telefone não cadastrado");
-    const lock = await wasDispatchedToday({ prospectId: p.id });
-    if (lock.blocked) return toast.error(dispatchBlockedMessage(lock.source!));
-    window.open(`tel:+55${d}`);
-    // A-5: NÃO grava touchpoint aqui — o TouchpointModal abaixo é a fonte única
-    // do registro (evita gravar 2x e avançar cadence_step em dobro).
-    setTouchpointTarget({ prospect: p, tipo: "ligacao" });
-  };
-  const openEmail = async (p: Prospect) => {
-    if (!p.email) return toast.error("Email não cadastrado");
-    const lock = await wasDispatchedToday({ prospectId: p.id });
-    if (lock.blocked) return toast.error(dispatchBlockedMessage(lock.source!));
-    window.open(`mailto:${p.email}`);
-    // A-5: mesmo racional do callPhone acima.
-    setTouchpointTarget({ prospect: p, tipo: "email" });
-  };
+  // Prioridade: telefone fixo → se não tiver, usa WhatsApp
+  const rawD = onlyDigits(p.phone) || onlyDigits(p.whatsapp);
+  if (!rawD) return toast.error("Telefone não cadastrado");
+  // Remove DDI 55 se vier completo (12-13 dígitos)
+  const sem55 = rawD.length >= 12 && rawD.startsWith("55") ? rawD.slice(2) : rawD;
+  // Celular BR: DDD (2 dígitos) + 8 dígitos sem o 9 = 10 dígitos → insere o 9
+  const d = sem55.length === 10 && sem55[2] !== "9"
+    ? `${sem55.slice(0, 2)}9${sem55.slice(2)}`
+    : sem55;
+  const lock = await wasDispatchedToday({ prospectId: p.id, userId: user?.id });
+  if (lock.blocked) return toast.error(dispatchBlockedMessage(lock.source!));
+  // Avisa qual número está sendo usado quando usa o WhatsApp como fallback
+  if (!onlyDigits(p.phone) && onlyDigits(p.whatsapp)) {
+    toast.info("Ligando via número do WhatsApp (telefone fixo não cadastrado)");
+  }
+  window.open(`tel:+55${d}`);
+  // Marca no localStorage — garante que o lead saia da fila
+  // mesmo se o TouchpointModal for fechado sem registrar.
+  markLocalDispatched(p.id);
+  // A-5: TouchpointModal é a fonte única do registro (evita gravar 2x).
+  setTouchpointTarget({ prospect: p, tipo: "ligacao" });
+};
+
+const openEmail = async (p: Prospect) => {
+  if (!p.email) return toast.error("Email não cadastrado");
+  const lock = await wasDispatchedToday({ prospectId: p.id, userId: user?.id });
+  if (lock.blocked) return toast.error(dispatchBlockedMessage(lock.source!));
+  window.open(`mailto:${p.email}`);
+  // Marca no localStorage — garante que o lead saia da fila.
+  markLocalDispatched(p.id);
+  // A-5: mesmo racional do callPhone acima.
+  setTouchpointTarget({ prospect: p, tipo: "email" });
+};
+
 
   // Ao voltar de /meu-negocio com o perfil concluído, retomamos o disparo
   // que ficou pendente — sem precisar procurar o lead de novo.
@@ -1718,6 +1871,36 @@ function ProspeccaoPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Navegação principal: Lista de Prospects | Disparo WhatsApp */}
+      <div className="mb-4 border-b border-border">
+        <div className="flex gap-1">
+          <button
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              mainTab === "lista"
+                ? "border-primary text-primary-glow"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setMainTab("lista")}
+          >
+            Prospects
+          </button>
+          <button
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              mainTab === "disparo"
+                ? "border-primary text-primary-glow"
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+            onClick={() => setMainTab("disparo")}
+          >
+            Disparo WhatsApp
+          </button>
+        </div>
+      </div>
+
+      {mainTab === "disparo" && <DisparoWhatsApp prospects={prospects} />}
+
+      {mainTab === "lista" && <>
+
       {/* Stats */}
       <section className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-5">
         <StatCard icon={Building2} label={hasActiveFilters ? "Empresas (filtro)" : "Empresas cadastradas"} value={stats.t} hint={hasActiveFilters ? `de ${stats.total} · filtro ativo` : "Base total"} />
@@ -2103,6 +2286,8 @@ function ProspeccaoPage() {
               onEnrich={(p) => quickEnrich(p)}
               busyIds={quickEnrichingIds}
               busyWhatsIds={dispatchingIds}
+              localDispatchedIds={localDispatchedIds}
+              pendingDispatchIds={new Set(pagedItems.filter(p => isPendingLocalDispatch(p.id)).map(p => p.id))}
             />
           </div>
           <DesktopProspectTable
@@ -2412,6 +2597,8 @@ function ProspeccaoPage() {
           company={closeCadenceTarget.company}
         />
       )}
+
+      </>}
     </AppShell>
 
   );
@@ -3281,12 +3468,14 @@ function InlineEditProspect({ p, onCancel, onSaved }: {
 }
 
 const MobileProspectRow = memo(function MobileProspectRow({
-  p, isSelected, busy, busyWhats, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
+  p, isSelected, busy, busyWhats, localDispatched, pendingDispatch, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
 }: {
   p: Prospect;
   isSelected: boolean;
   busy?: boolean;
   busyWhats?: boolean;
+  localDispatched?: boolean;
+  pendingDispatch?: boolean;
   onToggleSelect: (id: string) => void;
   onOpen: (id: string) => void;
   onWhats: (p: Prospect, account?: "default" | "personal" | "business") => void;
@@ -3326,6 +3515,16 @@ const MobileProspectRow = memo(function MobileProspectRow({
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <PotentialBadge p={p.potential} />
           <StatusBadge status={p.status} />
+          {pendingDispatch && (
+            <span className="inline-flex items-center rounded border border-amber-500/40 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-300">
+              ⏳ Disparo pendente
+            </span>
+          )}
+          {localDispatched && !pendingDispatch && (
+            <span className="inline-flex items-center rounded border border-sky-500/40 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-medium text-sky-300">
+              ✅ Disparado
+            </span>
+          )}
         </div>
         <div className="mt-1 truncate text-[11px] text-muted-foreground">
           {p.whatsapp || p.phone || p.email || p.instagram || "—"}
@@ -3370,12 +3569,14 @@ const MobileProspectRow = memo(function MobileProspectRow({
 });
 
 function MobileProspectList({
-  items, selected, busyIds, busyWhatsIds, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
+  items, selected, busyIds, busyWhatsIds, localDispatchedIds, pendingDispatchIds, onToggleSelect, onOpen, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onEnrich,
 }: {
   items: Prospect[];
   selected: Set<string>;
   busyIds?: Set<string>;
   busyWhatsIds?: Set<string>;
+  localDispatchedIds?: Set<string>;
+  pendingDispatchIds?: Set<string>;
   onToggleSelect: (id: string) => void;
   onOpen: (id: string) => void;
   onWhats: (p: Prospect, account?: "default" | "personal" | "business") => void;
@@ -3413,6 +3614,8 @@ function MobileProspectList({
             isSelected={selected.has(p.id)}
             busy={busyIds?.has(p.id)}
             busyWhats={busyWhatsIds?.has(p.id)}
+            localDispatched={localDispatchedIds?.has(p.id)}
+            pendingDispatch={pendingDispatchIds?.has(p.id)}
             onToggleSelect={onToggleSelect}
             onOpen={onOpen}
             onWhats={onWhats}
@@ -3451,6 +3654,8 @@ function MobileProspectList({
               isSelected={selected.has(p.id)}
               busy={busyIds?.has(p.id)}
               busyWhats={busyWhatsIds?.has(p.id)}
+              localDispatched={localDispatchedIds?.has(p.id)}
+              pendingDispatch={pendingDispatchIds?.has(p.id)}
               onToggleSelect={onToggleSelect}
               onOpen={onOpen}
               onWhats={onWhats}
