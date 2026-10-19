@@ -16,6 +16,7 @@ import {
   Settings2,
   Zap,
   Globe,
+  QrCode,
 } from "lucide-react";
 import type { Prospect } from "@/lib/mock-prospects";
 import { updateProspect } from "@/lib/prospects-api";
@@ -23,6 +24,7 @@ import { pickNicheMessage } from "@/lib/prospeccao/niche-templates";
 import {
   loadWaAkgConfig,
   sendWaAkgMessage,
+  testWaAkgConnection,
   type WaAkgConfig,
 } from "@/lib/whatsapp/wa-akg-client";
 import { WaAkgConfigDialog } from "./WaAkgConfigDialog";
@@ -89,9 +91,41 @@ export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
   const cancelRef = useRef(false);
   const pauseRef = useRef(false);
 
-  useEffect(() => {
-    setAkgConfig(loadWaAkgConfig());
+  const [gatewayStatus, setGatewayStatus] = useState<"connected" | "qr_ready" | "offline" | "checking">("checking");
+  const [gatewayPhone, setGatewayPhone] = useState<string | null>(null);
+
+  const checkStatus = useCallback(async () => {
+    try {
+      const cfg = loadWaAkgConfig();
+      setAkgConfig(cfg);
+      const res = await testWaAkgConnection({ apiUrl: cfg.apiUrl, apiKey: cfg.apiKey });
+      if (res.ok) {
+        const sessList = res.sessions ?? [];
+        const target = sessList.find((s) => s.id === cfg.sessionId || s.name === cfg.sessionId) || sessList[0];
+        if (target && (target.status === "connected" || target.ready)) {
+          setGatewayStatus("connected");
+          setGatewayPhone(target.phone || null);
+        } else {
+          setGatewayStatus("qr_ready");
+          setGatewayPhone(null);
+        }
+      } else {
+        setGatewayStatus("offline");
+        setGatewayPhone(null);
+      }
+    } catch {
+      setGatewayStatus("offline");
+      setGatewayPhone(null);
+    }
   }, []);
+
+  useEffect(() => {
+    void checkStatus();
+    const interval = setInterval(() => {
+      void checkStatus();
+    }, 10_000);
+    return () => clearInterval(interval);
+  }, [checkStatus]);
 
   // ── Prospects elegíveis ───────────────────────────────────────────────────
   const eligible = prospects.filter(
@@ -322,17 +356,49 @@ export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
               Tampermonkey (Web)
             </Button>
             {engine === "wa-akg" && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setConfigOpen(true)}
-                className="text-xs h-8"
-                title="Configurar servidor WA-AKG"
-              >
-                <Settings2 className="h-3.5 w-3.5 mr-1" />
-                Configurar
-              </Button>
+              <>
+                {gatewayStatus === "connected" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfigOpen(true)}
+                    className="text-xs h-8 border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
+                    title="WhatsApp conectado e pronto"
+                  >
+                    <span className="relative flex h-2 w-2 mr-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    Conectado {gatewayPhone ? `(+${gatewayPhone})` : ""}
+                    <Settings2 className="h-3 w-3 ml-1 opacity-70" />
+                  </Button>
+                ) : gatewayStatus === "qr_ready" ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfigOpen(true)}
+                    className="text-xs h-8 border-amber-500/50 bg-amber-500/20 text-amber-300 font-medium hover:bg-amber-500/30 animate-pulse"
+                    title="Clique para escanear o QR Code no INFINDA"
+                  >
+                    <QrCode className="h-3.5 w-3.5 mr-1 text-amber-400" />
+                    📲 Conectar WhatsApp
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfigOpen(true)}
+                    className="text-xs h-8"
+                    title="Configurar servidor WA-AKG"
+                  >
+                    <Settings2 className="h-3.5 w-3.5 mr-1" />
+                    Configurar
+                  </Button>
+                )}
+              </>
             )}
           </div>
         </div>

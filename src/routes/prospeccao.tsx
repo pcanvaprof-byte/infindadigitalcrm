@@ -1,7 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { getProspectIdentityKey, getProspectBlockKeys } from "@/lib/prospect-identity";
-import { useEffect, useMemo, useRef, useState, memo, lazy, Suspense } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback, memo, lazy, Suspense } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
+
+export type WaAccount = "default" | "personal" | "business" | "gateway";
 
 import { AppShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -37,7 +39,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DisparoWhatsApp } from "@/components/prospeccao/DisparoWhatsApp";
 import { WaAkgConfigDialog } from "@/components/prospeccao/WaAkgConfigDialog";
-import { sendWaAkgMessage, loadWaAkgConfig } from "@/lib/whatsapp/wa-akg-client";
+import { sendWaAkgMessage, loadWaAkgConfig, testWaAkgConnection } from "@/lib/whatsapp/wa-akg-client";
 import { nicheGroup } from "@/lib/niches";
 import { loadOpeningByCnpj, openingKeys } from "@/lib/enrichment/opening-map";
 import {
@@ -89,6 +91,7 @@ import {
   X,
   Zap,
   Settings2,
+  QrCode,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -558,7 +561,6 @@ function ProspeccaoPage() {
   const [enrichFor, setEnrichFor] = useState<Prospect | null>(null);
   const [gmailTarget, setGmailTarget] = useState<Prospect | null>(null);
   const [whatsConfirm, setWhatsConfirm] = useState<{ id: string; company: string } | null>(null);
-  type WaAccount = "default" | "personal" | "business" | "gateway";
   const [waAccount, setWaAccount] = useState<WaAccount>("gateway");
   const [showWaAkgConfig, setShowWaAkgConfig] = useState(false);
   const [quickEnrichingIds, setQuickEnrichingIds] = useState<Set<string>>(new Set());
@@ -584,6 +586,33 @@ function ProspeccaoPage() {
   const [bulkDeleteInput, setBulkDeleteInput] = useState("");
   const [mainTab, setMainTab] = useState<"lista" | "disparo">("lista");
 
+  const [gatewayStatus, setGatewayStatus] = useState<"connected" | "qr_ready" | "offline" | "checking">("checking");
+  const [gatewayPhone, setGatewayPhone] = useState<string | null>(null);
+
+  const refreshGatewayStatus = useCallback(async () => {
+    try {
+      const cfg = loadWaAkgConfig();
+      const res = await testWaAkgConnection({ apiUrl: cfg.apiUrl, apiKey: cfg.apiKey });
+      if (res.ok) {
+        const sessList = res.sessions ?? [];
+        const target = sessList.find((s) => s.id === cfg.sessionId || s.name === cfg.sessionId) || sessList[0];
+        if (target && (target.status === "connected" || target.ready)) {
+          setGatewayStatus("connected");
+          setGatewayPhone(target.phone || null);
+        } else {
+          setGatewayStatus("qr_ready");
+          setGatewayPhone(null);
+        }
+      } else {
+        setGatewayStatus("offline");
+        setGatewayPhone(null);
+      }
+    } catch {
+      setGatewayStatus("offline");
+      setGatewayPhone(null);
+    }
+  }, []);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const saved = window.localStorage.getItem("wa_account") as WaAccount | null;
@@ -593,16 +622,31 @@ function ProspeccaoPage() {
       const akg = loadWaAkgConfig();
       if (akg.apiUrl) setWaAccount("gateway");
     }
-  }, []);
+
+    void refreshGatewayStatus();
+    const interval = setInterval(() => {
+      void refreshGatewayStatus();
+    }, 10_000);
+    return () => clearInterval(interval);
+  }, [refreshGatewayStatus]);
+
   const changeWaAccount = (v: WaAccount) => {
     setWaAccount(v);
     try { window.localStorage.setItem("wa_account", v); } catch { /* ignore */ }
-    toast.success(
-      v === "gateway" ? "Disparos automáticos via Gateway WA-AKG" :
-      v === "business" ? "Disparos via WhatsApp Business" :
-      v === "personal" ? "Disparos via WhatsApp Normal" :
-      "Disparos via app padrão do sistema",
-    );
+    if (v === "gateway") {
+      void refreshGatewayStatus().then(() => {
+        if (gatewayStatus !== "connected") {
+          setShowWaAkgConfig(true);
+        }
+      });
+      toast.success("Modo Disparo Silencioso (WhatsApp API) ativado");
+    } else {
+      toast.success(
+        v === "business" ? "Disparos via WhatsApp Business" :
+        v === "personal" ? "Disparos via WhatsApp Normal" :
+        "Disparos via app padrão do sistema",
+      );
+    }
   };
 
   // Única fonte de verdade. Mutations fazem optimistic update via setCache
@@ -2039,12 +2083,47 @@ const openEmail = async (p: Prospect) => {
               </button>
             ))}
             {waAccount === "gateway" && (
-              <button
-                onClick={() => setShowWaAkgConfig(true)}
-                className="inline-flex items-center gap-1 rounded-full border border-border bg-card/60 px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
-              >
-                <Settings2 className="h-3 w-3" /> Configurar
-              </button>
+              <div className="flex items-center gap-1.5">
+                {gatewayStatus === "connected" ? (
+                  <button
+                    onClick={() => setShowWaAkgConfig(true)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 text-xs text-emerald-400 hover:bg-emerald-500/25 transition shadow-sm"
+                    title="WhatsApp conectado e pronto para disparos silenciosos"
+                  >
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span>Conectado {gatewayPhone ? `(+${gatewayPhone})` : ""}</span>
+                    <Settings2 className="h-3 w-3 ml-0.5 opacity-70" />
+                  </button>
+                ) : gatewayStatus === "qr_ready" ? (
+                  <button
+                    onClick={() => setShowWaAkgConfig(true)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-500/20 px-3 py-1 text-xs text-amber-300 font-medium hover:bg-amber-500/30 transition shadow-sm animate-pulse"
+                    title="Clique para escanear o QR Code diretamente no INFINDA"
+                  >
+                    <QrCode className="h-3.5 w-3.5 text-amber-400" />
+                    <span>📲 Conectar WhatsApp (Escanear QR)</span>
+                  </button>
+                ) : gatewayStatus === "offline" ? (
+                  <button
+                    onClick={() => setShowWaAkgConfig(true)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/10 px-3 py-1 text-xs text-destructive hover:bg-destructive/20 transition"
+                    title="Gateway local offline (Execute: npm run gateway)"
+                  >
+                    <span className="h-2 w-2 rounded-full bg-destructive" />
+                    <span>Gateway Offline (Configurar)</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowWaAkgConfig(true)}
+                    className="inline-flex items-center gap-1 rounded-full border border-border bg-card/60 px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <Settings2 className="h-3 w-3" /> Configurar
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -2761,7 +2840,7 @@ function DesktopProspectTable({
   onToggleSelect: (id: string) => void;
   onToggleSelectAll: () => void;
   onOpen: (id: string) => void;
-  onWhats: (p: Prospect, account?: "default" | "personal" | "business") => void;
+  onWhats: (p: Prospect, account?: WaAccount) => void;
   onCall: (p: Prospect) => void;
   onAgendar: (id: string) => void;
   onConvert: (p: Prospect) => void;

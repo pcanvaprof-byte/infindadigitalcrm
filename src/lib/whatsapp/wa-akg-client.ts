@@ -62,6 +62,7 @@ export interface WaAkgSession {
   status?: string;
   phone?: string;
   ready?: boolean;
+  qr?: string;
 }
 
 export async function testWaAkgConnection(config: Pick<WaAkgConfig, "apiUrl" | "apiKey">): Promise<{
@@ -117,6 +118,30 @@ export async function testWaAkgConnection(config: Pick<WaAkgConfig, "apiUrl" | "
       ok: false,
       error: isAbort ? "Timeout: Gateway não respondeu em 8s" : (err instanceof Error ? err.message : String(err)),
     };
+  }
+}
+
+export async function disconnectWaAkgSession(config?: Pick<WaAkgConfig, "apiUrl" | "apiKey" | "sessionId">): Promise<{
+  ok: boolean;
+  error?: string;
+}> {
+  const cfg = config ?? loadWaAkgConfig();
+  const url = (cfg.apiUrl || "http://localhost:3000").replace(/\/+$/, "");
+  const sess = cfg.sessionId || "default";
+  try {
+    const res = await fetch(`${url}/api/sessions/${encodeURIComponent(sess)}/logout`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        ...(cfg.apiKey ? { "X-API-Key": cfg.apiKey } : {}),
+      },
+    });
+    if (!res.ok) {
+      return { ok: false, error: `HTTP ${res.status}` };
+    }
+    return { ok: true };
+  } catch (err: unknown) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
