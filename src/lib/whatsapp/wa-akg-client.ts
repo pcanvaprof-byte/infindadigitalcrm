@@ -92,6 +92,7 @@ export async function testWaAkgConnection(config: Pick<WaAkgConfig, "apiUrl" | "
 
     const headers: Record<string, string> = {
       "Accept": "application/json",
+      "bypass-tunnel-reminder": "true",
     };
     if (config.apiKey.trim()) {
       headers["X-API-Key"] = config.apiKey.trim();
@@ -146,6 +147,7 @@ export async function disconnectWaAkgSession(config?: Pick<WaAkgConfig, "apiUrl"
       method: "POST",
       headers: {
         Accept: "application/json",
+        "bypass-tunnel-reminder": "true",
         ...(cfg.apiKey ? { "X-API-Key": cfg.apiKey } : {}),
       },
     });
@@ -193,6 +195,7 @@ export async function sendWaAkgMessage({
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "Accept": "application/json",
+    "bypass-tunnel-reminder": "true",
   };
   if (apiKey) {
     headers["X-API-Key"] = apiKey;

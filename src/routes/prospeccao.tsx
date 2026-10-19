@@ -3083,7 +3083,7 @@ const RowActions = memo(function RowActions({
         variant="ghost"
         className="h-8 w-8 text-emerald-400"
         title={busyWhats ? "Enviando..." : "Disparar WhatsApp (usa a conta selecionada no topo)"}
-        disabled={!busyWhats}
+        disabled={!!busyWhats}
         onClick={() => onWhats(p)}
       >
         {busyWhats ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
