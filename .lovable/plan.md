@@ -1,22 +1,16 @@
-# Exportar contatos da Prospecção para o disparador
+# Domínio infindadigital.space: trazer para este projeto
 
-## O que muda
-Um botão **"Exportar contatos"** fica ao lado de "Limpar filtros", na Prospecção.
+## Resposta direta
+- **Os leads já disparados não vão voltar.** Disparos, históricos e usuários ficam no banco de dados, e o domínio não mexe nisso. Trocar o domínio de lugar não apaga nem reabre nenhum disparo.
+- **Por que aparece o Granville Gateway:** a plataforma registra o domínio no projeto onde ele foi conectado pela primeira vez. Mesmo que o endereço hoje leve até aqui, o cadastro ficou preso ao Granville Gateway, e o sistema bloqueia uma segunda conexão. Eu não consigo remover esse vínculo de dentro deste projeto.
 
-- Exporta **exatamente os leads que aparecem na lista com os filtros atuais** (status, nicho, cidade, UF, potencial, data de abertura, "somente com WhatsApp" etc.).
-- Se houver leads marcados na caixinha da tabela, exporta **só os marcados**.
-- O botão mostra quantos contatos vão sair: "Exportar contatos (36)".
+## Passos
+1. **Você:** abre o projeto Granville Gateway, vai em Configurações → Domínios e remove `infindadigital.space` (e o `www`, se estiver lá).
+2. **Eu:** confiro que o domínio ficou livre e abro aqui o cartão de conexão, com os registros de DNS certos.
+3. **Você:** adiciona no provedor do domínio os registros que o cartão mostrar. Hoje o DNS ainda está no estacionamento do provedor.
+4. **Eu:** acompanho a verificação e a emissão do certificado (https) até o domínio ficar Ativo. O prazo costuma ir de minutos a algumas horas, e pode chegar a 72h.
+5. Depois disso, confiro que o login e o envio de senha funcionam no novo endereço.
 
-## Arquivo gerado (planilha CSV, abre no Excel e importa em disparadores)
-Colunas: `nome`, `empresa`, `whatsapp` (formato internacional, ex: 5547998272244), `telefone`, `email`, `cidade`, `uf`, `nicho`, `cnpj`, `mensagem` (primeira mensagem do Meu Negócio já personalizada), `prospect_id`.
-
-Regras:
-- Remove números inválidos (9999999999, 1111111111...) e números repetidos — cada WhatsApp aparece uma vez só.
-- Nome do arquivo: `contatos-disparo-AAAA-MM-DD.csv`.
-- Exportar **não** marca o lead como contactado (o disparo continua sendo registrado normalmente quando acontece).
-
-## Detalhes técnicos
-- Novo helper `src/lib/prospeccao/export-contacts.ts`: recebe `Prospect[]`, normaliza WhatsApp com a mesma lógica de `normalizeWhats`/`isJunkPhone`, dedupe por telefone, monta CSV com BOM UTF-8 e separador `;` (compatível com Excel pt-BR) e baixa via Blob.
-- Mensagem: `renderTemplate` + `sanitizeTemplateForSend` sobre `business_profiles.initial_message` (já carregado pelo `useBusinessProfile`), com fallback em `pickNicheTemplate`.
-- `src/routes/prospeccao.tsx`: botão perto da linha "Limpar filtros", usando `filtered` (ou a seleção da tabela).
-- Sem mudança no banco, sem nova dependência.
+## Impacto
+- Nada muda nos usuários, nos leads, nos disparos nem nas permissões.
+- Durante a troca, o endereço `infindadigital.space` pode ficar fora do ar por um tempo curto. O endereço `infindadigitalcrm.lovable.app` continua funcionando.
