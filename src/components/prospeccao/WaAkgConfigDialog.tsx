@@ -36,6 +36,7 @@ import {
   ChevronUp,
   ShieldCheck,
   Zap,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -177,7 +178,15 @@ export function WaAkgConfigDialog({ open, onOpenChange, onConfigSaved }: WaAkgCo
               <div className="rounded-lg bg-background/80 border border-border p-2.5 text-[11px] text-foreground font-mono">
                 npm run gateway
               </div>
-              <div className="flex justify-end pt-1">
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <a
+                  href="/infinda-gateway.zip"
+                  download="infinda-gateway-cliente.zip"
+                  className="inline-flex items-center gap-1.5 text-[11px] font-medium text-destructive/90 hover:text-destructive hover:underline"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  Baixar Servidor WhatsApp (.ZIP)
+                </a>
                 <Button
                   size="sm"
                   variant="outline"
