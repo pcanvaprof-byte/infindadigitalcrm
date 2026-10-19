@@ -780,7 +780,7 @@ function ProspeccaoPage() {
       return [p.company, p.segment, p.owner, p.email, p.whatsapp, p.phone, p.instagram, p.city, p.state, p.source]
         .join(" ").toLowerCase().includes(q);
     });
-  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter, hideDispatched, opening, openingMap, localDispatchedIds]);
+  }, [prospects, search, statusFilter, segmentFilter, stateFilter, cityFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter, hideDispatched, opening, openingMap, localDispatchedIds]);
 
 
   // Bloqueio de 24h por disparo recente (whatsapp/ligação/email outbound).
@@ -1584,18 +1584,29 @@ const openEmail = async (p: Prospect) => {
   };
 
 
-  const exportCsv = (rows = prospects) => {
+  const exportCsv = (rows?: Prospect[]) => {
+    const toExport = rows ?? (
+      selected.size > 0
+        ? prospects.filter((p) => selected.has(p.id))
+        : filteredOrdered
+    );
+
+    if (toExport.length === 0) {
+      toast.warning("Nenhuma empresa selecionada ou encontrada para exportar.");
+      return;
+    }
+
     const headers = ["Empresa","Segmento","Responsavel","WhatsApp","Telefone","Email","Instagram","Cidade","Estado","Origem","Potencial","Status"];
-    const data = rows.map((p) => [p.company, p.segment, p.owner, p.whatsapp, p.phone, p.email, p.instagram, p.city, p.state, p.source, p.potential, STATUS_LABEL[p.status]]);
+    const data = toExport.map((p) => [p.company, p.segment, p.owner, p.whatsapp, p.phone, p.email, p.instagram, p.city, p.state, p.source, p.potential, STATUS_LABEL[p.status]]);
     const csv = [headers, ...data].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `prospeccao-infinda-${Date.now()}.csv`;
+    a.download = `prospeccao-infinda-${selected.size > 0 ? "selecionadas-" : ""}${Date.now()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success(`${rows.length} linha(s) exportada(s)`);
+    toast.success(`${toExport.length} empresa(s) exportada(s)${selected.size > 0 ? " (selecionadas)" : ""}`);
   };
 
   /**
@@ -1900,8 +1911,14 @@ const openEmail = async (p: Prospect) => {
       subtitle="Sua máquina de geração de oportunidades comerciais"
       actions={
         <div className="hidden items-center gap-2 sm:flex">
-          <Button variant="outline" className="h-9 text-xs" onClick={() => exportCsv()}>
-            <Download className="mr-1.5 h-4 w-4" /> Exportar
+          <Button
+            variant="outline"
+            className="h-9 text-xs"
+            onClick={() => exportCsv()}
+            title={selected.size > 0 ? `Exportar ${selected.size} empresa(s) selecionada(s)` : "Exportar lista filtrada"}
+          >
+            <Download className="mr-1.5 h-4 w-4" />
+            {selected.size > 0 ? `Exportar selecionadas (${selected.size})` : "Exportar"}
           </Button>
           <Button variant="outline" className="h-9 text-xs" onClick={() => fileRef.current?.click()}>
             <Upload className="mr-1.5 h-4 w-4" /> Importar
@@ -2405,6 +2422,15 @@ const openEmail = async (p: Prospect) => {
             <span className="rounded-md bg-primary/20 px-2 py-0.5 text-xs font-semibold text-primary-glow">
               {selCount} selecionada{selCount > 1 ? "s" : ""}
             </span>
+            {filteredOrdered.length > selCount && (
+              <button
+                type="button"
+                className="text-xs text-primary-glow underline hover:text-foreground"
+                onClick={() => setSelected(new Set(filteredOrdered.map((p) => p.id)))}
+              >
+                Selecionar todas as {filteredOrdered.length} filtradas
+              </button>
+            )}
             <button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setSelected(new Set())}>
               Limpar seleção
             </button>
@@ -2442,7 +2468,7 @@ const openEmail = async (p: Prospect) => {
             </DropdownMenu>
             <Button variant="outline" size="sm" className="h-8 text-xs"
               onClick={() => exportCsv(prospects.filter((p) => selected.has(p.id)))}>
-              <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar
+              <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar ({selCount})
             </Button>
             <Button variant="outline" size="sm" className="h-8 text-xs border-primary/30 text-primary-glow hover:bg-primary/10"
               disabled={bulkEnriching}
