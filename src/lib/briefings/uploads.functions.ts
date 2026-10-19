@@ -25,7 +25,7 @@ function getAdmin() {
 
 /** Gera signed upload URL para anexar arquivo a um briefing/kickoff via token público. */
 export const createKickoffUpload = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => SignInput.parse(d))
+  .validator((d: unknown) => SignInput.parse(d))
   .handler(async ({ data }) => {
     if (!ALLOWED_EXT.test(data.filename)) throw new Error("Extensão não permitida");
     const admin = await getAdmin();
@@ -53,7 +53,7 @@ const DownloadInput = z.object({ token: z.string().min(8), path: z.string().min(
 
 /** Gera signed URL de leitura (usada no dashboard interno). */
 export const getKickoffFileUrl = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => DownloadInput.parse(d))
+  .validator((d: unknown) => DownloadInput.parse(d))
   .handler(async ({ data }) => {
     if (!data.path.startsWith(`${data.token}/`)) throw new Error("Path inválido");
     const admin = await getAdmin();

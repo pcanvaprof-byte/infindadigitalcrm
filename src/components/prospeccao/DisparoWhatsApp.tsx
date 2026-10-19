@@ -13,10 +13,19 @@ import {
   X,
   Pause,
   Play,
+  Settings2,
+  Zap,
+  Globe,
 } from "lucide-react";
 import type { Prospect } from "@/lib/mock-prospects";
 import { updateProspect } from "@/lib/prospects-api";
 import { pickNicheMessage } from "@/lib/prospeccao/niche-templates";
+import {
+  loadWaAkgConfig,
+  sendWaAkgMessage,
+  type WaAkgConfig,
+} from "@/lib/whatsapp/wa-akg-client";
+import { WaAkgConfigDialog } from "./WaAkgConfigDialog";
 import { toast } from "sonner";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -26,6 +35,7 @@ interface DisparoWhatsAppProps {
 }
 
 type ItemStatus = "pending" | "sending" | "sent" | "failed";
+type DisparoEngine = "wa-akg" | "tampermonkey";
 
 interface QueueItem {
   id: string;
@@ -55,18 +65,21 @@ function sleep(ms: number) {
 }
 
 // ─── Chave de comunicação Tampermonkey → CRM ──────────────────────────────────
-// O script Tampermonkey escreve nesta chave ao enviar/falhar.
-// O CRM lê a chave para saber o resultado e avança para o próximo.
 const TM_RESULT_KEY = "infinda_disparo_result";
 const TM_PENDING_KEY = "infinda_disparo_pending";
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
+  // ── Motor de Disparo ──────────────────────────────────────────────────────
+  const [engine, setEngine] = useState<DisparoEngine>("wa-akg");
+  const [configOpen, setConfigOpen] = useState(false);
+  const [akgConfig, setAkgConfig] = useState<WaAkgConfig>(loadWaAkgConfig());
+
   // ── Seleção ──────────────────────────────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [delayMin, setDelayMin] = useState(80);
-  const [delayMax, setDelayMax] = useState(100);
+  const [delayMin, setDelayMin] = useState(15);
+  const [delayMax, setDelayMax] = useState(30);
 
   // ── Fila ─────────────────────────────────────────────────────────────────
   const [items, setItems] = useState<QueueItem[]>([]);
@@ -75,6 +88,10 @@ export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
   const [currentIdx, setCurrentIdx] = useState(0);
   const cancelRef = useRef(false);
   const pauseRef = useRef(false);
+
+  useEffect(() => {
+    setAkgConfig(loadWaAkgConfig());
+  }, []);
 
   // ── Prospects elegíveis ───────────────────────────────────────────────────
   const eligible = prospects.filter(
@@ -96,7 +113,6 @@ export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
     });
   }, []);
 
-  // ── Disparo via WhatsApp Web + Tampermonkey ───────────────────────────────
   const updateItem = useCallback((idx: number, patch: Partial<QueueItem>) => {
     setItems((prev) => prev.map((item, i) => i === idx ? { ...item, ...patch } : item));
   }, []);
@@ -107,9 +123,7 @@ export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
   ): Promise<{ success: boolean; reason?: string }> => {
     return new Promise((resolve) => {
       const start = Date.now();
-      // Limpa resultado anterior
       try { localStorage.removeItem(TM_RESULT_KEY); } catch {}
-      // Escreve o ID pendente para o TM saber qual prospect está sendo disparado
       try { localStorage.setItem(TM_PENDING_KEY, prospectId); } catch {}
 
       const poll = setInterval(() => {
@@ -131,7 +145,6 @@ export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
         if (Date.now() - start > timeoutMs) {
           clearInterval(poll);
           localStorage.removeItem(TM_PENDING_KEY);
-          // Timeout — consideramos enviado (a aba pode ter fechado antes de gravar)
           resolve({ success: true });
         }
       }, 500);
@@ -145,10 +158,8 @@ export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
     setPaused(false);
 
     for (let i = 0; i < queueItems.length; i++) {
-      // Verifica cancelamento
       if (cancelRef.current) break;
 
-      // Verifica pausa — espera até despausar
       while (pauseRef.current) {
         await sleep(500);
         if (cancelRef.current) break;
@@ -159,29 +170,47 @@ export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
       setCurrentIdx(i);
       updateItem(i, { status: "sending" });
 
-      const phone = sanitizePhone(item.phone);
-      const encoded = encodeURIComponent(item.message);
-      const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encoded}`;
+      if (engine === "wa-akg") {
+        // Disparo via Gateway WA-AKG v1.7.0 (REST API / Background)
+        const result = await sendWaAkgMessage({
+          phone: item.phone,
+          message: item.message,
+          config: akgConfig,
+        });
 
-      // Abre o WhatsApp Web — o Tampermonkey vai clicar em enviar e fechar a aba
-      window.open(url, "_blank", "noopener");
-
-      // Aguarda o Tampermonkey gravar o resultado (timeout = 60s)
-      const result = await waitForTampermonkey(item.id, 60_000);
-
-      if (result.success) {
-        updateItem(i, { status: "sent" });
-        try {
-          await updateProspect(item.id, { status: "primeiro_contato" });
-        } catch (e) {
-          console.error("[Disparo] updateProspect erro:", e);
+        if (result.success) {
+          updateItem(i, { status: "sent" });
+          try {
+            await updateProspect(item.id, { status: "primeiro_contato" });
+          } catch (e) {
+            console.error("[Disparo WA-AKG] updateProspect erro:", e);
+          }
+        } else {
+          updateItem(i, { status: "failed", reason: result.error });
         }
       } else {
-        updateItem(i, { status: "failed", reason: result.reason });
-        if (result.reason === "no_whatsapp") {
+        // Disparo via Tampermonkey + WhatsApp Web
+        const phone = sanitizePhone(item.phone);
+        const encoded = encodeURIComponent(item.message);
+        const url = `https://web.whatsapp.com/send?phone=${phone}&text=${encoded}`;
+
+        window.open(url, "_blank", "noopener");
+        const result = await waitForTampermonkey(item.id, 60_000);
+
+        if (result.success) {
+          updateItem(i, { status: "sent" });
           try {
-            await updateProspect(item.id, { whatsapp: "__sem_whatsapp__" });
-          } catch {}
+            await updateProspect(item.id, { status: "primeiro_contato" });
+          } catch (e) {
+            console.error("[Disparo TM] updateProspect erro:", e);
+          }
+        } else {
+          updateItem(i, { status: "failed", reason: result.reason });
+          if (result.reason === "no_whatsapp") {
+            try {
+              await updateProspect(item.id, { whatsapp: "__sem_whatsapp__" });
+            } catch {}
+          }
         }
       }
 
@@ -202,16 +231,18 @@ export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
     cancelRef.current = false;
     pauseRef.current = false;
 
-    const sent = queueItems.filter((_, i) => {
-      // lê o estado final dos itens
-      return true;
-    }).length;
     toast.success("Fila de disparo finalizada!");
-  }, [delayMin, delayMax, updateItem, waitForTampermonkey]);
+  }, [engine, akgConfig, delayMin, delayMax, updateItem, waitForTampermonkey]);
 
   const handleDispatch = useCallback(() => {
     const selected = eligible.filter((p) => selectedIds.has(p.id));
     if (selected.length === 0) return;
+
+    if (engine === "wa-akg" && !akgConfig.apiUrl.trim()) {
+      toast.error("Configure a URL do Gateway WA-AKG antes de iniciar");
+      setConfigOpen(true);
+      return;
+    }
 
     const queueItems: QueueItem[] = selected.map((p) => ({
       id: p.id,
@@ -224,7 +255,7 @@ export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
     setItems(queueItems);
     setCurrentIdx(0);
     void runQueue(queueItems);
-  }, [eligible, selectedIds, runQueue]);
+  }, [eligible, selectedIds, engine, akgConfig, runQueue]);
 
   const handlePause = useCallback(() => {
     pauseRef.current = true;
@@ -255,26 +286,79 @@ export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
+      {/* ── Seleção do Motor ── */}
+      <section className="rounded-xl border border-border bg-card/60 p-4 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Zap className="h-4 w-4 text-emerald-400" />
+              Motor de Envio de WhatsApp
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Escolha como o sistema deve processar o envio em massa para os prospects.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant={engine === "wa-akg" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setEngine("wa-akg")}
+              disabled={running}
+              className="text-xs h-8"
+            >
+              <Zap className="mr-1.5 h-3.5 w-3.5 text-emerald-400" />
+              WA-AKG v1.7.0 (API Gateway)
+            </Button>
+            <Button
+              type="button"
+              variant={engine === "tampermonkey" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setEngine("tampermonkey")}
+              disabled={running}
+              className="text-xs h-8"
+            >
+              <Globe className="mr-1.5 h-3.5 w-3.5" />
+              Tampermonkey (Web)
+            </Button>
+            {engine === "wa-akg" && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setConfigOpen(true)}
+                className="text-xs h-8"
+                title="Configurar servidor WA-AKG"
+              >
+                <Settings2 className="h-3.5 w-3.5 mr-1" />
+                Configurar
+              </Button>
+            )}
+          </div>
+        </div>
 
-      {/* ── Aviso Tampermonkey ── */}
-      <section className="surface-card p-4 border border-primary/20 bg-primary/5">
-        <p className="text-sm text-muted-foreground leading-relaxed">
-          <strong className="text-foreground">Requisito:</strong> instale a extensão{" "}
-          <a
-            href="https://www.tampermonkey.net/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary underline underline-offset-2"
-          >
-            Tampermonkey
-          </a>{" "}
-          e o script INFINDA (disponível em <strong>Cadência → aba Disparo</strong>).
-          Feito isso, o disparo é 100% automático — sem servidor, sem configuração extra.
-        </p>
+        {engine === "wa-akg" ? (
+          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 text-xs leading-relaxed text-muted-foreground">
+            <span className="font-semibold text-emerald-400">Modo Gateway Ativo:</span> Os disparos ocorrem 100% em segundo plano através do servidor WA-AKG (Baileys v7). <strong>Não abre abas no navegador</strong> e permite anexar botões interativos nativos do WhatsApp aos disparos.
+          </div>
+        ) : (
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs leading-relaxed text-muted-foreground">
+            <strong className="text-foreground">Requisito:</strong> instale a extensão{" "}
+            <a
+              href="https://www.tampermonkey.net/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline underline-offset-2"
+            >
+              Tampermonkey
+            </a>{" "}
+            e o script INFINDA. O navegador abrirá abas do WhatsApp Web sequencialmente para cada disparo.
+          </div>
+        )}
       </section>
 
       {/* ── Fila ── */}
-      <section className="surface-card p-4">
+      <section className="rounded-xl border border-border bg-card p-4">
         <h3 className="text-sm font-semibold mb-3">
           Fila de Disparo ({eligible.length} prospects elegíveis)
         </h3>
@@ -327,7 +411,7 @@ export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
             <div className="flex items-end gap-4 mb-4">
               <div className="space-y-1">
                 <Label htmlFor="delay-min" className="text-xs text-muted-foreground">Delay mínimo (s)</Label>
-                <Input id="delay-min" type="number" min={10} max={delayMax - 1} value={delayMin}
+                <Input id="delay-min" type="number" min={5} max={delayMax - 1} value={delayMin}
                   onChange={(e) => setDelayMin(Number(e.target.value))} className="w-24" disabled={running} />
               </div>
               <div className="space-y-1">
@@ -367,7 +451,7 @@ export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
 
       {/* ── Status da fila ── */}
       {items.length > 0 && (
-        <section className="surface-card p-4">
+        <section className="rounded-xl border border-border bg-card p-4">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold">Status da Fila</h3>
             <span className="text-xs text-muted-foreground">
@@ -386,7 +470,7 @@ export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
                 <span className="flex-1 truncate font-medium">{item.company}</span>
                 <span className="text-xs text-muted-foreground shrink-0">
                   {item.status === "sent" && "Enviado"}
-                  {item.status === "failed" && (item.reason === "no_whatsapp" ? "Sem WhatsApp" : "Falha")}
+                  {item.status === "failed" && (item.reason || "Falha")}
                   {item.status === "sending" && (i === currentIdx ? "Enviando…" : "Aguardando")}
                   {item.status === "pending" && "Aguardando"}
                 </span>
@@ -395,6 +479,13 @@ export function DisparoWhatsApp({ prospects }: DisparoWhatsAppProps) {
           </div>
         </section>
       )}
+
+      {/* Dialog de Configuração do WA-AKG */}
+      <WaAkgConfigDialog
+        open={configOpen}
+        onOpenChange={setConfigOpen}
+        onConfigSaved={(saved) => setAkgConfig(saved)}
+      />
     </div>
   );
 }

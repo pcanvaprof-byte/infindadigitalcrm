@@ -20,7 +20,7 @@ function tryConsume(): { ok: boolean; retryAfterMs: number } {
 
 export const fetchCnpjaCompany = createServerFn({ method: "POST" })
   .middleware([authWithAccess])
-  .inputValidator((input: { cnpj: string }) => {
+  .validator((input: { cnpj: string }) => {
     const cnpj = (input?.cnpj ?? "").replace(/\D/g, "");
     if (cnpj.length !== 14) throw new Error("CNPJ inválido");
     return { cnpj };

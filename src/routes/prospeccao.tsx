@@ -36,6 +36,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DisparoWhatsApp } from "@/components/prospeccao/DisparoWhatsApp";
+import { WaAkgConfigDialog } from "@/components/prospeccao/WaAkgConfigDialog";
+import { sendWaAkgMessage, loadWaAkgConfig } from "@/lib/whatsapp/wa-akg-client";
 import { nicheGroup } from "@/lib/niches";
 import { loadOpeningByCnpj, openingKeys } from "@/lib/enrichment/opening-map";
 import {
@@ -85,6 +87,8 @@ import {
   Users,
   Wand2,
   X,
+  Zap,
+  Settings2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -554,8 +558,9 @@ function ProspeccaoPage() {
   const [enrichFor, setEnrichFor] = useState<Prospect | null>(null);
   const [gmailTarget, setGmailTarget] = useState<Prospect | null>(null);
   const [whatsConfirm, setWhatsConfirm] = useState<{ id: string; company: string } | null>(null);
-  type WaAccount = "default" | "personal" | "business";
-  const [waAccount, setWaAccount] = useState<WaAccount>("default");
+  type WaAccount = "default" | "personal" | "business" | "gateway";
+  const [waAccount, setWaAccount] = useState<WaAccount>("gateway");
+  const [showWaAkgConfig, setShowWaAkgConfig] = useState(false);
   const [quickEnrichingIds, setQuickEnrichingIds] = useState<Set<string>>(new Set());
   const [dispatchingIds, setDispatchingIds] = useState<Set<string>>(new Set());
   // Perfil do negócio: sem ele a 1ª mensagem de prospecção não existe.
@@ -582,12 +587,18 @@ function ProspeccaoPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const saved = window.localStorage.getItem("wa_account") as WaAccount | null;
-    if (saved === "default" || saved === "personal" || saved === "business") setWaAccount(saved);
+    if (saved === "default" || saved === "personal" || saved === "business" || saved === "gateway") {
+      setWaAccount(saved);
+    } else {
+      const akg = loadWaAkgConfig();
+      if (akg.apiUrl) setWaAccount("gateway");
+    }
   }, []);
   const changeWaAccount = (v: WaAccount) => {
     setWaAccount(v);
     try { window.localStorage.setItem("wa_account", v); } catch { /* ignore */ }
     toast.success(
+      v === "gateway" ? "Disparos automáticos via Gateway WA-AKG" :
       v === "business" ? "Disparos via WhatsApp Business" :
       v === "personal" ? "Disparos via WhatsApp Normal" :
       "Disparos via app padrão do sistema",
@@ -1200,9 +1211,10 @@ function ProspeccaoPage() {
     // existem awaits (trava do dia + resolução do template), abrimos a aba
     // agora (em branco) e apenas trocamos a URL depois. No mobile navegamos
     // na própria aba ao final.
+    const isGateway = waAccount === "gateway";
     const isMobileUA =
       typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-    const preOpened = isMobileUA ? null : window.open("", "_blank");
+    const preOpened = (!isGateway && !isMobileUA) ? window.open("", "_blank") : null;
     try {
       const lock = await wasDispatchedToday({ prospectId: p.id, userId: user?.id });
       if (lock.blocked) {
@@ -1335,6 +1347,38 @@ function ProspeccaoPage() {
     const encoded = encodeURIComponent(msg);
     const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
     const acct = waAccount;
+
+    if (isGateway) {
+      const akgCfg = loadWaAkgConfig();
+      if (!akgCfg.apiUrl.trim()) {
+        toast.error("Configure a URL do Gateway WA-AKG antes de disparar", {
+          action: { label: "Configurar", onClick: () => setShowWaAkgConfig(true) },
+        });
+        setShowWaAkgConfig(true);
+        return;
+      }
+      const toastId = toast.loading(`Enviando mensagem para ${p.company} via WA-AKG...`);
+      const res = await sendWaAkgMessage({
+        phone: d,
+        message: msg,
+        config: akgCfg,
+      });
+
+      if (res.success) {
+        toast.success(`Mensagem enviada com sucesso para ${p.company}!`, { id: toastId });
+      } else {
+        toast.error(`Falha no Gateway: ${res.error || "Erro ao disparar"}`, {
+          id: toastId,
+          action: {
+            label: "WhatsApp Web",
+            onClick: () => {
+              window.open(`https://web.whatsapp.com/send?phone=${phone}&text=${encoded}#autosend=true`, "_blank");
+            },
+          },
+        });
+      }
+      return;
+    }
 
     // Se estiver no Desktop (Windows), abre o WhatsApp Web direto com a flag de auto-envio
     let url = `https://web.whatsapp.com/send?phone=${phone}&text=${encoded}#autosend=true`;
@@ -1828,8 +1872,18 @@ const openEmail = async (p: Prospect) => {
                 className="h-9 text-xs"
                 title="Conta de WhatsApp usada nos disparos"
               >
-                <Smartphone className="mr-1.5 h-4 w-4" />
-                {waAccount === "business" ? "WA Business" : waAccount === "personal" ? "WA Normal" : "WA Padrão"}
+                {waAccount === "gateway" ? (
+                  <Zap className="mr-1.5 h-4 w-4 text-emerald-400" />
+                ) : (
+                  <Smartphone className="mr-1.5 h-4 w-4" />
+                )}
+                {waAccount === "gateway"
+                  ? "WA-AKG Gateway"
+                  : waAccount === "business"
+                  ? "WA Business"
+                  : waAccount === "personal"
+                  ? "WA Normal"
+                  : "WA Padrão"}
                 <ChevronDown className="ml-1.5 h-3.5 w-3.5 opacity-60" />
               </Button>
             </DropdownMenuTrigger>
@@ -1837,6 +1891,11 @@ const openEmail = async (p: Prospect) => {
               <DropdownMenuLabel className="text-[11px] text-muted-foreground">
                 Conta de WhatsApp para disparos
               </DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => changeWaAccount("gateway")}>
+                <Check className={cn("mr-2 h-4 w-4", waAccount === "gateway" ? "opacity-100" : "opacity-0")} />
+                <Zap className="mr-1.5 h-4 w-4 text-emerald-400" />
+                WA-AKG Gateway (Automático)
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => changeWaAccount("default")}>
                 <Check className={cn("mr-2 h-4 w-4", waAccount === "default" ? "opacity-100" : "opacity-0")} />
                 Padrão do sistema
@@ -1850,9 +1909,13 @@ const openEmail = async (p: Prospect) => {
                 WhatsApp Business
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setShowWaAkgConfig(true)}>
+                <Settings2 className="mr-2 h-4 w-4 text-muted-foreground" />
+                Configurar Gateway WA-AKG
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <div className="px-2 py-1.5 text-[10px] leading-snug text-muted-foreground">
-                A escolha entre Normal e Business só é forçada no Android (via intent).
-                No iPhone/desktop abre o app definido como padrão do sistema.
+                No modo WA-AKG os envios ocorrem em segundo plano via API REST Baileys v7.
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -1958,10 +2021,11 @@ const openEmail = async (p: Prospect) => {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {([
+              { k: "gateway",  label: "⚡ WA-AKG Gateway" },
               { k: "default",  label: "Padrão do sistema" },
               { k: "personal", label: "WhatsApp Normal" },
               { k: "business", label: "WhatsApp Business" },
-            ] as { k: "default" | "personal" | "business"; label: string }[]).map((c) => (
+            ] as { k: WaAccount; label: string }[]).map((c) => (
               <button
                 key={c.k}
                 onClick={() => changeWaAccount(c.k)}
@@ -1974,6 +2038,14 @@ const openEmail = async (p: Prospect) => {
                 {c.label}
               </button>
             ))}
+            {waAccount === "gateway" && (
+              <button
+                onClick={() => setShowWaAkgConfig(true)}
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-card/60 px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <Settings2 className="h-3 w-3" /> Configurar
+              </button>
+            )}
           </div>
         </div>
       </section>
@@ -2656,6 +2728,11 @@ const openEmail = async (p: Prospect) => {
         />
       )}
 
+      <WaAkgConfigDialog
+        open={showWaAkgConfig}
+        onOpenChange={setShowWaAkgConfig}
+      />
+
       </>}
     </AppShell>
 
@@ -2883,7 +2960,7 @@ const RowActions = memo(function RowActions({
   p, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onOpen, busyWhats,
 }: {
   p: Prospect;
-  onWhats: (p: Prospect, account?: "default" | "personal" | "business") => void;
+  onWhats: (p: Prospect, account?: WaAccount) => void;
   onCall: (p: Prospect) => void;
   onAgendar: () => void;
   onConvert: () => void;
@@ -3008,7 +3085,7 @@ function DetailDialog({
   p, onWhats, onCall, onStatus, onConvert, onAddNote, onEnrich, enrichBusy, whatsBusy, onRegisterTouchpoint, onCloseCadence,
 }: {
   p: Prospect;
-  onWhats: (account?: "default" | "personal" | "business") => void;
+  onWhats: (account?: WaAccount) => void;
   onCall: () => void;
   onStatus: (s: ProspectStatus) => void;
   onConvert: () => void;
@@ -3536,7 +3613,7 @@ const MobileProspectRow = memo(function MobileProspectRow({
   pendingDispatch?: boolean;
   onToggleSelect: (id: string) => void;
   onOpen: (id: string) => void;
-  onWhats: (p: Prospect, account?: "default" | "personal" | "business") => void;
+  onWhats: (p: Prospect, account?: WaAccount) => void;
   onCall: (p: Prospect) => void;
   onAgendar: (id: string) => void;
   onConvert: (p: Prospect) => void;
@@ -3637,7 +3714,7 @@ function MobileProspectList({
   pendingDispatchIds?: Set<string>;
   onToggleSelect: (id: string) => void;
   onOpen: (id: string) => void;
-  onWhats: (p: Prospect, account?: "default" | "personal" | "business") => void;
+  onWhats: (p: Prospect, account?: WaAccount) => void;
   onCall: (p: Prospect) => void;
   onAgendar: (id: string) => void;
   onConvert: (p: Prospect) => void;

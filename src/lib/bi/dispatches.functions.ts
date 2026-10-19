@@ -211,7 +211,7 @@ function spDateKey(iso: string): string {
 
 export const auditDispatches = createServerFn({ method: "POST" })
   .middleware([authWithAccess])
-  .inputValidator((input: { from?: string; to?: string } | undefined) => input ?? {})
+  .validator((input: { from?: string; to?: string } | undefined) => input ?? {})
   .handler(async ({ data, context }) => {
     const scope = await resolveScope(context);
     // ----- Cache + rate-limit (in-memory, por instância do worker) -----
@@ -319,7 +319,7 @@ export interface DispatchRow {
 
 export const listDispatchRows = createServerFn({ method: "POST" })
   .middleware([authWithAccess])
-  .inputValidator((input: { from: string; to: string }) => {
+  .validator((input: { from: string; to: string }) => {
     if (!input?.from || !input?.to) throw new Error("from/to obrigatórios");
     return input;
   })

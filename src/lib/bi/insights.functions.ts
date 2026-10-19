@@ -12,7 +12,7 @@ const Input = z.object({
  */
 export const gerarInsightBI = createServerFn({ method: "POST" })
   .middleware([authWithAccess])
-  .inputValidator((d: unknown) => Input.parse(d))
+  .validator((d: unknown) => Input.parse(d))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const sb = supabase as unknown as {
