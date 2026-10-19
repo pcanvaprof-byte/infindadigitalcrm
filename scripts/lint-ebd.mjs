@@ -42,7 +42,7 @@ const directRpcRegex =
 for (const f of files) {
   const ext = extname(f);
   if (![".ts", ".tsx", ".js", ".mjs"].includes(ext)) continue;
-  const rel = relative(ROOT, f);
+  const rel = relative(ROOT, f).replace(/\\/g, "/");
   if (rel.startsWith(HELPER_PATH)) continue;
   if (rel.startsWith("scripts/")) continue;
   const src = readFileSync(f, "utf8");

@@ -5,6 +5,7 @@
   "framework": null,
   "outputDirectory": ".vercel/output",
   "env": {
-    "NITRO_PRESET": "vercel"
+    "NITRO_PRESET": "vercel",
+    "NODE_OPTIONS": "--max-old-space-size=4096"
   }
 }

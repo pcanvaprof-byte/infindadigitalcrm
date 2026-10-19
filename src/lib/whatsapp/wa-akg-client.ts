@@ -7,10 +7,18 @@ export interface WaAkgConfig {
   interactiveButtons: string[];
 }
 
+const ENV_GATEWAY_URL =
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_WA_GATEWAY_URL) ||
+  "http://localhost:3000";
+
+const ENV_GATEWAY_KEY =
+  (typeof import.meta !== "undefined" && import.meta.env?.VITE_WA_GATEWAY_KEY) ||
+  "";
+
 export const DEFAULT_WA_AKG_CONFIG: WaAkgConfig = {
   enabled: false,
-  apiUrl: "http://localhost:3000",
-  apiKey: "",
+  apiUrl: ENV_GATEWAY_URL,
+  apiKey: ENV_GATEWAY_KEY,
   sessionId: "default",
   useInteractive: false,
   interactiveButtons: ["Tenho interesse", "Mais detalhes", "Agora não"],
@@ -24,9 +32,14 @@ export function loadWaAkgConfig(): WaAkgConfig {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_WA_AKG_CONFIG;
     const parsed = JSON.parse(raw);
+    const apiUrl =
+      (parsed.apiUrl === "http://localhost:3000" && ENV_GATEWAY_URL !== "http://localhost:3000")
+        ? ENV_GATEWAY_URL
+        : (parsed.apiUrl || DEFAULT_WA_AKG_CONFIG.apiUrl);
     return {
       ...DEFAULT_WA_AKG_CONFIG,
       ...parsed,
+      apiUrl,
       interactiveButtons: Array.isArray(parsed.interactiveButtons) && parsed.interactiveButtons.length > 0
         ? parsed.interactiveButtons
         : DEFAULT_WA_AKG_CONFIG.interactiveButtons,
