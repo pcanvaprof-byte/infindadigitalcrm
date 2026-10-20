@@ -1,16 +1,21 @@
-# Domínio infindadigital.space: trazer para este projeto
+# Login de d2k.agencia@gmail.com não funciona
 
-## Resposta direta
-- **Os leads já disparados não vão voltar.** Disparos, históricos e usuários ficam no banco de dados, e o domínio não mexe nisso. Trocar o domínio de lugar não apaga nem reabre nenhum disparo.
-- **Por que aparece o Granville Gateway:** a plataforma registra o domínio no projeto onde ele foi conectado pela primeira vez. Mesmo que o endereço hoje leve até aqui, o cadastro ficou preso ao Granville Gateway, e o sistema bloqueia uma segunda conexão. Eu não consigo remover esse vínculo de dentro deste projeto.
+## O que encontrei
+- A conta `d2k.agencia@gmail.com` foi criada hoje às 13:01 (UTC) no **banco errado**. Foi o banco interno antigo, que não é mais usado.
+- A tela de login confere email e senha no banco real da plataforma. Por isso a conta não existe ali e o login é recusado.
+- Ainda falta confirmar a causa: primeiro vou ver se a conta existe no banco real.
 
 ## Passos
-1. **Você:** abre o projeto Granville Gateway, vai em Configurações → Domínios e remove `infindadigital.space` (e o `www`, se estiver lá).
-2. **Eu:** confiro que o domínio ficou livre e abro aqui o cartão de conexão, com os registros de DNS certos.
-3. **Você:** adiciona no provedor do domínio os registros que o cartão mostrar. Hoje o DNS ainda está no estacionamento do provedor.
-4. **Eu:** acompanho a verificação e a emissão do certificado (https) até o domínio ficar Ativo. O prazo costuma ir de minutos a algumas horas, e pode chegar a 72h.
-5. Depois disso, confiro que o login e o envio de senha funcionam no novo endereço.
+1. Procurar `d2k.agencia@gmail.com` no banco real.
+   - Se ela não existir: crio a conta lá, com a senha que você informou, o email já confirmado e o acesso à base compartilhada de prospecção (papel Member, a não ser que você peça outro).
+   - Se ela já existir: redefino a senha para a que você informou e confiro se a conta está liberada (trial, demo ou assinatura).
+2. Apagar a conta duplicada do banco antigo, para não haver confusão.
+3. Descobrir o que criou a conta no banco errado (cadastro de demo, painel de usuários ou outro caminho) e corrigir para que todos os cadastros novos vão para o banco real.
+4. Testar o login com essa conta e abrir o Dashboard e a Prospecção.
 
 ## Impacto
-- Nada muda nos usuários, nos leads, nos disparos nem nas permissões.
-- Durante a troca, o endereço `infindadigital.space` pode ficar fora do ar por um tempo curto. O endereço `infindadigitalcrm.lovable.app` continua funcionando.
+- Não muda nada para os outros usuários, nem nos leads e disparos.
+
+## Detalhes técnicos
+- O registro foi feito por `POST /admin/users` (service_role) no projeto Cloud `cazihq...`. O app autentica no projeto externo `oxmhwwopxurwqcrwgsyf`.
+- Vou procurar chamadas de `supabaseAdmin`/`client.server` (por exemplo em `demo.functions.ts` e `access.functions.ts`) que usem o client gerado em vez de `OWN_SB_URL` + `OWN_SB_SERVICE_ROLE_KEY`, e mudar essas chamadas para o projeto externo.
