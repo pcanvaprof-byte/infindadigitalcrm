@@ -111,10 +111,13 @@ import {
   applyImport,
   logImport,
   listImports,
+  loadProspectFullInteractions,
   EXPECTED_HEADERS,
   type PreviewRow,
   type ImportLog,
 } from "@/lib/prospects-api";
+import { getPersistedProspects, setPersistedProspects } from "@/lib/prospects-cache";
+import { getCurrentOrgId } from "@/lib/bi/tz";
 import { History, FileSpreadsheet } from "lucide-react";
 import { Pencil, Save as SaveIcon, XCircle } from "lucide-react";
 import { EnrichmentDrawer } from "@/components/EnrichmentDrawer";
@@ -589,19 +592,50 @@ function ProspeccaoPage() {
     );
   };
 
+  // Cache persistido localmente (IndexedDB) para abertura instantânea da tela
+  const [persistedProspects, setPersistedProspectsState] = useState<Prospect[] | null>(() => {
+    return qc.getQueryData<Prospect[]>(crmKeys.prospects) ?? null;
+  });
+
+  useEffect(() => {
+    let active = true;
+    if (!user?.id) return;
+
+    void (async () => {
+      try {
+        const orgId = await getCurrentOrgId();
+        const cached = await getPersistedProspects(user.id, orgId);
+        if (active && cached && cached.length > 0) {
+          setPersistedProspectsState(cached);
+          qc.setQueryData<Prospect[]>(crmKeys.prospects, (old) => {
+            if (old && old.length > 0) return old;
+            return cached;
+          });
+        }
+      } catch {
+        /* noop */
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [user?.id, qc]);
+
   // Única fonte de verdade. Mutations fazem optimistic update via setCache
   // diretamente no cache do Query — sem espelho via useState/useEffect.
   const prospectsQ = useQuery({
     queryKey: crmKeys.prospects,
-    queryFn: loadAllProspects,
+    queryFn: () => loadAllProspects({ qc }),
     enabled: !!user,
     staleTime: 60_000,
+    placeholderData: persistedProspects ?? undefined,
   });
   const prospects = useMemo(
     () => (Array.isArray(prospectsQ.data) ? prospectsQ.data : []) as Prospect[],
     [prospectsQ.data],
   );
-  const loading = prospectsQ.isLoading;
+  const loading = prospectsQ.isLoading && !prospectsQ.data;
 
   // Data de abertura do CNPJ (vem do enriquecimento compartilhado).
   const openingQ = useQuery({
@@ -617,7 +651,13 @@ function ProspeccaoPage() {
 
   // Helper para optimistic updates no cache do Query.
   const setCache = (update: (prev: Prospect[]) => Prospect[]) =>
-    qc.setQueryData<Prospect[]>(crmKeys.prospects, (old) => update(Array.isArray(old) ? (old as Prospect[]) : []));
+    qc.setQueryData<Prospect[]>(crmKeys.prospects, (old) => {
+      const next = update(Array.isArray(old) ? (old as Prospect[]) : []);
+      if (user?.id) {
+        void getCurrentOrgId().then((orgId) => setPersistedProspects(user.id, orgId, next));
+      }
+      return next;
+    });
 
   // Retry automático: roda uma vez quando os prospects carregam pela primeira vez.
   useEffect(() => {
@@ -786,17 +826,18 @@ function ProspeccaoPage() {
   const mapPointsQ = useQuery({
     queryKey: crmKeys.tasks,
     queryFn: loadMapPoints,
-    enabled: !!user,
-    staleTime: 15_000,
+    enabled: !!user && view === "map",
+    staleTime: 60_000,
   });
   const mapPoints = mapPointsQ.data ?? [];
 
   const filteredMapPoints = useMemo(() => {
+    if (view !== "map") return [];
     const filteredCnpjs = new Set(
       filteredOrdered.map((p) => p.cnpj?.replace(/\D/g, "")).filter(Boolean)
     );
     return mapPoints.filter((pt) => filteredCnpjs.has(pt.cnpj));
-  }, [filteredOrdered, mapPoints]);
+  }, [filteredOrdered, mapPoints, view]);
 
   const withCoords = useMemo(() => filteredMapPoints.filter((pt) => pt.lat && pt.lon).length, [filteredMapPoints]);
   const withoutCoords = useMemo(() => filteredOrdered.length - withCoords, [filteredOrdered, withCoords]);
@@ -1866,7 +1907,7 @@ const openEmail = async (p: Prospect) => {
       </Dialog>
 
       {/* Navegação principal: Lista de Prospects | Disparo WhatsApp */}
-      <div className="mb-4 border-b border-border">
+      <div className="mb-4 flex items-center justify-between border-b border-border">
         <div className="flex gap-1">
           <button
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
@@ -1889,6 +1930,12 @@ const openEmail = async (p: Prospect) => {
             Disparo WhatsApp
           </button>
         </div>
+        {prospectsQ.isFetching && (
+          <div className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-sky-400 animate-pulse">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            <span>Atualizando…</span>
+          </div>
+        )}
       </div>
 
       {mainTab === "disparo" && <DisparoWhatsApp prospects={prospects} />}
@@ -2956,7 +3003,20 @@ function DetailDialog({
   onCloseCadence: () => void;
 }) {
   const [note, setNote] = useState("");
-  const timeline = p.interactions ?? [];
+  const { data: remoteTimeline, isLoading: loadingTimeline } = useQuery({
+    queryKey: ["prospect-full-interactions", p.id],
+    queryFn: () => loadProspectFullInteractions(p.id),
+    staleTime: 30_000,
+  });
+
+  const timeline = useMemo(() => {
+    if (remoteTimeline) {
+      const remoteIds = new Set(remoteTimeline.map((i) => i.id));
+      const pending = (p.interactions ?? []).filter((i) => !remoteIds.has(i.id) && i.text);
+      return [...pending, ...remoteTimeline];
+    }
+    return p.interactions ?? [];
+  }, [remoteTimeline, p.interactions]);
   const proxima = proximaAcaoLabel(p.nextContactAt ?? null);
   return (
     <DialogContent className="max-w-3xl">
@@ -3073,7 +3133,12 @@ function DetailDialog({
           </div>
 
           <div className="mt-3 max-h-[340px] flex-1 overflow-y-auto pr-1">
-            {timeline.length === 0 ? (
+            {loadingTimeline && timeline.length === 0 ? (
+              <div className="flex items-center justify-center p-6 text-xs text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin text-muted-foreground" />
+                Carregando interações…
+              </div>
+            ) : timeline.length === 0 ? (
               <div className="rounded-md border border-dashed border-border/60 p-6 text-center text-xs text-muted-foreground">
                 Sem interações ainda. Use os botões ao lado para começar.
               </div>

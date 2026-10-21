@@ -1,3 +1,7 @@
+import type { QueryClient } from "@tanstack/react-query";
+import { crmKeys } from "./crm/api";
+import { setPersistedProspects } from "./prospects-cache";
+import { getCurrentOrgId } from "./bi/tz";
 import { supabase } from "@/integrations/supabase/client";
 import { dbExt } from "@/integrations/supabase/types.extra";
 import type {
@@ -104,55 +108,160 @@ function fromRow(r: Row, ixs: IxRow[] = []): Prospect {
   };
 }
 
-export async function loadAllProspects(): Promise<Prospect[]> {
-  const uid = await currentUserId();
-  if (!uid) return [];
-  // PostgREST limita 1000 linhas/consulta — paginar via range() até esgotar.
-  const PAGE = 1000;
-  const rows = await loadProspectRows(PAGE);
-  const ids = new Set(rows.map((r) => r.id));
+export type LoadProspectsOptions = {
+  qc?: QueryClient;
+  onFirstBatch?: (batch: Prospect[]) => void;
+};
 
-  // O índice (user_id, enviado_em) permite buscar todo o histórico privado do
-  // usuário em poucas páginas. A versão anterior dividia os prospects em
-  // lotes de 200 e fazia dezenas de requisições simultâneas.
-  type TpRow = {
-    id: string; prospect_id: string; tipo: string;
-    mensagem: string | null; resultado: string | null;
-    by_name: string | null; enviado_em: string;
-  };
-  const touchpoints: TpRow[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await dbExt
-      .from("prospect_touchpoints")
-      .select("id,prospect_id,tipo,mensagem,resultado,by_name,enviado_em")
-      .eq("user_id", uid)
-      .order("enviado_em", { ascending: false })
-      .range(from, from + PAGE - 1);
-    if (error) throw new Error(`Falha ao carregar histórico: ${error.message}`);
-    const batch = (data ?? []) as TpRow[];
-    touchpoints.push(...batch.filter((row) => ids.has(row.prospect_id)));
-    if (batch.length < PAGE) break;
+type TpLiteRow = {
+  prospect_id: string;
+  tipo: string;
+  resultado: string | null;
+  enviado_em: string;
+  mensagem?: string | null;
+};
+
+async function loadTouchpointsParallel(uid: string, pageSize: number): Promise<TpLiteRow[]> {
+  const { count, error: countErr } = await dbExt
+    .from("prospect_touchpoints")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", uid);
+
+  if (countErr) {
+    console.warn("Falha ao contar touchpoints:", countErr);
+    return [];
   }
 
-  const states = privateStatesFromTouchpoints(touchpoints);
+  const total = count ?? 0;
+  if (total === 0) return [];
+
+  const totalPages = Math.ceil(total / pageSize);
+
+  // Busca páginas reduzidas em paralelo (prospect_id,tipo,resultado,enviado_em)
+  const tpPromises = Array.from({ length: totalPages }, async (_, pageIdx) => {
+    const from = pageIdx * pageSize;
+    const { data, error } = await dbExt
+      .from("prospect_touchpoints")
+      .select("prospect_id,tipo,resultado,enviado_em")
+      .eq("user_id", uid)
+      .order("enviado_em", { ascending: false })
+      .range(from, from + pageSize - 1);
+    if (error) throw new Error(`Falha ao carregar histórico: ${error.message}`);
+    return (data ?? []) as TpLiteRow[];
+  });
+
+  // Busca em paralelo mensagens de touchpoints do tipo status (para recuperar status customizado ex: perdido)
+  const statusPromise = dbExt
+    .from("prospect_touchpoints")
+    .select("prospect_id,mensagem,enviado_em")
+    .eq("user_id", uid)
+    .eq("tipo", "status")
+    .then(({ data }) => (data ?? []) as Array<{ prospect_id: string; mensagem: string | null; enviado_em: string }>);
+
+  const [pages, statusRows] = await Promise.all([Promise.all(tpPromises), statusPromise]);
+  const allTp = pages.flat();
+
+  if (statusRows.length > 0) {
+    const statusMap = new Map<string, string | null>();
+    for (const sr of statusRows) {
+      if (!statusMap.has(sr.prospect_id)) statusMap.set(sr.prospect_id, sr.mensagem);
+    }
+    for (const tp of allTp) {
+      if (tp.tipo === "status") {
+        tp.mensagem = statusMap.get(tp.prospect_id) ?? null;
+      }
+    }
+  }
+
+  return allTp;
+}
+
+export async function loadProspectFullInteractions(prospectId: string): Promise<Interaction[]> {
+  const uid = await currentUserId();
+  if (!uid) return [];
+  const { data, error } = await dbExt
+    .from("prospect_touchpoints")
+    .select("id,tipo,mensagem,resultado,by_name,enviado_em")
+    .eq("user_id", uid)
+    .eq("prospect_id", prospectId)
+    .order("enviado_em", { ascending: false });
+  if (error) {
+    console.error("loadProspectFullInteractions error", error);
+    return [];
+  }
+  return ((data ?? []) as Array<{
+    id: string;
+    tipo: string;
+    mensagem: string | null;
+    resultado: string | null;
+    by_name: string | null;
+    enviado_em: string;
+  }>).map((r) => ({
+    id: r.id,
+    kind: (VALID_INTERACTION_KINDS.includes(r.tipo) ? r.tipo : "nota") as InteractionKind,
+    text: r.mensagem || "",
+    by: r.by_name || "",
+    at: r.enviado_em,
+  }));
+}
+
+export async function loadAllProspects(options?: LoadProspectsOptions): Promise<Prospect[]> {
+  const uid = await currentUserId();
+  if (!uid) return [];
+  const PAGE = 1000;
+
+  // 1. Touchpoints e prospects iniciam em paralelo imediatamente
+  const touchpointsPromise = loadTouchpointsParallel(uid, PAGE);
+
+  const onFirstPage = (page0Rows: Row[]) => {
+    if (!options?.qc) return;
+    const existing = options.qc.getQueryData<Prospect[]>(crmKeys.prospects);
+    // Se a tabela ainda não tem dados (sem cache salvo), publica a primeira página imediatamente
+    if (!existing || existing.length === 0) {
+      const page0Prospects = page0Rows.map((r) => fromRow(r, []));
+      options.qc.setQueryData(crmKeys.prospects, page0Prospects);
+    }
+  };
+
+  const [rows, touchpoints] = await Promise.all([
+    loadProspectRows(PAGE, onFirstPage),
+    touchpointsPromise,
+  ]);
+
+  const ids = new Set(rows.map((r) => r.id));
+  const validTouchpoints = touchpoints.filter((tp) => ids.has(tp.prospect_id));
+
+  const states = privateStatesFromTouchpoints(validTouchpoints);
   const interactions = new Map<string, IxRow[]>();
-  for (const row of touchpoints) {
+  for (const row of validTouchpoints) {
     const list = interactions.get(row.prospect_id) ?? [];
     list.push({
-      id: row.id,
+      id: `${row.prospect_id}_${row.enviado_em}_${row.tipo}`,
       prospect_id: row.prospect_id,
       kind: row.tipo,
       text: row.mensagem ?? "",
-      by_name: row.by_name ?? "",
+      by_name: "",
       created_at: row.enviado_em,
     });
     interactions.set(row.prospect_id, list);
   }
 
-  return rows.map((row) => {
+  const result = rows.map((row) => {
     const withState = { ...row, ...(states.get(row.id) ?? {}) };
     return fromRow(withState, interactions.get(row.id) ?? []);
   });
+
+  // Salva cópia atualizada no IndexedDB em background
+  void (async () => {
+    try {
+      const orgId = await getCurrentOrgId();
+      await setPersistedProspects(uid, orgId, result);
+    } catch (e) {
+      console.warn("Falha ao salvar cache persistido no IndexedDB", e);
+    }
+  })();
+
+  return result;
 }
 
 // Cache por sessão: evita testar a existência da coluna em cada página
@@ -183,27 +292,54 @@ function warnMergedIntoUnavailable() {
   ).catch(() => {});
 }
 
-async function loadProspectRows(pageSize: number): Promise<Row[]> {
-  const rows: Row[] = [];
-  for (let from = 0; ; from += pageSize) {
-    let { data, error } = await selectProspectsPage(from, pageSize, mergedIntoSupported);
-    // Bancos sem a migração de deduplicação: o filtro opcional não deve
-    // derrubar a tela inteira (erro 42703 = coluna inexistente).
-    if (error && (error as DbErrorLike).code === "42703" && mergedIntoSupported) {
-      mergedIntoSupported = false;
-      warnMergedIntoUnavailable();
-      ({ data, error } = await selectProspectsPage(from, pageSize, false));
-    }
-    if (error) {
-      console.error("loadAllProspects fallback prospects error", error);
-      throw new Error(`Falha ao carregar prospects: ${error.message}`);
-    }
-    const batch = ((data ?? []) as Partial<Row>[]).map(withDefaultPrivateState);
-    rows.push(...batch);
-    if (batch.length < pageSize) break;
+async function loadProspectRows(
+  pageSize: number,
+  onFirstPageLoaded?: (firstBatch: Row[]) => void,
+): Promise<Row[]> {
+  // 1. Obter a contagem exata com head: true
+  let countQuery = dbExt.from("prospects").select("*", { count: "exact", head: true });
+  if (mergedIntoSupported) countQuery = countQuery.is("merged_into", null);
+  let { count, error } = await countQuery;
+
+  if (error && (error as DbErrorLike).code === "42703" && mergedIntoSupported) {
+    mergedIntoSupported = false;
+    warnMergedIntoUnavailable();
+    const fallback = await dbExt.from("prospects").select("*", { count: "exact", head: true });
+    count = fallback.count;
+    error = fallback.error;
   }
 
-  return rows;
+  if (error) {
+    console.error("loadProspectRows count error", error);
+    throw new Error(`Falha ao contar prospects: ${error.message}`);
+  }
+
+  const total = count ?? 0;
+  if (total === 0) return [];
+
+  const totalPages = Math.ceil(total / pageSize);
+
+  // 2. Disparar todas as páginas em paralelo com Promise.all
+  const pagePromises = Array.from({ length: totalPages }, async (_, pageIdx) => {
+    const from = pageIdx * pageSize;
+    let pageRes = await selectProspectsPage(from, pageSize, mergedIntoSupported);
+    if (pageRes.error && (pageRes.error as DbErrorLike).code === "42703" && mergedIntoSupported) {
+      mergedIntoSupported = false;
+      warnMergedIntoUnavailable();
+      pageRes = await selectProspectsPage(from, pageSize, false);
+    }
+    if (pageRes.error) {
+      throw new Error(`Falha ao carregar página ${pageIdx + 1}: ${pageRes.error.message}`);
+    }
+    const batch = ((pageRes.data ?? []) as Partial<Row>[]).map(withDefaultPrivateState);
+    if (pageIdx === 0 && onFirstPageLoaded) {
+      onFirstPageLoaded(batch);
+    }
+    return batch;
+  });
+
+  const pages = await Promise.all(pagePromises);
+  return pages.flat();
 }
 
 function privateStatesFromTouchpoints(events: Array<{
