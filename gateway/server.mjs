@@ -163,7 +163,7 @@ async function resolveWhatsAppJid(socketInstance, rawInput) {
     console.warn("[WA-Gateway] onWhatsApp check error:", err);
   }
 
-  return primaryJid;
+  return null;
 }
 
 const server = http.createServer(async (req, res) => {
@@ -298,7 +298,17 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        const targetJid = (await resolveWhatsAppJid(sock, cleanJid)) || cleanJid;
+        const targetJid = await resolveWhatsAppJid(sock, cleanJid);
+        if (!targetJid) {
+          console.log(`[WA-Gateway] Número ${cleanJid} NÃO possui conta ativa no WhatsApp.`);
+          sendJson(res, 400, {
+            success: false,
+            error: "Este número não possui WhatsApp ativo (telefone fixo ou desativado).",
+            noWhatsApp: true,
+          });
+          return;
+        }
+
         console.log(`[WA-Gateway] Enviando mensagem para ${targetJid} (original: ${cleanJid})...`);
         const sent = await sock.sendMessage(targetJid, { text: textToSend });
         const messageId = sent?.key?.id || `msg_${Date.now()}`;

@@ -251,11 +251,18 @@ export async function sendWaAkgMessage({
 
     clearTimeout(timeout);
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
+        if (!res.ok) {
+      let errorMsg = "";
+      try {
+        const errJson = await res.json();
+        errorMsg = errJson?.error || errJson?.message || "";
+      } catch {
+        const text = await res.text().catch(() => "");
+        errorMsg = text.slice(0, 180);
+      }
       return {
         success: false,
-        error: `Erro HTTP ${res.status}: ${errText.slice(0, 180) || res.statusText}`,
+        error: errorMsg || `Erro HTTP ${res.status}: ${res.statusText}`,
       };
     }
 
