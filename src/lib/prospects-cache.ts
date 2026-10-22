@@ -36,7 +36,16 @@ export async function getPersistedProspects(
   try {
     const db = await openDB();
     if (!db) return null;
-    const key = getCacheKey(userId, orgId);
+
+    // Recupera orgId do localStorage se não foi passado para evitar esperar RPC de rede
+    const effectiveOrgId =
+      orgId ||
+      (typeof window !== "undefined"
+        ? window.localStorage.getItem(`infinda_last_org_${userId}`)
+        : null);
+
+    const key = getCacheKey(userId, effectiveOrgId);
+
     return new Promise((resolve) => {
       try {
         const tx = db.transaction(STORE_NAME, "readonly");
@@ -46,7 +55,34 @@ export async function getPersistedProspects(
           const val = req.result;
           if (Array.isArray(val) && val.length > 0) {
             resolve(val as Prospect[]);
-          } else {
+            return;
+          }
+
+          // Fallback ultra-rápido: busca qualquer chave válida para este usuário
+          try {
+            const allReq = store.getAllKeys();
+            allReq.onsuccess = () => {
+              const prefix = `prospects_${userId}_`;
+              const match = (allReq.result as string[]).find(
+                (k) => typeof k === "string" && k.startsWith(prefix),
+              );
+              if (match) {
+                const fbReq = store.get(match);
+                fbReq.onsuccess = () => {
+                  const fbVal = fbReq.result;
+                  if (Array.isArray(fbVal) && fbVal.length > 0) {
+                    resolve(fbVal as Prospect[]);
+                  } else {
+                    resolve(null);
+                  }
+                };
+                fbReq.onerror = () => resolve(null);
+              } else {
+                resolve(null);
+              }
+            };
+            allReq.onerror = () => resolve(null);
+          } catch {
             resolve(null);
           }
         };
@@ -66,6 +102,9 @@ export async function setPersistedProspects(
   data: Prospect[],
 ): Promise<void> {
   try {
+    if (typeof window !== "undefined" && orgId) {
+      window.localStorage.setItem(`infinda_last_org_${userId}`, orgId);
+    }
     const db = await openDB();
     if (!db) return;
     const key = getCacheKey(userId, orgId);

@@ -13,33 +13,57 @@ export interface OpeningInfo {
 export async function loadOpeningByCnpj(): Promise<Record<string, OpeningInfo>> {
   const out: Record<string, OpeningInfo> = {};
   try {
-    const { count, error: countErr } = await db
+    const PAGE = 2000;
+    const page0Res = await db
       .from("company_profiles")
-      .select("*", { count: "exact", head: true });
+      .select("cnpj,data_abertura,cnae_principal_desc", { count: "exact" })
+      .range(0, PAGE - 1);
 
-    if (countErr || !count || count <= 0) return out;
+    if (page0Res.error) return out;
+    const allRows = (page0Res.data ?? []) as Array<{
+      cnpj: string | null;
+      data_abertura: string | null;
+      cnae_principal_desc: string | null;
+    }>;
 
-    const totalPages = Math.ceil(count / PAGE);
-    const pages = await Promise.all(
-      Array.from({ length: totalPages }, async (_, pageIdx) => {
-        const from = pageIdx * PAGE;
-        const { data, error } = await db
-          .from("company_profiles")
-          .select("cnpj,data_abertura,cnae_principal_desc")
-          .range(from, from + PAGE - 1);
-        if (error) return [];
-        return (data ?? []) as Array<{ cnpj: string | null; data_abertura: string | null; cnae_principal_desc: string | null }>;
-      })
-    );
+    const total = page0Res.count ?? allRows.length;
 
-    for (const rows of pages) {
-      for (const r of rows) {
-        const key = (r.cnpj ?? "").replace(/\D/g, "");
-        if (!key) continue;
-        const prev = out[key];
-        if (!prev?.data_abertura) {
-          out[key] = { data_abertura: r.data_abertura, cnae_principal_desc: r.cnae_principal_desc };
+    if (total > PAGE) {
+      const totalPages = Math.ceil(total / PAGE);
+      const remainingIndices: number[] = [];
+      for (let i = 1; i < totalPages; i++) {
+        remainingIndices.push(i);
+      }
+      const CONCURRENCY = 4;
+      for (let i = 0; i < remainingIndices.length; i += CONCURRENCY) {
+        const chunk = remainingIndices.slice(i, i + CONCURRENCY);
+        const chunkResults = await Promise.all(
+          chunk.map(async (pageIdx) => {
+            const from = pageIdx * PAGE;
+            const { data, error } = await db
+              .from("company_profiles")
+              .select("cnpj,data_abertura,cnae_principal_desc")
+              .range(from, from + PAGE - 1);
+            if (error) return [];
+            return (data ?? []) as Array<{
+              cnpj: string | null;
+              data_abertura: string | null;
+              cnae_principal_desc: string | null;
+            }>;
+          }),
+        );
+        for (const batch of chunkResults) {
+          allRows.push(...batch);
         }
+      }
+    }
+
+    for (const r of allRows) {
+      const key = (r.cnpj ?? "").replace(/\D/g, "");
+      if (!key) continue;
+      const prev = out[key];
+      if (!prev?.data_abertura) {
+        out[key] = { data_abertura: r.data_abertura, cnae_principal_desc: r.cnae_principal_desc };
       }
     }
   } catch (e) {

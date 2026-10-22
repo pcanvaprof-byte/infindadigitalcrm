@@ -42,7 +42,7 @@ const directRpcRegex =
 for (const f of files) {
   const ext = extname(f);
   if (![".ts", ".tsx", ".js", ".mjs"].includes(ext)) continue;
-  const rel = relative(ROOT, f);
+  const rel = relative(ROOT, f).replace(/\\/g, "/");
   if (rel.startsWith(HELPER_PATH)) continue;
   if (rel.startsWith("scripts/")) continue;
   const src = readFileSync(f, "utf8");
@@ -63,7 +63,7 @@ for (const f of files) {
 const viewRegex = /create\s+(or\s+replace\s+)?(materialized\s+)?view\s+([\w.]+)\s+as\s+([\s\S]*?);/gi;
 for (const f of files) {
   if (extname(f) !== ".sql") continue;
-  const rel = relative(ROOT, f);
+  const rel = relative(ROOT, f).replace(/\\/g, "/");
   const src = readFileSync(f, "utf8");
   let m;
   while ((m = viewRegex.exec(src)) !== null) {
