@@ -122,6 +122,50 @@ function sendJson(res, statusCode, data) {
   res.end(JSON.stringify(data));
 }
 
+
+async function resolveWhatsAppJid(socketInstance, rawInput) {
+  let cleanDigits = rawInput.replace(/\D/g, "");
+  if (!cleanDigits) return null;
+  if (!cleanDigits.startsWith("55") && (cleanDigits.length === 10 || cleanDigits.length === 11)) {
+    cleanDigits = "55" + cleanDigits;
+  }
+
+  const primaryJid = cleanDigits + "@s.whatsapp.net";
+
+  try {
+    const res = await socketInstance.onWhatsApp(primaryJid);
+    if (res && res.length > 0 && res[0].exists) {
+      return res[0].jid;
+    }
+
+    // Se tiver 13 digitos (55 + DDD + 9 + 8 digitos) -> tenta sem o 9
+    if (cleanDigits.startsWith("55") && cleanDigits.length === 13) {
+      const ddd = cleanDigits.slice(2, 4);
+      const rest = cleanDigits.slice(5);
+      const altJid = "55" + ddd + rest + "@s.whatsapp.net";
+      const altRes = await socketInstance.onWhatsApp(altJid);
+      if (altRes && altRes.length > 0 && altRes[0].exists) {
+        return altRes[0].jid;
+      }
+    }
+
+    // Se tiver 12 digitos (55 + DDD + 8 digitos) -> tenta com o 9
+    if (cleanDigits.startsWith("55") && cleanDigits.length === 12) {
+      const ddd = cleanDigits.slice(2, 4);
+      const rest = cleanDigits.slice(4);
+      const altJid = "55" + ddd + "9" + rest + "@s.whatsapp.net";
+      const altRes = await socketInstance.onWhatsApp(altJid);
+      if (altRes && altRes.length > 0 && altRes[0].exists) {
+        return altRes[0].jid;
+      }
+    }
+  } catch (err) {
+    console.warn("[WA-Gateway] onWhatsApp check error:", err);
+  }
+
+  return primaryJid;
+}
+
 const server = http.createServer(async (req, res) => {
   // CORS Preflight
   if (req.method === "OPTIONS") {
@@ -254,8 +298,9 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        console.log(`[WA-Gateway] Enviando mensagem para ${cleanJid}...`);
-        const sent = await sock.sendMessage(cleanJid, { text: textToSend });
+        const targetJid = (await resolveWhatsAppJid(sock, cleanJid)) || cleanJid;
+        console.log(`[WA-Gateway] Enviando mensagem para ${targetJid} (original: ${cleanJid})...`);
+        const sent = await sock.sendMessage(targetJid, { text: textToSend });
         const messageId = sent?.key?.id || `msg_${Date.now()}`;
 
         console.log(`[WA-Gateway] Mensagem entregue com sucesso! ID: ${messageId}`);
