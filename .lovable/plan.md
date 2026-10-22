@@ -1,26 +1,32 @@
-# Acelerar o carregamento da Prospecção
+# Auditoria: contatos já disparados voltando para a fila
 
-## O que deixa a tela lenta hoje
-- As empresas são buscadas em blocos de 1.000, um bloco depois do outro.
-- O histórico de disparos só começa a ser buscado depois que todas as empresas chegaram. Ele também vem em blocos, um depois do outro.
-- Toda vez que você abre a tela, tudo isso começa do zero.
+## Objetivo
+Garantir que um contato que você já disparou nunca mais apareça como "não contatado", em nenhuma tela nem na API.
 
-## O que vou fazer
-1. **Buscar em paralelo:** primeiro pergunto quantas empresas existem. Depois peço todos os blocos de uma vez. O histórico de disparos é buscado ao mesmo tempo que as empresas.
-2. **Abrir na hora:** guardo no navegador uma cópia da última lista carregada. Na próxima vez, a tela mostra essa cópia imediatamente e atualiza em segundo plano, com um pequeno aviso "Atualizando…".
-3. **Mostrar aos poucos:** se não houver cópia guardada, a tabela aparece assim que o primeiro bloco chegar. Os filtros e as contagens se completam quando o resto chegar.
-4. **Trazer menos dados no histórico:** busco só o que a tela usa para saber o status de cada lead. O texto completo das mensagens só é buscado quando você abre um lead.
+## Etapa 1 — Auditoria nos dados reais (antes de mexer)
+- Para cada usuário, listar os leads hoje visíveis como "não contatado" cujo CNPJ, WhatsApp ou telefone já tem disparo registrado por esse mesmo usuário.
+- Classificar cada caso pela causa:
+  1. Disparo gravado em uma empresa que depois foi mesclada (registro antigo ligado ao duplicado).
+  2. Mesmo número escrito de formas diferentes (com/sem 55, com/sem 9, fixo vs. celular).
+  3. Disparo feito, mas o registro não foi salvo (clique no WhatsApp sem gravar, sessão caída, API externa recusada).
+  4. Lead reimportado como empresa nova depois do disparo.
+  5. Filtro "Ocultar leads já disparados por mim" desligado ou ignorado em alguma visão (cards, mapa, exportação, aquecimento).
+- Entrego o número de casos por usuário e por causa. O diagnóstico só é confirmado depois desta etapa.
 
-## O que não muda
-- A trava de disparos continua igual: o que você já disparou continua escondido e não volta para a fila.
-- Cada usuário continua vendo só os próprios disparos.
-- Os filtros funcionam como hoje.
+## Etapa 2 — Correções (conforme as causas encontradas)
+- Mover o histórico de disparo das empresas mescladas para a empresa que ficou.
+- Unificar a comparação de números (remover 55 e o 9 extra antes de comparar).
+- Garantir que todo envio grave o registro antes de abrir o WhatsApp, e repetir a gravação se falhar.
+- Na importação, marcar automaticamente como "primeiro contato" qualquer empresa nova cujo CNPJ/número já foi disparado pelo usuário.
+- Aplicar a mesma regra de bloqueio em Prospecção, Mapa, Aquecimento, Cadência, exportação e fila da API.
+- Limpeza única: marcar como "primeiro contato" todos os repetidos encontrados na Etapa 1.
 
-## Como vou conferir
-Vou medir o tempo de abertura antes e depois com a sua conta e com uma conta nova.
+## Etapa 3 — Trava permanente e teste
+- Teste automático: lead com disparo (inclusive por número equivalente ou empresa mesclada) nunca aparece como não contatado.
+- Rodar a auditoria da Etapa 1 de novo e confirmar zero casos.
 
 ## Detalhes técnicos
-- `src/lib/prospects-api.ts`: `loadProspectRows` passa a usar `count: 'exact', head: true` e depois `Promise.all` das páginas de `range()`. Os touchpoints são carregados em paralelo com os prospects. A primeira página é publicada cedo via `qc.setQueryData`.
-- Cache persistido (IndexedDB, uma chave por usuário e organização) usado como `initialData` / `placeholderData` em `prospectsQ`. É limpo no logout.
-- O select de touchpoints fica reduzido a `prospect_id,tipo,resultado,enviado_em` para estado e ordenação. As interações completas são carregadas sob demanda no detalhe do lead.
-- `loadOpeningByCnpj` continua em paralelo, sem bloquear a tela.
+- Fonte de verdade: `prospect_touchpoints` por `user_id`; chaves de bloqueio de `src/lib/prospect-identity.ts`.
+- Arquivos: `prospect-identity.ts`, `prospects-api.ts`, `dispatch-lock.ts`, `api-public/dispatch.server.ts`, `routes/prospeccao.tsx`, `mapa`, `aquecimento`.
+- Migração: reatribuir touchpoints de prospects com `merged_into` para o destino; backfill de status privado.
+- Bloqueio continua privado por usuário (nunca compartilhado entre membros).
