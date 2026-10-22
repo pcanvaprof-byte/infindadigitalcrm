@@ -110,7 +110,7 @@ async function initBaileys() {
 }
 
 // Servidor HTTP REST compatível com a API do WA-AKG
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 function sendJson(res, statusCode, data) {
   res.writeHead(statusCode, {
@@ -293,7 +293,7 @@ const server = http.createServer(async (req, res) => {
   sendJson(res, 404, { error: "Rota não encontrada" });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n======================================================`);
   console.log(`🚀 WA-GATEWAY RODANDO NA PORTA ${PORT}`);
   console.log(`Painel QR Code: http://localhost:${PORT}/qr`);
