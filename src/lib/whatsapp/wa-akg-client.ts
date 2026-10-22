@@ -9,7 +9,7 @@ export interface WaAkgConfig {
 
 const ENV_GATEWAY_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_WA_GATEWAY_URL) ||
-  "http://localhost:3000";
+  "https://infindadigitalcrm.onrender.com";
 
 const ENV_GATEWAY_KEY =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_WA_GATEWAY_KEY) ||

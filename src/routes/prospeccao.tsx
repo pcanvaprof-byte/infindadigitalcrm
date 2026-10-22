@@ -1999,60 +1999,57 @@ const openEmail = async (p: Prospect) => {
           <Button variant="outline" className="h-9 text-xs" onClick={() => setHistoryOpen(true)}>
             <History className="mr-1.5 h-4 w-4" /> Histórico
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="h-9 text-xs"
-                title="Conta de WhatsApp usada nos disparos"
-              >
-                {waAccount === "gateway" ? (
-                  <Zap className="mr-1.5 h-4 w-4 text-emerald-400" />
-                ) : (
-                  <Smartphone className="mr-1.5 h-4 w-4" />
-                )}
-                {waAccount === "gateway"
-                  ? "WA-AKG Gateway"
-                  : waAccount === "business"
-                  ? "WA Business"
-                  : waAccount === "personal"
-                  ? "WA Normal"
-                  : "WA Padrão"}
-                <ChevronDown className="ml-1.5 h-3.5 w-3.5 opacity-60" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuLabel className="text-[11px] text-muted-foreground">
-                Conta de WhatsApp para disparos
-              </DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => changeWaAccount("gateway")}>
-                <Check className={cn("mr-2 h-4 w-4", waAccount === "gateway" ? "opacity-100" : "opacity-0")} />
-                <Zap className="mr-1.5 h-4 w-4 text-emerald-400" />
-                WA-AKG Gateway (Automático)
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => changeWaAccount("default")}>
-                <Check className={cn("mr-2 h-4 w-4", waAccount === "default" ? "opacity-100" : "opacity-0")} />
-                Padrão do sistema
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => changeWaAccount("personal")}>
-                <Check className={cn("mr-2 h-4 w-4", waAccount === "personal" ? "opacity-100" : "opacity-0")} />
-                WhatsApp Normal
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => changeWaAccount("business")}>
-                <Check className={cn("mr-2 h-4 w-4", waAccount === "business" ? "opacity-100" : "opacity-0")} />
-                WhatsApp Business
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setShowWaAkgConfig(true)}>
-                <Settings2 className="mr-2 h-4 w-4 text-muted-foreground" />
-                Configurar Gateway WA-AKG
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <div className="px-2 py-1.5 text-[10px] leading-snug text-muted-foreground">
-                No modo WA-AKG os envios ocorrem em segundo plano via API REST Baileys v7.
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center rounded-lg border border-border bg-card/60 p-0.5">
+            <button
+              type="button"
+              onClick={() => changeWaAccount("personal")}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                waAccount === "personal"
+                  ? "bg-emerald-500/20 text-emerald-400 shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="Disparar usando WhatsApp Normal"
+            >
+              WhatsApp Normal
+            </button>
+            <button
+              type="button"
+              onClick={() => changeWaAccount("business")}
+              className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+                waAccount === "business"
+                  ? "bg-emerald-500/20 text-emerald-400 shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="Disparar usando WhatsApp Business"
+            >
+              WhatsApp Business
+            </button>
+          </div>
+
+          {gatewayStatus === "connected" ? (
+            <button
+              type="button"
+              onClick={() => setShowWaAkgConfig(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1.5 text-xs text-emerald-400 hover:bg-emerald-500/25 transition"
+              title="WhatsApp conectado e pronto para disparos autônomos"
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>Conectado {gatewayPhone ? `(+${gatewayPhone})` : ""}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowWaAkgConfig(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-2.5 py-1.5 text-xs text-amber-300 font-medium hover:bg-amber-500/25 transition shadow-sm animate-pulse"
+              title="Conectar WhatsApp para disparos silenciosos"
+            >
+              <QrCode className="h-3.5 w-3.5 text-amber-400" />
+              <span>Conectar WhatsApp</span>
+            </button>
+          )}
           <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,text/csv" className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImport(f); e.target.value = ""; }} />
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -2102,41 +2099,12 @@ const openEmail = async (p: Prospect) => {
         </DialogContent>
       </Dialog>
 
-      {/* Navegação principal: Lista de Prospects | Disparo WhatsApp */}
-      <div className="mb-4 flex items-center justify-between border-b border-border">
-        <div className="flex gap-1">
-          <button
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              mainTab === "lista"
-                ? "border-primary text-primary-glow"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => setMainTab("lista")}
-          >
-            Prospects
-          </button>
-          <button
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              mainTab === "disparo"
-                ? "border-primary text-primary-glow"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => setMainTab("disparo")}
-          >
-            Disparo WhatsApp
-          </button>
+      {prospectsQ.isFetching && (
+        <div className="mb-2 flex items-center justify-end gap-1.5 px-3 py-1 text-xs font-medium text-sky-400 animate-pulse">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          <span>Atualizando…</span>
         </div>
-        {prospectsQ.isFetching && (
-          <div className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium text-sky-400 animate-pulse">
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            <span>Atualizando…</span>
-          </div>
-        )}
-      </div>
-
-      {mainTab === "disparo" && <DisparoWhatsApp prospects={prospects} />}
-
-      {mainTab === "lista" && <>
+      )}
 
       {/* Stats */}
       <section className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-5">
@@ -2147,83 +2115,7 @@ const openEmail = async (p: Prospect) => {
         <StatCard icon={CalendarPlus} label="Agendadas" value={stats.agendadas} hint={hasActiveFilters ? "no filtro atual" : "Com reunião marcada"} />
       </section>
 
-      {/* Conta padrão do WhatsApp para os disparos desta tela */}
-      <section className="mt-6 surface-card p-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Conta padrão do WhatsApp
-            </p>
-            <p className="text-[11px] text-muted-foreground">
-              Define qual perfil será usado nos disparos. Você ainda pode trocar por
-              disparo no menu do ícone do WhatsApp em cada card.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {([
-              { k: "gateway",  label: "⚡ WA-AKG Gateway" },
-              { k: "default",  label: "Padrão do sistema" },
-              { k: "personal", label: "WhatsApp Normal" },
-              { k: "business", label: "WhatsApp Business" },
-            ] as { k: WaAccount; label: string }[]).map((c) => (
-              <button
-                key={c.k}
-                onClick={() => changeWaAccount(c.k)}
-                className={`rounded-full border px-3 py-1 text-xs transition ${
-                  waAccount === c.k
-                    ? "border-emerald-500 bg-emerald-500/15 text-emerald-400"
-                    : "border-border bg-card/60 text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {c.label}
-              </button>
-            ))}
-            {waAccount === "gateway" && (
-              <div className="flex items-center gap-1.5">
-                {gatewayStatus === "connected" ? (
-                  <button
-                    onClick={() => setShowWaAkgConfig(true)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 text-xs text-emerald-400 hover:bg-emerald-500/25 transition shadow-sm"
-                    title="WhatsApp conectado e pronto para disparos silenciosos"
-                  >
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    <span>Conectado {gatewayPhone ? `(+${gatewayPhone})` : ""}</span>
-                    <Settings2 className="h-3 w-3 ml-0.5 opacity-70" />
-                  </button>
-                ) : gatewayStatus === "qr_ready" ? (
-                  <button
-                    onClick={() => setShowWaAkgConfig(true)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-500/20 px-3 py-1 text-xs text-amber-300 font-medium hover:bg-amber-500/30 transition shadow-sm animate-pulse"
-                    title="Clique para escanear o QR Code diretamente no INFINDA"
-                  >
-                    <QrCode className="h-3.5 w-3.5 text-amber-400" />
-                    <span>📲 Conectar WhatsApp (Escanear QR)</span>
-                  </button>
-                ) : gatewayStatus === "offline" ? (
-                  <button
-                    onClick={() => setShowWaAkgConfig(true)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/10 px-3 py-1 text-xs text-destructive hover:bg-destructive/20 transition"
-                    title="Gateway local offline (Execute: npm run gateway)"
-                  >
-                    <span className="h-2 w-2 rounded-full bg-destructive" />
-                    <span>Gateway Offline (Configurar)</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setShowWaAkgConfig(true)}
-                    className="inline-flex items-center gap-1 rounded-full border border-border bg-card/60 px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    <Settings2 className="h-3 w-3" /> Configurar
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
+      
 
       {/* Pack de templates por nicho / data especial */}
       <div className="mb-2 flex justify-end">
@@ -2929,8 +2821,7 @@ const openEmail = async (p: Prospect) => {
         onOpenChange={setShowWaAkgConfig}
       />
 
-      </>}
-    </AppShell>
+      </AppShell>
 
   );
 }
