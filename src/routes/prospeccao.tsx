@@ -1,7 +1,9 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { getProspectIdentityKey, getProspectBlockKeys } from "@/lib/prospect-identity";
-import { useEffect, useMemo, useRef, useState, memo, lazy, Suspense } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback, memo, lazy, Suspense } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
+
+export type WaAccount = "default" | "personal" | "business" | "gateway";
 
 import { AppShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,7 +38,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DisparoWhatsApp } from "@/components/prospeccao/DisparoWhatsApp";
-import { exportContactsForDispatch } from "@/lib/prospeccao/export-contacts";
+import { WaAkgConfigDialog } from "@/components/prospeccao/WaAkgConfigDialog";
+import { sendWaAkgMessage, loadWaAkgConfig, testWaAkgConnection } from "@/lib/whatsapp/wa-akg-client";
 import { nicheGroup } from "@/lib/niches";
 import { loadOpeningByCnpj, openingKeys } from "@/lib/enrichment/opening-map";
 import {
@@ -66,6 +69,7 @@ import {
   CalendarPlus,
   CheckCircle2,
   Download,
+  FileDown,
   Filter,
   Instagram,
   KanbanSquare,
@@ -85,6 +89,9 @@ import {
   Users,
   Wand2,
   X,
+  Zap,
+  Settings2,
+  QrCode,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -149,6 +156,10 @@ import {
   sanitizeTemplateForSend,
 } from "@/lib/cadencia/types";
 import { pickNicheMessage } from "@/lib/prospeccao/niche-templates";
+import {
+  exportContactsForDispatch,
+  countExportableContacts,
+} from "@/lib/prospeccao/export-contacts";
 import { useBusinessProfile } from "@/hooks/useBusinessProfile";
 import { ArrowRight } from "lucide-react";
 import { normalizeCity, cleanCityLabel, isValidCityName, cityDisplay, INVALID_CITY_KEY } from "@/lib/city-name";
@@ -553,8 +564,8 @@ function ProspeccaoPage() {
   const [enrichFor, setEnrichFor] = useState<Prospect | null>(null);
   const [gmailTarget, setGmailTarget] = useState<Prospect | null>(null);
   const [whatsConfirm, setWhatsConfirm] = useState<{ id: string; company: string } | null>(null);
-  type WaAccount = "default" | "personal" | "business";
-  const [waAccount, setWaAccount] = useState<WaAccount>("default");
+  const [waAccount, setWaAccount] = useState<WaAccount>("gateway");
+  const [showWaAkgConfig, setShowWaAkgConfig] = useState(false);
   const [quickEnrichingIds, setQuickEnrichingIds] = useState<Set<string>>(new Set());
   const [dispatchingIds, setDispatchingIds] = useState<Set<string>>(new Set());
   // Perfil do negócio: sem ele a 1ª mensagem de prospecção não existe.
@@ -578,19 +589,67 @@ function ProspeccaoPage() {
   const [bulkDeleteInput, setBulkDeleteInput] = useState("");
   const [mainTab, setMainTab] = useState<"lista" | "disparo">("lista");
 
+  const [gatewayStatus, setGatewayStatus] = useState<"connected" | "qr_ready" | "offline" | "checking">("checking");
+  const [gatewayPhone, setGatewayPhone] = useState<string | null>(null);
+
+  const refreshGatewayStatus = useCallback(async () => {
+    try {
+      const cfg = loadWaAkgConfig();
+      const res = await testWaAkgConnection({ apiUrl: cfg.apiUrl, apiKey: cfg.apiKey });
+      if (res.ok) {
+        const sessList = res.sessions ?? [];
+        const target = sessList.find((s) => s.id === cfg.sessionId || s.name === cfg.sessionId) || sessList[0];
+        if (target && (target.status === "connected" || target.ready)) {
+          setGatewayStatus("connected");
+          setGatewayPhone(target.phone || null);
+        } else {
+          setGatewayStatus("qr_ready");
+          setGatewayPhone(null);
+        }
+      } else {
+        setGatewayStatus("offline");
+        setGatewayPhone(null);
+      }
+    } catch {
+      setGatewayStatus("offline");
+      setGatewayPhone(null);
+    }
+  }, []);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const saved = window.localStorage.getItem("wa_account") as WaAccount | null;
-    if (saved === "default" || saved === "personal" || saved === "business") setWaAccount(saved);
-  }, []);
+    if (saved === "default" || saved === "personal" || saved === "business" || saved === "gateway") {
+      setWaAccount(saved);
+    } else {
+      const akg = loadWaAkgConfig();
+      if (akg.apiUrl) setWaAccount("gateway");
+    }
+
+    void refreshGatewayStatus();
+    const interval = setInterval(() => {
+      void refreshGatewayStatus();
+    }, 10_000);
+    return () => clearInterval(interval);
+  }, [refreshGatewayStatus]);
+
   const changeWaAccount = (v: WaAccount) => {
     setWaAccount(v);
     try { window.localStorage.setItem("wa_account", v); } catch { /* ignore */ }
-    toast.success(
-      v === "business" ? "Disparos via WhatsApp Business" :
-      v === "personal" ? "Disparos via WhatsApp Normal" :
-      "Disparos via app padrão do sistema",
-    );
+    if (v === "gateway") {
+      void refreshGatewayStatus().then(() => {
+        if (gatewayStatus !== "connected") {
+          setShowWaAkgConfig(true);
+        }
+      });
+      toast.success("Modo Disparo Silencioso (WhatsApp API) ativado");
+    } else {
+      toast.success(
+        v === "business" ? "Disparos via WhatsApp Business" :
+        v === "personal" ? "Disparos via WhatsApp Normal" :
+        "Disparos via app padrão do sistema",
+      );
+    }
   };
 
   // Cache persistido localmente (IndexedDB) para abertura instantânea da tela
@@ -775,7 +834,7 @@ function ProspeccaoPage() {
       return [p.company, p.segment, p.owner, p.email, p.whatsapp, p.phone, p.instagram, p.city, p.state, p.source]
         .join(" ").toLowerCase().includes(q);
     });
-  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter, hideDispatched, opening, openingMap, localDispatchedIds]);
+  }, [prospects, search, statusFilter, segmentFilter, stateFilter, cityFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter, hideDispatched, opening, openingMap, localDispatchedIds]);
 
 
   // Bloqueio de 24h por disparo recente (whatsapp/ligação/email outbound).
@@ -1251,9 +1310,10 @@ function ProspeccaoPage() {
     // existem awaits (trava do dia + resolução do template), abrimos a aba
     // agora (em branco) e apenas trocamos a URL depois. No mobile navegamos
     // na própria aba ao final.
+    const isGateway = waAccount === "gateway";
     const isMobileUA =
       typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-    const preOpened = isMobileUA ? null : window.open("", "_blank");
+    const preOpened = (!isGateway && !isMobileUA) ? window.open("", "_blank") : null;
     try {
       const lock = await wasDispatchedToday({ prospectId: p.id, userId: user?.id });
       if (lock.blocked) {
@@ -1385,15 +1445,53 @@ function ProspeccaoPage() {
     const phone = `55${d}`;
     const encoded = encodeURIComponent(msg);
     const isAndroid = typeof navigator !== "undefined" && /Android/i.test(navigator.userAgent);
-    // Conta SEMPRE vem do seletor global persistido (localStorage `wa_account`).
-    // Não há override por disparo — assim o aquecimento e os envios em sequência
-    // usam o mesmo perfil escolhido, sem trocar automaticamente entre contas.
     const acct = waAccount;
-    let url = `https://wa.me/${phone}?text=${encoded}`;
-    if (isAndroid && acct !== "default") {
-      const pkg = acct === "business" ? "com.whatsapp.w4b" : "com.whatsapp";
-      url = `intent://send?phone=${phone}&text=${encoded}#Intent;scheme=whatsapp;package=${pkg};end`;
+
+    if (isGateway) {
+      const akgCfg = loadWaAkgConfig();
+      if (!akgCfg.apiUrl.trim()) {
+        toast.error("Configure a URL do Gateway WA-AKG antes de disparar", {
+          action: { label: "Configurar", onClick: () => setShowWaAkgConfig(true) },
+        });
+        setShowWaAkgConfig(true);
+        return;
+      }
+      const toastId = toast.loading(`Enviando mensagem para ${p.company} via WA-AKG...`);
+      const res = await sendWaAkgMessage({
+        phone: d,
+        message: msg,
+        config: akgCfg,
+      });
+
+      if (res.success) {
+        toast.success(`Mensagem enviada com sucesso para ${p.company}!`, { id: toastId });
+      } else {
+        toast.error(`Falha no Gateway: ${res.error || "Erro ao disparar"}`, {
+          id: toastId,
+          action: {
+            label: "WhatsApp Web",
+            onClick: () => {
+              window.open(`https://web.whatsapp.com/send?phone=${phone}&text=${encoded}#autosend=true`, "_blank");
+            },
+          },
+        });
+      }
+      return;
     }
+
+    // Se estiver no Desktop (Windows), abre o WhatsApp Web direto com a flag de auto-envio
+    let url = `https://web.whatsapp.com/send?phone=${phone}&text=${encoded}#autosend=true`;
+
+    // Se for Android, mantém o disparo nativo pelo app do celular
+    if (isAndroid) {
+      if (acct !== "default") {
+        const pkg = acct === "business" ? "com.whatsapp.w4b" : "com.whatsapp";
+        url = `intent://send?phone=${phone}&text=${encoded}#Intent;scheme=whatsapp;package=${pkg};end`;
+      } else {
+        url = `https://wa.me/${phone}?text=${encoded}`;
+      }
+    }
+
     console.log("[prosp] openWhats:window.open", { url, account: acct });
     if (preOpened && !preOpened.closed) {
       preOpened.location.replace(url);
@@ -1541,18 +1639,58 @@ const openEmail = async (p: Prospect) => {
   };
 
 
-  const exportCsv = (rows = prospects) => {
+  const exportCsv = (rows?: Prospect[]) => {
+    const toExport = rows ?? (
+      selected.size > 0
+        ? prospects.filter((p) => selected.has(p.id))
+        : filteredOrdered
+    );
+
+    if (toExport.length === 0) {
+      toast.warning("Nenhuma empresa selecionada ou encontrada para exportar.");
+      return;
+    }
+
     const headers = ["Empresa","Segmento","Responsavel","WhatsApp","Telefone","Email","Instagram","Cidade","Estado","Origem","Potencial","Status"];
-    const data = rows.map((p) => [p.company, p.segment, p.owner, p.whatsapp, p.phone, p.email, p.instagram, p.city, p.state, p.source, p.potential, STATUS_LABEL[p.status]]);
+    const data = toExport.map((p) => [p.company, p.segment, p.owner, p.whatsapp, p.phone, p.email, p.instagram, p.city, p.state, p.source, p.potential, STATUS_LABEL[p.status]]);
     const csv = [headers, ...data].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `prospeccao-infinda-${Date.now()}.csv`;
+    a.download = `prospeccao-infinda-${selected.size > 0 ? "selecionadas-" : ""}${Date.now()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success(`${rows.length} linha(s) exportada(s)`);
+    toast.success(`${toExport.length} empresa(s) exportada(s)${selected.size > 0 ? " (selecionadas)" : ""}`);
+  };
+
+  /**
+   * Exporta contatos para disparo externo (WhatsApp bulk senders).
+   * - Com leads selecionados: exporta apenas os marcados na tabela.
+   * - Sem seleção: exporta toda a lista filtrada (filteredOrdered).
+   * Deduplica por WhatsApp, normaliza para formato internacional e
+   * personaliza a mensagem com o perfil do negócio ou template de nicho.
+   */
+  const handleExportDispatch = () => {
+    const leadsToExport =
+      selected.size > 0
+        ? filteredOrdered.filter((p) => selected.has(p.id))
+        : filteredOrdered;
+
+    const { exported, skipped } = exportContactsForDispatch(
+      leadsToExport,
+      bizProfile?.initial_message ?? null,
+      nicheOverrides,
+    );
+
+    if (exported === 0) {
+      toast.warning("Nenhum contato com WhatsApp válido encontrado para exportar.");
+    } else {
+      toast.success(
+        `${exported} contato${exported !== 1 ? "s" : ""} exportado${exported !== 1 ? "s" : ""} com sucesso` +
+          (skipped > 0 ? ` (${skipped} duplicado${skipped !== 1 ? "s" : ""}/inválido${skipped !== 1 ? "s" : ""} ignorado${skipped !== 1 ? "s" : ""})` : ""),
+      );
+    }
   };
 
   const handleExportWhatsApp = (rows?: Prospect[]) => {
@@ -1843,11 +1981,17 @@ const openEmail = async (p: Prospect) => {
       subtitle="Sua máquina de geração de oportunidades comerciais"
       actions={
         <div className="hidden items-center gap-2 sm:flex">
-          <Button variant="outline" className="h-9 text-xs border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10" onClick={() => handleExportWhatsApp()}>
+          <Button variant="outline" className="h-9 text-xs border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10" onClick={() => handleExportWhatsApp()} title="Exportar contatos para WhatsApp (WASENDER)">
             <Download className="mr-1.5 h-4 w-4" /> WhatsApp (WASENDER)
           </Button>
-          <Button variant="outline" className="h-9 text-xs" onClick={() => exportCsv()}>
-            <Download className="mr-1.5 h-4 w-4" /> Exportar
+          <Button
+            variant="outline"
+            className="h-9 text-xs"
+            onClick={() => exportCsv()}
+            title={selected.size > 0 ? `Exportar ${selected.size} empresa(s) selecionada(s)` : "Exportar lista filtrada"}
+          >
+            <Download className="mr-1.5 h-4 w-4" />
+            {selected.size > 0 ? `Exportar selecionadas (${selected.size})` : "Exportar"}
           </Button>
           <Button variant="outline" className="h-9 text-xs" onClick={() => fileRef.current?.click()}>
             <Upload className="mr-1.5 h-4 w-4" /> Importar
@@ -1862,8 +2006,18 @@ const openEmail = async (p: Prospect) => {
                 className="h-9 text-xs"
                 title="Conta de WhatsApp usada nos disparos"
               >
-                <Smartphone className="mr-1.5 h-4 w-4" />
-                {waAccount === "business" ? "WA Business" : waAccount === "personal" ? "WA Normal" : "WA Padrão"}
+                {waAccount === "gateway" ? (
+                  <Zap className="mr-1.5 h-4 w-4 text-emerald-400" />
+                ) : (
+                  <Smartphone className="mr-1.5 h-4 w-4" />
+                )}
+                {waAccount === "gateway"
+                  ? "WA-AKG Gateway"
+                  : waAccount === "business"
+                  ? "WA Business"
+                  : waAccount === "personal"
+                  ? "WA Normal"
+                  : "WA Padrão"}
                 <ChevronDown className="ml-1.5 h-3.5 w-3.5 opacity-60" />
               </Button>
             </DropdownMenuTrigger>
@@ -1871,6 +2025,11 @@ const openEmail = async (p: Prospect) => {
               <DropdownMenuLabel className="text-[11px] text-muted-foreground">
                 Conta de WhatsApp para disparos
               </DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => changeWaAccount("gateway")}>
+                <Check className={cn("mr-2 h-4 w-4", waAccount === "gateway" ? "opacity-100" : "opacity-0")} />
+                <Zap className="mr-1.5 h-4 w-4 text-emerald-400" />
+                WA-AKG Gateway (Automático)
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => changeWaAccount("default")}>
                 <Check className={cn("mr-2 h-4 w-4", waAccount === "default" ? "opacity-100" : "opacity-0")} />
                 Padrão do sistema
@@ -1884,9 +2043,13 @@ const openEmail = async (p: Prospect) => {
                 WhatsApp Business
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setShowWaAkgConfig(true)}>
+                <Settings2 className="mr-2 h-4 w-4 text-muted-foreground" />
+                Configurar Gateway WA-AKG
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <div className="px-2 py-1.5 text-[10px] leading-snug text-muted-foreground">
-                A escolha entre Normal e Business só é forçada no Android (via intent).
-                No iPhone/desktop abre o app definido como padrão do sistema.
+                No modo WA-AKG os envios ocorrem em segundo plano via API REST Baileys v7.
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -1998,10 +2161,11 @@ const openEmail = async (p: Prospect) => {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {([
+              { k: "gateway",  label: "⚡ WA-AKG Gateway" },
               { k: "default",  label: "Padrão do sistema" },
               { k: "personal", label: "WhatsApp Normal" },
               { k: "business", label: "WhatsApp Business" },
-            ] as { k: "default" | "personal" | "business"; label: string }[]).map((c) => (
+            ] as { k: WaAccount; label: string }[]).map((c) => (
               <button
                 key={c.k}
                 onClick={() => changeWaAccount(c.k)}
@@ -2014,6 +2178,49 @@ const openEmail = async (p: Prospect) => {
                 {c.label}
               </button>
             ))}
+            {waAccount === "gateway" && (
+              <div className="flex items-center gap-1.5">
+                {gatewayStatus === "connected" ? (
+                  <button
+                    onClick={() => setShowWaAkgConfig(true)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 text-xs text-emerald-400 hover:bg-emerald-500/25 transition shadow-sm"
+                    title="WhatsApp conectado e pronto para disparos silenciosos"
+                  >
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span>Conectado {gatewayPhone ? `(+${gatewayPhone})` : ""}</span>
+                    <Settings2 className="h-3 w-3 ml-0.5 opacity-70" />
+                  </button>
+                ) : gatewayStatus === "qr_ready" ? (
+                  <button
+                    onClick={() => setShowWaAkgConfig(true)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-500/20 px-3 py-1 text-xs text-amber-300 font-medium hover:bg-amber-500/30 transition shadow-sm animate-pulse"
+                    title="Clique para escanear o QR Code diretamente no INFINDA"
+                  >
+                    <QrCode className="h-3.5 w-3.5 text-amber-400" />
+                    <span>📲 Conectar WhatsApp (Escanear QR)</span>
+                  </button>
+                ) : gatewayStatus === "offline" ? (
+                  <button
+                    onClick={() => setShowWaAkgConfig(true)}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/10 px-3 py-1 text-xs text-destructive hover:bg-destructive/20 transition"
+                    title="Gateway local offline (Execute: npm run gateway)"
+                  >
+                    <span className="h-2 w-2 rounded-full bg-destructive" />
+                    <span>Gateway Offline (Configurar)</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setShowWaAkgConfig(true)}
+                    className="inline-flex items-center gap-1 rounded-full border border-border bg-card/60 px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    <Settings2 className="h-3 w-3" /> Configurar
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -2046,6 +2253,30 @@ const openEmail = async (p: Prospect) => {
                 <TabsTrigger value="map" className="text-xs"><MapPin className="mr-1.5 h-3.5 w-3.5" />Mapa</TabsTrigger>
               </TabsList>
             </Tabs>
+            {(() => {
+              const leadsForCount =
+                selected.size > 0
+                  ? filteredOrdered.filter((p) => selected.has(p.id))
+                  : filteredOrdered;
+              const exportCount = countExportableContacts(leadsForCount);
+              return (
+                <Button
+                  variant="outline"
+                  className="h-10 text-xs"
+                  onClick={handleExportDispatch}
+                  disabled={exportCount === 0}
+                  title="Exportar lista de contatos para disparo externo (WhatsApp)"
+                >
+                  <FileDown className="mr-1.5 h-4 w-4" />
+                  Exportar contatos
+                  {exportCount > 0 && (
+                    <span className="ml-1.5 rounded-full bg-primary/15 px-1.5 text-[10px] text-primary-glow">
+                      {exportCount}
+                    </span>
+                  )}
+                </Button>
+              );
+            })()}
             <Button variant="outline" className="h-10 text-xs" onClick={() => setShowFilters((s) => !s)}>
               <Filter className="mr-1.5 h-4 w-4" /> Filtros
               {hasActiveFilters && (
@@ -2278,6 +2509,15 @@ const openEmail = async (p: Prospect) => {
             <span className="rounded-md bg-primary/20 px-2 py-0.5 text-xs font-semibold text-primary-glow">
               {selCount} selecionada{selCount > 1 ? "s" : ""}
             </span>
+            {filteredOrdered.length > selCount && (
+              <button
+                type="button"
+                className="text-xs text-primary-glow underline hover:text-foreground"
+                onClick={() => setSelected(new Set(filteredOrdered.map((p) => p.id)))}
+              >
+                Selecionar todas as {filteredOrdered.length} filtradas
+              </button>
+            )}
             <button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setSelected(new Set())}>
               Limpar seleção
             </button>
@@ -2319,7 +2559,7 @@ const openEmail = async (p: Prospect) => {
             </Button>
             <Button variant="outline" size="sm" className="h-8 text-xs"
               onClick={() => exportCsv(prospects.filter((p) => selected.has(p.id)))}>
-              <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar
+              <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar ({selCount})
             </Button>
             <Button variant="outline" size="sm" className="h-8 text-xs border-primary/30 text-primary-glow hover:bg-primary/10"
               disabled={bulkEnriching}
@@ -2684,6 +2924,11 @@ const openEmail = async (p: Prospect) => {
         />
       )}
 
+      <WaAkgConfigDialog
+        open={showWaAkgConfig}
+        onOpenChange={setShowWaAkgConfig}
+      />
+
       </>}
     </AppShell>
 
@@ -2712,7 +2957,7 @@ function DesktopProspectTable({
   onToggleSelect: (id: string) => void;
   onToggleSelectAll: () => void;
   onOpen: (id: string) => void;
-  onWhats: (p: Prospect, account?: "default" | "personal" | "business") => void;
+  onWhats: (p: Prospect, account?: WaAccount) => void;
   onCall: (p: Prospect) => void;
   onAgendar: (id: string) => void;
   onConvert: (p: Prospect) => void;
@@ -2911,7 +3156,7 @@ const RowActions = memo(function RowActions({
   p, onWhats, onCall, onAgendar, onConvert, onStatus, onRemove, onOpen, busyWhats,
 }: {
   p: Prospect;
-  onWhats: (p: Prospect, account?: "default" | "personal" | "business") => void;
+  onWhats: (p: Prospect, account?: WaAccount) => void;
   onCall: (p: Prospect) => void;
   onAgendar: () => void;
   onConvert: () => void;
@@ -2928,7 +3173,7 @@ const RowActions = memo(function RowActions({
         size="icon"
         variant="ghost"
         className="h-8 w-8 text-emerald-400"
-        title={busyWhats ? "Enviando…" : "Disparar WhatsApp (usa a conta selecionada no topo)"}
+        title={busyWhats ? "Enviando..." : "Disparar WhatsApp (usa a conta selecionada no topo)"}
         disabled={!!busyWhats}
         onClick={() => onWhats(p)}
       >
@@ -3036,7 +3281,7 @@ function DetailDialog({
   p, onWhats, onCall, onStatus, onConvert, onAddNote, onEnrich, enrichBusy, whatsBusy, onRegisterTouchpoint, onCloseCadence,
 }: {
   p: Prospect;
-  onWhats: (account?: "default" | "personal" | "business") => void;
+  onWhats: (account?: WaAccount) => void;
   onCall: () => void;
   onStatus: (s: ProspectStatus) => void;
   onConvert: () => void;
@@ -3582,7 +3827,7 @@ const MobileProspectRow = memo(function MobileProspectRow({
   pendingDispatch?: boolean;
   onToggleSelect: (id: string) => void;
   onOpen: (id: string) => void;
-  onWhats: (p: Prospect, account?: "default" | "personal" | "business") => void;
+  onWhats: (p: Prospect, account?: WaAccount) => void;
   onCall: (p: Prospect) => void;
   onAgendar: (id: string) => void;
   onConvert: (p: Prospect) => void;
@@ -3683,7 +3928,7 @@ function MobileProspectList({
   pendingDispatchIds?: Set<string>;
   onToggleSelect: (id: string) => void;
   onOpen: (id: string) => void;
-  onWhats: (p: Prospect, account?: "default" | "personal" | "business") => void;
+  onWhats: (p: Prospect, account?: WaAccount) => void;
   onCall: (p: Prospect) => void;
   onAgendar: (id: string) => void;
   onConvert: (p: Prospect) => void;

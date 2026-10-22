@@ -93,7 +93,7 @@ export const getBusinessProfile = createServerFn({ method: "GET" })
 
 export const saveBusinessInputs = createServerFn({ method: "POST" })
   .middleware([authWithAccess])
-  .inputValidator((data: unknown) => InputsSchema.parse(data))
+  .validator((data: unknown) => InputsSchema.parse(data))
   .handler(async ({ data, context }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = (context as any).supabase;
@@ -202,7 +202,7 @@ const SYSTEM_ANALYST =
 
 export const analyzeBusinessWithAI = createServerFn({ method: "POST" })
   .middleware([authWithAccess])
-  .inputValidator((data: unknown) => InputsSchema.parse(data))
+  .validator((data: unknown) => InputsSchema.parse(data))
   .handler(async ({ data, context }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = (context as any).supabase;
@@ -291,7 +291,7 @@ const ConfirmInput = z.object({
 
 export const confirmBusinessProfile = createServerFn({ method: "POST" })
   .middleware([authWithAccess])
-  .inputValidator((data: unknown) => ConfirmInput.parse(data))
+  .validator((data: unknown) => ConfirmInput.parse(data))
   .handler(async ({ data, context }) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = (context as any).supabase;

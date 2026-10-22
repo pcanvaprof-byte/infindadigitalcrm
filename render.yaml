@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: infinda-wa-gateway
+    env: docker
+    dockerfilePath: gateway/Dockerfile
+    plan: free
+    region: oregon
+    disk:
+      name: wa-session-data
+      mountPath: /app/auth_info_baileys
+      sizeGB: 1
+    envVars:
+      - key: PORT
+        value: 3000

@@ -131,7 +131,7 @@ export const listCatalogCategoriasQuery = createServerFn({ method: "GET" })
 
 export const listCatalogItemsQuery = createServerFn({ method: "GET" })
   .middleware([authWithAccess])
-  .inputValidator((data: unknown) => ListItemsInput.parse(data))
+  .validator((data: unknown) => ListItemsInput.parse(data))
   .handler(async ({ data, context }) => {
     const filters = data ?? {};
     const sb = context.supabase as unknown as SupabaseClient;
@@ -155,7 +155,7 @@ export const listCatalogItemsQuery = createServerFn({ method: "GET" })
 
 export const getCatalogItemQuery = createServerFn({ method: "GET" })
   .middleware([authWithAccess])
-  .inputValidator((data: unknown) => GetInput.parse(data))
+  .validator((data: unknown) => GetInput.parse(data))
   .handler(async ({ data, context }) => {
     const sb = context.supabase as unknown as SupabaseClient;
     const { data: row, error } = await sb
@@ -169,7 +169,7 @@ export const getCatalogItemQuery = createServerFn({ method: "GET" })
 
 export const createCatalogItemMutation = createServerFn({ method: "POST" })
   .middleware([authWithAccess])
-  .inputValidator((data: unknown) => RawItemInput.parse(data))
+  .validator((data: unknown) => RawItemInput.parse(data))
   .handler(async ({ data, context }) => {
     const sb = context.supabase as unknown as SupabaseClient;
     const orgId = await getOrgId(sb);
@@ -186,7 +186,7 @@ export const createCatalogItemMutation = createServerFn({ method: "POST" })
 
 export const updateCatalogItemMutation = createServerFn({ method: "POST" })
   .middleware([authWithAccess])
-  .inputValidator((data: unknown) => UpdateInput.parse(data))
+  .validator((data: unknown) => UpdateInput.parse(data))
   .handler(async ({ data, context }) => {
     const sb = context.supabase as unknown as SupabaseClient;
     const payload = buildItemPayload(data.patch);
@@ -204,7 +204,7 @@ export const updateCatalogItemMutation = createServerFn({ method: "POST" })
 
 export const toggleCatalogItemMutation = createServerFn({ method: "POST" })
   .middleware([authWithAccess])
-  .inputValidator((data: unknown) => ToggleInput.parse(data))
+  .validator((data: unknown) => ToggleInput.parse(data))
   .handler(async ({ data, context }) => {
     const sb = context.supabase as unknown as SupabaseClient;
     const { error } = await sb
@@ -217,7 +217,7 @@ export const toggleCatalogItemMutation = createServerFn({ method: "POST" })
 
 export const deleteCatalogItemMutation = createServerFn({ method: "POST" })
   .middleware([authWithAccess])
-  .inputValidator((data: unknown) => GetInput.parse(data))
+  .validator((data: unknown) => GetInput.parse(data))
   .handler(async ({ data, context }) => {
     const sb = context.supabase as unknown as SupabaseClient;
     const { error } = await sb.from("catalog_items").delete().eq("id", data.id);

@@ -32,7 +32,7 @@ export interface GeneratedResult {
  */
 export const gerarConteudoProposta = createServerFn({ method: "POST" })
   .middleware([authWithAccess])
-  .inputValidator((d: unknown) => Input.parse(d))
+  .validator((d: unknown) => Input.parse(d))
   .handler(async ({ data, context }): Promise<GeneratedResult> => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sb = context.supabase as any;

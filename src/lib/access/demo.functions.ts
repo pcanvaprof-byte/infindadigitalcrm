@@ -227,7 +227,7 @@ export const claimDemoAccess = createServerFn({ method: "POST" })
   });
 
 export const startDemo = createServerFn({ method: "POST" })
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         fullName: z.string().trim().min(2).max(80).optional(),

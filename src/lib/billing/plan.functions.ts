@@ -167,7 +167,7 @@ function buildDraftsFromInput(input: GeneratePlanInput): {
 
 export const generateBillingPlan = createServerFn({ method: "POST" })
   .middleware([authWithAccess])
-  .inputValidator((data: unknown) => GeneratePlanInput.parse(data))
+  .validator((data: unknown) => GeneratePlanInput.parse(data))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
 

@@ -21,7 +21,7 @@ const Input = z.object({
  */
 export const papChat = createServerFn({ method: "POST" })
   .middleware([authWithAccess])
-  .inputValidator((data: unknown) => Input.parse(data))
+  .validator((data: unknown) => Input.parse(data))
   .handler(async ({ data }) => {
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("LOVABLE_API_KEY ausente no servidor.");

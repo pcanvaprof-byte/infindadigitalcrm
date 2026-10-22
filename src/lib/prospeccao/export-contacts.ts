@@ -19,7 +19,9 @@ import type { Prospect } from "@/lib/mock-prospects";
 import { normalizePhoneKey } from "@/lib/prospect-identity";
 
 export interface ExportContactsResult {
+  /** Quantidade de linhas efetivamente gravadas no CSV. */
   exported: number;
+  /** Quantidade de leads ignorados (WhatsApp inválido ou número duplicado). */
   skipped: number;
 }
 
@@ -31,8 +33,13 @@ function csvCell(value: string | null | undefined): string {
   return s;
 }
 
+/**
+ * Exporta contatos para disparo no formato WASENDER (nome,telefone,empresa).
+ */
 export function exportContactsForDispatch(
-  leads: Prospect[]
+  leads: Prospect[],
+  _bizInitialMessage?: string | null,
+  _nicheOverrides?: ReadonlyMap<string, string> | null,
 ): ExportContactsResult {
   const CSV_SEP = ",";
   const BOM = "\uFEFF";
@@ -83,6 +90,9 @@ export function exportContactsForDispatch(
   return { exported, skipped };
 }
 
+/**
+ * Conta quantos leads da lista têm WhatsApp/telefone válido e único.
+ */
 export function countExportableContacts(leads: Prospect[]): number {
   const seen = new Set<string>();
   let count = 0;

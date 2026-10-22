@@ -102,7 +102,7 @@ export const markPasswordChanged = createServerFn({ method: "POST" })
 
 export const provisionMemberUser = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         email: z.string().email(),
@@ -232,7 +232,7 @@ export const provisionMemberUser = createServerFn({ method: "POST" })
 
 export const renewUserAccess = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         userId: z.string().uuid(),
@@ -293,7 +293,7 @@ export const renewUserAccess = createServerFn({ method: "POST" })
 
 export const resetMemberTempPassword = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         email: z.string().email(),
@@ -584,7 +584,7 @@ export type UserAccessEvent = {
 
 export const listUserAccessEvents = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d) =>
+  .validator((d) =>
     z
       .object({
         userId: z.string().uuid(),

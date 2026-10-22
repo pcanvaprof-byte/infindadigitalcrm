@@ -106,7 +106,7 @@ async function mergeWithBusinessProfile(supabase: any, b?: z.infer<typeof Briefi
  */
 export const adaptarPackComIA = createServerFn({ method: "POST" })
   .middleware([authWithAccess])
-  .inputValidator((v: unknown) => Input.parse(v))
+  .validator((v: unknown) => Input.parse(v))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
 

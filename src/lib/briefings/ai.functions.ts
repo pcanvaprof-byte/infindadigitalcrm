@@ -9,7 +9,7 @@ const Input = z.object({ token: z.string().min(8) });
  * Usa LOVABLE_API_KEY (server-only) e salva via RPC set_briefing_resumo_ia.
  */
 export const gerarResumoBriefing = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => Input.parse(data))
+  .validator((data: unknown) => Input.parse(data))
   .handler(async ({ data }) => {
     // Hard-coded para o projeto Supabase externo (oxmhwwopxurwqcrwgsyf).
     const supabaseUrl = "https://oxmhwwopxurwqcrwgsyf.supabase.co";

@@ -12,7 +12,7 @@ const ALLOWED = [
 
 export const proxyFetchExternal = createServerFn({ method: "POST" })
   .middleware([authWithAccess])
-  .inputValidator((input: { url: string }) => {
+  .validator((input: { url: string }) => {
     const u = new URL(input.url);
     if (!ALLOWED.some((h) => u.hostname === h || u.hostname.endsWith("." + h))) {
       throw new Error(`Host não permitido: ${u.hostname}`);

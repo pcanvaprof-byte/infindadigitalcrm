@@ -32,7 +32,7 @@ export const listApiKeys = createServerFn({ method: "GET" })
 
 export const createApiKey = createServerFn({ method: "POST" })
   .middleware([authWithAccess])
-  .inputValidator((d) => z.object({ name: z.string().trim().min(2).max(80) }).parse(d))
+  .validator((d) => z.object({ name: z.string().trim().min(2).max(80) }).parse(d))
   .handler(async ({ data, context }) => {
     const { createOwnSupabaseAdminClient, resolveActiveOrg } = await import("./api-keys.server");
     const orgId = await resolveActiveOrg(context.supabase);
@@ -64,7 +64,7 @@ export const createApiKey = createServerFn({ method: "POST" })
 
 export const revokeApiKey = createServerFn({ method: "POST" })
   .middleware([authWithAccess])
-  .inputValidator((d) => z.object({ id: z.string().uuid() }).parse(d))
+  .validator((d) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }) => {
     const { createOwnSupabaseAdminClient, resolveActiveOrg } = await import("./api-keys.server");
     const orgId = await resolveActiveOrg(context.supabase);
