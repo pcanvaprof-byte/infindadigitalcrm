@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DisparoWhatsApp } from "@/components/prospeccao/DisparoWhatsApp";
+import { exportContactsForDispatch } from "@/lib/prospeccao/export-contacts";
 import { nicheGroup } from "@/lib/niches";
 import { loadOpeningByCnpj, openingKeys } from "@/lib/enrichment/opening-map";
 import {
@@ -601,10 +602,17 @@ function ProspeccaoPage() {
     let active = true;
     if (!user?.id) return;
 
+    // Se já existem dados no cache do QueryClient em memória, não precisa esperar nada
+    const memoryData = qc.getQueryData<Prospect[]>(crmKeys.prospects);
+    if (memoryData && memoryData.length > 0) {
+      setPersistedProspectsState(memoryData);
+      return;
+    }
+
     void (async () => {
       try {
-        const orgId = await getCurrentOrgId();
-        const cached = await getPersistedProspects(user.id, orgId);
+        // Busca ultra-rápida no IndexedDB (sem esperar round-trips de rede)
+        const cached = await getPersistedProspects(user.id);
         if (active && cached && cached.length > 0) {
           setPersistedProspectsState(cached);
           qc.setQueryData<Prospect[]>(crmKeys.prospects, (old) => {
@@ -628,21 +636,28 @@ function ProspeccaoPage() {
     queryKey: crmKeys.prospects,
     queryFn: () => loadAllProspects({ qc }),
     enabled: !!user,
-    staleTime: 60_000,
-    placeholderData: persistedProspects ?? undefined,
+    staleTime: 15 * 60_000,
+    gcTime: 60 * 60_000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    placeholderData: (prev) => prev ?? qc.getQueryData<Prospect[]>(crmKeys.prospects) ?? persistedProspects ?? undefined,
   });
   const prospects = useMemo(
-    () => (Array.isArray(prospectsQ.data) ? prospectsQ.data : []) as Prospect[],
-    [prospectsQ.data],
+    () => (Array.isArray(prospectsQ.data) ? prospectsQ.data : (persistedProspects ?? [])) as Prospect[],
+    [prospectsQ.data, persistedProspects],
   );
-  const loading = prospectsQ.isLoading && !prospectsQ.data;
+  const loading = prospectsQ.isLoading && prospects.length === 0;
 
   // Data de abertura do CNPJ (vem do enriquecimento compartilhado).
   const openingQ = useQuery({
     queryKey: openingKeys.all,
     queryFn: loadOpeningByCnpj,
     enabled: !!user,
-    staleTime: 5 * 60_000,
+    staleTime: 30 * 60_000,
+    gcTime: 60 * 60_000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
   const openingMap = openingQ.data ?? {};
   useEffect(() => {
@@ -1540,6 +1555,21 @@ const openEmail = async (p: Prospect) => {
     toast.success(`${rows.length} linha(s) exportada(s)`);
   };
 
+  const handleExportWhatsApp = (rows?: Prospect[]) => {
+    const target = rows && rows.length > 0
+      ? rows
+      : selected.size > 0
+        ? filteredOrdered.filter((p) => selected.has(p.id))
+        : filteredOrdered;
+
+    const res = exportContactsForDispatch(target);
+    if (res.exported === 0) {
+      toast.error("Nenhum contato com WhatsApp válido encontrado para exportação.");
+    } else {
+      toast.success(`${res.exported} contatos exportados para WhatsApp (${res.skipped} ignorados/sem número).`);
+    }
+  };
+
   const handleImport = async (file: File) => {
     const ext = file.name.toLowerCase().split(".").pop() || "";
     let rows: string[][] = [];
@@ -1795,8 +1825,8 @@ const openEmail = async (p: Prospect) => {
 
   const selCount = selected.size;
 
-  // Render guard: nunca tentar renderizar listas antes do cache estar pronto.
-  if (prospectsQ.isLoading && !prospectsQ.data) {
+  // Render guard: só bloqueia se não temos NENHUM prospect em memória nem no cache.
+  if (prospectsQ.isLoading && prospects.length === 0) {
     return (
       <AppShell title="Prospecção" subtitle="Sua máquina de geração de oportunidades comerciais">
         <div className="grid place-items-center py-24 text-sm text-muted-foreground">
@@ -1813,6 +1843,9 @@ const openEmail = async (p: Prospect) => {
       subtitle="Sua máquina de geração de oportunidades comerciais"
       actions={
         <div className="hidden items-center gap-2 sm:flex">
+          <Button variant="outline" className="h-9 text-xs border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10" onClick={() => handleExportWhatsApp()}>
+            <Download className="mr-1.5 h-4 w-4" /> WhatsApp (WASENDER)
+          </Button>
           <Button variant="outline" className="h-9 text-xs" onClick={() => exportCsv()}>
             <Download className="mr-1.5 h-4 w-4" /> Exportar
           </Button>
@@ -2018,6 +2051,14 @@ const openEmail = async (p: Prospect) => {
               {hasActiveFilters && (
                 <span className="ml-2 rounded-full bg-primary/20 px-1.5 text-[10px] text-primary-glow">ativos</span>
               )}
+            </Button>
+            <Button
+              variant="outline"
+              className="h-10 text-xs border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+              onClick={() => handleExportWhatsApp()}
+              title="Exportar contatos no formato do disparador WhatsApp (WASENDER)"
+            >
+              <Download className="mr-1.5 h-4 w-4" /> Exportar WhatsApp
             </Button>
           </div>
         </div>
@@ -2272,6 +2313,10 @@ const openEmail = async (p: Prospect) => {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
+            <Button variant="outline" size="sm" className="h-8 text-xs border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+              onClick={() => handleExportWhatsApp(prospects.filter((p) => selected.has(p.id)))}>
+              <Download className="mr-1.5 h-3.5 w-3.5" /> WhatsApp ({selected.size})
+            </Button>
             <Button variant="outline" size="sm" className="h-8 text-xs"
               onClick={() => exportCsv(prospects.filter((p) => selected.has(p.id)))}>
               <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar
