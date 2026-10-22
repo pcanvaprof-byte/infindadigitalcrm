@@ -1640,6 +1640,12 @@ const openEmail = async (p: Prospect) => {
 
 
   const exportCsv = (rows?: Prospect[]) => {
+    // Exige ao menos um filtro ativo ou empresas selecionadas (não exporta os 22 mil sem filtro)
+    if (!rows && !hasActiveFilters && selected.size === 0) {
+      toast.warning("Aplique ao menos um filtro ou selecione empresas para exportar.");
+      return;
+    }
+
     const toExport = rows ?? (
       selected.size > 0
         ? prospects.filter((p) => selected.has(p.id))
@@ -1647,21 +1653,16 @@ const openEmail = async (p: Prospect) => {
     );
 
     if (toExport.length === 0) {
-      toast.warning("Nenhuma empresa selecionada ou encontrada para exportar.");
+      toast.warning("Nenhuma empresa encontrada com os filtros atuais.");
       return;
     }
 
-    const headers = ["Empresa","Segmento","Responsavel","WhatsApp","Telefone","Email","Instagram","Cidade","Estado","Origem","Potencial","Status"];
-    const data = toExport.map((p) => [p.company, p.segment, p.owner, p.whatsapp, p.phone, p.email, p.instagram, p.city, p.state, p.source, p.potential, STATUS_LABEL[p.status]]);
-    const csv = [headers, ...data].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `prospeccao-infinda-${selected.size > 0 ? "selecionadas-" : ""}${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(`${toExport.length} empresa(s) exportada(s)${selected.size > 0 ? " (selecionadas)" : ""}`);
+    const res = exportContactsForDispatch(toExport);
+    if (res.exported === 0) {
+      toast.error("Nenhum contato com telefone/WhatsApp válido encontrado para exportação.");
+    } else {
+      toast.success(`${res.exported} contatos exportados com sucesso (${res.skipped} sem telefone ignorados).`);
+    }
   };
 
   /**
@@ -1980,49 +1981,46 @@ const openEmail = async (p: Prospect) => {
       title="Prospecção"
       subtitle="Sua máquina de geração de oportunidades comerciais"
       actions={
-        <div className="hidden items-center gap-2 sm:flex">
-          <Button variant="outline" className="h-9 text-xs border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10" onClick={() => handleExportWhatsApp()} title="Exportar contatos para WhatsApp (WASENDER)">
-            <Download className="mr-1.5 h-4 w-4" /> WhatsApp (WASENDER)
-          </Button>
+        <div className="hidden items-center gap-1.5 sm:flex flex-wrap lg:flex-nowrap">
           <Button
             variant="outline"
-            className="h-9 text-xs"
+            className="h-8 text-xs"
             onClick={() => exportCsv()}
-            title={selected.size > 0 ? `Exportar ${selected.size} empresa(s) selecionada(s)` : "Exportar lista filtrada"}
+            title={selected.size > 0 ? `Exportar ${selected.size} empresa(s) selecionada(s)` : hasActiveFilters ? `Exportar ${filteredOrdered.length} filtradas` : "Exportar lista filtrada"}
           >
-            <Download className="mr-1.5 h-4 w-4" />
-            {selected.size > 0 ? `Exportar selecionadas (${selected.size})` : "Exportar"}
+            <Download className="mr-1.5 h-3.5 w-3.5" />
+            Exportar {selected.size > 0 ? `(${selected.size})` : hasActiveFilters ? `(${filteredOrdered.length})` : ""}
           </Button>
-          <Button variant="outline" className="h-9 text-xs" onClick={() => fileRef.current?.click()}>
-            <Upload className="mr-1.5 h-4 w-4" /> Importar
+          <Button variant="outline" className="h-8 text-xs" onClick={() => fileRef.current?.click()}>
+            <Upload className="mr-1.5 h-3.5 w-3.5" /> Importar
           </Button>
-          <Button variant="outline" className="h-9 text-xs" onClick={() => setHistoryOpen(true)}>
-            <History className="mr-1.5 h-4 w-4" /> Histórico
+          <Button variant="outline" className="h-8 text-xs" onClick={() => setHistoryOpen(true)}>
+            <History className="mr-1.5 h-3.5 w-3.5" /> Histórico
           </Button>
-          <div className="flex items-center rounded-lg border border-border bg-card/60 p-0.5">
+          <div className="flex items-center rounded-lg border border-border bg-card/60 p-0.5 text-xs">
             <button
               type="button"
               onClick={() => changeWaAccount("personal")}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+              className={`rounded px-2 py-1 text-[11px] font-medium transition ${
                 waAccount === "personal"
                   ? "bg-emerald-500/20 text-emerald-400 shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
               title="Disparar usando WhatsApp Normal"
             >
-              WhatsApp Normal
+              WA Normal
             </button>
             <button
               type="button"
               onClick={() => changeWaAccount("business")}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${
+              className={`rounded px-2 py-1 text-[11px] font-medium transition ${
                 waAccount === "business"
                   ? "bg-emerald-500/20 text-emerald-400 shadow-sm"
                   : "text-muted-foreground hover:text-foreground"
               }`}
               title="Disparar usando WhatsApp Business"
             >
-              WhatsApp Business
+              WA Business
             </button>
           </div>
 
@@ -2030,7 +2028,7 @@ const openEmail = async (p: Prospect) => {
             <button
               type="button"
               onClick={() => setShowWaAkgConfig(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1.5 text-xs text-emerald-400 hover:bg-emerald-500/25 transition"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-[11px] text-emerald-400 hover:bg-emerald-500/25 transition h-8"
               title="WhatsApp conectado e pronto para disparos autônomos"
             >
               <span className="relative flex h-2 w-2">
@@ -2043,7 +2041,7 @@ const openEmail = async (p: Prospect) => {
             <button
               type="button"
               onClick={() => setShowWaAkgConfig(true)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-2.5 py-1.5 text-xs text-amber-300 font-medium hover:bg-amber-500/25 transition shadow-sm animate-pulse"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-2.5 py-1 text-[11px] text-amber-300 font-medium hover:bg-amber-500/25 transition shadow-sm animate-pulse h-8"
               title="Conectar WhatsApp para disparos silenciosos"
             >
               <QrCode className="h-3.5 w-3.5 text-amber-400" />
