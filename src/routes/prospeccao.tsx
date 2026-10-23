@@ -753,11 +753,14 @@ function ProspeccaoPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     
-    // Identidades e telefones ocultos por disparo anterior
+    // Identidades e telefones ocultos por disparo anterior.
+    // Vale tanto para "Todos" quanto para "Não contatado": um lead cujo
+    // CNPJ raiz / telefone já foi disparado nunca volta como novo.
+    const applyHide = hideDispatched && (statusFilter === "all" || statusFilter === "nao_contatado");
     const dispatchedIdentities = new Set<string>();
-    if (hideDispatched && statusFilter === "all") {
+    if (applyHide) {
       prospects.forEach(p => {
-        if (p.status !== "nao_contatado") {
+        if (p.status !== "nao_contatado" || localDispatchedIds.has(p.id)) {
           for (const key of getProspectBlockKeys(p)) dispatchedIdentities.add(key);
         }
       });
@@ -765,12 +768,10 @@ function ProspeccaoPage() {
 
     return prospects.filter((p) => {
       if (statusFilter !== "all" && p.status !== statusFilter) return false;
-      
-      // Oculta leads disparados localmente (localStorage) — não depende do banco
-      if (hideDispatched && statusFilter === "all" && localDispatchedIds.has(p.id)) return false;
 
-      // Filtro de ocultação baseado em identidade (CNPJ/Empresa)
-      if (hideDispatched && statusFilter === "all") {
+      if (applyHide && localDispatchedIds.has(p.id)) return false;
+
+      if (applyHide) {
         if (getProspectBlockKeys(p).some((key) => dispatchedIdentities.has(key))) return false;
       }
 
