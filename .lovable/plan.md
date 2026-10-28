@@ -1,16 +1,32 @@
-# Domínio infindadigital.space: trazer para este projeto
+# Auditoria: contatos já disparados voltando para a fila
 
-## Resposta direta
-- **Os leads já disparados não vão voltar.** Disparos, históricos e usuários ficam no banco de dados, e o domínio não mexe nisso. Trocar o domínio de lugar não apaga nem reabre nenhum disparo.
-- **Por que aparece o Granville Gateway:** a plataforma registra o domínio no projeto onde ele foi conectado pela primeira vez. Mesmo que o endereço hoje leve até aqui, o cadastro ficou preso ao Granville Gateway, e o sistema bloqueia uma segunda conexão. Eu não consigo remover esse vínculo de dentro deste projeto.
+## Objetivo
+Garantir que um contato que você já disparou nunca mais apareça como "não contatado", em nenhuma tela nem na API.
 
-## Passos
-1. **Você:** abre o projeto Granville Gateway, vai em Configurações → Domínios e remove `infindadigital.space` (e o `www`, se estiver lá).
-2. **Eu:** confiro que o domínio ficou livre e abro aqui o cartão de conexão, com os registros de DNS certos.
-3. **Você:** adiciona no provedor do domínio os registros que o cartão mostrar. Hoje o DNS ainda está no estacionamento do provedor.
-4. **Eu:** acompanho a verificação e a emissão do certificado (https) até o domínio ficar Ativo. O prazo costuma ir de minutos a algumas horas, e pode chegar a 72h.
-5. Depois disso, confiro que o login e o envio de senha funcionam no novo endereço.
+## Etapa 1 — Auditoria nos dados reais (antes de mexer)
+- Para cada usuário, listar os leads hoje visíveis como "não contatado" cujo CNPJ, WhatsApp ou telefone já tem disparo registrado por esse mesmo usuário.
+- Classificar cada caso pela causa:
+  1. Disparo gravado em uma empresa que depois foi mesclada (registro antigo ligado ao duplicado).
+  2. Mesmo número escrito de formas diferentes (com/sem 55, com/sem 9, fixo vs. celular).
+  3. Disparo feito, mas o registro não foi salvo (clique no WhatsApp sem gravar, sessão caída, API externa recusada).
+  4. Lead reimportado como empresa nova depois do disparo.
+  5. Filtro "Ocultar leads já disparados por mim" desligado ou ignorado em alguma visão (cards, mapa, exportação, aquecimento).
+- Entrego o número de casos por usuário e por causa. O diagnóstico só é confirmado depois desta etapa.
 
-## Impacto
-- Nada muda nos usuários, nos leads, nos disparos nem nas permissões.
-- Durante a troca, o endereço `infindadigital.space` pode ficar fora do ar por um tempo curto. O endereço `infindadigitalcrm.lovable.app` continua funcionando.
+## Etapa 2 — Correções (conforme as causas encontradas)
+- Mover o histórico de disparo das empresas mescladas para a empresa que ficou.
+- Unificar a comparação de números (remover 55 e o 9 extra antes de comparar).
+- Garantir que todo envio grave o registro antes de abrir o WhatsApp, e repetir a gravação se falhar.
+- Na importação, marcar automaticamente como "primeiro contato" qualquer empresa nova cujo CNPJ/número já foi disparado pelo usuário.
+- Aplicar a mesma regra de bloqueio em Prospecção, Mapa, Aquecimento, Cadência, exportação e fila da API.
+- Limpeza única: marcar como "primeiro contato" todos os repetidos encontrados na Etapa 1.
+
+## Etapa 3 — Trava permanente e teste
+- Teste automático: lead com disparo (inclusive por número equivalente ou empresa mesclada) nunca aparece como não contatado.
+- Rodar a auditoria da Etapa 1 de novo e confirmar zero casos.
+
+## Detalhes técnicos
+- Fonte de verdade: `prospect_touchpoints` por `user_id`; chaves de bloqueio de `src/lib/prospect-identity.ts`.
+- Arquivos: `prospect-identity.ts`, `prospects-api.ts`, `dispatch-lock.ts`, `api-public/dispatch.server.ts`, `routes/prospeccao.tsx`, `mapa`, `aquecimento`.
+- Migração: reatribuir touchpoints de prospects com `merged_into` para o destino; backfill de status privado.
+- Bloqueio continua privado por usuário (nunca compartilhado entre membros).

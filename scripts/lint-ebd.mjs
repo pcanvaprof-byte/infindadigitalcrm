@@ -63,7 +63,7 @@ for (const f of files) {
 const viewRegex = /create\s+(or\s+replace\s+)?(materialized\s+)?view\s+([\w.]+)\s+as\s+([\s\S]*?);/gi;
 for (const f of files) {
   if (extname(f) !== ".sql") continue;
-  const rel = relative(ROOT, f);
+  const rel = relative(ROOT, f).replace(/\\/g, "/");
   const src = readFileSync(f, "utf8");
   let m;
   while ((m = viewRegex.exec(src)) !== null) {

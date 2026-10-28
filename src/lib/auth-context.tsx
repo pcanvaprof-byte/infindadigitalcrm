@@ -145,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // para impedir vazamento cross-tenant.
       if (identityChanged) {
         void import("@/lib/bi/tz").then((m) => m.resetOrgIdCache());
+        void import("@/lib/prospects-cache").then((m) => m.clearPersistedProspects());
         queryClient.clear();
         // Limpa chaves conhecidas de storage do usuário anterior para evitar
         // qualquer vazamento cross-user (config de conta, flags, pré-visualizações).
@@ -240,6 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     await queryClient.cancelQueries();
     queryClient.clear();
+    void import("@/lib/prospects-cache").then((m) => m.clearPersistedProspects());
     await supabase.auth.signOut();
     // O onAuthStateChange (SIGNED_OUT) limpa o cache e o user; forçamos
     // aqui também para feedback imediato caso o evento demore a chegar.

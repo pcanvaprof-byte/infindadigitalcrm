@@ -155,17 +155,17 @@ function ApiKeysPage() {
           </p>
           <pre className="overflow-x-auto rounded-md bg-muted p-3 text-xs">{`# Listar clientes
 curl -H "Authorization: Bearer infd_live_..." \\
-  https://infindadigitalcrm.lovable.app/api/public/v1/clients?limit=10
+  https://infindadigital.space/api/public/v1/clients?limit=10
 
 # Registrar interação
 curl -X POST -H "Authorization: Bearer infd_live_..." \\
   -H "Content-Type: application/json" \\
   -d '{"type":"ligacao","content":"Ligação de retorno","author":"Claude"}' \\
-  https://infindadigitalcrm.lovable.app/api/public/v1/clients/<CLIENT_ID>/interactions
+  https://infindadigital.space/api/public/v1/clients/<CLIENT_ID>/interactions
 
 # Tarefas do dia
 curl -H "Authorization: Bearer infd_live_..." \\
-  https://infindadigitalcrm.lovable.app/api/public/v1/tasks?due=today`}</pre>
+  https://infindadigital.space/api/public/v1/tasks?due=today`}</pre>
           <p className="text-xs text-muted-foreground">
             Endpoints: <code>/me</code>, <code>/clients</code>, <code>/clients/{`{id}`}</code>,{" "}
             <code>/clients/{`{id}`}/interactions</code>, <code>/tasks</code>,{" "}

@@ -1,11 +1,10 @@
 import { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Download, Copy, QrCode, Zap, ArrowRight, Smartphone } from "lucide-react";
-import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { Globe, Download, CheckCircle2 } from "lucide-react";
 
-// Script Tampermonkey v2 — integrado ao CRM INFINDA via localStorage
 const SCRIPT_CONTENT = `// ==UserScript==
 // @name         INFINDA - Auto Disparar WhatsApp
 // @namespace    http://tampermonkey.net/
@@ -57,49 +56,12 @@ const SCRIPT_CONTENT = `// ==UserScript==
     }
 })();`;
 
-const STEPS = [
-  {
-    icon: Download,
-    title: "Instale o Tampermonkey (uma vez só)",
-    description: (
-      <>
-        Acesse{" "}
-        <a href="https://www.tampermonkey.net/" target="_blank" rel="noopener noreferrer"
-          className="text-primary underline underline-offset-2">
-          tampermonkey.net
-        </a>{" "}
-        e instale a extensão no Chrome. É gratuito e leva menos de 1 minuto.
-      </>
-    ),
-  },
-  {
-    icon: QrCode,
-    title: "Instale o script INFINDA (uma vez só)",
-    description: (
-      <>
-        Clique em <strong>"Baixar script"</strong> abaixo. O Tampermonkey vai abrir e pedir para instalar.
-        Clique em <strong>"Instalar"</strong>. Pronto — não precisa fazer mais nada.
-      </>
-    ),
-  },
-  {
-    icon: Zap,
-    title: "Selecione e dispare",
-    description: (
-      <>
-        Vá em <strong>Prospecção → aba Disparo WhatsApp</strong>, selecione os prospects,
-        configure o delay e clique <strong>"Disparar selecionados"</strong>.
-        O CRM abre o WhatsApp Web, o script envia automaticamente, fecha a aba e passa para o próximo.
-      </>
-    ),
-  },
-];
+export default function DisparoTab() {
+  const [scriptDownloaded, setScriptDownloaded] = useState(false);
+  const navigate = useNavigate();
 
-export function DisparoTab() {
-  const [copied, setCopied] = useState(false);
-
-  const handleDownload = () => {
-    const blob = new Blob([SCRIPT_CONTENT], { type: "text/javascript;charset=utf-8" });
+  const handleDownloadScript = () => {
+    const blob = new Blob([SCRIPT_CONTENT], { type: "application/javascript" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -108,131 +70,92 @@ export function DisparoTab() {
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
-    toast.success("Script baixado! Abra o arquivo para instalar no Tampermonkey.");
-  };
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(SCRIPT_CONTENT);
-      setCopied(true);
-      toast.success("Script copiado!");
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error("Não foi possível copiar.");
-    }
+    setScriptDownloaded(true);
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-2xl mx-auto py-4">
+      {/* Header */}
+      <div>
+        <h2 className="text-2xl font-bold text-foreground">Configure o disparo automático</h2>
+        <p className="text-muted-foreground mt-1">
+          Faça uma vez só. Depois é só selecionar e disparar.
+        </p>
+      </div>
 
-      {/* Download em destaque */}
-      <Card className="border-primary/40 bg-primary/5">
+      {/* Step 1 */}
+      <Card className="hover:border-primary/60 cursor-pointer transition-colors border-border bg-card">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Download className="h-5 w-5 text-primary" />
-            Script de disparo automático
+          <CardTitle className="flex items-center gap-3">
+            <span className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xl font-bold shrink-0">
+              1
+            </span>
+            <div className="flex items-center gap-2">
+              <Globe className="h-5 w-5 text-muted-foreground" />
+              Instale o Tampermonkey
+            </div>
+            <Badge className="ml-auto bg-green-600 text-white hover:bg-green-600">Grátis</Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-3 pl-6">
           <p className="text-sm text-muted-foreground">
-            Instale o Tampermonkey no Chrome e depois baixe o script abaixo.
-            Feito isso, o disparo é <strong>100% automático</strong> — sem servidor, sem configuração extra.
+            Extensão gratuita para Chrome, Edge e Firefox
           </p>
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={handleDownload} size="sm">
-              <Download className="mr-2 h-4 w-4" />
-              Baixar script (.user.js)
-            </Button>
-            <Button onClick={handleCopy} variant="outline" size="sm">
-              <Copy className="mr-2 h-4 w-4" />
-              {copied ? "Copiado!" : "Copiar script"}
-            </Button>
-            <Button variant="outline" size="sm"
-              onClick={() => window.open("https://www.tampermonkey.net/", "_blank")}>
-              Instalar Tampermonkey
-            </Button>
-          </div>
+          <Button
+            size="lg"
+            onClick={() => window.open("https://www.tampermonkey.net/", "_blank")}
+          >
+            Instalar Tampermonkey →
+          </Button>
         </CardContent>
       </Card>
 
-      {/* Passo a passo */}
-      <Card>
+      {/* Step 2 */}
+      <Card className="hover:border-primary/60 cursor-pointer transition-colors border-border bg-card">
         <CardHeader>
-          <CardTitle>Como funciona</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ol className="space-y-5">
-            {STEPS.map((step, index) => {
-              const Icon = step.icon;
-              return (
-                <li key={index} className="flex items-start gap-3">
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-                    {index + 1}
-                  </span>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Icon className="h-4 w-4 text-muted-foreground" />
-                      <p className="font-medium text-foreground">{step.title}</p>
-                    </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{step.description}</p>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
-        </CardContent>
-      </Card>
-
-      {/* Celular */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Smartphone className="h-5 w-5" />
-            Usando no celular
+          <CardTitle className="flex items-center gap-3">
+            <span className="w-12 h-12 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xl font-bold shrink-0">
+              2
+            </span>
+            <div className="flex items-center gap-2">
+              <Download className="h-5 w-5 text-muted-foreground" />
+              Instale o script INFINDA
+            </div>
+            <Badge className="ml-auto bg-blue-600 text-white hover:bg-blue-600">Uma vez só</Badge>
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3 pl-6">
           <p className="text-sm text-muted-foreground">
-            No celular o Tampermonkey não funciona. O disparo é <strong>manual</strong>:{" "}
-            clique no prospect → WhatsApp abre com a mensagem pronta → você envia normalmente.
-            O status é atualizado no CRM automaticamente.
+            Clique abaixo para baixar e instale no Tampermonkey
           </p>
+          <Button size="lg" variant="outline" onClick={handleDownloadScript}>
+            Baixar script INFINDA →
+          </Button>
         </CardContent>
       </Card>
 
-      {/* Requisitos */}
-      <Card>
-        <CardHeader><CardTitle>Requisitos</CardTitle></CardHeader>
-        <CardContent>
-          <ul className="space-y-2">
-            <li className="flex flex-wrap items-start gap-2 text-sm text-muted-foreground">
-              <Badge variant="outline">Chrome / Edge</Badge>
-              O Tampermonkey funciona no Chrome, Edge, Firefox e Opera.
-            </li>
-            <li className="flex flex-wrap items-start gap-2 text-sm text-muted-foreground">
-              <Badge variant="outline">Número dedicado</Badge>
-              Recomendamos usar um chip separado para disparos — reduz risco de bloqueio.
-            </li>
-            <li className="flex flex-wrap items-start gap-2 text-sm text-muted-foreground">
-              <Badge variant="outline">Sem servidor</Badge>
-              Não precisa instalar Node.js, servidor local ou nada extra.
-            </li>
-          </ul>
-        </CardContent>
-      </Card>
+      {/* Confirmation card */}
+      {scriptDownloaded && (
+        <Card className="border-green-600/60 bg-green-950/20">
+          <CardContent className="pt-6 space-y-3">
+            <div className="flex items-center gap-2 text-green-500 font-semibold text-base">
+              <CheckCircle2 className="h-6 w-6" />
+              Tudo pronto! Agora vá em Prospecção → Disparo WhatsApp e dispare.
+            </div>
+            <Button
+              size="lg"
+              onClick={() => navigate({ to: "/prospeccao" })}
+            >
+              Ir para Prospecção →
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
-      <Card className="border-border/50">
-        <CardContent className="pt-4">
-          <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-            <ArrowRight className="h-4 w-4 text-primary" />
-            Os controles de fila ficam em <strong>Prospecção → aba "Disparo WhatsApp"</strong>
-          </div>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Esta aba mostra o guia de instalação. Para disparar, vá para a Prospecção.
-          </p>
-        </CardContent>
-      </Card>
-
+      {/* Footer */}
+      <p className="text-xs text-muted-foreground text-center">
+        Só funciona no PC (Chrome/Edge/Firefox). No celular o envio é manual.
+      </p>
     </div>
   );
 }

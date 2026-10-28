@@ -119,10 +119,13 @@ import {
   applyImport,
   logImport,
   listImports,
+  loadProspectFullInteractions,
   EXPECTED_HEADERS,
   type PreviewRow,
   type ImportLog,
 } from "@/lib/prospects-api";
+import { getPersistedProspects, setPersistedProspects } from "@/lib/prospects-cache";
+import { getCurrentOrgId } from "@/lib/bi/tz";
 import { History, FileSpreadsheet } from "lucide-react";
 import { Pencil, Save as SaveIcon, XCircle } from "lucide-react";
 import { EnrichmentDrawer } from "@/components/EnrichmentDrawer";
@@ -649,26 +652,71 @@ function ProspeccaoPage() {
     }
   };
 
+  // Cache persistido localmente (IndexedDB) para abertura instantânea da tela
+  const [persistedProspects, setPersistedProspectsState] = useState<Prospect[] | null>(() => {
+    return qc.getQueryData<Prospect[]>(crmKeys.prospects) ?? null;
+  });
+
+  useEffect(() => {
+    let active = true;
+    if (!user?.id) return;
+
+    // Se já existem dados no cache do QueryClient em memória, não precisa esperar nada
+    const memoryData = qc.getQueryData<Prospect[]>(crmKeys.prospects);
+    if (memoryData && memoryData.length > 0) {
+      setPersistedProspectsState(memoryData);
+      return;
+    }
+
+    void (async () => {
+      try {
+        // Busca ultra-rápida no IndexedDB (sem esperar round-trips de rede)
+        const cached = await getPersistedProspects(user.id);
+        if (active && cached && cached.length > 0) {
+          setPersistedProspectsState(cached);
+          qc.setQueryData<Prospect[]>(crmKeys.prospects, (old) => {
+            if (old && old.length > 0) return old;
+            return cached;
+          });
+        }
+      } catch {
+        /* noop */
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [user?.id, qc]);
+
   // Única fonte de verdade. Mutations fazem optimistic update via setCache
   // diretamente no cache do Query — sem espelho via useState/useEffect.
   const prospectsQ = useQuery({
     queryKey: crmKeys.prospects,
-    queryFn: loadAllProspects,
+    queryFn: () => loadAllProspects({ qc }),
     enabled: !!user,
-    staleTime: 60_000,
+    staleTime: 15 * 60_000,
+    gcTime: 60 * 60_000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    placeholderData: (prev) => prev ?? qc.getQueryData<Prospect[]>(crmKeys.prospects) ?? persistedProspects ?? undefined,
   });
   const prospects = useMemo(
-    () => (Array.isArray(prospectsQ.data) ? prospectsQ.data : []) as Prospect[],
-    [prospectsQ.data],
+    () => (Array.isArray(prospectsQ.data) ? prospectsQ.data : (persistedProspects ?? [])) as Prospect[],
+    [prospectsQ.data, persistedProspects],
   );
-  const loading = prospectsQ.isLoading;
+  const loading = prospectsQ.isLoading && prospects.length === 0;
 
   // Data de abertura do CNPJ (vem do enriquecimento compartilhado).
   const openingQ = useQuery({
     queryKey: openingKeys.all,
     queryFn: loadOpeningByCnpj,
     enabled: !!user,
-    staleTime: 5 * 60_000,
+    staleTime: 30 * 60_000,
+    gcTime: 60 * 60_000,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
   });
   const openingMap = openingQ.data ?? {};
   useEffect(() => {
@@ -677,7 +725,13 @@ function ProspeccaoPage() {
 
   // Helper para optimistic updates no cache do Query.
   const setCache = (update: (prev: Prospect[]) => Prospect[]) =>
-    qc.setQueryData<Prospect[]>(crmKeys.prospects, (old) => update(Array.isArray(old) ? (old as Prospect[]) : []));
+    qc.setQueryData<Prospect[]>(crmKeys.prospects, (old) => {
+      const next = update(Array.isArray(old) ? (old as Prospect[]) : []);
+      if (user?.id) {
+        void getCurrentOrgId().then((orgId) => setPersistedProspects(user.id, orgId, next));
+      }
+      return next;
+    });
 
   // Retry automático: roda uma vez quando os prospects carregam pela primeira vez.
   useEffect(() => {
@@ -699,11 +753,14 @@ function ProspeccaoPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     
-    // Identidades e telefones ocultos por disparo anterior
+    // Identidades e telefones ocultos por disparo anterior.
+    // Vale tanto para "Todos" quanto para "Não contatado": um lead cujo
+    // CNPJ raiz / telefone já foi disparado nunca volta como novo.
+    const applyHide = hideDispatched && (statusFilter === "all" || statusFilter === "nao_contatado");
     const dispatchedIdentities = new Set<string>();
-    if (hideDispatched && statusFilter === "all") {
+    if (applyHide) {
       prospects.forEach(p => {
-        if (p.status !== "nao_contatado") {
+        if (p.status !== "nao_contatado" || localDispatchedIds.has(p.id)) {
           for (const key of getProspectBlockKeys(p)) dispatchedIdentities.add(key);
         }
       });
@@ -711,12 +768,10 @@ function ProspeccaoPage() {
 
     return prospects.filter((p) => {
       if (statusFilter !== "all" && p.status !== statusFilter) return false;
-      
-      // Oculta leads disparados localmente (localStorage) — não depende do banco
-      if (hideDispatched && statusFilter === "all" && localDispatchedIds.has(p.id)) return false;
 
-      // Filtro de ocultação baseado em identidade (CNPJ/Empresa)
-      if (hideDispatched && statusFilter === "all") {
+      if (applyHide && localDispatchedIds.has(p.id)) return false;
+
+      if (applyHide) {
         if (getProspectBlockKeys(p).some((key) => dispatchedIdentities.has(key))) return false;
       }
 
@@ -780,7 +835,7 @@ function ProspeccaoPage() {
       return [p.company, p.segment, p.owner, p.email, p.whatsapp, p.phone, p.instagram, p.city, p.state, p.source]
         .join(" ").toLowerCase().includes(q);
     });
-  }, [prospects, search, statusFilter, segmentFilter, stateFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter, hideDispatched, opening, openingMap, localDispatchedIds]);
+  }, [prospects, search, statusFilter, segmentFilter, stateFilter, cityFilter, potentialFilter, onlyWithContact, noWhatsapp, onlyWhatsapp, cadenceFilter, hideDispatched, opening, openingMap, localDispatchedIds]);
 
 
   // Bloqueio de 24h por disparo recente (whatsapp/ligação/email outbound).
@@ -846,17 +901,18 @@ function ProspeccaoPage() {
   const mapPointsQ = useQuery({
     queryKey: crmKeys.tasks,
     queryFn: loadMapPoints,
-    enabled: !!user,
-    staleTime: 15_000,
+    enabled: !!user && view === "map",
+    staleTime: 60_000,
   });
   const mapPoints = mapPointsQ.data ?? [];
 
   const filteredMapPoints = useMemo(() => {
+    if (view !== "map") return [];
     const filteredCnpjs = new Set(
       filteredOrdered.map((p) => p.cnpj?.replace(/\D/g, "")).filter(Boolean)
     );
     return mapPoints.filter((pt) => filteredCnpjs.has(pt.cnpj));
-  }, [filteredOrdered, mapPoints]);
+  }, [filteredOrdered, mapPoints, view]);
 
   const withCoords = useMemo(() => filteredMapPoints.filter((pt) => pt.lat && pt.lon).length, [filteredMapPoints]);
   const withoutCoords = useMemo(() => filteredOrdered.length - withCoords, [filteredOrdered, withCoords]);
@@ -1584,18 +1640,30 @@ const openEmail = async (p: Prospect) => {
   };
 
 
-  const exportCsv = (rows = prospects) => {
-    const headers = ["Empresa","Segmento","Responsavel","WhatsApp","Telefone","Email","Instagram","Cidade","Estado","Origem","Potencial","Status"];
-    const data = rows.map((p) => [p.company, p.segment, p.owner, p.whatsapp, p.phone, p.email, p.instagram, p.city, p.state, p.source, p.potential, STATUS_LABEL[p.status]]);
-    const csv = [headers, ...data].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `prospeccao-infinda-${Date.now()}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(`${rows.length} linha(s) exportada(s)`);
+  const exportCsv = (rows?: Prospect[]) => {
+    // Exige ao menos um filtro ativo ou empresas selecionadas (não exporta os 22 mil sem filtro)
+    if (!rows && !hasActiveFilters && selected.size === 0) {
+      toast.warning("Aplique ao menos um filtro ou selecione empresas para exportar.");
+      return;
+    }
+
+    const toExport = rows ?? (
+      selected.size > 0
+        ? prospects.filter((p) => selected.has(p.id))
+        : filteredOrdered
+    );
+
+    if (toExport.length === 0) {
+      toast.warning("Nenhuma empresa encontrada com os filtros atuais.");
+      return;
+    }
+
+    const res = exportContactsForDispatch(toExport);
+    if (res.exported === 0) {
+      toast.error("Nenhum contato com telefone/WhatsApp válido encontrado para exportação.");
+    } else {
+      toast.success(`${res.exported} contatos exportados com sucesso (${res.skipped} sem telefone ignorados).`);
+    }
   };
 
   /**
@@ -1624,6 +1692,21 @@ const openEmail = async (p: Prospect) => {
         `${exported} contato${exported !== 1 ? "s" : ""} exportado${exported !== 1 ? "s" : ""} com sucesso` +
           (skipped > 0 ? ` (${skipped} duplicado${skipped !== 1 ? "s" : ""}/inválido${skipped !== 1 ? "s" : ""} ignorado${skipped !== 1 ? "s" : ""})` : ""),
       );
+    }
+  };
+
+  const handleExportWhatsApp = (rows?: Prospect[]) => {
+    const target = rows && rows.length > 0
+      ? rows
+      : selected.size > 0
+        ? filteredOrdered.filter((p) => selected.has(p.id))
+        : filteredOrdered;
+
+    const res = exportContactsForDispatch(target);
+    if (res.exported === 0) {
+      toast.error("Nenhum contato com WhatsApp válido encontrado para exportação.");
+    } else {
+      toast.success(`${res.exported} contatos exportados para WhatsApp (${res.skipped} ignorados/sem número).`);
     }
   };
 
@@ -1882,8 +1965,8 @@ const openEmail = async (p: Prospect) => {
 
   const selCount = selected.size;
 
-  // Render guard: nunca tentar renderizar listas antes do cache estar pronto.
-  if (prospectsQ.isLoading && !prospectsQ.data) {
+  // Render guard: só bloqueia se não temos NENHUM prospect em memória nem no cache.
+  if (prospectsQ.isLoading && prospects.length === 0) {
     return (
       <AppShell title="Prospecção" subtitle="Sua máquina de geração de oportunidades comerciais">
         <div className="grid place-items-center py-24 text-sm text-muted-foreground">
@@ -1899,70 +1982,73 @@ const openEmail = async (p: Prospect) => {
       title="Prospecção"
       subtitle="Sua máquina de geração de oportunidades comerciais"
       actions={
-        <div className="hidden items-center gap-2 sm:flex">
-          <Button variant="outline" className="h-9 text-xs" onClick={() => exportCsv()}>
-            <Download className="mr-1.5 h-4 w-4" /> Exportar
+        <div className="hidden items-center gap-1.5 sm:flex flex-wrap lg:flex-nowrap">
+          <Button
+            variant="outline"
+            className="h-8 text-xs"
+            onClick={() => exportCsv()}
+            title={selected.size > 0 ? `Exportar ${selected.size} empresa(s) selecionada(s)` : hasActiveFilters ? `Exportar ${filteredOrdered.length} filtradas` : "Exportar lista filtrada"}
+          >
+            <Download className="mr-1.5 h-3.5 w-3.5" />
+            Exportar {selected.size > 0 ? `(${selected.size})` : hasActiveFilters ? `(${filteredOrdered.length})` : ""}
           </Button>
-          <Button variant="outline" className="h-9 text-xs" onClick={() => fileRef.current?.click()}>
-            <Upload className="mr-1.5 h-4 w-4" /> Importar
+          <Button variant="outline" className="h-8 text-xs" onClick={() => fileRef.current?.click()}>
+            <Upload className="mr-1.5 h-3.5 w-3.5" /> Importar
           </Button>
-          <Button variant="outline" className="h-9 text-xs" onClick={() => setHistoryOpen(true)}>
-            <History className="mr-1.5 h-4 w-4" /> Histórico
+          <Button variant="outline" className="h-8 text-xs" onClick={() => setHistoryOpen(true)}>
+            <History className="mr-1.5 h-3.5 w-3.5" /> Histórico
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                className="h-9 text-xs"
-                title="Conta de WhatsApp usada nos disparos"
-              >
-                {waAccount === "gateway" ? (
-                  <Zap className="mr-1.5 h-4 w-4 text-emerald-400" />
-                ) : (
-                  <Smartphone className="mr-1.5 h-4 w-4" />
-                )}
-                {waAccount === "gateway"
-                  ? "WA-AKG Gateway"
-                  : waAccount === "business"
-                  ? "WA Business"
-                  : waAccount === "personal"
-                  ? "WA Normal"
-                  : "WA Padrão"}
-                <ChevronDown className="ml-1.5 h-3.5 w-3.5 opacity-60" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuLabel className="text-[11px] text-muted-foreground">
-                Conta de WhatsApp para disparos
-              </DropdownMenuLabel>
-              <DropdownMenuItem onClick={() => changeWaAccount("gateway")}>
-                <Check className={cn("mr-2 h-4 w-4", waAccount === "gateway" ? "opacity-100" : "opacity-0")} />
-                <Zap className="mr-1.5 h-4 w-4 text-emerald-400" />
-                WA-AKG Gateway (Automático)
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => changeWaAccount("default")}>
-                <Check className={cn("mr-2 h-4 w-4", waAccount === "default" ? "opacity-100" : "opacity-0")} />
-                Padrão do sistema
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => changeWaAccount("personal")}>
-                <Check className={cn("mr-2 h-4 w-4", waAccount === "personal" ? "opacity-100" : "opacity-0")} />
-                WhatsApp Normal
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => changeWaAccount("business")}>
-                <Check className={cn("mr-2 h-4 w-4", waAccount === "business" ? "opacity-100" : "opacity-0")} />
-                WhatsApp Business
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setShowWaAkgConfig(true)}>
-                <Settings2 className="mr-2 h-4 w-4 text-muted-foreground" />
-                Configurar Gateway WA-AKG
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <div className="px-2 py-1.5 text-[10px] leading-snug text-muted-foreground">
-                No modo WA-AKG os envios ocorrem em segundo plano via API REST Baileys v7.
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center rounded-lg border border-border bg-card/60 p-0.5 text-xs">
+            <button
+              type="button"
+              onClick={() => changeWaAccount("personal")}
+              className={`rounded px-2 py-1 text-[11px] font-medium transition ${
+                waAccount === "personal"
+                  ? "bg-emerald-500/20 text-emerald-400 shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="Disparar usando WhatsApp Normal"
+            >
+              WA Normal
+            </button>
+            <button
+              type="button"
+              onClick={() => changeWaAccount("business")}
+              className={`rounded px-2 py-1 text-[11px] font-medium transition ${
+                waAccount === "business"
+                  ? "bg-emerald-500/20 text-emerald-400 shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="Disparar usando WhatsApp Business"
+            >
+              WA Business
+            </button>
+          </div>
+
+          {gatewayStatus === "connected" ? (
+            <button
+              type="button"
+              onClick={() => setShowWaAkgConfig(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/15 px-2.5 py-1 text-[11px] text-emerald-400 hover:bg-emerald-500/25 transition h-8"
+              title="WhatsApp conectado e pronto para disparos autônomos"
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <span>Conectado {gatewayPhone ? `(+${gatewayPhone})` : ""}</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowWaAkgConfig(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-500/15 px-2.5 py-1 text-[11px] text-amber-300 font-medium hover:bg-amber-500/25 transition shadow-sm animate-pulse h-8"
+              title="Conectar WhatsApp para disparos silenciosos"
+            >
+              <QrCode className="h-3.5 w-3.5 text-amber-400" />
+              <span>Conectar WhatsApp</span>
+            </button>
+          )}
           <input ref={fileRef} type="file" accept=".csv,.xlsx,.xls,text/csv" className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImport(f); e.target.value = ""; }} />
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -2012,35 +2098,12 @@ const openEmail = async (p: Prospect) => {
         </DialogContent>
       </Dialog>
 
-      {/* Navegação principal: Lista de Prospects | Disparo WhatsApp */}
-      <div className="mb-4 border-b border-border">
-        <div className="flex gap-1">
-          <button
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              mainTab === "lista"
-                ? "border-primary text-primary-glow"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => setMainTab("lista")}
-          >
-            Prospects
-          </button>
-          <button
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              mainTab === "disparo"
-                ? "border-primary text-primary-glow"
-                : "border-transparent text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => setMainTab("disparo")}
-          >
-            Disparo WhatsApp
-          </button>
+      {prospectsQ.isFetching && (
+        <div className="mb-2 flex items-center justify-end gap-1.5 px-3 py-1 text-xs font-medium text-sky-400 animate-pulse">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          <span>Atualizando…</span>
         </div>
-      </div>
-
-      {mainTab === "disparo" && <DisparoWhatsApp prospects={prospects} />}
-
-      {mainTab === "lista" && <>
+      )}
 
       {/* Stats */}
       <section className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-5">
@@ -2051,83 +2114,7 @@ const openEmail = async (p: Prospect) => {
         <StatCard icon={CalendarPlus} label="Agendadas" value={stats.agendadas} hint={hasActiveFilters ? "no filtro atual" : "Com reunião marcada"} />
       </section>
 
-      {/* Conta padrão do WhatsApp para os disparos desta tela */}
-      <section className="mt-6 surface-card p-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Conta padrão do WhatsApp
-            </p>
-            <p className="text-[11px] text-muted-foreground">
-              Define qual perfil será usado nos disparos. Você ainda pode trocar por
-              disparo no menu do ícone do WhatsApp em cada card.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {([
-              { k: "gateway",  label: "⚡ WA-AKG Gateway" },
-              { k: "default",  label: "Padrão do sistema" },
-              { k: "personal", label: "WhatsApp Normal" },
-              { k: "business", label: "WhatsApp Business" },
-            ] as { k: WaAccount; label: string }[]).map((c) => (
-              <button
-                key={c.k}
-                onClick={() => changeWaAccount(c.k)}
-                className={`rounded-full border px-3 py-1 text-xs transition ${
-                  waAccount === c.k
-                    ? "border-emerald-500 bg-emerald-500/15 text-emerald-400"
-                    : "border-border bg-card/60 text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {c.label}
-              </button>
-            ))}
-            {waAccount === "gateway" && (
-              <div className="flex items-center gap-1.5">
-                {gatewayStatus === "connected" ? (
-                  <button
-                    onClick={() => setShowWaAkgConfig(true)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 px-3 py-1 text-xs text-emerald-400 hover:bg-emerald-500/25 transition shadow-sm"
-                    title="WhatsApp conectado e pronto para disparos silenciosos"
-                  >
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    <span>Conectado {gatewayPhone ? `(+${gatewayPhone})` : ""}</span>
-                    <Settings2 className="h-3 w-3 ml-0.5 opacity-70" />
-                  </button>
-                ) : gatewayStatus === "qr_ready" ? (
-                  <button
-                    onClick={() => setShowWaAkgConfig(true)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-500/20 px-3 py-1 text-xs text-amber-300 font-medium hover:bg-amber-500/30 transition shadow-sm animate-pulse"
-                    title="Clique para escanear o QR Code diretamente no INFINDA"
-                  >
-                    <QrCode className="h-3.5 w-3.5 text-amber-400" />
-                    <span>📲 Conectar WhatsApp (Escanear QR)</span>
-                  </button>
-                ) : gatewayStatus === "offline" ? (
-                  <button
-                    onClick={() => setShowWaAkgConfig(true)}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-destructive/40 bg-destructive/10 px-3 py-1 text-xs text-destructive hover:bg-destructive/20 transition"
-                    title="Gateway local offline (Execute: npm run gateway)"
-                  >
-                    <span className="h-2 w-2 rounded-full bg-destructive" />
-                    <span>Gateway Offline (Configurar)</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setShowWaAkgConfig(true)}
-                    className="inline-flex items-center gap-1 rounded-full border border-border bg-card/60 px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    <Settings2 className="h-3 w-3" /> Configurar
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
+      
 
       {/* Pack de templates por nicho / data especial */}
       <div className="mb-2 flex justify-end">
@@ -2186,6 +2173,14 @@ const openEmail = async (p: Prospect) => {
               {hasActiveFilters && (
                 <span className="ml-2 rounded-full bg-primary/20 px-1.5 text-[10px] text-primary-glow">ativos</span>
               )}
+            </Button>
+            <Button
+              variant="outline"
+              className="h-10 text-xs border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+              onClick={() => handleExportWhatsApp()}
+              title="Exportar contatos no formato do disparador WhatsApp (WASENDER)"
+            >
+              <Download className="mr-1.5 h-4 w-4" /> Exportar WhatsApp
             </Button>
           </div>
         </div>
@@ -2405,6 +2400,15 @@ const openEmail = async (p: Prospect) => {
             <span className="rounded-md bg-primary/20 px-2 py-0.5 text-xs font-semibold text-primary-glow">
               {selCount} selecionada{selCount > 1 ? "s" : ""}
             </span>
+            {filteredOrdered.length > selCount && (
+              <button
+                type="button"
+                className="text-xs text-primary-glow underline hover:text-foreground"
+                onClick={() => setSelected(new Set(filteredOrdered.map((p) => p.id)))}
+              >
+                Selecionar todas as {filteredOrdered.length} filtradas
+              </button>
+            )}
             <button className="text-xs text-muted-foreground hover:text-foreground" onClick={() => setSelected(new Set())}>
               Limpar seleção
             </button>
@@ -2440,9 +2444,13 @@ const openEmail = async (p: Prospect) => {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
+            <Button variant="outline" size="sm" className="h-8 text-xs border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10"
+              onClick={() => handleExportWhatsApp(prospects.filter((p) => selected.has(p.id)))}>
+              <Download className="mr-1.5 h-3.5 w-3.5" /> WhatsApp ({selected.size})
+            </Button>
             <Button variant="outline" size="sm" className="h-8 text-xs"
               onClick={() => exportCsv(prospects.filter((p) => selected.has(p.id)))}>
-              <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar
+              <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar ({selCount})
             </Button>
             <Button variant="outline" size="sm" className="h-8 text-xs border-primary/30 text-primary-glow hover:bg-primary/10"
               disabled={bulkEnriching}
@@ -2812,8 +2820,7 @@ const openEmail = async (p: Prospect) => {
         onOpenChange={setShowWaAkgConfig}
       />
 
-      </>}
-    </AppShell>
+      </AppShell>
 
   );
 }
@@ -3057,7 +3064,7 @@ const RowActions = memo(function RowActions({
         variant="ghost"
         className="h-8 w-8 text-emerald-400"
         title={busyWhats ? "Enviando..." : "Disparar WhatsApp (usa a conta selecionada no topo)"}
-        disabled={!busyWhats}
+        disabled={!!busyWhats}
         onClick={() => onWhats(p)}
       >
         {busyWhats ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
@@ -3176,7 +3183,20 @@ function DetailDialog({
   onCloseCadence: () => void;
 }) {
   const [note, setNote] = useState("");
-  const timeline = p.interactions ?? [];
+  const { data: remoteTimeline, isLoading: loadingTimeline } = useQuery({
+    queryKey: ["prospect-full-interactions", p.id],
+    queryFn: () => loadProspectFullInteractions(p.id),
+    staleTime: 30_000,
+  });
+
+  const timeline = useMemo(() => {
+    if (remoteTimeline) {
+      const remoteIds = new Set(remoteTimeline.map((i) => i.id));
+      const pending = (p.interactions ?? []).filter((i) => !remoteIds.has(i.id) && i.text);
+      return [...pending, ...remoteTimeline];
+    }
+    return p.interactions ?? [];
+  }, [remoteTimeline, p.interactions]);
   const proxima = proximaAcaoLabel(p.nextContactAt ?? null);
   return (
     <DialogContent className="max-w-3xl">
@@ -3293,7 +3313,12 @@ function DetailDialog({
           </div>
 
           <div className="mt-3 max-h-[340px] flex-1 overflow-y-auto pr-1">
-            {timeline.length === 0 ? (
+            {loadingTimeline && timeline.length === 0 ? (
+              <div className="flex items-center justify-center p-6 text-xs text-muted-foreground">
+                <Loader2 className="mr-2 h-4 w-4 animate-spin text-muted-foreground" />
+                Carregando interações…
+              </div>
+            ) : timeline.length === 0 ? (
               <div className="rounded-md border border-dashed border-border/60 p-6 text-center text-xs text-muted-foreground">
                 Sem interações ainda. Use os botões ao lado para começar.
               </div>

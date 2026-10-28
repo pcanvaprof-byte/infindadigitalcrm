@@ -232,6 +232,7 @@ export function AppShell({
   const handleLogout = async () => {
     await queryClient.cancelQueries();
     queryClient.clear();
+    void import("@/lib/prospects-cache").then((m) => m.clearPersistedProspects());
     await logout();
     await navigate({ to: "/login", replace: true });
   };
@@ -247,6 +248,7 @@ export function AppShell({
     try {
       await queryClient.cancelQueries();
       queryClient.clear();
+      void import("@/lib/prospects-cache").then((m) => m.clearPersistedProspects());
       const { error } = await supabase.auth.signOut({ scope: "global" });
       if (error) throw error;
       toast.success("Sessão encerrada em todos os dispositivos.");

@@ -9,7 +9,7 @@ export interface WaAkgConfig {
 
 const ENV_GATEWAY_URL =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_WA_GATEWAY_URL) ||
-  "http://localhost:3000";
+  "https://infindadigitalcrm.onrender.com";
 
 const ENV_GATEWAY_KEY =
   (typeof import.meta !== "undefined" && import.meta.env?.VITE_WA_GATEWAY_KEY) ||
@@ -92,6 +92,7 @@ export async function testWaAkgConnection(config: Pick<WaAkgConfig, "apiUrl" | "
 
     const headers: Record<string, string> = {
       "Accept": "application/json",
+      "bypass-tunnel-reminder": "true",
     };
     if (config.apiKey.trim()) {
       headers["X-API-Key"] = config.apiKey.trim();
@@ -146,6 +147,7 @@ export async function disconnectWaAkgSession(config?: Pick<WaAkgConfig, "apiUrl"
       method: "POST",
       headers: {
         Accept: "application/json",
+        "bypass-tunnel-reminder": "true",
         ...(cfg.apiKey ? { "X-API-Key": cfg.apiKey } : {}),
       },
     });
@@ -193,6 +195,7 @@ export async function sendWaAkgMessage({
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "Accept": "application/json",
+    "bypass-tunnel-reminder": "true",
   };
   if (apiKey) {
     headers["X-API-Key"] = apiKey;
@@ -248,11 +251,18 @@ export async function sendWaAkgMessage({
 
     clearTimeout(timeout);
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
+        if (!res.ok) {
+      let errorMsg = "";
+      try {
+        const errJson = await res.json();
+        errorMsg = errJson?.error || errJson?.message || "";
+      } catch {
+        const text = await res.text().catch(() => "");
+        errorMsg = text.slice(0, 180);
+      }
       return {
         success: false,
-        error: `Erro HTTP ${res.status}: ${errText.slice(0, 180) || res.statusText}`,
+        error: errorMsg || `Erro HTTP ${res.status}: ${res.statusText}`,
       };
     }
 

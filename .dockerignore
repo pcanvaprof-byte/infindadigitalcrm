@@ -1,0 +1,8 @@
+node_modules
+.git
+.vercel
+dist
+.output
+gateway/node_modules
+gateway/auth_info_baileys
+*.log

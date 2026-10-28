@@ -17,7 +17,7 @@ import { CadenciaKanban } from "@/components/cadencia/CadenciaKanban";
 import { LeadDrawer } from "@/components/cadencia/LeadDrawer";
 import { SendMessageDialog } from "@/components/cadencia/SendMessageDialog";
 import { NichePackEditor } from "@/components/cadencia/NichePackEditor";
-import { DisparoTab } from "@/components/cadencia/DisparoTab";
+import DisparoTab from "@/components/cadencia/DisparoTab";
 import { listLeads, createLead, importFromProspects, syncLeadStagesFromProspects, listLeadsSemWhatsapp } from "@/lib/cadencia/api";
 import type { CadLead, CadStage } from "@/lib/cadencia/types";
 import { CAD_STAGE_LABEL } from "@/lib/cadencia/types";

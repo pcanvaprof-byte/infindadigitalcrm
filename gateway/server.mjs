@@ -13,6 +13,115 @@ if (!fs.existsSync(AUTH_DIR)) {
   fs.mkdirSync(AUTH_DIR, { recursive: true });
 }
 
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = process.env.SUPABASE_KEY || process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+// 1. Restaurar arquivos do Supabase para o disco antes de inicializar o Baileys
+async function restoreAuthFromSupabase() {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    console.log("[WA-Gateway] SUPABASE_URL / SUPABASE_KEY não configurados. Usando apenas disco local.");
+    return false;
+  }
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/whatsapp_sessions?select=filename,content`, {
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+      },
+    });
+    if (!res.ok) {
+      console.warn(`[WA-Gateway] Supabase retornou status ${res.status}. Tabela whatsapp_sessions pode não estar pronta ainda.`);
+      return false;
+    }
+    const rows = await res.json();
+    if (Array.isArray(rows) && rows.length > 0) {
+      console.log(`[WA-Gateway] 🔄 Restaurando ${rows.length} arquivo(s) de sessão do Supabase...`);
+      for (const row of rows) {
+        if (!row.filename || !row.content) continue;
+        const targetPath = path.join(AUTH_DIR, row.filename);
+        fs.writeFileSync(targetPath, row.content, "utf8");
+      }
+      console.log("[WA-Gateway] ✅ Sessão do WhatsApp restaurada com sucesso do Supabase!");
+      return true;
+    } else {
+      console.log("[WA-Gateway] Supabase verificado: nenhuma sessão salva ainda.");
+      return false;
+    }
+  } catch (err) {
+    console.error("[WA-Gateway] Erro ao restaurar sessão do Supabase:", err.message);
+    return false;
+  }
+}
+
+// 2. Sincronizar todos os arquivos de sessão com o Supabase
+let syncTimeout = null;
+function scheduleSyncToSupabase(delayMs = 1500) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return;
+  if (syncTimeout) clearTimeout(syncTimeout);
+  syncTimeout = setTimeout(syncAuthToSupabase, delayMs);
+}
+
+async function syncAuthToSupabase() {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return;
+  try {
+    if (!fs.existsSync(AUTH_DIR)) return;
+    const files = fs.readdirSync(AUTH_DIR).filter((f) => f.endsWith(".json"));
+    if (files.length === 0) return;
+
+    const records = files.map((filename) => ({
+      filename,
+      content: fs.readFileSync(path.join(AUTH_DIR, filename), "utf8"),
+      updated_at: new Date().toISOString(),
+    }));
+
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/whatsapp_sessions`, {
+      method: "POST",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates",
+      },
+      body: JSON.stringify(records),
+    });
+
+    if (res.ok) {
+      console.log(`[WA-Gateway] 💾 ${records.length} arquivo(s) de sessão salvos no Supabase com sucesso.`);
+    } else {
+      const errText = await res.text();
+      console.warn(`[WA-Gateway] Aviso ao salvar no Supabase (${res.status}): ${errText}`);
+    }
+  } catch (err) {
+    console.error("[WA-Gateway] Erro ao sincronizar sessão com Supabase:", err.message);
+  }
+}
+
+// 3. Limpar Supabase quando o usuário desconectar propositalmente
+async function clearSupabaseSession() {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return;
+  try {
+    await fetch(`${SUPABASE_URL}/rest/v1/whatsapp_sessions?filename=neq.__none__`, {
+      method: "DELETE",
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+      },
+    });
+    console.log("[WA-Gateway] 🗑️ Sessão limpa do Supabase.");
+  } catch (err) {
+    console.error("[WA-Gateway] Erro ao limpar sessão do Supabase:", err.message);
+  }
+}
+
+try {
+  fs.watch(AUTH_DIR, (eventType, filename) => {
+    if (filename && filename.endsWith(".json")) {
+      scheduleSyncToSupabase(2000);
+    }
+  });
+} catch {}
+
+
 let sock = null;
 let currentQr = null;
 let qrDataUrl = null;
@@ -23,6 +132,7 @@ let connectedUser = null;
 let baileysModule = null;
 
 async function initBaileys() {
+  await restoreAuthFromSupabase();
   try {
     baileysModule = await import("@whiskeysockets/baileys");
   } catch (err) {
@@ -59,7 +169,10 @@ async function initBaileys() {
     generateHighQualityLinkPreview: true,
   });
 
-  sock.ev.on("creds.update", saveCreds);
+  sock.ev.on("creds.update", async () => {
+    await saveCreds();
+    scheduleSyncToSupabase(1000);
+  });
 
   sock.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect, qr } = update;
@@ -93,6 +206,7 @@ async function initBaileys() {
       } else {
         console.log("[WA-Gateway] Sessao deslogada pelo usuario. Limpando credenciais...");
         fs.rmSync(AUTH_DIR, { recursive: true, force: true });
+        await clearSupabaseSession();
         setTimeout(initBaileys, 3000);
       }
     } else if (connection === "open") {
@@ -104,22 +218,67 @@ async function initBaileys() {
       console.log(`✅ WHATSAPP CONECTADO COM SUCESSO!`);
       console.log(`Número: +${connectedUser}`);
       console.log("O Infinda Leads agora disparará mensagens 100% sem abrir abas!");
+      scheduleSyncToSupabase(500);
       console.log("=======================================================\n");
     }
   });
 }
 
 // Servidor HTTP REST compatível com a API do WA-AKG
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 function sendJson(res, statusCode, data) {
   res.writeHead(statusCode, {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-API-Key, Authorization",
+    "Access-Control-Allow-Headers": "Content-Type, X-API-Key, Authorization, Bypass-Tunnel-Reminder",
   });
   res.end(JSON.stringify(data));
+}
+
+
+async function resolveWhatsAppJid(socketInstance, rawInput) {
+  let cleanDigits = rawInput.replace(/\D/g, "");
+  if (!cleanDigits) return null;
+  if (!cleanDigits.startsWith("55") && (cleanDigits.length === 10 || cleanDigits.length === 11)) {
+    cleanDigits = "55" + cleanDigits;
+  }
+
+  const primaryJid = cleanDigits + "@s.whatsapp.net";
+
+  try {
+    const res = await socketInstance.onWhatsApp(primaryJid);
+    if (res && res.length > 0 && res[0].exists) {
+      return res[0].jid;
+    }
+
+    // Se tiver 13 digitos (55 + DDD + 9 + 8 digitos) -> tenta sem o 9
+    if (cleanDigits.startsWith("55") && cleanDigits.length === 13) {
+      const ddd = cleanDigits.slice(2, 4);
+      const rest = cleanDigits.slice(5);
+      const altJid = "55" + ddd + rest + "@s.whatsapp.net";
+      const altRes = await socketInstance.onWhatsApp(altJid);
+      if (altRes && altRes.length > 0 && altRes[0].exists) {
+        return altRes[0].jid;
+      }
+    }
+
+    // Se tiver 12 digitos (55 + DDD + 8 digitos) -> tenta com o 9
+    if (cleanDigits.startsWith("55") && cleanDigits.length === 12) {
+      const ddd = cleanDigits.slice(2, 4);
+      const rest = cleanDigits.slice(4);
+      const altJid = "55" + ddd + "9" + rest + "@s.whatsapp.net";
+      const altRes = await socketInstance.onWhatsApp(altJid);
+      if (altRes && altRes.length > 0 && altRes[0].exists) {
+        return altRes[0].jid;
+      }
+    }
+  } catch (err) {
+    console.warn("[WA-Gateway] onWhatsApp check error:", err);
+  }
+
+  return null;
 }
 
 const server = http.createServer(async (req, res) => {
@@ -128,7 +287,7 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(204, {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, X-API-Key, Authorization",
+      "Access-Control-Allow-Headers": "Content-Type, X-API-Key, Authorization, Bypass-Tunnel-Reminder",
     });
     res.end();
     return;
@@ -254,8 +413,19 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        console.log(`[WA-Gateway] Enviando mensagem para ${cleanJid}...`);
-        const sent = await sock.sendMessage(cleanJid, { text: textToSend });
+        const targetJid = await resolveWhatsAppJid(sock, cleanJid);
+        if (!targetJid) {
+          console.log(`[WA-Gateway] Número ${cleanJid} NÃO possui conta ativa no WhatsApp.`);
+          sendJson(res, 400, {
+            success: false,
+            error: "Este número não possui WhatsApp ativo (telefone fixo ou desativado).",
+            noWhatsApp: true,
+          });
+          return;
+        }
+
+        console.log(`[WA-Gateway] Enviando mensagem para ${targetJid} (original: ${cleanJid})...`);
+        const sent = await sock.sendMessage(targetJid, { text: textToSend });
         const messageId = sent?.key?.id || `msg_${Date.now()}`;
 
         console.log(`[WA-Gateway] Mensagem entregue com sucesso! ID: ${messageId}`);
@@ -293,7 +463,7 @@ const server = http.createServer(async (req, res) => {
   sendJson(res, 404, { error: "Rota não encontrada" });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`\n======================================================`);
   console.log(`🚀 WA-GATEWAY RODANDO NA PORTA ${PORT}`);
   console.log(`Painel QR Code: http://localhost:${PORT}/qr`);
